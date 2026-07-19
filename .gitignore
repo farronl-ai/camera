@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Testing
+.pytest_cache/
+.coverage
+
+# Project outputs (generated images / debug dumps)
+out/
+debug/
+examples/synth/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

@@ -49,6 +49,22 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F27 — Occlusion de-veiling: rigorous NEGATIVE (headroom probes must decompose by CAUSE)
+Probe said 57% of perband's occ-benchmark error lives in the veil fringe (2.1x density)
+— so we built matte inversion: far_est=(obs−blur(near·α,r))/(1−blur(α,r)). Result:
+WORSE than baseline at every rung of an oracle ladder — estimated (0.9219), oracle
+α+premult (0.9401), oracle + noiseless (0.9731), oracle + noiseless + exact per-channel
+PSF (0.9762) — all below plain perband (0.9437 noisy / 0.9783 noiseless). Mechanism,
+fully diagnosed: (a) with THIN structures the blurred-α haze is small, so there is
+little removable veil; (b) the fringe error is actually DECISION-BOUNDARY error, which
+inversion doesn't touch; (c) inversion divides by coverage (1−α_blur), amplifying even
+uint8 quantization up to 4x at the guard — costing more than the haze it removes.
+Two lessons: **headroom probes must decompose error by CAUSE, not location** (57%-in-
+fringe conflated boundary error with haze); and **oracle ladders turn a mystery negative
+into an understood one** (each rung eliminated an explanation: estimation, noise, PSF).
+Revisit conditions (FRONTIER 3b): large opaque occluders with wide substantial-α fringes
++ float pipeline + denoise-aware regularized unmixing — otherwise inversion stays dead.
+
 ## F26 — Multi-scale Q_ABF fixes the metric across resolutions; depth byproduct shipped
 B4: q_abf_ms (gradient transfer per pyramid level, MEAN-pooled — sum lets the noisy
 fine level dominate by pixel count) — Spearman vs GT: high-res +0.783 (plain q_abf had

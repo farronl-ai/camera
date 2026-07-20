@@ -3,6 +3,16 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F10 — Confidence-hardening UNIFIES spread-rejection AND thin-structure ("hair") preservation
+The same `harden` mechanism that rejects defocus spread also preserves thin 1px
+hairs: both are "hard-select where one frame is confidently the unique sharp
+source." On a 1px-hair scene: baseline 0.9847 -> harden0.8 0.9874, and visually the
+hairs go from faint/greyed (baseline blends toward the frame where the hair is
+absent) to dark+crisp. So NO separate hair-isolation layer is needed — one
+theory-grounded mechanism covers both structural failure modes. (adaptive 0.9887
+still edges global SSIM but does NOT preserve the hairs; the real best is adaptive
+WITH harden.) Don't-over-engineer corollary to F9.
+
 ## F9 — Defocus-spread rejection (confidence-hardening): orthogonal, stacks, VISIBLE
 Where one frame is confidently sharpest (thin/bright structures), push the guided
 weight back toward hard one-hot selection so the other frame's defocus SPREAD (dim

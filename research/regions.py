@@ -50,9 +50,10 @@ PRESETS = [
 ]
 
 
-def fuse_adaptive(sources, presets=None, guide_radius=16, guide_eps=1e-3, return_debug=False):
+def fuse_adaptive(sources, presets=None, guide_radius=16, guide_eps=1e-3, harden=0.0,
+                  return_debug=False):
     presets = presets or PRESETS
-    cands = [fuse_blend(sources, **p) for p in presets]
+    cands = [fuse_blend(sources, harden=harden, **p) for p in presets]
     qmaps = np.stack([M.composite_map(sources, c) for c in cands], axis=0)  # (P,H,W)
     winner = np.argmax(qmaps, axis=0)
 

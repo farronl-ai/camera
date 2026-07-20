@@ -157,6 +157,20 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
   inspection (eye-analysis 2.0) favors it on the real-optical fence case too — sharper
   wires, no halo. The consolidated theory lives in research/FINDINGS.md → SYNTHESIS.</p>
   </div>
+
+  <h2>Breadth phase (B0–B5) — probing the blind spots</h2>
+  <div class="card">
+  <table><thead><tr><th>probe</th><th>outcome</th></tr></thead><tbody>
+    <tr><td>N-frame stacks (all prior work was 2-frame)</td><td><b>Not a defect</b> — quality <i>rises</i> with N (multi-frame denoising); a top-K "fix" would have regressed. perband best at every N. (F24)</td></tr>
+    <tr><td>Real optical defocus (BBBC006 microscopy z-stacks)</td><td>perband visibly sharpest; pyramid softens/halos nuclei. Real-optical gap closed for the microscopy domain. (F25)</td></tr>
+    <tr><td>Occlusion honesty (α-matte layered defocus)</td><td>perband's lead <b>widens</b> on the more realistic benchmark; blend suffers most. Synthetic conclusions confirmed. (F25)</td></tr>
+    <tr><td>Metric at high-res</td><td>Multi-scale Q_ABF recovers the collapse (+0.11 → +0.78); <b>new composite best at both regimes</b> (+0.785 / +0.869) — adopted. (F26)</td></tr>
+    <tr><td>Depth-from-focus byproduct</td><td><code>--depth-out</code> shipped; reliable on textured regions only (r=0.59; documented limitation). (F26)</td></tr>
+  </tbody></table>
+  <p class="muted">The frontier inventory (research/FRONTIER.md) stays open: occlusion-aware
+  fusion, extreme spread across deep stacks, photographic real data, exposure drift, and more.
+  Session methodology is codified in research/DEVSTYLE.md.</p>
+  </div>
 </div>"""
     out = os.path.join(HERE, "report.html")
     open(out, "w").write(html)

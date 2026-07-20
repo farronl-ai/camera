@@ -25,11 +25,13 @@ per-band F22) resolved cleanly: **put scale-adaptivity in the band structure
 itself** — a fixed small window per band IS local scale, at every location, with
 no scale-estimation step and no magic numbers.
 
-**The metric.** No single number is trustworthy everywhere. Composite
-(0.3·Q_ABF+0.7·Q_SSIM) for *global low-res* ranking; **Q_SSIM alone** at high-res
-(Q_ABF's fixed 3×3 Sobel collapses there) and for *all per-region/local* decisions
-(Q_ABF anti-correlates locally); Q_MI rejected outright (anti-correlates with
-truth). With true GT available, **GT-SSIM is the verdict** — over both no-ref
+**The metric.** The global composite is now **0.3·Q_ABF_MS + 0.7·Q_SSIM** (F26:
+multi-scale Q_ABF — gradient transfer per pyramid level, mean-pooled — fixed the
+high-res collapse the same way perband fixed the engine; best at BOTH regimes,
++0.785/+0.869). **Q_SSIM alone** for all per-region/local decisions (Q_ABF
+anti-correlates locally, F12); Q_MI rejected outright; no-ref magnitudes are
+suspect on atypical content (near-black microscopy) — trust orderings confirmed
+by eye. With true GT available, **GT-SSIM is the verdict** — over both no-ref
 metrics and the unaided eye's sense of "clean."
 
 **The eye.** Aggregate metrics hide localized artifacts (halos <1% of pixels); the
@@ -40,7 +42,10 @@ point the eye at the informative pixels instead of guessing crop locations.
 **Structure & operators.** `harden` (confidence-hardening) unifies spread-rejection
 and thin-structure preservation. `content_aware` routes laplacian↔mod_laplacian by
 local contrast. Operator choice is LOW-leverage; structural/scale handling is where
-the quality lives.
+the quality lives. **Exposure/WB drift is corrected by default** (F28: defocus
+preserves the mean, so frame-mean differences are exposure — per-frame gain to the
+stack median; near-identity when undrifted). N-frame stacks are a strength, not a
+risk (F24/F29: quality rises with N; broad weights denoise; no spread import).
 
 **Learning.** Classical foundation first. Learned per-tile routing matches the
 oracle; distillation matches classical quality in one pass (speed win needs a GPU);

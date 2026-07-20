@@ -3,6 +3,23 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F22 — PER-BAND edge-aware fusion = best-of-both at ALL resolutions (Farron's insight)
+Farron's point: blend's pyramid is only in the RECONSTRUCTION; its DECISION is
+single-scale (one guided weight broadcast to all bands), whereas pyramid decides
+per-band (multi-scale). Fix: make the decision per-band too — at EACH Laplacian band,
+decide from that band's energy AND refine with a guided filter (guided by that band's
+Gaussian image). A FIXED small radius per band => effective full-res radius grows with
+scale automatically (the pyramid "starts at finest pixels and moves up") — multi-scale
+by construction, NO magic number.
+Result (`fuse_perband`): BEST at high-res (0.9014 > pyramid 0.8926 > blend 0.8704) AND
+low-res Real-MFF (0.9926 ≥ blend 0.9923 ≥ pyramid 0.9920); nearly halo-free on the
+Lytro fence (composite 0.9091, between blend 0.9143 and pyramid 0.9060; visually mostly
+clean vs pyramid's clear halo). So it inherits pyramid's multi-scale strength AND
+blend's halo-freeness — dominates pyramid everywhere, beats/ties blend except the
+hardest low-res halo case (fence, -0.005 vs blend). Promoted as `--method perband`
+(recommended for high-res). Kept `blend` default (still the fence halo-champion).
+Lesson: give the DECISION the multi-scale structure, not just the reconstruction.
+
 ## F21 — Course-correction: PYRAMID is the best realization of the local-scale principle
 Adding pyramid to the fine-structure comparison (with TRUE GT) flips my earlier
 visual read: on the fine near structures pyramid is MOST faithful (near-SSIM

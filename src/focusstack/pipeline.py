@@ -18,7 +18,7 @@ import numpy as np
 from . import io as fio
 from .align import align_stack
 from .focus import content_aware_energies, focus_measures
-from .fusion import fuse_blend, fuse_decision, fuse_max, fuse_pyramid
+from .fusion import fuse_blend, fuse_decision, fuse_max, fuse_perband, fuse_pyramid
 
 
 def _focus_maps(images: list[np.ndarray], method: str) -> list[np.ndarray]:
@@ -121,9 +121,12 @@ def run(
             for name, wmap in zip(names, weights):
                 stem = os.path.splitext(name)[0]
                 fio.save_image(os.path.join(debug_dir, f"weight_{stem}.png"), _normalize_map(wmap))
+    elif method == "perband":
+        log("fusing (per-band edge-aware) ...")
+        fused = fuse_perband(images, harden=harden)
     else:
         raise ValueError(
-            f"Unknown method {method!r}; use 'decision', 'blend', 'pyramid', or 'max'."
+            f"Unknown method {method!r}; use 'blend', 'perband', 'decision', 'pyramid', or 'max'."
         )
 
     fio.save_image(output, fused)

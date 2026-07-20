@@ -29,6 +29,12 @@ decision map meets the multi-scale, seamless reconstruction of the pyramid. No
 halo (one coherent mask governs every band) and no seam (the mask is blurred to
 each band's scale).
 
+`fuse_perband` — per-band edge-aware fusion: makes the focus decision AND an
+edge-aware guided weight at EACH pyramid band (not one global weight like blend),
+so the decision is multi-scale like pyramid AND halo-free like blend. A fixed small
+guided radius per band => effective scale grows with resolution automatically (no
+magic number). Best across resolutions; recommended for high-res.
+
 The pyramid method is the same multi-scale idea behind exposure fusion.
 """
 
@@ -388,4 +394,64 @@ def multiband_blend(
         size = (fused_bands[band].shape[1], fused_bands[band].shape[0])
         result = cv2.pyrUp(result, dstsize=size) + fused_bands[band]
 
+    return np.clip(result, 0, 255).astype(np.uint8)
+
+
+def fuse_perband(
+    images: list[np.ndarray],
+    radius: int = 6,
+    eps: float = 1e-3,
+    energy_ksize: int = 7,
+    harden: float = 0.0,
+) -> np.ndarray:
+    """Per-band edge-aware fusion — pyramid's multi-scale DECISION + guided (halo-free).
+
+    `fuse_blend` makes ONE guided weight map (a single-scale decision) and broadcasts
+    it across all bands. `fuse_pyramid` decides per band (multi-scale) but by hard
+    max-energy, which HALOS at high-contrast focus boundaries. This does both right:
+    at EACH Laplacian band it makes the focus decision from that band's own energy AND
+    refines it with a guided filter (guided by that band's Gaussian image) — so the
+    decision is multi-scale AND edge-aware/halo-free.
+
+    A FIXED small `radius` per band is the elegant part: because coarser bands are
+    downsampled, the effective full-resolution radius grows automatically with scale
+    ("start at the finest pixels, move up") — multi-scale by construction, no
+    resolution-dependent magic number. Best-of-both: best at high-res AND low-res,
+    nearly as halo-free as `fuse_blend`.
+    """
+    floats = [img.astype(np.float32) for img in images]
+    n = len(floats)
+    levels = _auto_levels(floats[0].shape, None)
+    image_pyramids = [_laplacian_pyramid(im, levels) for im in floats]
+    guide_pyramids = [_gaussian_pyramid(to_gray_float(f), levels) for f in images]
+
+    fused_bands: list[np.ndarray] = []
+    for band in range(levels + 1):
+        coeffs = [image_pyramids[k][band] for k in range(n)]
+        if band < levels:
+            energy = np.stack(
+                [cv2.boxFilter((coeffs[k] ** 2).sum(axis=2), cv2.CV_32F, (energy_ksize, energy_ksize))
+                 for k in range(n)], axis=0)
+            winner = np.argmax(energy, axis=0)
+            conf = None
+            if harden > 0:
+                srt = np.sort(energy, axis=0)
+                conf = np.clip((srt[-1] - srt[-2]) / (srt[-1] + 1e-6), 0.0, 1.0)
+            weights = []
+            for k in range(n):
+                raw = (winner == k).astype(np.float32)
+                wg = np.clip(guided_filter(guide_pyramids[k][band] / 255.0, raw, radius, eps), 0.0, None)
+                if conf is not None:
+                    wg = (1.0 - conf) * wg + conf * raw
+                weights.append(wg)
+            w = np.stack(weights, axis=0)
+            w /= (w.sum(axis=0, keepdims=True) + 1e-8)
+            fused_bands.append(sum(w[k][..., None] * coeffs[k] for k in range(n)))
+        else:
+            fused_bands.append(np.mean(np.stack(coeffs, axis=0), axis=0))  # low-freq base
+
+    result = fused_bands[-1]
+    for band in range(levels - 1, -1, -1):
+        size = (fused_bands[band].shape[1], fused_bands[band].shape[0])
+        result = cv2.pyrUp(result, dstsize=size) + fused_bands[band]
     return np.clip(result, 0, 255).astype(np.uint8)

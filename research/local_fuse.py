@@ -65,6 +65,52 @@ def fuse_local(frames, focus_method="content_aware", harden=0.5, w_min=6.0, eps=
     return multiband_blend(frames, W_local)
 
 
+def fuse_perband(frames, radius=6, eps=1e-3, harden=0.0, energy_ksize=7):
+    """Per-band EDGE-AWARE weights: pyramid's multi-scale DECISION + guided (halo-free).
+
+    Unlike fuse_blend (one single-scale guided weight broadcast to all bands), this
+    computes the focus decision AND an edge-aware guided weight at EACH Laplacian
+    band, using that band's own Gaussian image as the guide. A FIXED small radius
+    per band => the effective full-res radius grows with scale automatically (the
+    pyramid "starts at the finest pixels and moves up") — multi-scale, no magic number.
+    """
+    from focusstack.fusion import _auto_levels, _laplacian_pyramid, _gaussian_pyramid, guided_filter
+    from focusstack.focus import to_gray_float as _t  # noqa
+    floats = [f.astype(np.float32) for f in frames]
+    N = len(floats)
+    levels = _auto_levels(floats[0].shape, None)
+    lps = [_laplacian_pyramid(im, levels) for im in floats]
+    gps = [_gaussian_pyramid(_gray32(f), levels) for f in frames]   # per-band luminance guide
+    fused_bands = []
+    for b in range(levels + 1):
+        coeffs = [lps[k][b] for k in range(N)]
+        if b < levels:
+            E = np.stack([cv2.boxFilter((coeffs[k] ** 2).sum(2), cv2.CV_32F, (energy_ksize, energy_ksize))
+                          for k in range(N)], 0)
+            winner = np.argmax(E, 0)
+            conf = None
+            if harden > 0:
+                srt = np.sort(E, 0)
+                conf = np.clip((srt[-1] - srt[-2]) / (srt[-1] + 1e-6), 0, 1)
+            W = []
+            for k in range(N):
+                raw = (winner == k).astype(np.float32)
+                wg = np.clip(guided_filter(gps[k][b] / 255.0, raw, radius, eps), 0.0, None)
+                if conf is not None:
+                    wg = (1 - conf) * wg + conf * raw
+                W.append(wg)
+            W = np.stack(W, 0)
+            W /= (W.sum(0, keepdims=True) + 1e-8)
+            fused_bands.append(sum(W[k][..., None] * coeffs[k] for k in range(N)))
+        else:
+            fused_bands.append(np.mean(np.stack(coeffs, 0), 0))     # base
+    result = fused_bands[-1]
+    for b in range(levels - 1, -1, -1):
+        size = (fused_bands[b].shape[1], fused_bands[b].shape[0])
+        result = cv2.pyrUp(result, dstsize=size) + fused_bands[b]
+    return np.clip(result, 0, 255).astype(np.uint8)
+
+
 def _route_map(frames):
     """Per-pixel routing weight toward LOCAL (vs pyramid), from frames only (no GT).
 

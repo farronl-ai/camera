@@ -23,11 +23,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--output", required=True, help="Output image path.")
     p.add_argument(
         "--method",
-        choices=["blend", "decision", "pyramid", "max"],
+        choices=["blend", "perband", "decision", "pyramid", "max"],
         default="blend",
-        help="Fusion method (default: blend — guided multi-band blending; "
-        "halo-free AND multi-scale). Others: 'decision' (single-scale guided), "
-        "'pyramid' (Laplacian pyramid), 'max' (per-pixel argmax).",
+        help="Fusion method (default: blend). 'perband' = per-band edge-aware "
+        "(multi-scale decision + halo-free; best across resolutions, recommended "
+        "for high-res); 'decision' (single-scale guided); 'pyramid'; 'max'.",
     )
     p.add_argument(
         "--no-align",

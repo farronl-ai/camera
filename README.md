@@ -31,6 +31,11 @@ The pipeline has three stages, each a small signal/image-processing problem:
    - `decision`: **guided-filter decision-map fusion** — decide per pixel which frame
      is in focus, refine with a *guided filter* so it snaps to real edges, blend in
      image space. Crisp and halo-free, but single-scale.
+   - `perband`: **per-band edge-aware fusion** — makes the focus decision *and* an
+     edge-aware guided weight at *each* pyramid band (not one global weight), so the
+     decision is multi-scale like `pyramid` *and* halo-free like `blend`. A fixed
+     small radius per band makes the scale grow with resolution automatically (no
+     magic number). Best across resolutions; **recommended for high-res**.
    - `pyramid`: **Laplacian-pyramid fusion** — keep the highest-energy content per
      band, collapse back. Seamless, but can ring (halo) around thin high-contrast
      objects at a focus boundary.

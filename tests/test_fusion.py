@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from focusstack.focus import focus_measure, focus_measures
-from focusstack.fusion import fuse_blend, fuse_decision, fuse_max, fuse_pyramid, guided_filter
+from focusstack.fusion import fuse_blend, fuse_decision, fuse_max, fuse_perband, fuse_pyramid, guided_filter
 
 
 def _two_region_stack():
@@ -72,6 +72,14 @@ def test_fuse_blend_sharper_and_partition():
     assert np.allclose(weights.sum(axis=0), 1.0, atol=1e-4)
     assert weights[0][:, :64].mean() > 0.5
     assert weights[1][:, 64:].mean() > 0.5
+
+
+def test_perband_fuses_sharper_than_inputs():
+    _, a, b = _two_region_stack()
+    fused = fuse_perband([a, b], harden=0.5)
+    assert fused.shape == a.shape
+    assert _sharpness(fused).mean() > _sharpness(a).mean()
+    assert _sharpness(fused).mean() > _sharpness(b).mean()
 
 
 def test_harden_runs_and_preserves_sharpness():

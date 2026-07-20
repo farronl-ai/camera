@@ -3,6 +3,14 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F11 — Recommended engine (content_aware + harden) is non-regressing and scales
+Real-MFF (200 clean pairs): content_aware+harden0.5 = 0.9914 vs default 0.9913
+(neutral, worse on only 17/200) -> promoted content_aware to the DEFAULT operator;
+harden stays opt-in (recommend 0.5 for bright/thin/spread scenes). High-res (2048)
+hard scenes: recommended beats baseline on both (defocus_spread 0.9914 vs 0.9907;
+gradient_metal 0.9615 vs 0.9582), on global AND worst-tile, and visibly restores
+bright wires baseline greys out. Structural wins scale with resolution.
+
 ## F10 — Confidence-hardening UNIFIES spread-rejection AND thin-structure ("hair") preservation
 The same `harden` mechanism that rejects defocus spread also preserves thin 1px
 hairs: both are "hard-select where one frame is confidently the unique sharp

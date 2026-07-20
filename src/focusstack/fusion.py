@@ -22,8 +22,14 @@ then clean that decision with a *guided filter* so it snaps to real object edges
 and drops the speckle that plagues `fuse_max`. Result: crisp like max, clean like
 pyramid, no halo. This is the idea behind the well-known GFF method.
 
-The pyramid method is the same multi-scale idea
-behind exposure fusion.
+`fuse_blend` — guided multi-band blending: the synthesis of the two above. It
+takes `fuse_decision`'s edge-aware weight map but applies it *per pyramid band*
+(Burt & Adelson multiresolution blending), so the boundary correctness of the
+decision map meets the multi-scale, seamless reconstruction of the pyramid. No
+halo (one coherent mask governs every band) and no seam (the mask is blurred to
+each band's scale).
+
+The pyramid method is the same multi-scale idea behind exposure fusion.
 """
 
 from __future__ import annotations
@@ -70,6 +76,20 @@ def _auto_levels(shape: tuple[int, ...], requested: int | None) -> int:
     return max(1, min(requested, hard_cap))
 
 
+def _gaussian_pyramid(img: np.ndarray, levels: int) -> list[np.ndarray]:
+    """Blur-and-halve `levels` times; returns `levels + 1` images, coarse-last.
+
+    Used both to decompose an image (via the Laplacian pyramid below) and to
+    blur a weight *mask* to each band's scale for multi-band blending. Because
+    both go through the same `cv2.pyrDown`, a mask pyramid and an image pyramid
+    built from the same starting size have matching sizes at every level.
+    """
+    gaussian = [img]
+    for _ in range(levels):
+        gaussian.append(cv2.pyrDown(gaussian[-1]))
+    return gaussian
+
+
 def _laplacian_pyramid(img: np.ndarray, levels: int) -> list[np.ndarray]:
     """Decompose a float32 image into `levels` detail bands + 1 base band.
 
@@ -77,9 +97,7 @@ def _laplacian_pyramid(img: np.ndarray, levels: int) -> list[np.ndarray]:
     to i+1 (a band-pass image). The final entry is the smallest Gaussian image
     (the low-frequency residual). Reconstruction is exact up to rounding.
     """
-    gaussian = [img]
-    for _ in range(levels):
-        gaussian.append(cv2.pyrDown(gaussian[-1]))
+    gaussian = _gaussian_pyramid(img, levels)
 
     pyramid = []
     for i in range(levels):
@@ -178,27 +196,19 @@ def guided_filter(
     return _box(a, radius) * guide + _box(b, radius)
 
 
-def fuse_decision(
-    images: list[np.ndarray],
-    focus_method: str = "laplacian",
-    radius: int = 8,
-    eps: float = 1e-3,
-    return_weights: bool = False,
-):
-    """Guided-filter decision-map fusion.
+def _guided_weights(
+    images: list[np.ndarray], focus_method: str, radius: int, eps: float
+) -> np.ndarray:
+    """Per-frame, edge-aware fusion weight maps summing to 1 at every pixel.
 
-    1. Score each frame's sharpness (focus measure) and take a per-pixel argmax —
-       a raw, noisy "which frame is in focus here" decision.
-    2. Turn each frame's decision into a weight map and refine it with a guided
-       filter *guided by that frame's own luminance*, so the weight boundary snaps
-       to real object edges and the argmax speckle is smoothed away.
-    3. Normalize the weights across frames and take a weighted average.
+    Raw per-pixel focus argmax -> a one-hot-ish decision per frame -> refine each
+    with a guided filter (guided by that frame's luminance) so the boundary snaps
+    to real edges and speckle is smoothed -> normalize across frames.
 
-    Returns the fused BGR uint8 image, or (fused, weights) if `return_weights`.
+    Returns an array of shape (N, H, W), float32. Shared by `fuse_decision`
+    (blend in image space) and `fuse_blend` (blend per pyramid band).
     """
-    floats = [img.astype(np.float32) for img in images]
     n = len(images)
-
     focus = [focus_measure(to_gray_float(img), method=focus_method) for img in images]
     winner = np.argmax(np.stack(focus, axis=0), axis=0)  # (H, W)
 
@@ -209,11 +219,94 @@ def fuse_decision(
         weights.append(np.clip(guided_filter(guide, raw, radius, eps), 0.0, None))
 
     w = np.stack(weights, axis=0)
-    w = w / (w.sum(axis=0, keepdims=True) + 1e-8)         # normalize to a partition of unity
+    return w / (w.sum(axis=0, keepdims=True) + 1e-8)     # partition of unity
+
+
+def fuse_decision(
+    images: list[np.ndarray],
+    focus_method: str = "laplacian",
+    radius: int = 8,
+    eps: float = 1e-3,
+    return_weights: bool = False,
+):
+    """Guided-filter decision-map fusion.
+
+    Compute edge-aware weight maps (see `_guided_weights`) and take a per-pixel
+    weighted average of the frames in image space. Crisp and halo-free, but the
+    blend happens at a single scale.
+
+    Returns the fused BGR uint8 image, or (fused, weights) if `return_weights`.
+    """
+    floats = [img.astype(np.float32) for img in images]
+    n = len(images)
+
+    w = _guided_weights(images, focus_method, radius, eps)
 
     fused = sum(w[k][..., None] * floats[k] for k in range(n))
     fused = np.clip(fused, 0, 255).astype(np.uint8)
 
     if return_weights:
         return fused, w
+    return fused
+
+
+# --------------------------------------------------------------------------- #
+# Guided multi-band blending (pyramid + edge-aware weights)
+# --------------------------------------------------------------------------- #
+def fuse_blend(
+    images: list[np.ndarray],
+    focus_method: str = "laplacian",
+    levels: int | None = None,
+    radius: int = 8,
+    eps: float = 1e-3,
+    return_weights: bool = False,
+):
+    """Guided multi-band (Laplacian-pyramid) blending.
+
+    The synthesis of `fuse_pyramid` and `fuse_decision`: one edge-aware weight
+    map drives the blend at *every* pyramid level (Burt & Adelson multiresolution
+    blending with a guided-filter mask).
+
+    Why it beats both:
+      - No halo: because a single coherent mask governs all bands, no coarse band
+        can independently select the defocused frame in a ring around an object
+        (which is how `fuse_pyramid` gets its halo).
+      - No seam: the mask itself is put through a Gaussian pyramid, so its
+        transition width is scale-appropriate per band — fine bands switch
+        sharply, coarse bands switch gradually. Blending per-band-then-collapsing
+        is strictly smoother at boundaries than the single-scale blend in
+        `fuse_decision`.
+
+    Returns fused BGR uint8, or (fused, full-res weights) if `return_weights`.
+    """
+    floats = [img.astype(np.float32) for img in images]
+    n = len(floats)
+    levels = _auto_levels(floats[0].shape, levels)
+
+    # Edge-aware weight maps (full resolution), then their Gaussian pyramids so
+    # each mask is blurred to match the scale of the band it will weight.
+    weights = _guided_weights(images, focus_method, radius, eps)          # (N, H, W)
+    image_pyramids = [_laplacian_pyramid(im, levels) for im in floats]     # detail + base
+    weight_pyramids = [_gaussian_pyramid(weights[k], levels) for k in range(n)]
+
+    fused_bands: list[np.ndarray] = []
+    for band in range(levels + 1):
+        # Per-band weighted blend; renormalize per band to correct any drift
+        # introduced by downsampling the masks.
+        denom = sum(weight_pyramids[k][band] for k in range(n)) + 1e-8
+        blended = sum(
+            (weight_pyramids[k][band] / denom)[..., None] * image_pyramids[k][band]
+            for k in range(n)
+        )
+        fused_bands.append(blended)
+
+    # Collapse: start from the base and add each detail band back, upsampling.
+    result = fused_bands[-1]
+    for band in range(levels - 1, -1, -1):
+        size = (fused_bands[band].shape[1], fused_bands[band].shape[0])
+        result = cv2.pyrUp(result, dstsize=size) + fused_bands[band]
+
+    fused = np.clip(result, 0, 255).astype(np.uint8)
+    if return_weights:
+        return fused, weights
     return fused

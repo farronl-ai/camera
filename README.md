@@ -18,18 +18,21 @@ The pipeline has three stages, each a small signal/image-processing problem:
    pixel we score "how in focus is this here?" using the magnitude of the
    Laplacian (2nd derivative) or the image gradient, pooled over a small window.
 3. **Fusion** (`fusion.py`) — combine the sharp parts:
-   - `decision` (default): **guided-filter decision-map fusion** — decide per pixel
-     which frame is in focus, then refine that decision with a *guided filter* so it
-     snaps to real object edges and drops speckle. Crisp *and* clean; no halo.
-   - `pyramid`: **Laplacian-pyramid fusion** — decompose each frame into frequency
-     bands, keep the highest-energy content per band, collapse back. Seamless, but
-     can ring (halo) around thin high-contrast objects at a focus boundary.
+   - `blend` (default): **guided multi-band blending** — build an edge-aware weight
+     map (as in `decision`) but apply it *per Laplacian-pyramid band* (Burt & Adelson
+     multiresolution blending). Halo-free *and* multi-scale/seamless.
+   - `decision`: **guided-filter decision-map fusion** — decide per pixel which frame
+     is in focus, refine with a *guided filter* so it snaps to real edges, blend in
+     image space. Crisp and halo-free, but single-scale.
+   - `pyramid`: **Laplacian-pyramid fusion** — keep the highest-energy content per
+     band, collapse back. Seamless, but can ring (halo) around thin high-contrast
+     objects at a focus boundary.
    - `max`: per pixel, copy from the sharpest frame. Simple; crisp but speckly.
 
-   On real multi-focus photos (see below), the pyramid method halos around thin
-   foreground structure (e.g. a fence over a sharp background), and `max` is crisp
-   but noisy. `decision` was added to get the best of both, which is why it's the
-   default.
+   On real multi-focus photos (see below), `pyramid` halos around thin foreground
+   structure (e.g. a fence over a sharp background) and `max` is speckly. `decision`
+   fixes both by cleaning the selection; `blend` goes further, applying that clean
+   selection across every scale — which is why it's the default.
 
 ## Install
 

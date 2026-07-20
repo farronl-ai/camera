@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from focusstack.focus import focus_measure, focus_measures
-from focusstack.fusion import fuse_decision, fuse_max, fuse_pyramid, guided_filter
+from focusstack.fusion import fuse_blend, fuse_decision, fuse_max, fuse_pyramid, guided_filter
 
 
 def _two_region_stack():
@@ -57,6 +57,30 @@ def test_fuse_decision_sharper_and_selects_correctly():
     assert np.allclose(weights.sum(axis=0), 1.0, atol=1e-4)
     assert weights[0][:, :64].mean() > 0.5   # frame A (sharp left) wins the left
     assert weights[1][:, 64:].mean() > 0.5   # frame B (sharp right) wins the right
+
+
+def test_fuse_blend_sharper_and_partition():
+    _, a, b = _two_region_stack()
+    fused, weights = fuse_blend([a, b], return_weights=True)
+
+    assert fused.shape == a.shape
+    # Sharper overall than either single input.
+    assert _sharpness(fused).mean() > _sharpness(a).mean()
+    assert _sharpness(fused).mean() > _sharpness(b).mean()
+
+    # Weights partition unity; each half favors its sharp frame.
+    assert np.allclose(weights.sum(axis=0), 1.0, atol=1e-4)
+    assert weights[0][:, :64].mean() > 0.5
+    assert weights[1][:, 64:].mean() > 0.5
+
+
+def test_fuse_blend_at_least_as_sharp_as_decision():
+    # On this fixture the multi-band blend should not lose global sharpness
+    # relative to the single-scale decision blend.
+    _, a, b = _two_region_stack()
+    blend_s = _sharpness(fuse_blend([a, b])).mean()
+    decision_s = _sharpness(fuse_decision([a, b])).mean()
+    assert blend_s >= 0.98 * decision_s
 
 
 def test_guided_filter_preserves_flat_and_edges():

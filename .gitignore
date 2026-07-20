@@ -21,3 +21,6 @@ examples/synth/
 .vscode/
 .idea/
 .DS_Store
+
+# Local inspection data + outputs (not committed)
+analysis/

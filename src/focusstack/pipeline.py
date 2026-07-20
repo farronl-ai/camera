@@ -18,7 +18,7 @@ import numpy as np
 from . import io as fio
 from .align import align_stack
 from .focus import focus_measures
-from .fusion import fuse_decision, fuse_max, fuse_pyramid
+from .fusion import fuse_blend, fuse_decision, fuse_max, fuse_pyramid
 
 
 def _normalize_map(m: np.ndarray) -> np.ndarray:
@@ -38,7 +38,7 @@ def _colorize_selection(index_map: np.ndarray, n: int) -> np.ndarray:
 def run(
     inputs: list[str],
     output: str,
-    method: str = "decision",
+    method: str = "blend",
     align: bool = True,
     align_motion: str = "affine",
     focus_method: str = "laplacian",
@@ -101,8 +101,19 @@ def run(
             for name, wmap in zip(names, weights):
                 stem = os.path.splitext(name)[0]
                 fio.save_image(os.path.join(debug_dir, f"weight_{stem}.png"), _normalize_map(wmap))
+    elif method == "blend":
+        log("fusing (guided multi-band blend) ...")
+        fused, weights = fuse_blend(
+            images, focus_method=focus_method, levels=levels, return_weights=True
+        )
+        if debug_dir:
+            for name, wmap in zip(names, weights):
+                stem = os.path.splitext(name)[0]
+                fio.save_image(os.path.join(debug_dir, f"weight_{stem}.png"), _normalize_map(wmap))
     else:
-        raise ValueError(f"Unknown method {method!r}; use 'decision', 'pyramid', or 'max'.")
+        raise ValueError(
+            f"Unknown method {method!r}; use 'decision', 'blend', 'pyramid', or 'max'."
+        )
 
     fio.save_image(output, fused)
     log(f"wrote {output}")

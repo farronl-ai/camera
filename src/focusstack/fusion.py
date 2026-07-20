@@ -198,7 +198,7 @@ def guided_filter(
 
 def _guided_weights(
     images: list[np.ndarray], focus_method: str, radius: int, eps: float,
-    smooth_ksize: int = 9, harden: float = 0.0,
+    smooth_ksize: int = 9, harden: float = 0.0, guide_scale: float = 1.0,
 ) -> np.ndarray:
     """Per-frame, edge-aware fusion weight maps summing to 1 at every pixel.
 
@@ -210,8 +210,14 @@ def _guided_weights(
     CONFIDENTLY the sharpest (focus-energy dominance high — thin/bright
     structures), the soft guided weight is pushed back toward a hard one-hot
     decision so the other frame's defocus spread (a dim, wide blob) can't bleed
-    in. Soft blending is kept where focus is ambiguous (smooth regions). 0 = off
-    (default; identical to before).
+    in. Soft blending is kept where focus is ambiguous (smooth regions). 0 = off.
+
+    `guide_scale` (<1) speeds high-res fusion: the guided-filter *smoothing* is the
+    costly stage and its output is low-frequency, so it is computed on a downscaled
+    guide/decision and upsampled — near-lossless. Crucially the focus energy,
+    confidence, and raw one-hot decision stay at FULL resolution, so `harden` can
+    still hard-select thin/bright structures (which a downscaled decision would
+    lose). Full-res focus is cheap relative to the guided filter.
 
     Returns an array of shape (N, H, W), float32. Shared by `fuse_decision`
     (blend in image space) and `fuse_blend` (blend per pyramid band).
@@ -224,7 +230,7 @@ def _guided_weights(
         focus = [focus_measure(to_gray_float(img), method=focus_method, smooth_ksize=smooth_ksize)
                  for img in images]
     energy = np.stack(focus, axis=0)
-    winner = np.argmax(energy, axis=0)  # (H, W)
+    winner = np.argmax(energy, axis=0)  # (H, W)  — full res
 
     conf = None
     if harden > 0:
@@ -232,17 +238,37 @@ def _guided_weights(
         conf = (srt[-1] - srt[-2]) / (srt[-1] + 1e-6)            # dominance of the sharpest frame
         conf = np.clip(cv2.boxFilter(conf.astype(np.float32), cv2.CV_32F, (15, 15)) * harden, 0.0, 1.0)
 
+    h, w0 = winner.shape
+    sub = guide_scale < 0.999
+    if sub:
+        sw, sh = max(8, int(w0 * guide_scale)), max(8, int(h * guide_scale))
+
     weights = []
     for k in range(n):
-        raw = (winner == k).astype(np.float32)           # this frame's raw decision
+        raw = (winner == k).astype(np.float32)           # full-res one-hot decision
         guide = to_gray_float(images[k]) / 255.0
-        wg = np.clip(guided_filter(guide, raw, radius, eps), 0.0, None)
+        if sub:
+            # Subscale ONLY the smooth guided-filter step, then upsample.
+            g_s = cv2.resize(guide, (sw, sh), interpolation=cv2.INTER_AREA)
+            r_s = cv2.resize(raw, (sw, sh), interpolation=cv2.INTER_AREA)
+            wg = cv2.resize(guided_filter(g_s, r_s, radius, eps), (w0, h), interpolation=cv2.INTER_LINEAR)
+        else:
+            wg = guided_filter(guide, raw, radius, eps)
+        wg = np.clip(wg, 0.0, None)
         if conf is not None:
-            wg = (1.0 - conf) * wg + conf * raw          # harden toward hard-select where confident
+            wg = (1.0 - conf) * wg + conf * raw          # full-res hard-select where confident
         weights.append(wg)
 
     w = np.stack(weights, axis=0)
     return w / (w.sum(axis=0, keepdims=True) + 1e-8)     # partition of unity
+
+
+def _weights(images, focus_method, radius, eps, smooth_ksize, harden, weight_scale=1.0):
+    """Fusion weights; `weight_scale` < 1 subscales the costly guided-filter step
+    for a high-res speedup while keeping focus/confidence/decision full-res so thin
+    structures (and `harden`) are preserved. See `_guided_weights` guide_scale."""
+    return _guided_weights(images, focus_method, radius, eps, smooth_ksize, harden,
+                           guide_scale=weight_scale)
 
 
 def fuse_decision(
@@ -252,6 +278,7 @@ def fuse_decision(
     eps: float = 1e-3,
     smooth_ksize: int = 9,
     harden: float = 0.0,
+    weight_scale: float = 1.0,
     return_weights: bool = False,
 ):
     """Guided-filter decision-map fusion.
@@ -266,7 +293,7 @@ def fuse_decision(
     floats = [img.astype(np.float32) for img in images]
     n = len(images)
 
-    w = _guided_weights(images, focus_method, radius, eps, smooth_ksize, harden)
+    w = _weights(images, focus_method, radius, eps, smooth_ksize, harden, weight_scale)
 
     fused = sum(w[k][..., None] * floats[k] for k in range(n))
     fused = np.clip(fused, 0, 255).astype(np.uint8)
@@ -287,6 +314,7 @@ def fuse_blend(
     eps: float = 1e-3,
     smooth_ksize: int = 9,
     harden: float = 0.0,
+    weight_scale: float = 1.0,
     return_weights: bool = False,
 ):
     """Guided multi-band (Laplacian-pyramid) blending.
@@ -307,7 +335,7 @@ def fuse_blend(
 
     Returns fused BGR uint8, or (fused, full-res weights) if `return_weights`.
     """
-    weights = _guided_weights(images, focus_method, radius, eps, smooth_ksize, harden)  # (N, H, W)
+    weights = _weights(images, focus_method, radius, eps, smooth_ksize, harden, weight_scale)  # (N, H, W)
     fused = multiband_blend(images, weights, levels)
     if return_weights:
         return fused, weights

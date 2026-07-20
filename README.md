@@ -68,6 +68,11 @@ focusstack images/*.png -o out.png --no-align
 # crisp instead of letting an out-of-focus frame's "spread" bleed in as a dim
 # blob. Recommended for scenes with bright points or fine structures.
 focusstack images/*.png -o out.png --harden 0.5
+
+# High-res speed preset (~1.5x faster, quality-neutral-or-better): image-space
+# decision fusion + weights computed at half-resolution then upsampled (the
+# weights are smooth, so this is near-lossless; thin structures stay full-res).
+focusstack big/*.png -o out.png --fast --harden 0.5
 ```
 
 Run `focusstack --help` for all options. You can also invoke it as

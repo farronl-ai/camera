@@ -51,6 +51,7 @@ def run(
     focus_method: str = "content_aware",
     levels: int | None = None,
     harden: float = 0.0,
+    weight_scale: float = 1.0,
     debug_dir: str | None = None,
     verbose: bool = False,
 ) -> np.ndarray:
@@ -102,7 +103,8 @@ def run(
                 fio.save_image(os.path.join(debug_dir, f"focus_{stem}.png"), _normalize_map(fm))
     elif method == "decision":
         log("fusing (guided-filter decision map) ...")
-        fused, weights = fuse_decision(images, focus_method=focus_method, harden=harden, return_weights=True)
+        fused, weights = fuse_decision(images, focus_method=focus_method, harden=harden,
+                                       weight_scale=weight_scale, return_weights=True)
         if debug_dir:
             # The refined per-frame weight maps are the heart of this method —
             # dump them so the (clean, edge-aligned) selection is visible.
@@ -112,7 +114,8 @@ def run(
     elif method == "blend":
         log("fusing (guided multi-band blend) ...")
         fused, weights = fuse_blend(
-            images, focus_method=focus_method, levels=levels, harden=harden, return_weights=True
+            images, focus_method=focus_method, levels=levels, harden=harden,
+            weight_scale=weight_scale, return_weights=True
         )
         if debug_dir:
             for name, wmap in zip(names, weights):

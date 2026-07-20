@@ -87,6 +87,17 @@ def test_harden_runs_and_preserves_sharpness():
     assert _sharpness(hardened).mean() > _sharpness(b).mean()
 
 
+def test_weight_scale_is_identity_at_1_and_safe_below():
+    # weight_scale=1.0 must be byte-identical to the default path (no regression);
+    # a downscaled run must still fuse sharper than either input.
+    _, a, b = _two_region_stack()
+    assert np.array_equal(fuse_blend([a, b]), fuse_blend([a, b], weight_scale=1.0))
+    fast = fuse_blend([a, b], weight_scale=0.5)
+    assert fast.shape == a.shape
+    assert _sharpness(fast).mean() > _sharpness(a).mean()
+    assert _sharpness(fast).mean() > _sharpness(b).mean()
+
+
 def test_content_aware_focus_fuses_without_regression():
     # content_aware routes operators per pixel; must still fuse a two-region
     # stack sharper than either input (and not error on the cross-frame path).

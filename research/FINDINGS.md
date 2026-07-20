@@ -3,6 +3,22 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F15 — High-res CPU speedup: quality-safe ceiling ~1.5x (profiled, not assumed)
+Profiled fuse_blend at 1K/2K/4K: weight pipeline (focus energies + guided filter)
+~55%, multiband blend+pyramids ~42%, weight pyramids ~0%. Since weights are smooth,
+subscaling helps — BUT naive full-subscale (weight_scale on everything) greyed thin
+bright structures (defeats harden: -0.003 GT-SSIM on defocus_spread, visibly grey
+wires) even though Real-MFF said -0.0001 (clean-data mirage again — LOOK). Fix:
+subscale ONLY the guided-filter smoothing; keep focus/confidence/decision full-res
+so harden still hard-selects thin structures. Result (quality-safe):
+- `blend`, weight_scale 0.5: ~1.3x, Real-MFF -0.0002.
+- `decision` (image-space, skips pyramids): with harden it BEATS blend on structural
+  scenes (spread 0.9923 vs 0.9894) and ties on clean; ~1.2x.
+- **`--fast` = decision + weight_scale 0.5: ~1.5x, Real-MFF -0.0003, better on hard.**
+The dramatic 2-3x needs the quality-sacrificing full-subscale or a GPU. On CPU the
+opencv engine is already fast, so ~1.5x is the honest quality-safe ceiling. Exposed
+`--weight-scale` + `--fast`; weight_scale=1.0 is byte-identical (test-asserted).
+
 ## F14 — Distillation MATCHES classical quality in one pass; speed is a GPU story
 Distilling the classical engine (content_aware+harden) into the same tiny FCN:
 distilled CNN 0.9885 held-out GT-SSIM vs classical 0.9888 — a quality MATCH in one

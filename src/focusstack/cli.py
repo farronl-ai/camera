@@ -68,22 +68,44 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Directory to write intermediate visualizations.",
     )
+    p.add_argument(
+        "--weight-scale",
+        type=float,
+        default=1.0,
+        help="Compute the (smooth) fusion weights at this fraction of resolution "
+        "then upsample — a high-res speedup (default 1.0 = full). 0.5 is ~quality-"
+        "neutral; focus/confidence stay full-res so thin structures are preserved.",
+    )
+    p.add_argument(
+        "--fast",
+        action="store_true",
+        help="Speed preset for high-res: image-space decision fusion + "
+        "--weight-scale 0.5 (~1.5x faster, quality-neutral-or-better). "
+        "Overrides --method/--weight-scale unless those are set explicitly.",
+    )
     p.add_argument("-v", "--verbose", action="store_true", help="Print progress.")
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    method, weight_scale = args.method, args.weight_scale
+    if args.fast:  # speed preset — honored unless the user set these explicitly
+        if method == "blend":
+            method = "decision"
+        if weight_scale == 1.0:
+            weight_scale = 0.5
     try:
         run(
             inputs=args.inputs,
             output=args.output,
-            method=args.method,
+            method=method,
             align=not args.no_align,
             align_motion=args.align_motion,
             focus_method=args.focus_method,
             levels=args.levels,
             harden=args.harden,
+            weight_scale=weight_scale,
             debug_dir=args.debug_dir,
             verbose=args.verbose,
         )

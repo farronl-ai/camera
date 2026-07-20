@@ -85,6 +85,13 @@ def build_parser() -> argparse.ArgumentParser:
         "Overrides --method/--weight-scale unless those are set explicitly.",
     )
     p.add_argument(
+        "--no-normalize-exposure",
+        action="store_true",
+        help="Disable per-frame exposure/WB drift correction (on by default; "
+        "defocus preserves the mean, so frame-mean differences are exposure, not "
+        "focus — near-identity on undrifted stacks).",
+    )
+    p.add_argument(
         "--depth-out",
         default=None,
         help="Also write a depth-from-focus map (uint8 PNG; near=dark, far=bright "
@@ -114,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
             levels=args.levels,
             harden=args.harden,
             weight_scale=weight_scale,
+            normalize_exposure=not args.no_normalize_exposure,
             depth_out=args.depth_out,
             debug_dir=args.debug_dir,
             verbose=args.verbose,

@@ -53,6 +53,7 @@ def run(
     levels: int | None = None,
     harden: float = 0.0,
     weight_scale: float = 1.0,
+    normalize_exposure: bool = True,
     depth_out: str | None = None,
     debug_dir: str | None = None,
     verbose: bool = False,
@@ -74,6 +75,10 @@ def run(
     if align:
         log(f"aligning frames (motion={align_motion}) ...")
         images = align_stack(images, motion=align_motion)
+
+    if normalize_exposure:
+        log("normalizing per-frame exposure/WB drift ...")
+        images = fio.normalize_exposure(images)
 
     if debug_dir:
         os.makedirs(debug_dir, exist_ok=True)

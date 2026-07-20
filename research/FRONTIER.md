@@ -17,7 +17,7 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 3b | **Occlusion-AWARE fusion** | Matte inversion (de-veiling). | ❌ F27: rigorous negative — even oracle+noiseless+exact-PSF loses to perband (thin-structure haze is small; fringe error is decision-boundary, not haze; division amplifies quantization). Revisit only for LARGE occluders + float pipeline + regularized unmixing. |
 | 4 | **Per-band Q_ABF metric** | Fix Q_ABF's high-res collapse structurally. | ✅ F26: q_abf_ms (mean-pool) recovers +0.11→+0.78 at high-res; new composite best at BOTH regimes (+0.785/+0.869). Adopted. |
 | 5 | **Depth map byproduct** | Free feature from the fusion decision. | ✅ F26: --depth-out shipped; r=0.59 on textured pixels (texture-only observability — documented limitation). |
-| 6 | **Exposure/WB drift between frames** | Real capture drifts brightness/color across a stack; engine assumes constant. Needs per-frame gain/WB normalization before fusion. | ⬜ |
+| 6 | **Exposure/WB drift between frames** | Real capture drifts brightness/color. | ✅ F28: drift costs −0.025 SSIM; per-frame gain to stack-median means (mean is blur-invariant) recovers to −0.002; near-identity gate passed → default-ON (--no-normalize-exposure). |
 | 7 | **Alignment robustness on real handheld deep stacks** | ECC is a local optimizer aligned to the middle frame; feature-based init / chained alignment for large displacement. | ⬜ |
 | 8 | **Focus breathing across deep stacks** | Scale change accumulates over 10s of frames; interacts with #7. | ⬜ |
 | 9 | **Noise-adaptive fusion** | Low-light stacks: focus energy vs noise energy confusion; denoise-aware weighting. | ⬜ |

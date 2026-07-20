@@ -49,6 +49,17 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F28 — Exposure/WB drift: real failure mode, clean theory-backed fix, promoted DEFAULT-ON
+Injected realistic auto-exposure wobble (±12% gain + slight WB tilt) into a GT stack:
+perband drops 0.9594→0.9340, blend 0.9583→0.9270 — drift genuinely breaks fusion.
+Fix exploits a blur invariant: **defocus preserves the mean**, so within a stack any
+frame-mean difference is exposure, not focus → per-frame per-channel scalar gain to
+the stack-median means. Recovers to 0.9572 (−0.002 of clean) and is near-identity on
+undrifted stacks (0.5 gray-level rounding; SSIM −0.0003) — the gate that justified
+default-ON (--no-normalize-exposure to opt out). Caveat documented: clipped highlights
+slightly break mean preservation; gains stay bounded. io.normalize_exposure, pipeline
+stage after alignment.
+
 ## F27 — Occlusion de-veiling: rigorous NEGATIVE (headroom probes must decompose by CAUSE)
 Probe said 57% of perband's occ-benchmark error lives in the veil fringe (2.1x density)
 — so we built matte inversion: far_est=(obs−blur(near·α,r))/(1−blur(α,r)). Result:

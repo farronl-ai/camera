@@ -44,6 +44,25 @@ def test_pipeline_end_to_end(tmp_path):
     assert _sharpness(fused) > _sharpness(b)
 
 
+def test_normalize_exposure_identity_and_recovery():
+    from focusstack.io import normalize_exposure
+
+    rng = np.random.default_rng(5)
+    base = rng.integers(0, 200, (64, 64, 3)).astype(np.uint8)  # headroom, no clipping
+    stack = [base.copy(), cv2.GaussianBlur(base, (9, 9), 3)]
+
+    # near-identity on an undrifted stack (defocus preserves the mean)
+    normed = normalize_exposure(stack)
+    assert np.abs(np.stack(normed).astype(np.int16) - np.stack(stack).astype(np.int16)).mean() < 1.0
+
+    # recovers a gain-drifted frame toward the stack median
+    drifted = [stack[0], np.clip(stack[1].astype(np.float32) * 1.15, 0, 255).astype(np.uint8)]
+    fixed = normalize_exposure(drifted)
+    err_before = abs(float(drifted[1].mean()) - float(drifted[0].mean()))
+    err_after = abs(float(fixed[1].mean()) - float(fixed[0].mean()))
+    assert err_after < err_before * 0.35
+
+
 def test_pipeline_max_method_with_debug(tmp_path):
     d = str(tmp_path)
     _, _, _, paths = _write_two_region_stack(d)

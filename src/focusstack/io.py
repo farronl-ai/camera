@@ -80,6 +80,25 @@ def save_image(path: str, img: np.ndarray) -> None:
         raise IOError(f"Failed to write image: {path}")
 
 
+def normalize_exposure(images: list[np.ndarray]) -> list[np.ndarray]:
+    """Remove per-frame exposure/white-balance drift (auto-exposure wobble).
+
+    Defocus blur preserves the (local and global) mean, so within a focus stack
+    any difference in a frame's channel means is EXPOSURE, not focus — a scalar
+    per-frame per-channel gain toward the stack-median means removes drift
+    without touching focus content. On an undrifted stack the gains are ~1.0
+    (identity up to rounding), so this is safe to apply always. Caveat: clipped
+    highlights break mean preservation slightly; gains stay small and bounded.
+    """
+    means = np.array([img.reshape(-1, 3).mean(axis=0) for img in images])  # (N,3)
+    target = np.median(means, axis=0)
+    out = []
+    for img, m in zip(images, means):
+        gain = target / np.maximum(m, 1e-3)
+        out.append(np.clip(img.astype(np.float32) * gain[None, None, :], 0, 255).astype(np.uint8))
+    return out
+
+
 def to_gray_float(img: np.ndarray) -> np.ndarray:
     """Convert a BGR uint8 image to a single-channel float32 luminance image.
 

@@ -24,3 +24,6 @@ examples/synth/
 
 # Local inspection data + outputs (not committed)
 analysis/
+
+# Research scaffold + datasets (not committed)
+research/

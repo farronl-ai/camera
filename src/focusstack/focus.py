@@ -48,8 +48,24 @@ def focus_measure(
         gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
         gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
         energy = cv2.magnitude(gx, gy)
+    elif method == "tenengrad":
+        # Squared gradient energy (Tenengrad): more selective for strong edges.
+        gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+        gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+        energy = gx * gx + gy * gy
+    elif method == "mod_laplacian":
+        # Modified Laplacian (Nayar): |I * [-1,2,-1]_x| + |I * [-1,2,-1]_y|.
+        # Summing the abs of the two 1-D second derivatives (instead of the
+        # signed 2-D Laplacian) stops opposite-sign x/y curvature from cancelling.
+        kx = np.array([[-1.0, 2.0, -1.0]], dtype=np.float32)
+        lx = cv2.filter2D(gray, cv2.CV_32F, kx)
+        ly = cv2.filter2D(gray, cv2.CV_32F, kx.T)
+        energy = np.abs(lx) + np.abs(ly)
     else:
-        raise ValueError(f"Unknown focus measure {method!r}; use 'laplacian' or 'gradient'.")
+        raise ValueError(
+            f"Unknown focus measure {method!r}; use 'laplacian', 'gradient', "
+            "'tenengrad', or 'mod_laplacian'."
+        )
 
     if smooth_ksize and smooth_ksize > 1:
         # Pool into a regional score: a pixel is "in focus" if its neighborhood

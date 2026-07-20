@@ -197,7 +197,8 @@ def guided_filter(
 
 
 def _guided_weights(
-    images: list[np.ndarray], focus_method: str, radius: int, eps: float
+    images: list[np.ndarray], focus_method: str, radius: int, eps: float,
+    smooth_ksize: int = 9,
 ) -> np.ndarray:
     """Per-frame, edge-aware fusion weight maps summing to 1 at every pixel.
 
@@ -209,7 +210,8 @@ def _guided_weights(
     (blend in image space) and `fuse_blend` (blend per pyramid band).
     """
     n = len(images)
-    focus = [focus_measure(to_gray_float(img), method=focus_method) for img in images]
+    focus = [focus_measure(to_gray_float(img), method=focus_method, smooth_ksize=smooth_ksize)
+             for img in images]
     winner = np.argmax(np.stack(focus, axis=0), axis=0)  # (H, W)
 
     weights = []
@@ -227,6 +229,7 @@ def fuse_decision(
     focus_method: str = "laplacian",
     radius: int = 8,
     eps: float = 1e-3,
+    smooth_ksize: int = 9,
     return_weights: bool = False,
 ):
     """Guided-filter decision-map fusion.
@@ -240,7 +243,7 @@ def fuse_decision(
     floats = [img.astype(np.float32) for img in images]
     n = len(images)
 
-    w = _guided_weights(images, focus_method, radius, eps)
+    w = _guided_weights(images, focus_method, radius, eps, smooth_ksize)
 
     fused = sum(w[k][..., None] * floats[k] for k in range(n))
     fused = np.clip(fused, 0, 255).astype(np.uint8)
@@ -259,6 +262,7 @@ def fuse_blend(
     levels: int | None = None,
     radius: int = 8,
     eps: float = 1e-3,
+    smooth_ksize: int = 9,
     return_weights: bool = False,
 ):
     """Guided multi-band (Laplacian-pyramid) blending.
@@ -279,20 +283,34 @@ def fuse_blend(
 
     Returns fused BGR uint8, or (fused, full-res weights) if `return_weights`.
     """
+    weights = _guided_weights(images, focus_method, radius, eps, smooth_ksize)  # (N, H, W)
+    fused = multiband_blend(images, weights, levels)
+    if return_weights:
+        return fused, weights
+    return fused
+
+
+def multiband_blend(
+    images: list[np.ndarray], weights: np.ndarray, levels: int | None = None
+) -> np.ndarray:
+    """Burt & Adelson multiresolution blend of `images` with per-frame `weights`.
+
+    Blend each image's Laplacian band using the weight mask blurred (Gaussian
+    pyramid) to that band's scale, then collapse. Weights: array (N, H, W); they
+    are renormalized per band so any downsampling drift can't shift brightness.
+
+    Reused by `fuse_blend` (weights = guided focus map) and by the region-adaptive
+    engine (weights = which differently-tuned candidate wins each pixel).
+    """
     floats = [img.astype(np.float32) for img in images]
     n = len(floats)
     levels = _auto_levels(floats[0].shape, levels)
 
-    # Edge-aware weight maps (full resolution), then their Gaussian pyramids so
-    # each mask is blurred to match the scale of the band it will weight.
-    weights = _guided_weights(images, focus_method, radius, eps)          # (N, H, W)
-    image_pyramids = [_laplacian_pyramid(im, levels) for im in floats]     # detail + base
+    image_pyramids = [_laplacian_pyramid(im, levels) for im in floats]
     weight_pyramids = [_gaussian_pyramid(weights[k], levels) for k in range(n)]
 
     fused_bands: list[np.ndarray] = []
     for band in range(levels + 1):
-        # Per-band weighted blend; renormalize per band to correct any drift
-        # introduced by downsampling the masks.
         denom = sum(weight_pyramids[k][band] for k in range(n)) + 1e-8
         blended = sum(
             (weight_pyramids[k][band] / denom)[..., None] * image_pyramids[k][band]
@@ -300,13 +318,9 @@ def fuse_blend(
         )
         fused_bands.append(blended)
 
-    # Collapse: start from the base and add each detail band back, upsampling.
     result = fused_bands[-1]
     for band in range(levels - 1, -1, -1):
         size = (fused_bands[band].shape[1], fused_bands[band].shape[0])
         result = cv2.pyrUp(result, dstsize=size) + fused_bands[band]
 
-    fused = np.clip(result, 0, 255).astype(np.uint8)
-    if return_weights:
-        return fused, weights
-    return fused
+    return np.clip(result, 0, 255).astype(np.uint8)

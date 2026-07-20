@@ -1,0 +1,78 @@
+{
+  "defocus_spread": {
+    "baseline": {
+      "gt_ssim": 0.9883,
+      "tile_mean": 0.9883,
+      "tile_worst": 0.9616,
+      "composite": 0.9583
+    },
+    "adaptive": {
+      "gt_ssim": 0.9904,
+      "tile_mean": 0.9904,
+      "tile_worst": 0.9719,
+      "composite": 0.9611
+    },
+    "op_laplacian": {
+      "gt_ssim": 0.9883,
+      "tile_mean": 0.9883,
+      "tile_worst": 0.9616,
+      "composite": 0.9583
+    },
+    "op_gradient": {
+      "gt_ssim": 0.9883,
+      "tile_mean": 0.9883,
+      "tile_worst": 0.9614,
+      "composite": 0.9587
+    },
+    "op_tenengrad": {
+      "gt_ssim": 0.9874,
+      "tile_mean": 0.9874,
+      "tile_worst": 0.9539,
+      "composite": 0.9566
+    },
+    "op_mod_laplacian": {
+      "gt_ssim": 0.9881,
+      "tile_mean": 0.9881,
+      "tile_worst": 0.9592,
+      "composite": 0.9578
+    }
+  },
+  "gradient_metal": {
+    "baseline": {
+      "gt_ssim": 0.9586,
+      "tile_mean": 0.9586,
+      "tile_worst": 0.9551,
+      "composite": 0.7637
+    },
+    "adaptive": {
+      "gt_ssim": 0.9629,
+      "tile_mean": 0.9629,
+      "tile_worst": 0.961,
+      "composite": 0.7619
+    },
+    "op_laplacian": {
+      "gt_ssim": 0.9586,
+      "tile_mean": 0.9586,
+      "tile_worst": 0.9551,
+      "composite": 0.7637
+    },
+    "op_gradient": {
+      "gt_ssim": 0.9579,
+      "tile_mean": 0.9579,
+      "tile_worst": 0.9535,
+      "composite": 0.7629
+    },
+    "op_tenengrad": {
+      "gt_ssim": 0.9572,
+      "tile_mean": 0.9572,
+      "tile_worst": 0.9527,
+      "composite": 0.7634
+    },
+    "op_mod_laplacian": {
+      "gt_ssim": 0.9675,
+      "tile_mean": 0.9675,
+      "tile_worst": 0.9648,
+      "composite": 0.7507
+    }
+  }
+}

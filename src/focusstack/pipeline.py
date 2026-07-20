@@ -17,8 +17,15 @@ import numpy as np
 
 from . import io as fio
 from .align import align_stack
-from .focus import focus_measures
+from .focus import content_aware_energies, focus_measures
 from .fusion import fuse_blend, fuse_decision, fuse_max, fuse_pyramid
+
+
+def _focus_maps(images: list[np.ndarray], method: str) -> list[np.ndarray]:
+    """Per-frame focus maps; content_aware needs all frames (cross-frame contrast)."""
+    if method == "content_aware":
+        return content_aware_energies([fio.to_gray_float(im) for im in images])
+    return focus_measures(images, method=method)
 
 
 def _normalize_map(m: np.ndarray) -> np.ndarray:
@@ -41,7 +48,7 @@ def run(
     method: str = "blend",
     align: bool = True,
     align_motion: str = "affine",
-    focus_method: str = "laplacian",
+    focus_method: str = "content_aware",
     levels: int | None = None,
     harden: float = 0.0,
     debug_dir: str | None = None,
@@ -73,7 +80,7 @@ def run(
 
     if method == "max":
         log(f"computing focus maps (measure={focus_method}) ...")
-        fmaps = focus_measures(images, method=focus_method)
+        fmaps = _focus_maps(images, focus_method)
         log("fusing (per-pixel maximum sharpness) ...")
         fused, index_map = fuse_max(images, fmaps)
         if debug_dir:
@@ -90,7 +97,7 @@ def run(
         if debug_dir:
             # Focus maps aren't used by the pyramid method, but dump them anyway
             # so the sharpness of each frame is visible alongside the result.
-            for name, fm in zip(names, focus_measures(images, method=focus_method)):
+            for name, fm in zip(names, _focus_maps(images, focus_method)):
                 stem = os.path.splitext(name)[0]
                 fio.save_image(os.path.join(debug_dir, f"focus_{stem}.png"), _normalize_map(fm))
     elif method == "decision":

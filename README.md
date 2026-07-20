@@ -15,8 +15,12 @@ The pipeline has three stages, each a small signal/image-processing problem:
    fuse into ghosts, so every frame is warped onto a common reference frame using
    OpenCV's ECC image alignment.
 2. **Focus measure** (`focus.py`) — sharpness is high-frequency energy. For each
-   pixel we score "how in focus is this here?" using the magnitude of the
-   Laplacian (2nd derivative) or the image gradient, pooled over a small window.
+   pixel we score "how in focus is this here?" from the Laplacian (2nd derivative),
+   gradient, Tenengrad, or modified Laplacian, pooled over a small window. The
+   default `content_aware` operator *routes* per pixel between the Laplacian
+   (best on texture) and the modified Laplacian (best on smooth low-contrast
+   surfaces, where the signed Laplacian's curvatures cancel) by local contrast —
+   non-regressing on clean data, better on smooth content.
 3. **Fusion** (`fusion.py`) — combine the sharp parts:
    - `blend` (default): **guided multi-band blending** — build an edge-aware weight
      map (as in `decision`) but apply it *per Laplacian-pyramid band* (Burt & Adelson
@@ -59,6 +63,11 @@ focusstack images/*.png -o out.png --method pyramid --levels 5
 focusstack images/*.png -o out.png --method max --focus-measure gradient
 # Skip alignment for already-registered frames (avoids a needless resample).
 focusstack images/*.png -o out.png --no-align
+
+# Defocus-spread rejection: keeps bright/thin structures (dots, wires, hairs)
+# crisp instead of letting an out-of-focus frame's "spread" bleed in as a dim
+# blob. Recommended for scenes with bright points or fine structures.
+focusstack images/*.png -o out.png --harden 0.5
 ```
 
 Run `focusstack --help` for all options. You can also invoke it as

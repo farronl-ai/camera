@@ -247,7 +247,7 @@ def _guided_weights(
 
 def fuse_decision(
     images: list[np.ndarray],
-    focus_method: str = "laplacian",
+    focus_method: str = "content_aware",
     radius: int = 8,
     eps: float = 1e-3,
     smooth_ksize: int = 9,
@@ -281,7 +281,7 @@ def fuse_decision(
 # --------------------------------------------------------------------------- #
 def fuse_blend(
     images: list[np.ndarray],
-    focus_method: str = "laplacian",
+    focus_method: str = "content_aware",
     levels: int | None = None,
     radius: int = 8,
     eps: float = 1e-3,

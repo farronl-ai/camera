@@ -100,10 +100,11 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
   <p class="deck">An autonomous test→refine program: validate a ground-truth-free quality metric, then use it to auto-tune globally, adapt tunes per region, and learn a fast mapping — so a new high-res stack needs no answer key.</p>
   <div class="milestones">
     <span class="pill done">M0 metric ✓</span>
-    <span class="pill {'done' if m1 else 'wip'}">M1 global {'✓' if m1 else '…'}</span>
-    <span class="pill {'done' if m2 else 'wip' if m1 else 'todo'}">M2 region {'✓' if m2 else '…'}</span>
-    <span class="pill todo">M3 learned</span>
-    <span class="pill todo">M4 deep</span>
+    <span class="pill done">M1 global ✓</span>
+    <span class="pill done">M2 region ✓</span>
+    <span class="pill done">M3 learned ✓</span>
+    <span class="pill done">structural ✓</span>
+    <span class="pill todo">M4 deep (version-bridge)</span>
   </div>
 
   <h2>Data</h2>

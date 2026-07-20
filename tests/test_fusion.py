@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 from focusstack.focus import focus_measure, focus_measures
-from focusstack.fusion import fuse_max, fuse_pyramid
+from focusstack.fusion import fuse_decision, fuse_max, fuse_pyramid, guided_filter
 
 
 def _two_region_stack():
@@ -42,3 +42,33 @@ def test_fuse_pyramid_sharper_than_either_input():
     assert fused.shape == a.shape
     assert _sharpness(fused).mean() > _sharpness(a).mean()
     assert _sharpness(fused).mean() > _sharpness(b).mean()
+
+
+def test_fuse_decision_sharper_and_selects_correctly():
+    _, a, b = _two_region_stack()
+    fused, weights = fuse_decision([a, b], return_weights=True)
+
+    assert fused.shape == a.shape
+    # Sharper overall than either single (each is blurred in one half).
+    assert _sharpness(fused).mean() > _sharpness(a).mean()
+    assert _sharpness(fused).mean() > _sharpness(b).mean()
+
+    # Weights are a partition of unity, and each half favors its sharp frame.
+    assert np.allclose(weights.sum(axis=0), 1.0, atol=1e-4)
+    assert weights[0][:, :64].mean() > 0.5   # frame A (sharp left) wins the left
+    assert weights[1][:, 64:].mean() > 0.5   # frame B (sharp right) wins the right
+
+
+def test_guided_filter_preserves_flat_and_edges():
+    # On a flat guide, the guided filter just averages the source (pure smoothing).
+    flat = np.full((64, 64), 0.5, dtype=np.float32)
+    noisy = flat + np.random.default_rng(0).normal(0, 0.05, flat.shape).astype(np.float32)
+    smoothed = guided_filter(flat, noisy, radius=6, eps=1e-3)
+    assert smoothed.std() < noisy.std()
+
+    # With a step-edge guide, output follows the guide's edge instead of blurring it.
+    guide = np.zeros((64, 64), dtype=np.float32)
+    guide[:, 32:] = 1.0
+    out = guided_filter(guide, guide.copy(), radius=6, eps=1e-6)
+    step = abs(float(out[:, 40].mean()) - float(out[:, 24].mean()))
+    assert step > 0.8  # the ~1.0 contrast across the edge is retained

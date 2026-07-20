@@ -18,10 +18,18 @@ The pipeline has three stages, each a small signal/image-processing problem:
    pixel we score "how in focus is this here?" using the magnitude of the
    Laplacian (2nd derivative) or the image gradient, pooled over a small window.
 3. **Fusion** (`fusion.py`) — combine the sharp parts:
-   - `max`: per pixel, copy from the sharpest frame. Simple; can show seams/noise.
-   - `pyramid` (default): **Laplacian-pyramid fusion** — decompose each frame into
-     frequency bands, keep the highest-energy content per band, and collapse back.
-     Seamless and halo-resistant.
+   - `decision` (default): **guided-filter decision-map fusion** — decide per pixel
+     which frame is in focus, then refine that decision with a *guided filter* so it
+     snaps to real object edges and drops speckle. Crisp *and* clean; no halo.
+   - `pyramid`: **Laplacian-pyramid fusion** — decompose each frame into frequency
+     bands, keep the highest-energy content per band, collapse back. Seamless, but
+     can ring (halo) around thin high-contrast objects at a focus boundary.
+   - `max`: per pixel, copy from the sharpest frame. Simple; crisp but speckly.
+
+   On real multi-focus photos (see below), the pyramid method halos around thin
+   foreground structure (e.g. a fence over a sharp background), and `max` is crisp
+   but noisy. `decision` was added to get the best of both, which is why it's the
+   default.
 
 ## Install
 
@@ -43,9 +51,11 @@ focusstack images/*.jpg -o stacked.png
 # See what each stage does (writes aligned frames, focus maps, selection map).
 focusstack images/ -o stacked.png --debug-dir debug -v
 
-# Alternative fusion method and options.
+# Alternative fusion methods and options.
+focusstack images/*.png -o out.png --method pyramid --levels 5
 focusstack images/*.png -o out.png --method max --focus-measure gradient
-focusstack images/*.png -o out.png --no-align --levels 5
+# Skip alignment for already-registered frames (avoids a needless resample).
+focusstack images/*.png -o out.png --no-align
 ```
 
 Run `focusstack --help` for all options. You can also invoke it as
@@ -70,11 +80,13 @@ pytest
 
 ## Roadmap
 
-The classic pyramid pipeline here is a strong, interpretable baseline. Planned
-directions:
+Validated on the standard MFIF benchmark (real Lytro-style focus pairs): all three
+methods reach the achievable sharpness upper bound globally, but only `decision`
+stays clean at focus boundaries. Planned directions:
 
 - **Alignment**: feature-based / multi-scale ECC for large shifts.
-- **Quality**: edge-halo suppression, smoother weight maps, per-frame denoising.
+- **Quality**: tune the guided-filter radius/eps per scene; per-frame denoising;
+  small-region cleanup on the decision map before refinement.
 - **Leading edge**: a learning-based fusion backend (e.g. IFCNN / U²Fusion /
   MFF-GAN) behind the same CLI — that's where current multi-focus fusion research
   lives.

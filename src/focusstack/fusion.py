@@ -1,6 +1,6 @@
 """Stage 3 — fusion (combining the sharp content).
 
-Two strategies live here:
+Three strategies live here:
 
 `fuse_max` — the intuitive baseline. For every pixel, look across all frames,
 find the one with the highest focus score, and copy that pixel. Simple and
@@ -8,12 +8,21 @@ correct in spirit, but it decides in the *spatial* domain, so noise can flip the
 winner from pixel to pixel and object boundaries (where two focus regions meet)
 can show visible seams.
 
-`fuse_pyramid` — the robust, standard approach: Laplacian-pyramid fusion. Instead
-of choosing whole pixels, we decompose each image into a stack of frequency
-*bands* (a Laplacian pyramid) and choose, band by band, the content with the most
-energy. Fine detail (high-frequency bands) is taken from whichever frame is sharp
-there; smooth low-frequency content is blended. Collapsing the fused pyramid back
-yields a seamless, halo-resistant result. This is the same multi-scale idea
+`fuse_pyramid` — the classic multi-scale approach: Laplacian-pyramid fusion.
+Instead of choosing whole pixels, we decompose each image into a stack of
+frequency *bands* (a Laplacian pyramid) and choose, band by band, the content
+with the most energy. Fine detail (high-frequency bands) is taken from whichever
+frame is sharp there; smooth low-frequency content is blended. Seamless, but on
+real photos it can *ring* — leave a bright halo around thin high-contrast objects
+at a focus boundary, because a defocused edge's energy bleeds into lower bands.
+
+`fuse_decision` — guided-filter decision-map fusion (the best all-rounder on real
+data). We decide per pixel which frame is in focus (argmax of the focus measure),
+then clean that decision with a *guided filter* so it snaps to real object edges
+and drops the speckle that plagues `fuse_max`. Result: crisp like max, clean like
+pyramid, no halo. This is the idea behind the well-known GFF method.
+
+The pyramid method is the same multi-scale idea
 behind exposure fusion.
 """
 
@@ -21,6 +30,9 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+
+from .focus import focus_measure
+from .io import to_gray_float
 
 
 # --------------------------------------------------------------------------- #
@@ -130,3 +142,78 @@ def fuse_pyramid(
         result = cv2.pyrUp(result, dstsize=size) + fused_bands[band]
 
     return np.clip(result, 0, 255).astype(np.uint8)
+
+
+# --------------------------------------------------------------------------- #
+# Guided-filter decision-map fusion
+# --------------------------------------------------------------------------- #
+def _box(x: np.ndarray, radius: int) -> np.ndarray:
+    """Normalized box (mean) filter — the workhorse of the guided filter."""
+    return cv2.boxFilter(x, cv2.CV_32F, (2 * radius + 1, 2 * radius + 1), normalize=True)
+
+
+def guided_filter(
+    guide: np.ndarray, src: np.ndarray, radius: int = 8, eps: float = 1e-3
+) -> np.ndarray:
+    """Edge-preserving filter (He et al. 2010).
+
+    Smooths `src` while keeping edges that exist in `guide`. Intuition: within
+    each local window it fits `src` as a *linear function of the guide*,
+    ``out = a * guide + b``. Where the guide is flat, `a -> 0` and the window is
+    just averaged (smoothing); where the guide has an edge, `a` is large so the
+    output follows that edge. `eps` sets how much guide-variance counts as "flat".
+
+    Both inputs are float32, same HxW. Returns float32.
+    """
+    mean_i = _box(guide, radius)
+    mean_p = _box(src, radius)
+    mean_ii = _box(guide * guide, radius)
+    mean_ip = _box(guide * src, radius)
+
+    var_i = mean_ii - mean_i * mean_i          # local variance of the guide
+    cov_ip = mean_ip - mean_i * mean_p         # local covariance guide<->src
+
+    a = cov_ip / (var_i + eps)
+    b = mean_p - a * mean_i
+    return _box(a, radius) * guide + _box(b, radius)
+
+
+def fuse_decision(
+    images: list[np.ndarray],
+    focus_method: str = "laplacian",
+    radius: int = 8,
+    eps: float = 1e-3,
+    return_weights: bool = False,
+):
+    """Guided-filter decision-map fusion.
+
+    1. Score each frame's sharpness (focus measure) and take a per-pixel argmax —
+       a raw, noisy "which frame is in focus here" decision.
+    2. Turn each frame's decision into a weight map and refine it with a guided
+       filter *guided by that frame's own luminance*, so the weight boundary snaps
+       to real object edges and the argmax speckle is smoothed away.
+    3. Normalize the weights across frames and take a weighted average.
+
+    Returns the fused BGR uint8 image, or (fused, weights) if `return_weights`.
+    """
+    floats = [img.astype(np.float32) for img in images]
+    n = len(images)
+
+    focus = [focus_measure(to_gray_float(img), method=focus_method) for img in images]
+    winner = np.argmax(np.stack(focus, axis=0), axis=0)  # (H, W)
+
+    weights = []
+    for k in range(n):
+        raw = (winner == k).astype(np.float32)           # this frame's raw decision
+        guide = to_gray_float(images[k]) / 255.0
+        weights.append(np.clip(guided_filter(guide, raw, radius, eps), 0.0, None))
+
+    w = np.stack(weights, axis=0)
+    w = w / (w.sum(axis=0, keepdims=True) + 1e-8)         # normalize to a partition of unity
+
+    fused = sum(w[k][..., None] * floats[k] for k in range(n))
+    fused = np.clip(fused, 0, 255).astype(np.uint8)
+
+    if return_weights:
+        return fused, w
+    return fused

@@ -22,29 +22,30 @@ The pipeline has three stages, each a small signal/image-processing problem:
    surfaces, where the signed Laplacian's curvatures cancel) by local contrast —
    non-regressing on clean data, better on smooth content.
 3. **Fusion** (`fusion.py`) — combine the sharp parts:
-   - `blend` (default): **guided multi-band blending** — build an edge-aware weight
-     map (as in `decision`) but apply it *per Laplacian-pyramid band* (Burt & Adelson
-     multiresolution blending). Halo-free *and* multi-scale/seamless. The guided
-     radius and focus-pooling window are **resolution-adaptive** (≈ the circle of
-     confusion), so it stays sharp on high-res stacks where a fixed small window
-     would blend in blur — while being identical to the classic setting at low res.
+   - `perband` (default): **per-band edge-aware fusion** — makes the focus decision
+     *and* an edge-aware guided weight at *each* pyramid band (not one global
+     weight), so the decision is multi-scale like `pyramid` *and* halo-free like
+     `blend`. A fixed small guided radius per band means the effective scale grows
+     with resolution automatically — multi-scale by construction, no magic numbers.
+     Best all-rounder across resolutions (validated on ground truth at low *and*
+     high res, and by disagreement-guided visual inspection on real optical defocus).
+   - `blend`: **guided multi-band blending** — one edge-aware weight map (as in
+     `decision`) applied per Laplacian-pyramid band (Burt & Adelson multiresolution
+     blending). Halo-free and seamless, but its *decision* is single-scale; the
+     guided radius/pooling are resolution-adaptive (≈ the circle of confusion).
    - `decision`: **guided-filter decision-map fusion** — decide per pixel which frame
      is in focus, refine with a *guided filter* so it snaps to real edges, blend in
-     image space. Crisp and halo-free, but single-scale.
-   - `perband`: **per-band edge-aware fusion** — makes the focus decision *and* an
-     edge-aware guided weight at *each* pyramid band (not one global weight), so the
-     decision is multi-scale like `pyramid` *and* halo-free like `blend`. A fixed
-     small radius per band makes the scale grow with resolution automatically (no
-     magic number). Best across resolutions; **recommended for high-res**.
+     image space. Crisp and halo-free, but single-scale. (Used by `--fast`.)
    - `pyramid`: **Laplacian-pyramid fusion** — keep the highest-energy content per
-     band, collapse back. Seamless, but can ring (halo) around thin high-contrast
-     objects at a focus boundary.
+     band, collapse back. Seamless and intrinsically multi-scale, but can ring
+     (halo) around thin high-contrast objects at a focus boundary.
    - `max`: per pixel, copy from the sharpest frame. Simple; crisp but speckly.
 
-   On real multi-focus photos (see below), `pyramid` halos around thin foreground
-   structure (e.g. a fence over a sharp background) and `max` is speckly. `decision`
-   fixes both by cleaning the selection; `blend` goes further, applying that clean
-   selection across every scale — which is why it's the default.
+   The ladder, in one line each: `max` decides per pixel (speckle); `decision`
+   cleans that decision edge-aware (single-scale); `pyramid` decides per band
+   (multi-scale, but hard-select → halos); `blend` = edge-aware decision + multiband
+   reconstruction (but one decision for all bands); `perband` = edge-aware decision
+   *per band* — multi-scale **and** halo-free, which is why it's the default.
 
 ## Install
 

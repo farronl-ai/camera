@@ -418,6 +418,16 @@ def fuse_perband(
     ("start at the finest pixels, move up") — multi-scale by construction, no
     resolution-dependent magic number. Best-of-both: best at high-res AND low-res,
     nearly as halo-free as `fuse_blend`.
+
+    Two correctness details (each was a measured defect before being fixed):
+      - On COARSE bands the window must shrink with the band, or a radius bigger
+        than the band degenerates the guided filter into a global mean (~50/50
+        blending that imports defocused energy). Both `radius` and `energy_ksize`
+        are capped relative to the band's size.
+      - The BASE band is not averaged: defocus *spread* (a bright/dark smear from
+        the out-of-focus frame) lives heavily in low frequencies, so averaging
+        pulls it in. Instead the coarsest detail band's weights are propagated
+        down (pyrDown) and used to blend the base.
     """
     floats = [img.astype(np.float32) for img in images]
     n = len(floats)
@@ -426,11 +436,17 @@ def fuse_perband(
     guide_pyramids = [_gaussian_pyramid(to_gray_float(f), levels) for f in images]
 
     fused_bands: list[np.ndarray] = []
+    w_last: np.ndarray | None = None
     for band in range(levels + 1):
         coeffs = [image_pyramids[k][band] for k in range(n)]
+        bh, bw = coeffs[0].shape[:2]
         if band < levels:
+            # Cap window sizes to the band: a window ~the whole band degenerates
+            # the decision into a global mean.
+            r_b = max(1, min(radius, min(bh, bw) // 6))
+            k_b = max(3, min(energy_ksize, (min(bh, bw) // 4) | 1))
             energy = np.stack(
-                [cv2.boxFilter((coeffs[k] ** 2).sum(axis=2), cv2.CV_32F, (energy_ksize, energy_ksize))
+                [cv2.boxFilter((coeffs[k] ** 2).sum(axis=2), cv2.CV_32F, (k_b, k_b))
                  for k in range(n)], axis=0)
             winner = np.argmax(energy, axis=0)
             conf = None
@@ -440,15 +456,22 @@ def fuse_perband(
             weights = []
             for k in range(n):
                 raw = (winner == k).astype(np.float32)
-                wg = np.clip(guided_filter(guide_pyramids[k][band] / 255.0, raw, radius, eps), 0.0, None)
+                wg = np.clip(guided_filter(guide_pyramids[k][band] / 255.0, raw, r_b, eps), 0.0, None)
                 if conf is not None:
                     wg = (1.0 - conf) * wg + conf * raw
                 weights.append(wg)
             w = np.stack(weights, axis=0)
             w /= (w.sum(axis=0, keepdims=True) + 1e-8)
             fused_bands.append(sum(w[k][..., None] * coeffs[k] for k in range(n)))
+            w_last = w
         else:
-            fused_bands.append(np.mean(np.stack(coeffs, axis=0), axis=0))  # low-freq base
+            # Base band: blend with the coarsest detail weights propagated down —
+            # NOT a plain mean, which would import the defocused frame's
+            # low-frequency spread.
+            wb = np.stack([cv2.pyrDown(w_last[k]) for k in range(n)], axis=0)
+            wb = np.clip(wb, 0.0, None)
+            wb /= (wb.sum(axis=0, keepdims=True) + 1e-8)
+            fused_bands.append(sum(wb[k][..., None] * coeffs[k] for k in range(n)))
 
     result = fused_bands[-1]
     for band in range(levels - 1, -1, -1):

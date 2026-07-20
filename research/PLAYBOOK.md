@@ -9,9 +9,14 @@ nuance; `FINDINGS.md` is the dated experimental log.
 1. **Metrics are hypotheses, not verdicts.** Validate any objective against ground
    truth (rank-correlation) before trusting it; re-validate when you change how it's
    used. A metric great globally can be *backwards* locally.
-2. **Look at the pixels.** Render crops; the eye catches what metrics miss. ±0.001
-   metric deltas can be huge visually (grey vs crisp bright structures). Aggregate
-   means hide localized defects (a halo is <1% of pixels).
+2. **Look at the pixels — systematically.** The eye catches what metrics miss: ±0.001
+   metric deltas can be huge visually (grey vs crisp bright structures), and aggregate
+   means hide localized defects (a halo is <1% of pixels). But don't hand-pick crop
+   locations (that biases what you see) and don't trust the unaided eye on fidelity
+   (a "cleaner-looking" result can be less faithful — see 9b). **Eye-analysis 2.0**
+   (`eyetool.py`): crop where the methods *disagree most* (box-filtered |A−B|, greedy
+   non-overlapping maxima) and add an amplified-difference view (5× signed diff on
+   mid-grey), plus GT when available. Point the eye at the informative pixels.
 3. **Clean / near-ceiling data is a mirage.** A change "free" on clean data can wreck
    hard cases. Re-check on the method's designed weakness (focus boundaries, thin/
    bright structures, real optical defocus). This trap recurred repeatedly.
@@ -34,25 +39,29 @@ nuance; `FINDINGS.md` is the dated experimental log.
    sharper one with a faint halo. "Look, don't trust the metric" targets NO-REFERENCE
    metrics + aggregates hiding LOCAL defects; it does NOT override GT fidelity when you
    have GT. Use both: hunt artifacts by eye, but respect GT-SSIM as truth.
-9c. **The best realization of a principle may be an existing algorithm, not your
-   bespoke mechanism.** The local/multi-scale principle (scale must be local, no global
-   magic number) is right — and the Laplacian PYRAMID embodies it intrinsically, beating
-   a hand-built content-measured local-scale retrofit. Don't fall in love with your own
-   code; check whether a standard method already IS the principled answer.
+9c. **Check standard methods first — then steal WHY they win.** The local/multi-scale
+   principle was right, and the Laplacian PYRAMID already embodied it intrinsically,
+   beating a hand-built local-scale retrofit (don't fall in love with your own code).
+   But the sequel matters: understanding *why* pyramid won (multi-scale DECISION) and
+   why it still failed (no edge-awareness → halos) is what produced `perband` — the
+   standard method's winning property grafted into the edge-aware framework, which
+   then beat both parents everywhere. Standard method → diagnose its winning property
+   → transplant the property, not the method.
 10. **Theory first, then verify** empirically + visually.
-10b. **Scale must be MEASURED locally from content, not a global number.** A global
-   resolution-scaled window (max(8, ~0.012·max_dim)) only helps object-scale depth
-   splits; it DESTROYS fine details at FINE-SCALE depth boundaries (thin structures
-   over a different-depth background), because the window is coarser than the boundary.
-   The fix is a per-pixel local structure-scale map (measured from fine-detail energy:
-   small on detail, large on smooth) driving the guided scale locally — this preserves
-   fine details AND stays robust on smooth areas in the SAME image. Corollary: pyramid
-   is intrinsically multi-scale (already local-scale-adaptive) so it's strong at high-
-   res — but it HALOS on fine high-contrast boundaries, and (recurring!) the aggregate
-   metric hides that halo. LOOK at the structures. Best-of-both = content-route between
-   local-guided (clean boundaries) and pyramid (multi-scale detail).
-   (Fixed-pixel operators like Q_ABF's 3×3 Sobel have the same disease — collapses at
-   high-res while Q_SSIM strengthens; re-validate + re-scale at each resolution regime.)
+10b. **Scale-adaptivity belongs IN THE STRUCTURE, not in a number.** The full arc,
+   resolved: fixed windows fail across resolutions (a low-res-tuned radius is tiny vs
+   a high-res CoC → ranking reversals). A globally resolution-scaled window helps only
+   object-scale depth splits and destroys fine details at fine-scale depth boundaries.
+   A measured per-pixel structure-scale map is better but is a retrofit with an extra
+   estimation step. The clean answer: make the DECISION per pyramid band with a fixed
+   SMALL window — coarse bands are downsampled, so the effective scale grows with the
+   band automatically. That is local scale at every location, structurally, with no
+   magic numbers and no estimation (`fuse_perband`). Two correctness corollaries: cap
+   any window to its band's size (a window ≈ the whole band degenerates to a global
+   mean), and never plain-average the base band (it imports low-frequency defocus
+   spread — weight it with the coarsest decision). Fixed-pixel operators in METRICS
+   have the same disease (Q_ABF's 3×3 Sobel collapses at high-res; Q_SSIM strengthens)
+   — re-validate the metric at each resolution regime.
 11. Commit per milestone; keep FINDINGS.md; keep a live report; background heavy compute.
 
 ## II. MFIF domain theory

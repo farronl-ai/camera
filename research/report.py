@@ -142,11 +142,20 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
     <tr><td>metric Q_SSIM</td><td class="mono num">+0.87 (strengthened)</td></tr>
     <tr><td>pyramid vs guided-blend (was: blend won)</td><td class="mono">pyramid won (reversal)</td></tr>
   </tbody></table>
-  <p><b>Root cause + fix:</b> fixed-pixel params (8px guided radius) vs a 37px
-  circle-of-confusion. Made the guided radius + focus pool <b>resolution-adaptive</b>
-  (≈ the CoC, floored so low-res is byte-identical). Result: <b>byte-identical at
-  low-res (no regression)</b> and default blend <b>0.7998 &gt; pyramid 0.7933</b> at
-  3072px. Lesson: every fixed-pixel operator must scale with resolution/CoC.</p>
+  <p><b>Root cause + resolution of the whole arc:</b> fixed-pixel windows fail across
+  resolutions; a globally resolution-scaled window helps only object-scale depth splits;
+  the clean answer is <b>per-band decisions</b> — <code>fuse_perband</code> makes an
+  edge-aware, confidence-hardened focus decision at <i>each</i> pyramid band with a fixed
+  small window, so the effective scale grows with the band automatically (multi-scale by
+  construction, no magic numbers).</p>
+  <table><thead><tr><th>GT-SSIM</th><th>low-res Real-MFF</th><th>high-res fine-depth</th></tr></thead><tbody>
+    <tr><td>blend</td><td class="mono num">0.9915</td><td class="mono num">0.8704</td></tr>
+    <tr><td>pyramid</td><td class="mono num">0.9913</td><td class="mono num">0.8926</td></tr>
+    <tr><td><b>perband (new default)</b></td><td class="mono num"><b>0.9918</b></td><td class="mono num"><b>0.9021</b></td></tr>
+  </tbody></table>
+  <p class="muted">perband leads every GT-measured regime, and disagreement-guided visual
+  inspection (eye-analysis 2.0) favors it on the real-optical fence case too — sharper
+  wires, no halo. The consolidated theory lives in research/FINDINGS.md → SYNTHESIS.</p>
   </div>
 </div>"""
     out = os.path.join(HERE, "report.html")

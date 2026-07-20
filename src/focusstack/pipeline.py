@@ -45,7 +45,7 @@ def _colorize_selection(index_map: np.ndarray, n: int) -> np.ndarray:
 def run(
     inputs: list[str],
     output: str,
-    method: str = "blend",
+    method: str = "perband",
     align: bool = True,
     align_motion: str = "affine",
     focus_method: str = "content_aware",

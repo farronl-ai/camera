@@ -3,6 +3,66 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+---
+
+## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
+
+**The engine.** Every fusion method = a DECISION (which frame is sharpest, where) +
+a RECONSTRUCTION (combine without artifacts). Four properties determine quality:
+
+1. **Edge-aware decision** (guided filter) — else speckle/seams (`max`'s failure).
+2. **Confidence-hardened decision** (`harden`) — else defocus *spread* bleeds in and
+   thin structures (hairs/wires) grey out. One mechanism, both failure modes.
+3. **Multi-scale decision** — else the method fails at whichever scale its window
+   wasn't sized for (the cause of every low↔high-res ranking reversal we hit).
+4. **Multi-band reconstruction** — else seams at region transitions.
+
+`perband` (the default) is the only method with all four → best all-rounder,
+GT-validated at low res (0.9918) and high res (0.9021). `blend` lacks (3) — one
+single-scale decision broadcast to all bands. `pyramid` lacks (1)+(2) — halos.
+The scale-theory arc (global magic number F19 → measured local-scale map F20 →
+per-band F22) resolved cleanly: **put scale-adaptivity in the band structure
+itself** — a fixed small window per band IS local scale, at every location, with
+no scale-estimation step and no magic numbers.
+
+**The metric.** No single number is trustworthy everywhere. Composite
+(0.3·Q_ABF+0.7·Q_SSIM) for *global low-res* ranking; **Q_SSIM alone** at high-res
+(Q_ABF's fixed 3×3 Sobel collapses there) and for *all per-region/local* decisions
+(Q_ABF anti-correlates locally); Q_MI rejected outright (anti-correlates with
+truth). With true GT available, **GT-SSIM is the verdict** — over both no-ref
+metrics and the unaided eye's sense of "clean."
+
+**The eye.** Aggregate metrics hide localized artifacts (halos <1% of pixels); the
+unaided eye misjudges fidelity (F21). **Eye-analysis 2.0** (`eyetool.py`): crop
+where methods *disagree most* + amplified-difference views (+GT when available) —
+point the eye at the informative pixels instead of guessing crop locations.
+
+**Structure & operators.** `harden` (confidence-hardening) unifies spread-rejection
+and thin-structure preservation. `content_aware` routes laplacian↔mod_laplacian by
+local contrast. Operator choice is LOW-leverage; structural/scale handling is where
+the quality lives.
+
+**Learning.** Classical foundation first. Learned per-tile routing matches the
+oracle; distillation matches classical quality in one pass (speed win needs a GPU);
+per-tile no-GT labels are unreliable (~19% GT agreement) → train on GT dev-labels,
+deploy feature-only. No answer key at inference — fully achieved.
+
+---
+
+## F23 — perband refined (correctness fixes) + promoted to DEFAULT
+Fresh-eyes review found two defects in fuse_perband: (a) base band was a plain MEAN
+(imports the defocused frame's low-frequency spread) → now blended with the coarsest
+detail band's weights propagated down; (b) coarse-band windows exceeded the band size
+(a radius ≈ the whole band degenerates the guided filter into a global mean, ~50/50
+blending) → radius/energy_ksize now capped per band. A/B (v1 vs refined v2):
+high-res 0.9014→0.9021, low-res 0.9919≈0.9918, fence composite unchanged but output
+differs (mean|diff| 0.55). Refined perband now leads EVERY GT-measured regime:
+Real-MFF 0.9918 > blend 0.9915 > pyramid 0.9913; high-res 0.9021 > pyramid 0.8926 >
+blend 0.8704. On the one no-GT case (fence) the composite prefers blend (-0.005) but
+**eye-analysis 2.0 (disagreement-guided crops + amplified diff) favors perband** —
+sharper wires, no halo; the composite deficit corresponds to no visible defect.
+DEFAULT switched to perband (pipeline+CLI; --fast now maps perband→decision).
+
 ## F22 — PER-BAND edge-aware fusion = best-of-both at ALL resolutions (Farron's insight)
 Farron's point: blend's pyramid is only in the RECONSTRUCTION; its DECISION is
 single-scale (one guided weight broadcast to all bands), whereas pyramid decides

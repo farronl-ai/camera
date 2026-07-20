@@ -23,11 +23,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--output", required=True, help="Output image path.")
     p.add_argument(
         "--method",
-        choices=["blend", "perband", "decision", "pyramid", "max"],
-        default="blend",
-        help="Fusion method (default: blend). 'perband' = per-band edge-aware "
-        "(multi-scale decision + halo-free; best across resolutions, recommended "
-        "for high-res); 'decision' (single-scale guided); 'pyramid'; 'max'.",
+        choices=["perband", "blend", "decision", "pyramid", "max"],
+        default="perband",
+        help="Fusion method (default: perband — per-band edge-aware: multi-scale "
+        "decision + halo-free, best all-rounder across resolutions). Others: "
+        "'blend' (single-scale guided multi-band; strongest on hard low-res halo "
+        "boundaries), 'decision' (image-space guided), 'pyramid', 'max'.",
     )
     p.add_argument(
         "--no-align",
@@ -91,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     method, weight_scale = args.method, args.weight_scale
     if args.fast:  # speed preset — honored unless the user set these explicitly
-        if method == "blend":
+        if method in ("perband", "blend"):
             method = "decision"
         if weight_scale == 1.0:
             weight_scale = 0.5

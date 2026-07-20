@@ -30,13 +30,19 @@ nuance; `FINDINGS.md` is the dated experimental log.
 9. **Scene/content-dependence is first-class.** Fine detail vs smooth gradient vs
    specular vs hard edges each want different operators/tunes — route by content.
 10. **Theory first, then verify** empirically + visually.
-10b. **Every fixed-pixel-size operator must scale with resolution/CoC.** A guided
-   radius / focus-pool / Sobel window tuned at one resolution silently mismatches
-   another — at high-res a fixed 8px radius is far smaller than a 37px CoC, so the
-   guided-blend lost to pyramid until params were made resolution-adaptive (auto =
-   max(8, ~0.012·max_dim), floored so low-res is byte-identical). The metric has the
-   same disease: a fixed 3×3 Sobel (Q_ABF) collapses at high-res while Q_SSIM
-   strengthens — so re-validate AND re-scale operators at each resolution regime.
+10b. **Scale must be MEASURED locally from content, not a global number.** A global
+   resolution-scaled window (max(8, ~0.012·max_dim)) only helps object-scale depth
+   splits; it DESTROYS fine details at FINE-SCALE depth boundaries (thin structures
+   over a different-depth background), because the window is coarser than the boundary.
+   The fix is a per-pixel local structure-scale map (measured from fine-detail energy:
+   small on detail, large on smooth) driving the guided scale locally — this preserves
+   fine details AND stays robust on smooth areas in the SAME image. Corollary: pyramid
+   is intrinsically multi-scale (already local-scale-adaptive) so it's strong at high-
+   res — but it HALOS on fine high-contrast boundaries, and (recurring!) the aggregate
+   metric hides that halo. LOOK at the structures. Best-of-both = content-route between
+   local-guided (clean boundaries) and pyramid (multi-scale detail).
+   (Fixed-pixel operators like Q_ABF's 3×3 Sobel have the same disease — collapses at
+   high-res while Q_SSIM strengthens; re-validate + re-scale at each resolution regime.)
 11. Commit per milestone; keep FINDINGS.md; keep a live report; background heavy compute.
 
 ## II. MFIF domain theory

@@ -3,6 +3,27 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F20 — CONTENT-MEASURED LOCAL SCALE beats the global magic number (Farron's thesis, confirmed)
+The F19 global scale (0.012·max_dim) only helps object-scale depth splits; it DESTROYS
+fine details at FINE-SCALE depth boundaries (thin near structures over a far
+background) because the window is coarser than the boundary. Built the right benchmark
+(hires_mixed: thin near wires/dots over real far photos, GT) and a content-analysis
+stage (analyze.py): Canny edges + a per-pixel LOCAL STRUCTURE-SCALE map measured from
+fine-detail energy (small on detail: 17–26px, large on smooth: 31–34px — MEASURED, not
+assumed). local_fuse.py sets the guided scale per-pixel from that map (interp over K
+discrete scales + multiband).
+Result on fine near structures: LOCAL >> global (+0.04 to +0.14 SSIM; e.g. 08:
+0.070→0.206, 09: 0.248→0.363) and **visually best — sharp AND clean**. Global blurs
+them; the thesis is confirmed: measure local scale, no magic number.
+Nuance (honest, and the recurring lesson): **pyramid wins AGGREGATE** (0.8926 vs local
+0.8787 vs global 0.8704) because it is intrinsically multi-scale — it already embodies
+the local-scale principle — BUT it HALOS on the fine high-contrast structures (visible
+in the crop, hidden by the mean). So LOCAL is visually cleanest on structures; pyramid
+is strongest on detailed backgrounds. Best-of-both = CONTENT-ROUTE between local-guided
+(clean fine boundaries) and pyramid (multi-scale detail) — the L4 next step. Lesson to
+PLAYBOOK: fusion scale must be MEASURED locally from structure; and pyramid's aggregate
+again hid a boundary halo — look at the structures, not the mean.
+
 ## F19 — FIX: resolution-adaptive guided params — blend beats pyramid at high-res, no low-res regression
 Root cause of F18 confirmed by experiment: scaling the guided radius + focus pool
 with resolution monotonically improves high-res blend (default 0.788 → 0.80). Fix:

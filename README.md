@@ -24,7 +24,10 @@ The pipeline has three stages, each a small signal/image-processing problem:
 3. **Fusion** (`fusion.py`) — combine the sharp parts:
    - `blend` (default): **guided multi-band blending** — build an edge-aware weight
      map (as in `decision`) but apply it *per Laplacian-pyramid band* (Burt & Adelson
-     multiresolution blending). Halo-free *and* multi-scale/seamless.
+     multiresolution blending). Halo-free *and* multi-scale/seamless. The guided
+     radius and focus-pooling window are **resolution-adaptive** (≈ the circle of
+     confusion), so it stays sharp on high-res stacks where a fixed small window
+     would blend in blur — while being identical to the classic setting at low res.
    - `decision`: **guided-filter decision-map fusion** — decide per pixel which frame
      is in focus, refine with a *guided filter* so it snaps to real edges, blend in
      image space. Crisp and halo-free, but single-scale.

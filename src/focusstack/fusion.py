@@ -219,10 +219,23 @@ def _guided_weights(
     still hard-select thin/bright structures (which a downscaled decision would
     lose). Full-res focus is cheap relative to the guided filter.
 
+    `radius`/`smooth_ksize` = None → **resolution-adaptive**: scaled to ~0.012·max
+    dimension (≈ the circle-of-confusion at typical defocus), floored to the classic
+    8/9. At low res this floor makes it identical to the old fixed default (no
+    regression); at high res it grows so the smooth weight matches the large-CoC
+    structure instead of blending in blur (fixed 8px is far too small at 3–4K — this
+    was why blend lost to pyramid at high res, F18).
+
     Returns an array of shape (N, H, W), float32. Shared by `fuse_decision`
     (blend in image space) and `fuse_blend` (blend per pyramid band).
     """
     n = len(images)
+    if radius is None or smooth_ksize is None:
+        auto = int(round(0.012 * max(images[0].shape[:2])))
+        if radius is None:
+            radius = max(8, auto)
+        if smooth_ksize is None:
+            smooth_ksize = max(9, auto | 1)  # odd
     if focus_method == "content_aware":
         # Routes laplacian<->mod_laplacian per pixel by local contrast; needs all frames.
         focus = content_aware_energies([to_gray_float(img) for img in images], smooth_ksize=smooth_ksize)
@@ -274,9 +287,9 @@ def _weights(images, focus_method, radius, eps, smooth_ksize, harden, weight_sca
 def fuse_decision(
     images: list[np.ndarray],
     focus_method: str = "content_aware",
-    radius: int = 8,
+    radius: int | None = None,
     eps: float = 1e-3,
-    smooth_ksize: int = 9,
+    smooth_ksize: int | None = None,
     harden: float = 0.0,
     weight_scale: float = 1.0,
     return_weights: bool = False,
@@ -310,9 +323,9 @@ def fuse_blend(
     images: list[np.ndarray],
     focus_method: str = "content_aware",
     levels: int | None = None,
-    radius: int = 8,
+    radius: int | None = None,
     eps: float = 1e-3,
-    smooth_ksize: int = 9,
+    smooth_ksize: int | None = None,
     harden: float = 0.0,
     weight_scale: float = 1.0,
     return_weights: bool = False,

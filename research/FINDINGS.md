@@ -3,6 +3,40 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F19 — FIX: resolution-adaptive guided params — blend beats pyramid at high-res, no low-res regression
+Root cause of F18 confirmed by experiment: scaling the guided radius + focus pool
+with resolution monotonically improves high-res blend (default 0.788 → 0.80). Fix:
+`radius`/`smooth_ksize` default to None → auto = `max(8/9, round(0.012·max_dim))`
+(≈ the CoC). Results: **byte-identical to the old fixed 8/9 at low-res** (40/40
+Real-MFF pairs — the floor guarantees no regression) and **default blend now 0.7998
+> pyramid 0.7933** at 3072px, visually recovering the soft foliage detail. Promoted
+(it's the package default now). Nuance: pyramid still edges it on a few extreme
+large-smooth-defocus stacks (05 foliage, 08 texture) — a future content-routing
+opportunity, not chased now. Lesson (added to PLAYBOOK): **every fixed-pixel-size
+operator must scale with resolution/CoC**; a param tuned at one resolution silently
+mismatches another. (Metric analogue F17 — scale-aware Q_ABF — noted as follow-up.)
+
+## F18 — HIGH-RES METHOD REVERSAL: pyramid beats guided-blend at high-res (root: fixed-scale params)
+On 10 high-res (3072px) GT stacks (real Wikimedia photos + depth-dependent disk
+defocus + chromatic aberration + noise, CoC~37px), `pyramid` WINS overall
+(GT-SSIM 0.7933, worst-tile 0.4734) vs the guided-blend family (~0.788, worst ~0.44)
+— a REVERSAL of the low-res finding (where blend/decision beat pyramid's halos).
+Visually confirmed on foliage: blend is softer (fine detail smeared), pyramid keeps
+detail. **Root cause:** the guided-blend's FIXED-pixel params (guided radius 8, focus
+pool 9) are tiny vs a 37px CoC, so the weight is mismatched to large-CoC structure
+and blends in blur; pyramid is inherently multi-scale so it adapts. Lesson: the
+low-res-optimal default is NOT high-res-optimal; fixed-pixel operators must SCALE
+with resolution/CoC. (Testing scale-aware params next.) This is exactly the
+"high-res is where it differs" the user predicted.
+
+## F17 — The metric ALSO doesn't transfer to high-res (q_abf collapses)
+Re-validating per-stack Spearman vs GT-SSIM at 3072px: q_abf +0.12 (vs ~+0.30
+low-res — its fixed 3×3 Sobel only sees the finest scale), q_ssim +0.874 (STRONGER
+than low-res), composite (0.3 q_abf+0.7 q_ssim) +0.714 — now DRAGGED DOWN by q_abf.
+**q_ssim alone beats the composite at high-res.** Same root cause as F18 (fixed-scale
+operators). Fix: scale-aware/multi-scale Q_ABF, or drop its weight at high-res.
+Reinforces PLAYBOOK: don't assume the metric transfers; re-validate at each regime.
+
 ## F16 — Real-data validation: MFFW blocked; validated on real Lytro optical defocus
 MFFW (real + hard defocus-spread) has no accessible download (ResearchGate page
 only) — a wall, not a blocker. But Lytro (in standard/) is REAL light-field optical

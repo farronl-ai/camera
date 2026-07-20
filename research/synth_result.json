@@ -1,0 +1,106 @@
+{
+  "fine_detail": {
+    "ranked": [
+      [
+        "mod_laplacian",
+        0.9439
+      ],
+      [
+        "laplacian",
+        0.9439
+      ],
+      [
+        "gradient",
+        0.9439
+      ],
+      [
+        "tenengrad",
+        0.9438
+      ]
+    ],
+    "winner": "mod_laplacian",
+    "winner_params": {
+      "radius": 2,
+      "eps": 0.001,
+      "levels": null
+    }
+  },
+  "smooth_metal": {
+    "ranked": [
+      [
+        "laplacian",
+        0.995
+      ],
+      [
+        "mod_laplacian",
+        0.995
+      ],
+      [
+        "tenengrad",
+        0.995
+      ],
+      [
+        "gradient",
+        0.9949
+      ]
+    ],
+    "winner": "laplacian",
+    "winner_params": {
+      "radius": 2,
+      "eps": 0.001,
+      "levels": null
+    }
+  },
+  "hard_edges": {
+    "ranked": [
+      [
+        "laplacian",
+        0.993
+      ],
+      [
+        "mod_laplacian",
+        0.9926
+      ],
+      [
+        "tenengrad",
+        0.9902
+      ],
+      [
+        "gradient",
+        0.9795
+      ]
+    ],
+    "winner": "laplacian",
+    "winner_params": {
+      "radius": 2,
+      "eps": 0.001,
+      "levels": null
+    }
+  },
+  "foliage": {
+    "ranked": [
+      [
+        "mod_laplacian",
+        0.9732
+      ],
+      [
+        "laplacian",
+        0.9732
+      ],
+      [
+        "gradient",
+        0.9731
+      ],
+      [
+        "tenengrad",
+        0.9731
+      ]
+    ],
+    "winner": "mod_laplacian",
+    "winner_params": {
+      "radius": 2,
+      "eps": 0.001,
+      "levels": null
+    }
+  }
+}

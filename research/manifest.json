@@ -1,0 +1,94 @@
+[
+  {
+    "stage": "M1_global",
+    "baseline": {
+      "focus_method": "laplacian",
+      "smooth_ksize": 9,
+      "radius": 8,
+      "eps": 0.001,
+      "levels": null
+    },
+    "baseline_composite": 0.925110311659463,
+    "baseline_gt_ssim": 0.9929557740688324,
+    "best": {
+      "focus_method": "mod_laplacian",
+      "smooth_ksize": 13,
+      "radius": 2,
+      "eps": 0.01,
+      "levels": 3
+    },
+    "best_composite": 0.9258910327006498,
+    "tuned_gt_ssim": 0.9925001263618469,
+    "n_random": 8,
+    "n_tune": 4,
+    "n_val": 6
+  },
+  {
+    "stage": "M1_global",
+    "baseline": {
+      "focus_method": "laplacian",
+      "smooth_ksize": 9,
+      "radius": 8,
+      "eps": 0.001,
+      "levels": null
+    },
+    "baseline_composite": 0.9480792237752844,
+    "baseline_gt_ssim": 0.9889403571685155,
+    "best": {
+      "focus_method": "laplacian",
+      "smooth_ksize": 3,
+      "radius": 4,
+      "eps": 0.01,
+      "levels": 7
+    },
+    "best_composite": 0.9482576509536934,
+    "tuned_gt_ssim": 0.9892871811985969,
+    "n_random": 250,
+    "n_tune": 60,
+    "n_val": 120
+  },
+  {
+    "stage": "M2_adaptive",
+    "n_val": 120,
+    "baseline_gt_ssim": 0.9889403571685155,
+    "global_gt_ssim": 0.9892871811985969,
+    "adaptive_gt_ssim": 0.9897010346253713,
+    "presets": [
+      {
+        "focus_method": "laplacian",
+        "smooth_ksize": 9,
+        "radius": 8,
+        "eps": 0.001,
+        "levels": null
+      },
+      {
+        "focus_method": "mod_laplacian",
+        "smooth_ksize": 5,
+        "radius": 2,
+        "eps": 0.001,
+        "levels": 5
+      },
+      {
+        "focus_method": "tenengrad",
+        "smooth_ksize": 13,
+        "radius": 16,
+        "eps": 0.01,
+        "levels": 4
+      },
+      {
+        "focus_method": "gradient",
+        "smooth_ksize": 7,
+        "radius": 4,
+        "eps": 0.0003,
+        "levels": 6
+      }
+    ],
+    "global_best": {
+      "focus_method": "laplacian",
+      "smooth_ksize": 3,
+      "radius": 4,
+      "eps": 0.01,
+      "levels": 7
+    }
+  }
+]

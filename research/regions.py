@@ -54,7 +54,9 @@ def fuse_adaptive(sources, presets=None, guide_radius=16, guide_eps=1e-3, harden
                   return_debug=False):
     presets = presets or PRESETS
     cands = [fuse_blend(sources, harden=harden, **p) for p in presets]
-    qmaps = np.stack([M.composite_map(sources, c) for c in cands], axis=0)  # (P,H,W)
+    # F12: use q_ssim for per-pixel selection — the global composite's q_abf term
+    # ANTI-correlates per-tile and misleads local decisions.
+    qmaps = np.stack([M.q_ssim_map(sources, c) for c in cands], axis=0)  # (P,H,W)
     winner = np.argmax(qmaps, axis=0)
 
     weights = []

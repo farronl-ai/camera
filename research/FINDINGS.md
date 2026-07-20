@@ -3,6 +3,19 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F12 — The GLOBAL composite must NOT be used for per-tile/region decisions
+30-scene per-tile study (mean per-tile Spearman vs GT-SSIM over 6 candidate tunes):
+q_abf ANTI-correlates per-tile (-0.241; -0.388 smooth), so the global composite
+(0.3 q_abf + 0.7 q_ssim, great for GLOBAL ranking) is actively BAD per-tile
+(-0.239; -0.642 smooth). Plain q_ssim is the best simple per-tile metric (+0.217);
+a content-ROUTED metric (lowfreq on smooth, q_ssim+gradcons on textured) is best
+(+0.278) — the metric-level analogue of the content_aware operator. But even the
+best per-tile no-ref metric is MODEST: per-tile no-GT discrimination is inherently
+hard. Consequences: (1) retroactively validates M3 (train on GT dev-labels, deploy
+feature-only — don't rely on a no-ref metric to label per-tile); (2) per-region
+SELECTION should use q_ssim, never the q_abf-laden global composite; (3) the "no
+answer key even for per-tile training" ideal is only partly reachable now.
+
 ## F11 — Recommended engine (content_aware + harden) is non-regressing and scales
 Real-MFF (200 clean pairs): content_aware+harden0.5 = 0.9914 vs default 0.9913
 (neutral, worse on only 17/200) -> promoted content_aware to the DEFAULT operator;

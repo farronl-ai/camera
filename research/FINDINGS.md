@@ -49,6 +49,27 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F24 — N-frame blind spot: NOT a defect — the "dilution" is beneficial denoising
+Probed the biggest blind spot (everything was 2-frame; real stacks are 5–50). Result
+overturns the hypothesis, and how it was overturned is the lesson.
+- Quality RISES with N for every method (perband 0.875→0.959→0.977 at N=2/4/8): more
+  planes = finer depth sampling + multi-frame noise averaging. perband stays best ∀N.
+- H1 (harden conf-collapse): mild — conf erodes with N on structures (0.216→0.124) but
+  does not collapse to 0; harden's effect is small on these scenes anyway.
+- H2 (weight dilution): REAL by measurement (at N=8, weight mass on the true-sharpest
+  frame ~0.35; far-plane leakage 0.50 > adjacent 0.21 — *looked* harmful). BUT the
+  direct A/B — a top-K energy gate that removes distant-frame weight — makes quality
+  monotonically WORSE (K=2 0.957 < K=3 0.966 < K=all 0.978). Mechanism (eye-confirmed):
+  on smooth content blurred≈sharp, and averaging many frames REDUCES sensor noise; the
+  broad weight distribution is doing multi-frame denoising. top-K throws that away.
+- Conclusion: NO fix needed; the hypothesized defect is a strength, and a "fix" would
+  have regressed both SSIM and visible noise. **Methodology win: a pathological-looking
+  internal measurement (50% weight on "wrong" frames) is NOT evidence of harm — only
+  the end-to-end A/B (remove it → does quality improve?) is the verdict, and here it
+  validated the existing design.** Open sub-case (FRONTIER): extreme defocus-spread from
+  bright point sources across many frames — distant leakage could import spread there;
+  harden's domain, not stressed by these scenes.
+
 ## F23 — perband refined (correctness fixes) + promoted to DEFAULT
 Fresh-eyes review found two defects in fuse_perband: (a) base band was a plain MEAN
 (imports the defocused frame's low-frequency spread) → now blended with the coarsest

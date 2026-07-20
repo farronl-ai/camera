@@ -397,6 +397,42 @@ def multiband_blend(
     return np.clip(result, 0, 255).astype(np.uint8)
 
 
+def depth_from_focus(
+    images: list[np.ndarray],
+    focus_method: str = "content_aware",
+    smooth_ksize: int = 9,
+    radius: int = 8,
+    eps: float = 1e-3,
+) -> np.ndarray:
+    """Depth map as a free byproduct of the fusion decision (depth-from-focus).
+
+    In a focus stack, WHERE each frame wins the sharpness contest encodes depth:
+    frame k is sharpest where the scene sits near frame k's focal plane. So the
+    per-pixel winner index, scaled to [0, 1] by frame order (near -> far if the
+    stack is ordered), is a coarse depth map. A guided filter (guided by the
+    locally-sharpest luminance) snaps it to object boundaries and smooths the
+    speckle, exactly as it does for fusion weights.
+
+    Returns float32 (H, W) in [0, 1]. More frames -> finer depth quantization.
+    """
+    n = len(images)
+    if focus_method == "content_aware":
+        focus = content_aware_energies([to_gray_float(img) for img in images],
+                                       smooth_ksize=smooth_ksize)
+    else:
+        focus = [focus_measure(to_gray_float(img), method=focus_method,
+                               smooth_ksize=smooth_ksize) for img in images]
+    energy = np.stack(focus, axis=0)
+    winner = np.argmax(energy, axis=0)
+    depth = winner.astype(np.float32) / max(1, n - 1)
+
+    # Edge-aware smoothing, guided by the sharpest-available luminance.
+    hh, ww = winner.shape
+    yy, xx = np.indices((hh, ww))
+    sharp_lum = np.stack([to_gray_float(im) for im in images], 0)[winner, yy, xx] / 255.0
+    return np.clip(guided_filter(sharp_lum.astype(np.float32), depth, radius, eps), 0.0, 1.0)
+
+
 def fuse_perband(
     images: list[np.ndarray],
     radius: int = 6,

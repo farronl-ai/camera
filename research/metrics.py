@@ -87,6 +87,35 @@ def q_abf(sources: list[np.ndarray], fused: np.ndarray) -> float:
     return float(num.sum() / (den.sum() + 1e-10))
 
 
+def q_abf_ms(sources: list[np.ndarray], fused: np.ndarray,
+             levels: int = 4, pool: str = "mean") -> float:
+    """Multi-scale Q_ABF — the perband lesson transplanted into the metric.
+
+    Plain Q_ABF uses a fixed 3x3 Sobel, so it only sees the finest scale and
+    collapses at high resolution (F17), where the meaningful structure lives at
+    coarser scales. Here gradient transfer is evaluated at each pyramid level and
+    combined: pool='sum' accumulates num/den across levels (weights levels by
+    their total edge strength — fine levels dominate by pixel count); pool='mean'
+    averages the per-level scores (equal say per scale). Which pooling is right is
+    an empirical question — validate against GT per regime before trusting.
+    """
+    f = _gray32(fused)
+    ss = [_gray32(s) for s in sources]
+    nums, dens, scores = [], [], []
+    for _ in range(max(1, levels)):
+        num, den = _q_abf_num_den(ss, f)
+        n, d = float(num.sum()), float(den.sum())
+        nums.append(n); dens.append(d)
+        scores.append(n / (d + 1e-10))
+        if min(f.shape) < 32:
+            break
+        f = cv2.pyrDown(f)
+        ss = [cv2.pyrDown(s) for s in ss]
+    if pool == "sum":
+        return float(sum(nums) / (sum(dens) + 1e-10))
+    return float(np.mean(scores))
+
+
 # --------------------------------------------------------------------------- #
 # Normalized mutual information
 # --------------------------------------------------------------------------- #

@@ -3,6 +3,17 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F13 — M4 version-bridge works; self-supervised CNN < classical (as expected)
+Provisioned py3.12 + CPU torch 2.13 via uv (torch has no 3.14 wheel) — the version
+bridge works. A tiny FCN trained PURELY self-supervised (gradient-retention +
+smooth-weight loss, no GT) reaches 0.9711 held-out Real-MFF GT-SSIM vs classical
+0.9888. So from-scratch self-supervised learning is feasible but does NOT beat the
+mature classical engine (guided edge-aware weights + multiband + content-routing +
+hardening) — expected for a small CPU net vs a domain-knowledge-rich pipeline. The
+route to "fast AND excellent" is DISTILLATION (train the CNN to reproduce the
+classical engine in one forward pass) — testing next. Confirms the staged plan: AI
+-learning rests on, and currently trails, the conceptual/algorithmic foundation.
+
 ## F12 — The GLOBAL composite must NOT be used for per-tile/region decisions
 30-scene per-tile study (mean per-tile Spearman vs GT-SSIM over 6 candidate tunes):
 q_abf ANTI-correlates per-tile (-0.241; -0.388 smooth), so the global composite

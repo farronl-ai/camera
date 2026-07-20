@@ -3,6 +3,16 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F14 — Distillation MATCHES classical quality in one pass; speed is a GPU story
+Distilling the classical engine (content_aware+harden) into the same tiny FCN:
+distilled CNN 0.9885 held-out GT-SSIM vs classical 0.9888 — a quality MATCH in one
+forward pass (the engine IS distillable). But on CPU the CNN is 74.8 ms/img vs the
+classical 34.9 ms/img (0.5x — SLOWER): the hand-optimized numpy/opencv engine
+(integral-image guided filter, pyramids) is very fast on CPU, so the CNN's speed
+win is a GPU/high-res-batch story this box can't show. Honest end-state: learned
+fusion can reproduce the engine's quality; the "faster" half of "faster + excellent"
+needs a GPU. Fulfills the staged plan's M4 and its version-bridge intent.
+
 ## F13 — M4 version-bridge works; self-supervised CNN < classical (as expected)
 Provisioned py3.12 + CPU torch 2.13 via uv (torch has no 3.14 wheel) — the version
 bridge works. A tiny FCN trained PURELY self-supervised (gradient-retention +

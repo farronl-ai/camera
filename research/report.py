@@ -104,7 +104,7 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
     <span class="pill done">M2 region ✓</span>
     <span class="pill done">M3 learned ✓</span>
     <span class="pill done">structural ✓</span>
-    <span class="pill todo">M4 deep (version-bridge)</span>
+    <span class="pill done">M4 deep ✓</span>
   </div>
 
   <h2>Data</h2>
@@ -120,6 +120,16 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
   </tbody></table></div>
 
   {winner_img}
+
+  <h2>M4 — learned fusion (version-bridge to Torch on Python 3.12)</h2>
+  <div class="card">
+  <table><thead><tr><th>approach</th><th>held-out GT-SSIM</th><th>note</th></tr></thead><tbody>
+    <tr><td>classical engine (content_aware + harden)</td><td class="mono num">0.9888</td><td class="muted">34.9 ms/img (CPU)</td></tr>
+    <tr><td>self-supervised CNN (no GT in training)</td><td class="mono num">0.9711</td><td class="muted">feasible, trails classical</td></tr>
+    <tr><td>distilled CNN (1 forward pass)</td><td class="mono num">0.9885</td><td class="muted">matches classical; 74.8 ms/img — speed win needs GPU</td></tr>
+  </tbody></table>
+  <p class="muted">The version-bridge works and learned fusion can reproduce the classical engine's quality; the "faster" half needs a GPU (the hand-optimized numpy/opencv engine is very fast on CPU). AI-learning rests on — and currently trails — the conceptual/algorithmic foundation, exactly as the staged plan intended.</p>
+  </div>
 </div>"""
     out = os.path.join(HERE, "report.html")
     open(out, "w").write(html)

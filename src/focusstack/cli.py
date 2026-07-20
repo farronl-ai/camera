@@ -55,6 +55,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pyramid levels for the pyramid method (default: auto).",
     )
     p.add_argument(
+        "--harden",
+        type=float,
+        default=0.0,
+        help="Defocus-spread rejection strength 0..1 for blend/decision (default: 0 off). "
+        "Hardens the blend toward hard-selection where one frame is confidently sharpest, "
+        "so out-of-focus 'spread' can't bleed into bright/thin structures.",
+    )
+    p.add_argument(
         "--debug-dir",
         default=None,
         help="Directory to write intermediate visualizations.",
@@ -74,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
             align_motion=args.align_motion,
             focus_method=args.focus_method,
             levels=args.levels,
+            harden=args.harden,
             debug_dir=args.debug_dir,
             verbose=args.verbose,
         )

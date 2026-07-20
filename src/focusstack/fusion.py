@@ -198,13 +198,20 @@ def guided_filter(
 
 def _guided_weights(
     images: list[np.ndarray], focus_method: str, radius: int, eps: float,
-    smooth_ksize: int = 9,
+    smooth_ksize: int = 9, harden: float = 0.0,
 ) -> np.ndarray:
     """Per-frame, edge-aware fusion weight maps summing to 1 at every pixel.
 
     Raw per-pixel focus argmax -> a one-hot-ish decision per frame -> refine each
     with a guided filter (guided by that frame's luminance) so the boundary snaps
     to real edges and speckle is smoothed -> normalize across frames.
+
+    `harden` (0..1) enables defocus-spread rejection: where one frame is
+    CONFIDENTLY the sharpest (focus-energy dominance high — thin/bright
+    structures), the soft guided weight is pushed back toward a hard one-hot
+    decision so the other frame's defocus spread (a dim, wide blob) can't bleed
+    in. Soft blending is kept where focus is ambiguous (smooth regions). 0 = off
+    (default; identical to before).
 
     Returns an array of shape (N, H, W), float32. Shared by `fuse_decision`
     (blend in image space) and `fuse_blend` (blend per pyramid band).
@@ -216,13 +223,23 @@ def _guided_weights(
     else:
         focus = [focus_measure(to_gray_float(img), method=focus_method, smooth_ksize=smooth_ksize)
                  for img in images]
-    winner = np.argmax(np.stack(focus, axis=0), axis=0)  # (H, W)
+    energy = np.stack(focus, axis=0)
+    winner = np.argmax(energy, axis=0)  # (H, W)
+
+    conf = None
+    if harden > 0:
+        srt = np.sort(energy, axis=0)
+        conf = (srt[-1] - srt[-2]) / (srt[-1] + 1e-6)            # dominance of the sharpest frame
+        conf = np.clip(cv2.boxFilter(conf.astype(np.float32), cv2.CV_32F, (15, 15)) * harden, 0.0, 1.0)
 
     weights = []
     for k in range(n):
         raw = (winner == k).astype(np.float32)           # this frame's raw decision
         guide = to_gray_float(images[k]) / 255.0
-        weights.append(np.clip(guided_filter(guide, raw, radius, eps), 0.0, None))
+        wg = np.clip(guided_filter(guide, raw, radius, eps), 0.0, None)
+        if conf is not None:
+            wg = (1.0 - conf) * wg + conf * raw          # harden toward hard-select where confident
+        weights.append(wg)
 
     w = np.stack(weights, axis=0)
     return w / (w.sum(axis=0, keepdims=True) + 1e-8)     # partition of unity
@@ -234,20 +251,22 @@ def fuse_decision(
     radius: int = 8,
     eps: float = 1e-3,
     smooth_ksize: int = 9,
+    harden: float = 0.0,
     return_weights: bool = False,
 ):
     """Guided-filter decision-map fusion.
 
     Compute edge-aware weight maps (see `_guided_weights`) and take a per-pixel
     weighted average of the frames in image space. Crisp and halo-free, but the
-    blend happens at a single scale.
+    blend happens at a single scale. `harden` (0..1) enables defocus-spread
+    rejection (see `_guided_weights`).
 
     Returns the fused BGR uint8 image, or (fused, weights) if `return_weights`.
     """
     floats = [img.astype(np.float32) for img in images]
     n = len(images)
 
-    w = _guided_weights(images, focus_method, radius, eps, smooth_ksize)
+    w = _guided_weights(images, focus_method, radius, eps, smooth_ksize, harden)
 
     fused = sum(w[k][..., None] * floats[k] for k in range(n))
     fused = np.clip(fused, 0, 255).astype(np.uint8)
@@ -267,6 +286,7 @@ def fuse_blend(
     radius: int = 8,
     eps: float = 1e-3,
     smooth_ksize: int = 9,
+    harden: float = 0.0,
     return_weights: bool = False,
 ):
     """Guided multi-band (Laplacian-pyramid) blending.
@@ -287,7 +307,7 @@ def fuse_blend(
 
     Returns fused BGR uint8, or (fused, full-res weights) if `return_weights`.
     """
-    weights = _guided_weights(images, focus_method, radius, eps, smooth_ksize)  # (N, H, W)
+    weights = _guided_weights(images, focus_method, radius, eps, smooth_ksize, harden)  # (N, H, W)
     fused = multiband_blend(images, weights, levels)
     if return_weights:
         return fused, weights

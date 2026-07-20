@@ -74,6 +74,19 @@ def test_fuse_blend_sharper_and_partition():
     assert weights[1][:, 64:].mean() > 0.5
 
 
+def test_harden_runs_and_preserves_sharpness():
+    # Defocus-spread rejection (harden>0) must still fuse sharper than inputs,
+    # and harden=0 must be identical to the default path (no regression).
+    _, a, b = _two_region_stack()
+    default = fuse_blend([a, b])
+    off = fuse_blend([a, b], harden=0.0)
+    assert np.array_equal(default, off)  # off == default path
+    hardened = fuse_blend([a, b], harden=0.8)
+    assert hardened.shape == a.shape
+    assert _sharpness(hardened).mean() > _sharpness(a).mean()
+    assert _sharpness(hardened).mean() > _sharpness(b).mean()
+
+
 def test_content_aware_focus_fuses_without_regression():
     # content_aware routes operators per pixel; must still fuse a two-region
     # stack sharper than either input (and not error on the cross-frame path).

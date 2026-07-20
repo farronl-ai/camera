@@ -3,6 +3,19 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F9 — Defocus-spread rejection (confidence-hardening): orthogonal, stacks, VISIBLE
+Where one frame is confidently sharpest (thin/bright structures), push the guided
+weight back toward hard one-hot selection so the other frame's defocus SPREAD (dim
+wide blob) can't bleed in; keep soft blending where ambiguous. On a harsh-spread
+scene (bright near bars/dots, CoC~26px): baseline 0.9853, adaptive 0.9880,
+spread_reject 0.9870, **adaptive+spread_reject 0.9888** (best). Crucially VISUAL:
+baseline AND adaptive both render bright dots/bars GRAY (spread bleed); hardening
+restores them bright+crisp — a big visual difference the metric barely registers
+(+0.001), exactly the "metric-blind, eye-obvious" case. It's ORTHOGONAL to operator
+routing and STACKS with it. Promoted as `harden` (0..1, default 0 = off) on
+fuse_blend/fuse_decision + --harden CLI flag. Don't-throw-baby-out: kept adaptive,
+added the layer, combined.
+
 ## F8 — M3 learned per-tile routing beats best-single-tune, MATCHES the oracle
 Numpy MLP (8 content features -> best of 6 tunes), trained on GT-supervised dev
 labels, deployed feature-only (no GT at inference). Held-out hard collage scenes:

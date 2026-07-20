@@ -3,6 +3,15 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F16 — Real-data validation: MFFW blocked; validated on real Lytro optical defocus
+MFFW (real + hard defocus-spread) has no accessible download (ResearchGate page
+only) — a wall, not a blocker. But Lytro (in standard/) is REAL light-field optical
+defocus. On 20 Lytro pairs, `--fast` (decision + weight_scale 0.5) composite 0.9275
+vs full blend 0.9285 (-0.001) and is VISUALLY INDISTINGUISHABLE (fence crop). So the
+engine + speed path hold on real optical defocus. Overall validation coverage: real
+content + GT (Real-MFF 710), real optical defocus (Lytro 20), synthetic + hard + GT
+(benchmark). The remaining gap is real+hard-together (MFFW/UHD) — download-blocked.
+
 ## F15 — High-res CPU speedup: quality-safe ceiling ~1.5x (profiled, not assumed)
 Profiled fuse_blend at 1K/2K/4K: weight pipeline (focus energies + guided filter)
 ~55%, multiband blend+pyramids ~42%, weight pyramids ~0%. Since weights are smooth,

@@ -49,6 +49,25 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F25 — Honesty checks STRENGTHEN perband: α-matte occlusion + REAL microscopy defocus
+Two independent reality checks; perband's crown survived both.
+B3 (occlusion-aware generator): replaced hard per-pixel depth indexing with a proper
+layered α-matte defocus (a blurred foreground semi-transparently VEILS the background;
+blurred alpha) — the physics leading-edge MFIF papers target. Re-ranked on this honest
+benchmark: perband 0.9434 > pyramid 0.9308 > blend 0.9283 overall; near-structures
+perband 0.9550 > pyramid 0.9534 >> blend 0.9221. The crown WIDENS, and blend suffers
+most under honest occlusion (its single-scale decision can't handle the translucent
+veil). The synthetic conclusion was not an artifact.
+B2 (REAL optical data): BBBC006 microscopy z-stacks (N=3, genuine defocus, focus at
+z16 ±6). perband produces visibly the sharpest fusion (recovers nuclei chromatin
+texture); pyramid softens/halos the nuclei; blend between. q_ssim ordering perband 0.98
+> blend 0.96 > pyramid 0.69 — direction eye-confirmed. Metric caveat (checked, not
+assumed): pyramid's low MAGNITUDE is partly a q_ssim artifact of the ~85%-black
+background (q_ssim fragile on near-uniform regions); the ORDERING is real, the number
+inflated — trust eye+ordering. Closes the standing "real optical defocus" gap for the
+microscopy domain: perband holds on non-synthetic defocus. (Methodology, recurring: an
+alarming metric number was checked against the eye before any conclusion.)
+
 ## F24 — N-frame blind spot: NOT a defect — the "dilution" is beneficial denoising
 Probed the biggest blind spot (everything was 2-frame; real stacks are 5–50). Result
 overturns the hypothesis, and how it was overturned is the lesson.

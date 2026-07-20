@@ -43,9 +43,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--focus-measure",
         dest="focus_method",
-        choices=["laplacian", "gradient"],
+        choices=["laplacian", "gradient", "tenengrad", "mod_laplacian", "content_aware"],
         default="laplacian",
-        help="Sharpness operator (default: laplacian).",
+        help="Sharpness operator (default: laplacian). 'content_aware' routes "
+        "laplacian<->mod_laplacian per pixel by local contrast (best across scene types).",
     )
     p.add_argument(
         "--levels",

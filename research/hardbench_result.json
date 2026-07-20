@@ -1,78 +1,78 @@
 {
   "defocus_spread": {
     "baseline": {
-      "gt_ssim": 0.9883,
-      "tile_mean": 0.9883,
-      "tile_worst": 0.9616,
-      "composite": 0.9583
+      "gt_ssim": 0.9907,
+      "tile_mean": 0.9907,
+      "tile_worst": 0.9735,
+      "composite": 0.9628
     },
     "adaptive": {
-      "gt_ssim": 0.9904,
-      "tile_mean": 0.9904,
-      "tile_worst": 0.9719,
-      "composite": 0.9611
+      "gt_ssim": 0.992,
+      "tile_mean": 0.992,
+      "tile_worst": 0.9797,
+      "composite": 0.9643
     },
     "op_laplacian": {
-      "gt_ssim": 0.9883,
-      "tile_mean": 0.9883,
-      "tile_worst": 0.9616,
-      "composite": 0.9583
+      "gt_ssim": 0.9907,
+      "tile_mean": 0.9907,
+      "tile_worst": 0.9735,
+      "composite": 0.9628
     },
     "op_gradient": {
-      "gt_ssim": 0.9883,
-      "tile_mean": 0.9883,
-      "tile_worst": 0.9614,
-      "composite": 0.9587
+      "gt_ssim": 0.9907,
+      "tile_mean": 0.9907,
+      "tile_worst": 0.9731,
+      "composite": 0.963
     },
     "op_tenengrad": {
-      "gt_ssim": 0.9874,
-      "tile_mean": 0.9874,
-      "tile_worst": 0.9539,
-      "composite": 0.9566
+      "gt_ssim": 0.99,
+      "tile_mean": 0.99,
+      "tile_worst": 0.9683,
+      "composite": 0.9613
     },
     "op_mod_laplacian": {
-      "gt_ssim": 0.9881,
-      "tile_mean": 0.9881,
-      "tile_worst": 0.9592,
-      "composite": 0.9578
+      "gt_ssim": 0.9905,
+      "tile_mean": 0.9905,
+      "tile_worst": 0.9719,
+      "composite": 0.9623
     }
   },
   "gradient_metal": {
     "baseline": {
-      "gt_ssim": 0.9586,
-      "tile_mean": 0.9586,
-      "tile_worst": 0.9551,
-      "composite": 0.7637
+      "gt_ssim": 0.9582,
+      "tile_mean": 0.9582,
+      "tile_worst": 0.9566,
+      "composite": 0.7622
     },
     "adaptive": {
-      "gt_ssim": 0.9629,
-      "tile_mean": 0.9629,
-      "tile_worst": 0.961,
-      "composite": 0.7619
+      "gt_ssim": 0.9626,
+      "tile_mean": 0.9626,
+      "tile_worst": 0.9613,
+      "composite": 0.7603
     },
     "op_laplacian": {
-      "gt_ssim": 0.9586,
-      "tile_mean": 0.9586,
-      "tile_worst": 0.9551,
-      "composite": 0.7637
+      "gt_ssim": 0.9582,
+      "tile_mean": 0.9582,
+      "tile_worst": 0.9566,
+      "composite": 0.7622
     },
     "op_gradient": {
-      "gt_ssim": 0.9579,
-      "tile_mean": 0.9579,
-      "tile_worst": 0.9535,
-      "composite": 0.7629
+      "gt_ssim": 0.9577,
+      "tile_mean": 0.9577,
+      "tile_worst": 0.9554,
+      "composite": 0.7615
     },
     "op_tenengrad": {
-      "gt_ssim": 0.9572,
-      "tile_mean": 0.9572,
-      "tile_worst": 0.9527,
-      "composite": 0.7634
+      "gt_ssim": 0.9569,
+      "tile_mean": 0.9569,
+      "tile_worst": 0.9548,
+      "composite": 0.762
     },
     "op_mod_laplacian": {
-      "gt_ssim": 0.9675,
-      "tile_mean": 0.9675,
-      "tile_worst": 0.9648,
-      "composite": 0.7507
+      "gt_ssim": 0.9674,
+      "tile_mean": 0.9674,
+      "tile_worst": 0.9658,
+      "composite": 0.7485
     }
   }
 }

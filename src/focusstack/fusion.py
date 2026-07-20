@@ -37,7 +37,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from .focus import focus_measure
+from .focus import content_aware_energies, focus_measure
 from .io import to_gray_float
 
 
@@ -210,8 +210,12 @@ def _guided_weights(
     (blend in image space) and `fuse_blend` (blend per pyramid band).
     """
     n = len(images)
-    focus = [focus_measure(to_gray_float(img), method=focus_method, smooth_ksize=smooth_ksize)
-             for img in images]
+    if focus_method == "content_aware":
+        # Routes laplacian<->mod_laplacian per pixel by local contrast; needs all frames.
+        focus = content_aware_energies([to_gray_float(img) for img in images], smooth_ksize=smooth_ksize)
+    else:
+        focus = [focus_measure(to_gray_float(img), method=focus_method, smooth_ksize=smooth_ksize)
+                 for img in images]
     winner = np.argmax(np.stack(focus, axis=0), axis=0)  # (H, W)
 
     weights = []

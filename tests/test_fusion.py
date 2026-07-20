@@ -74,6 +74,16 @@ def test_fuse_blend_sharper_and_partition():
     assert weights[1][:, 64:].mean() > 0.5
 
 
+def test_content_aware_focus_fuses_without_regression():
+    # content_aware routes operators per pixel; must still fuse a two-region
+    # stack sharper than either input (and not error on the cross-frame path).
+    _, a, b = _two_region_stack()
+    fused = fuse_blend([a, b], focus_method="content_aware")
+    assert fused.shape == a.shape
+    assert _sharpness(fused).mean() > _sharpness(a).mean()
+    assert _sharpness(fused).mean() > _sharpness(b).mean()
+
+
 def test_fuse_blend_at_least_as_sharp_as_decision():
     # On this fixture the multi-band blend should not lose global sharpness
     # relative to the single-scale decision blend.

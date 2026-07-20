@@ -130,6 +130,24 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
   </tbody></table>
   <p class="muted">The version-bridge works and learned fusion can reproduce the classical engine's quality; the "faster" half needs a GPU (the hand-optimized numpy/opencv engine is very fast on CPU). AI-learning rests on — and currently trails — the conceptual/algorithmic foundation, exactly as the staged plan intended.</p>
   </div>
+
+  <h2>High-res (H1–H3) — generate, validate, fix</h2>
+  <div class="card">
+  <p>Built 10 high-res (3072px) GT stacks from freely-licensed Wikimedia photos +
+  depth-dependent <b>disk defocus + chromatic aberration + noise</b> (real content,
+  exact GT, resolution we control).</p>
+  <p><b>Two things did NOT transfer from low-res</b> — caught by re-validating, not assuming:</p>
+  <table><thead><tr><th>at 3072px</th><th>result</th></tr></thead><tbody>
+    <tr><td>metric Q_ABF (fixed 3×3 Sobel)</td><td class="mono num">+0.12 (collapsed)</td></tr>
+    <tr><td>metric Q_SSIM</td><td class="mono num">+0.87 (strengthened)</td></tr>
+    <tr><td>pyramid vs guided-blend (was: blend won)</td><td class="mono">pyramid won (reversal)</td></tr>
+  </tbody></table>
+  <p><b>Root cause + fix:</b> fixed-pixel params (8px guided radius) vs a 37px
+  circle-of-confusion. Made the guided radius + focus pool <b>resolution-adaptive</b>
+  (≈ the CoC, floored so low-res is byte-identical). Result: <b>byte-identical at
+  low-res (no regression)</b> and default blend <b>0.7998 &gt; pyramid 0.7933</b> at
+  3072px. Lesson: every fixed-pixel operator must scale with resolution/CoC.</p>
+  </div>
 </div>"""
     out = os.path.join(HERE, "report.html")
     open(out, "w").write(html)

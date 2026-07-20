@@ -3,6 +3,30 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F8 — M3 learned per-tile routing beats best-single-tune, MATCHES the oracle
+Numpy MLP (8 content features -> best of 6 tunes), trained on GT-supervised dev
+labels, deployed feature-only (no GT at inference). Held-out hard collage scenes:
+learned routing 0.8580 > best-single-tune 0.8559 > content_aware 0.8554, and it
+EQUALS the per-tile oracle upper bound (0.8580). Tile-accuracy is only 54% but
+tunes are near-equivalent where confused, so fusion quality saturates near oracle.
+Read: per-tile operator/param routing works and is near-optimal, but its CEILING
+is small (+0.002 here). Bigger headroom is structural (defocus-spread rejection,
+thin-structure isolation), not operator choice -> next focus.
+
+## F7 — Content-aware operator routing = non-regressing best-of-both (promoted)
+`content_aware` focus op (blend laplacian/mod_laplacian per pixel by local contrast,
+c=1-exp(-ref/tau)): matches laplacian exactly on Real-MFF (0.9913, no regression) and
+on defocus_spread, improves smooth-gradient metal (0.9621 vs lap 0.9586; mod 0.9675 is
+the ceiling). Hand-tuned tau is a floor for M3 to beat. Committed to the package.
+
+## F6 — Per-tile tune diversity is real; no-GT per-tile labeling is NOT yet reliable
+Per-tile best-tune over collage scenes: all 6 candidate tunes win some tiles (GT dist
+~[34,22,40,16,25,55]) — strong justification for learned per-region routing. BUT the
+composite metric's per-tile best-tune agrees with GT's only ~15% of the time. So the
+no-reference metric is fine for GLOBAL ranking (F1) yet too weak to LABEL per-tile tune
+choice without GT. Implication: train M3 on GT-supervised dev labels, deploy feature-only
+(no GT at inference); closing the no-GT-labeling gap needs metric refinement (future).
+
 ## F5 — Composite metric is BLIND (even backwards) on smooth low-texture content
 On the `gradient_metal` hard scene (smooth brushed surface, gradual focus), GT-SSIM
 ranks **mod_laplacian best (0.9675)** vs laplacian/baseline 0.9586 — a real, distributed

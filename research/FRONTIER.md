@@ -10,7 +10,7 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | # | Direction | Why it matters | Status |
 |---|-----------|----------------|--------|
 | 1 | **N-frame stacks (N>2)** | Nearly all validation was 2-frame; real stacking = 5–50 frames. | ✅ F24: NOT a defect — quality RISES with N (denoising); "dilution" is beneficial, top-K hurts; perband best ∀N. Sub-case 1b still open. |
-| 1b | **Extreme defocus-spread across a deep stack** | Bright point sources: distant-frame leakage could import bokeh spread (F24 scenes didn't stress it). harden's domain. | ⬜ |
+| 1b | **Extreme defocus-spread across a deep stack** | Bright point sources at depth. | ✅ F29: no defect — N=8 matches N=2 under maximal spread stress; harden persists (mildly attenuated). |
 | 2 | **Real N-frame optical data** (BBBC006 microscopy z-stacks) | Real optical defocus. | ✅ F25: got 4 real 3-plane stacks; perband visibly sharpest, pyramid softens/halos nuclei. Microscopy domain covered; macro/photographic real still open (2b). |
 | 2b | **Real photographic/macro deep stacks** | Microscopy ≠ everyday photography content; the photographic real-optical gap persists (MFFW/UHD blocked). | ⬜ re-probe |
 | 3 | **Occlusion-boundary physics (α-matte)** | Real depth edges mix fg/bg semi-transparently. | ✅ F25: built layered α-matte defocus generator; re-ranked — perband crown WIDENS (blend worst under honest occlusion). Synthetic conclusions not artifacts. Fusion itself is still occlusion-UNAWARE (3b). |

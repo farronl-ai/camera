@@ -49,6 +49,15 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F29 — Deep-stack bright-source spread (1b): no defect; harden holds at N=8
+Harshest spread scene (26px CoC bright bars/dots), planes AT the depths: N=8 matches
+N=2 (0.9881 vs 0.9888 GT-SSIM with harden; ring error 55.1 vs 53.6) — distant-frame
+leakage does NOT import bokeh spread even under maximal stress; harden's benefit
+persists at depth, mildly attenuated (F24's conf erosion). F24's open sub-case closed.
+Probe-design lesson: the first probe placed focus planes BETWEEN the scene depths
+(nothing exactly sharp) and returned absurd 0.42 SSIM — caught by sanity-checking
+magnitudes against priors. Benchmarks must cover the depths present in the scene.
+
 ## F28 — Exposure/WB drift: real failure mode, clean theory-backed fix, promoted DEFAULT-ON
 Injected realistic auto-exposure wobble (±12% gain + slight WB tilt) into a GT stack:
 perband drops 0.9594→0.9340, blend 0.9583→0.9270 — drift genuinely breaks fusion.

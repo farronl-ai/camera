@@ -65,6 +65,32 @@ def fuse_local(frames, focus_method="content_aware", harden=0.5, w_min=6.0, eps=
     return multiband_blend(frames, W_local)
 
 
+def _route_map(frames):
+    """Per-pixel routing weight toward LOCAL (vs pyramid), from frames only (no GT).
+
+    Pyramid halos exactly at FINE-SCALE focus (depth) boundaries — thin near
+    structures where the sharpest-frame decision flips on a fine scale. So route to
+    local-guided there, and to pyramid elsewhere (detailed backgrounds / smooth,
+    where pyramid's multi-scale detail is strongest). Signal = local density of
+    focus-winner transitions, content-normalized (no magic threshold).
+    """
+    from focusstack.focus import focus_measure
+    fm = np.stack([focus_measure(_gray32(f)) for f in frames], 0)
+    winner = np.argmax(fm, 0).astype(np.float32)
+    gb = cv2.magnitude(cv2.Sobel(winner, cv2.CV_32F, 1, 0), cv2.Sobel(winner, cv2.CV_32F, 0, 1))
+    dens = cv2.boxFilter((gb > 0).astype(np.float32), cv2.CV_32F, (21, 21))
+    r = np.clip(dens / (np.percentile(dens, 97) + 1e-6), 0, 1)
+    return cv2.GaussianBlur(r, (0, 0), 9.0)
+
+
+def fuse_routed(frames, harden=0.5):
+    """Best-of-both: local-guided at fine depth boundaries, pyramid elsewhere."""
+    lo = fuse_local(frames, harden=harden).astype(np.float32)
+    py = fuse_pyramid(frames).astype(np.float32)
+    r = _route_map(frames)[..., None]
+    return np.clip(r * lo + (1 - r) * py, 0, 255).astype(np.uint8)
+
+
 def _load(sid):
     d = os.path.join(MIX, sid)
     frames = [cv2.imread(p) for p in sorted(glob.glob(os.path.join(d, "frame_*.png")))]
@@ -78,20 +104,23 @@ def worst_region(fused, gt, t=8):
 
 def main():
     ids = [os.path.basename(os.path.dirname(p)) for p in sorted(glob.glob(os.path.join(MIX, "*", "gt.png")))]
-    print(f"{'id':18s} {'global':>8s} {'pyramid':>8s} {'LOCAL':>8s}   {'detail-region SSIM (global/local)':>34s}")
-    agg = {"global": [], "pyramid": [], "local": []}
+    print(f"{'id':18s} {'global':>8s} {'pyramid':>8s} {'LOCAL':>8s} {'ROUTED':>8s}   near-SSIM g/p/routed")
+    agg = {"global": [], "pyramid": [], "local": [], "routed": []}
     for sid in ids:
         frames, gt, depth = _load(sid)
         g = fuse_blend(frames, harden=0.5)          # F19 global auto-scale
         p = fuse_pyramid(frames)
         lo = fuse_local(frames, harden=0.5)
-        agg["global"].append(M.ref_ssim(g, gt)); agg["pyramid"].append(M.ref_ssim(p, gt)); agg["local"].append(M.ref_ssim(lo, gt))
-        # SSIM specifically on the DETAILED (near) regions where global must compromise
-        det = depth < 128
+        ro = fuse_routed(frames, harden=0.5)
+        for k, im in [("global", g), ("pyramid", p), ("local", lo), ("routed", ro)]:
+            agg[k].append(M.ref_ssim(im, gt))
+        det = depth < 128                           # fine near structures
         sg = _ssim_map(_gray32(g), _gray32(gt))[det].mean()
-        sl = _ssim_map(_gray32(lo), _gray32(gt))[det].mean()
-        print(f"{sid:18s} {agg['global'][-1]:8.4f} {agg['pyramid'][-1]:8.4f} {agg['local'][-1]:8.4f}   {sg:16.4f} / {sl:.4f}")
-    print(f"\nMEAN   overall     global={np.mean(agg['global']):.4f}  pyramid={np.mean(agg['pyramid']):.4f}  LOCAL={np.mean(agg['local']):.4f}")
+        sp = _ssim_map(_gray32(p), _gray32(gt))[det].mean()
+        sr = _ssim_map(_gray32(ro), _gray32(gt))[det].mean()
+        print(f"{sid:18s} {agg['global'][-1]:8.4f} {agg['pyramid'][-1]:8.4f} {agg['local'][-1]:8.4f} {agg['routed'][-1]:8.4f}   {sg:.3f}/{sp:.3f}/{sr:.3f}")
+    print(f"\nMEAN overall   global={np.mean(agg['global']):.4f}  pyramid={np.mean(agg['pyramid']):.4f}  "
+          f"LOCAL={np.mean(agg['local']):.4f}  ROUTED={np.mean(agg['routed']):.4f}")
 
 
 if __name__ == "__main__":

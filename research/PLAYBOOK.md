@@ -29,6 +29,16 @@ nuance; `FINDINGS.md` is the dated experimental log.
    the outlier.
 9. **Scene/content-dependence is first-class.** Fine detail vs smooth gradient vs
    specular vs hard edges each want different operators/tunes — route by content.
+9b. **With true GT, GT-referenced fidelity is the verdict** — not your eye's sense of
+   "clean." A cleaner-looking result can be LESS faithful (softer/displaced) than a
+   sharper one with a faint halo. "Look, don't trust the metric" targets NO-REFERENCE
+   metrics + aggregates hiding LOCAL defects; it does NOT override GT fidelity when you
+   have GT. Use both: hunt artifacts by eye, but respect GT-SSIM as truth.
+9c. **The best realization of a principle may be an existing algorithm, not your
+   bespoke mechanism.** The local/multi-scale principle (scale must be local, no global
+   magic number) is right — and the Laplacian PYRAMID embodies it intrinsically, beating
+   a hand-built content-measured local-scale retrofit. Don't fall in love with your own
+   code; check whether a standard method already IS the principled answer.
 10. **Theory first, then verify** empirically + visually.
 10b. **Scale must be MEASURED locally from content, not a global number.** A global
    resolution-scaled window (max(8, ~0.012·max_dim)) only helps object-scale depth

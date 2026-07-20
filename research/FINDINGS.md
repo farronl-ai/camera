@@ -3,6 +3,29 @@
 Persistent notes from the autonomous marathon. Newest first. Pairs metric numbers
 with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
+## F21 — Course-correction: PYRAMID is the best realization of the local-scale principle
+Adding pyramid to the fine-structure comparison (with TRUE GT) flips my earlier
+visual read: on the fine near structures pyramid is MOST faithful (near-SSIM
+0.71–0.77) vs my local (0.55) and global (0.50); pyramid also wins aggregate
+(0.8926). Content-routing (local at fine boundaries, pyramid elsewhere) gained only
++0.001 overall and HURT the structures (I routed toward the worse option there per GT).
+Resolution crossover: low-res clean Real-MFF blend≈pyramid (0.9923≈0.9922); low-res
+HARD boundaries (Lytro fence) blend>pyramid (halo); high-res pyramid>blend (+0.022).
+Two lessons (added to PLAYBOOK):
+  (a) **With true GT, GT-referenced fidelity is the verdict** — a "cleaner-looking"
+      result (my local) can be LESS faithful than a sharper one with a faint halo
+      (pyramid). The "look, don't trust the metric" rule targets NO-REFERENCE metrics
+      + aggregates hiding LOCAL defects; it does NOT override GT-referenced fidelity.
+  (b) **The best realization of a principle may be an existing algorithm, not your
+      bespoke retrofit.** Farron's local/multi-scale thesis is CORRECT — and pyramid
+      (intrinsically multi-scale) embodies it better than my explicit content-measured
+      local-scale guided-blend. Don't fall in love with your own mechanism.
+Decision: keep `blend` the default (halo-safe all-rounder; high-res data is synthetic-
+only and pyramid halos on hard boundaries). Method choice is resolution/content-
+dependent — a selector (blend low-res / pyramid high-res) is the principled next step,
+pending REAL high-res optical-defocus data to confirm pyramid's high-res win isn't a
+synthetic-benchmark artifact. analyze.py/local_fuse.py retained as validated research.
+
 ## F20 — CONTENT-MEASURED LOCAL SCALE beats the global magic number (Farron's thesis, confirmed)
 The F19 global scale (0.012·max_dim) only helps object-scale depth splits; it DESTROYS
 fine details at FINE-SCALE depth boundaries (thin near structures over a far

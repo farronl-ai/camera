@@ -1,8 +1,7 @@
 {
   "weights": {
-    "q_abf": 0.30000000000000004,
-    "q_ssim": 0.7000000000000001,
-    "q_mi": 0.0
+    "q_abf_ms": 0.3,
+    "q_ssim": 0.7
   },
   "spearman": 0.7228571428571428,
   "individual": {
@@ -29,5 +28,6 @@
       5.592674706608893
     ]
   },
-  "n_pairs": 120
+  "n_pairs": 120,
+  "note": "F26: q_abf -> multi-scale q_abf_ms (mean pool). New composite Spearman vs GT: +0.785 low-res (old +0.719), +0.869 high-res (old +0.686). One global metric across resolutions."
 }

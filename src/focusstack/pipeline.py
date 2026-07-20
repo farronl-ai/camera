@@ -18,7 +18,8 @@ import numpy as np
 from . import io as fio
 from .align import align_stack
 from .focus import content_aware_energies, focus_measures
-from .fusion import fuse_blend, fuse_decision, fuse_max, fuse_perband, fuse_pyramid
+from .fusion import (depth_from_focus, fuse_blend, fuse_decision, fuse_max,
+                     fuse_perband, fuse_pyramid)
 
 
 def _focus_maps(images: list[np.ndarray], method: str) -> list[np.ndarray]:
@@ -52,6 +53,7 @@ def run(
     levels: int | None = None,
     harden: float = 0.0,
     weight_scale: float = 1.0,
+    depth_out: str | None = None,
     debug_dir: str | None = None,
     verbose: bool = False,
 ) -> np.ndarray:
@@ -128,6 +130,12 @@ def run(
         raise ValueError(
             f"Unknown method {method!r}; use 'blend', 'perband', 'decision', 'pyramid', or 'max'."
         )
+
+    if depth_out:
+        log("computing depth-from-focus map ...")
+        d = depth_from_focus(images, focus_method=focus_method)
+        fio.save_image(depth_out, (d * 255.0).astype(np.uint8))
+        log(f"wrote depth map {depth_out}")
 
     fio.save_image(output, fused)
     log(f"wrote {output}")

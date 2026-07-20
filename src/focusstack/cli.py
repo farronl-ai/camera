@@ -84,6 +84,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--weight-scale 0.5 (~1.5x faster, quality-neutral-or-better). "
         "Overrides --method/--weight-scale unless those are set explicitly.",
     )
+    p.add_argument(
+        "--depth-out",
+        default=None,
+        help="Also write a depth-from-focus map (uint8 PNG; near=dark, far=bright "
+        "for a near-to-far ordered stack). A free byproduct of the fusion decision; "
+        "more frames give finer depth quantization.",
+    )
     p.add_argument("-v", "--verbose", action="store_true", help="Print progress.")
     return p
 
@@ -107,6 +114,7 @@ def main(argv: list[str] | None = None) -> int:
             levels=args.levels,
             harden=args.harden,
             weight_scale=weight_scale,
+            depth_out=args.depth_out,
             debug_dir=args.debug_dir,
             verbose=args.verbose,
         )

@@ -15,8 +15,8 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 2b | **Real photographic/macro deep stacks** | Microscopy ≠ everyday photography content; the photographic real-optical gap persists (MFFW/UHD blocked). | ⬜ re-probe |
 | 3 | **Occlusion-boundary physics (α-matte)** | Real depth edges mix fg/bg semi-transparently. | ✅ F25: built layered α-matte defocus generator; re-ranked — perband crown WIDENS (blend worst under honest occlusion). Synthetic conclusions not artifacts. Fusion itself is still occlusion-UNAWARE (3b). |
 | 3b | **Occlusion-AWARE fusion** (not just generator) | The engine doesn't model matting when fusing; a matte-aware weight could beat perband at veiled edges. | ⬜ |
-| 4 | **Per-band Q_ABF metric** | Transplant the perband lesson into the metric: fixes Q_ABF's high-res collapse (F17) structurally. Then re-calibrate composite per regime. | 🔶 B4 |
-| 5 | **Depth map byproduct** | N-frame fusion decision ≈ depth-from-focus; free feature, enables occlusion/object reasoning later. | 🔶 B5 |
+| 4 | **Per-band Q_ABF metric** | Fix Q_ABF's high-res collapse structurally. | ✅ F26: q_abf_ms (mean-pool) recovers +0.11→+0.78 at high-res; new composite best at BOTH regimes (+0.785/+0.869). Adopted. |
+| 5 | **Depth map byproduct** | Free feature from the fusion decision. | ✅ F26: --depth-out shipped; r=0.59 on textured pixels (texture-only observability — documented limitation). |
 | 6 | **Exposure/WB drift between frames** | Real capture drifts brightness/color across a stack; engine assumes constant. Needs per-frame gain/WB normalization before fusion. | ⬜ |
 | 7 | **Alignment robustness on real handheld deep stacks** | ECC is a local optimizer aligned to the middle frame; feature-based init / chained alignment for large displacement. | ⬜ |
 | 8 | **Focus breathing across deep stacks** | Scale change accumulates over 10s of frames; interacts with #7. | ⬜ |

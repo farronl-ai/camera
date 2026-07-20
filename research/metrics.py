@@ -190,13 +190,14 @@ def sharp(_sources, fused: np.ndarray) -> float:
 # --------------------------------------------------------------------------- #
 # Composite (weights calibrated in M0) + GT-referenced (dev validation only)
 # --------------------------------------------------------------------------- #
-ALL_METRICS = {"q_abf": q_abf, "q_mi": q_mi, "q_ssim": q_ssim, "sharp": sharp}
+ALL_METRICS = {"q_abf": q_abf, "q_abf_ms": q_abf_ms, "q_mi": q_mi,
+               "q_ssim": q_ssim, "sharp": sharp}
 
 # Composite weights. Calibrated against Real-MFF ground truth by
 # validate_metrics.py (mean per-pair Spearman vs GT-SSIM = +0.723): q_mi was
 # zeroed (it anti-correlates with true quality), q_ssim dominates, q_abf adds
 # halo/edge sensitivity. Loaded from metric_weights.json if present.
-COMPOSITE_WEIGHTS = {"q_abf": 0.3, "q_ssim": 0.7}
+COMPOSITE_WEIGHTS = {"q_abf_ms": 0.3, "q_ssim": 0.7}
 
 _wpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "metric_weights.json")
 if os.path.exists(_wpath):

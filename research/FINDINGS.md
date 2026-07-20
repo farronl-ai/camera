@@ -49,6 +49,22 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F26 — Multi-scale Q_ABF fixes the metric across resolutions; depth byproduct shipped
+B4: q_abf_ms (gradient transfer per pyramid level, MEAN-pooled — sum lets the noisy
+fine level dominate by pixel count) — Spearman vs GT: high-res +0.783 (plain q_abf had
+collapsed to +0.109), low-res +0.294 (≈ plain +0.323). New composite (0.3·q_abf_ms +
+0.7·q_ssim) beats the old at BOTH regimes: +0.785 vs +0.719 low-res, +0.869 vs +0.686
+high-res (even beats q_ssim alone there). Adopted as the default composite — ONE
+trustworthy global metric across resolutions; F17's regime split is resolved
+structurally (per-region selection stays q_ssim per F12). Same cure as the engine:
+scale-adaptivity in the pyramid structure.
+B5: depth_from_focus + --depth-out shipped (winner-index/(N-1), guided-smoothed).
+Honest scope: two-region test passes; on an N=8 continuous-gradient real-photo scene
+r=0.59 vs true depth on TEXTURED pixels, r=0.27 overall — depth-from-focus is only
+observable where there is texture (classic DFF limitation; flat regions are
+noise-driven). A coarse byproduct, not a depth sensor; useful for masks/occlusion
+reasoning, documented as such.
+
 ## F25 — Honesty checks STRENGTHEN perband: α-matte occlusion + REAL microscopy defocus
 Two independent reality checks; perband's crown survived both.
 B3 (occlusion-aware generator): replaced hard per-pixel depth indexing with a proper

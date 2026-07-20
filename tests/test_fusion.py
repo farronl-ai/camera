@@ -2,7 +2,8 @@ import cv2
 import numpy as np
 
 from focusstack.focus import focus_measure, focus_measures
-from focusstack.fusion import fuse_blend, fuse_decision, fuse_max, fuse_perband, fuse_pyramid, guided_filter
+from focusstack.fusion import (depth_from_focus, fuse_blend, fuse_decision, fuse_max,
+                               fuse_perband, fuse_pyramid, guided_filter)
 
 
 def _two_region_stack():
@@ -72,6 +73,17 @@ def test_fuse_blend_sharper_and_partition():
     assert np.allclose(weights.sum(axis=0), 1.0, atol=1e-4)
     assert weights[0][:, :64].mean() > 0.5
     assert weights[1][:, 64:].mean() > 0.5
+
+
+def test_depth_from_focus_orders_regions():
+    # Frame 0 is sharp on the left half, frame 1 on the right -> depth should be
+    # near 0 on the left and near 1 on the right (winner index scaled to [0,1]).
+    _, a, b = _two_region_stack()
+    d = depth_from_focus([a, b])
+    assert d.shape == a.shape[:2]
+    assert d.min() >= 0.0 and d.max() <= 1.0
+    assert d[:, :64].mean() < 0.35
+    assert d[:, 64:].mean() > 0.65
 
 
 def test_perband_fuses_sharper_than_inputs():

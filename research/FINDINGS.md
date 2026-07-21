@@ -54,6 +54,21 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F31 — Semantic depth channel visually validated: orthogonality is real
+Depth-Anything-V2-Small via the .venv312 bridge, eye-checked on two probes:
+(a) layered scene_00: blob object crisp with CLOSED boundaries; the hole in the blob
+correctly shows far depth through it (nesting topology); the CAMOUFLAGE patch stands
+out as its own depth despite texture-matching — object priors segment what appearance
+statistics cannot; (b) the real fence pair, run on the FAR-FOCUSED frame where the
+fence is an optical smear: DA-V2 reconstructs the fence lattice as nearest object and
+players as distinct depth silhouettes — semantic priors recover geometry optically
+ABSENT from the gradients. This channel supplies boundaries + near-side EVERYWHERE,
+including where our stack channel is blind (F30 guide-blindness) and where appearance
+is quiet. Conventions noted: DA-V2 higher=nearer (inverse-depth); focus-depth
+lower=nearer -> calibration must be rank/monotonic. Next (E3 cont.): quantitative
+boundary P/R/F from semantic-depth discontinuities vs stack vs fused; focus-depth
+cross-calibration; then E4 integration with B as its OWN guide channel (per F30).
+
 ## F30 — Stack boundary channel doubles Canny; two honest lessons reshape E3/E4
 E2 on layered GT scenes (tolerance ±3px): stack channel (defocus-robust max-over-frames
 edges + winner discontinuities + focus-depth gradient) F=0.443 vs Canny F=0.215 — the

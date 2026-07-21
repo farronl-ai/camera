@@ -65,6 +65,25 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F38 — Reconstruction on real stacks: gate arc lands strongest on-model result; real-data now neutral, benefit unproven
+Tested the "true beast" on real handheld sweeps. v1 fired on OBJECT INTERIORS (kitchen
+alphafire eye-check: label text, in-focus texture — dominance = ordinary DOF at that
+plane, F36's mechanism on real data; 5.9% of pixels). Gate iterations, each from a
+measured mechanism: (1) depth-evidence-only ribbon — vacuous on deep stacks (winner
+flips are UBIQUITOUS at N=12: each object at its own plane is continuous depth, not
+occlusion); (2) absolute plane-step on guided depth — killed the N=2 on-model win
+(guided smoothing erases the step, F30 blindness); (3) **raw-winner median-filtered
+plane-step** (occlusion = multi-plane jump; N=2 flip = full jump — one rule, both
+regimes) + **energy floor** (steps only count where focus is decisive — textureless
+argmax is noise, F26): occ bband e2 −16% AND global +0.003, improving on ALL scenes on
+BOTH metrics — the strongest on-model result of the arc — while real-data impact is
+NEUTRAL (q_ssim ±0.001, ~1 gray-level diff on ~5% of pixels) and fire visibly moved
+from interiors toward true silhouettes (eye-checked; specular/noisy surfaces still
+misfire). Honest status: reconstruction does no real-data harm and its on-model
+mechanism is strong, but real-data BENEFIT is undemonstrated — remaining: per-component
+VEIL-EVIDENCE confirmation (does the far side actually show a veil?) and GT verdicts
+(iphone12). Stays default-OFF.
+
 ## F37 — FIRST REAL-HANDHELD RESULT: blend beats perband (misalignment robustness is a new regime axis)
 mobiledepth quick suite (real optical, N=12-14, graded handheld motion, no GT; F25
 protocol: q_ssim ordering + eye): blend > perband > pyramid on ALL four sequences, and

@@ -60,12 +60,8 @@ def _robust_norm(x: np.ndarray, pct: float = 99.0) -> np.ndarray:
     return np.clip(x / (np.percentile(x, pct) + 1e-6), 0.0, 1.0)
 
 
-def stack_boundary(images: list[np.ndarray]) -> np.ndarray:
-    """Soft boundary map from stack evidence (defocus-robust; no appearance model).
-
-    Channels: multi-scale gradient MAX over frames (a contour is sharpest in its
-    own focal plane), focus-winner discontinuity density, and focus-depth gradient.
-    """
+def _stack_boundary_parts(images: list[np.ndarray]):
+    """(edges, winner_b, depth_b) evidence channels; see stack_boundary."""
     grays = [to_gray_float(im) for im in images]
     edges = None
     for sigma in (0.0, 2.0, 4.0):
@@ -77,14 +73,40 @@ def stack_boundary(images: list[np.ndarray]) -> np.ndarray:
     wd = (_grad_mag(winner) > 0).astype(np.float32)
     winner_b = _robust_norm(cv2.boxFilter(wd, cv2.CV_32F, (9, 9)))
     depth_b = _robust_norm(_grad_mag(depth_from_focus(images)))
+    return edges, winner_b, depth_b
+
+
+def stack_boundary(images: list[np.ndarray]) -> np.ndarray:
+    """Soft boundary map from stack evidence (defocus-robust; no appearance model).
+
+    Channels: multi-scale gradient MAX over frames (a contour is sharpest in its
+    own focal plane), focus-winner discontinuity density, and focus-depth gradient.
+    """
+    edges, winner_b, depth_b = _stack_boundary_parts(images)
     return np.clip(0.5 * edges + 0.25 * winner_b + 0.4 * depth_b, 0.0, 1.0)
 
 
 def _estimate_matte(images, radius, ribbon_thresh=0.45):
     """Difference matte + owner index (see module docstring); alpha=0 -> inactive."""
-    boundary = stack_boundary(images)
+    # Ribbon = ABSOLUTE depth steps in plane units. Texture edges admit object
+    # interiors, and on deep stacks winner flips are ubiquitous (each object at
+    # its own plane = continuous depth) — occlusion is specifically a MULTI-PLANE
+    # depth jump across a contour (measured on real stacks, F38).
+    n = len(images)
+    grays0 = [to_gray_float(im) for im in images]
+    E0 = np.stack(content_aware_energies(grays0), 0)
+    win_raw = np.argmax(E0, 0).astype(np.uint8)
+    win_med = cv2.medianBlur(win_raw, 3).astype(np.float32) / max(1, n - 1)
+    k5 = np.ones((5, 5), np.uint8)
+    step = cv2.dilate(win_med, k5) - cv2.erode(win_med, k5)
+    # a depth step only carries information where focus energy is decisive —
+    # in textureless regions the winner is noise (no depth signal, F26)
+    top = np.sort(E0, axis=0)[-1]
+    valid = (top > np.median(top)).astype(np.uint8)
+    step = step * cv2.dilate(valid, k5)
+    thr = min(0.9, 1.5 / max(1, n - 1))
     rib_r = max(2, int(round(0.7 * radius)))
-    ribbon = cv2.dilate((boundary >= ribbon_thresh).astype(np.uint8),
+    ribbon = cv2.dilate((step > thr).astype(np.uint8),
                         np.ones((2 * rib_r + 1, 2 * rib_r + 1), np.uint8))
     grays = [to_gray_float(im) for im in images]
     energies = np.stack(content_aware_energies(grays), 0)

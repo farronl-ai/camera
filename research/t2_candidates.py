@@ -191,12 +191,19 @@ def main():
     lam = 3.0
     A = Xn.T @ Xn + lam * np.eye(Xn.shape[1], dtype=np.float32)
     wgt = np.linalg.solve(A, Xn.T @ yg)
-    FIRE_MARGIN = 3e-4
+    FIRE_MARGIN = 3e-4   # floor; raised by the property-driven rule below
 
     def pred(r):
         xn = np.hstack([(expand(r["feats"]) - mu) / sd, [1.0]])
         return float(xn @ wgt)
 
+    # PROPERTY-DRIVEN margin (train-only): above the worst harmful prediction
+    ptr0 = np.array([pred(r) for r in train])
+    dtr0 = np.array([r["dg"] for r in train])
+    bad = ptr0[dtr0 < -0.001]
+    if len(bad):
+        FIRE_MARGIN = max(FIRE_MARGIN, float(bad.max()) + 1e-4)
+    print(f"  property-driven margin: {FIRE_MARGIN:+.4f}")
     ptr = np.array([pred(r) for r in train]); ph = np.array([pred(r) for r in held])
     ytr = yg; yh = np.array([r["dg"] for r in held])
     ftr = ptr >= FIRE_MARGIN; fh = ph >= FIRE_MARGIN

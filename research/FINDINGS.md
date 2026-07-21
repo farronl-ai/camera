@@ -65,6 +65,22 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F47 — BOTH specialists gate-locked under one rule: outcome regression + property-driven margin
+Reconstruction's gate, built on its home regime (120-scene thin-structure factory, C3
+difference-mattes, no bridges): ungated hit rate 56% with 10x the veil's effect sizes;
+edge-quality features (transition-shell sharpness + silhouette-on-edge alignment — the
+F46 theory features) lifted ranking materially; the closing step was the PROPERTY-
+DRIVEN MARGIN (train-only: fire threshold above the worst harmful prediction + eps):
+train min dg −0.0002, **held 5/30 fired ALL positive, mean +0.0083**. The same rule
+retro-applied to the veil gate excludes its one violator: held 2/2 good, worst +0.0000
+— at a real recall cost (17→4 scenes; small effect sizes mean the safety margin eats
+proportionally more recall). UNIFIED GATE RECIPE, now standard: (1) candidates from
+regime-matched matting; (2) features incl. matte-edge quality; (3) ridge regression on
+the ACTUAL outcome (dg) from factory GT; (4) fire margin set on train by the property,
+verified held. Recall grows with features/data; safety is structural. Coverage today:
+reconstruction ~17% of its regime (large wins), veil ~4% (small wins). Next: composed
+two-specialist pass + --enhance packaging; iphone12 GT remains the real-data verdict.
+
 ## F46 — Cross-regime gate test CONFIRMS the scale-split adversarially; specialists need regime-matched mattes
 Ported the outcome-gate to reconstruction ON THE WIDE-OBJECT factory: fired 39/100,
 outcomes overwhelmingly harmful (contour errors explode, worst global −0.086) — and

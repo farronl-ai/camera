@@ -54,6 +54,22 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F32 — Channel fusion works: fused F=0.55 (2.6x Canny); two confounds diagnosed
+E3 quantitative on layered GT (tol ±3px): stack 0.443, semantic 0.400, **fused 0.551**
+(max- and mean-fusion tie) vs Canny 0.215 — the orthogonal channels combine; fusion
+also lifts camo recall (e.g. 0.76 on scene_04). Two confounds found and resolved:
+(a) **Input quality gates the semantic channel**: DA-V2 on the artifact-ridden
+winner-take-all composite scored sem F=0.31; on the clean perband fusion 0.40 →
+the TWO-PASS architecture (pass-1 perband → depth net → boundary-aware pass-2) is
+now evidence-backed, not a convenience.
+(b) **Benchmark pathology**: layered scenes use photos as flat layers; DA-V2 correctly
+sees the photos' INTERNAL 3D objects (balls, people), which layer-GT scores as false
+positives (sem F=0.06-0.11 exactly on object-rich backgrounds) — the eval UNDER-measures
+the semantic channel, and the ~0 focus↔DA-V2 Spearman on these scenes is the same
+pathology (flat in layer-depth, 3D in scene-depth). Calibration must be validated on
+real scenes; boundary-F is an intermediate diagnostic — the phase gate remains bband
+error after integration (don't over-optimize the intermediate).
+
 ## F31 — Semantic depth channel visually validated: orthogonality is real
 Depth-Anything-V2-Small via the .venv312 bridge, eye-checked on two probes:
 (a) layered scene_00: blob object crisp with CLOSED boundaries; the hole in the blob

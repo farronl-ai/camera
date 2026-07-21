@@ -195,8 +195,22 @@ def estimate_D(frames, max_r, owner=0, far_idx=1):
     from focusstack.fusion import guided_filter
     grays = [to_gray_float(f) for f in frames]
     E = np.stack(content_aware_energies(grays), 0)
-    side = (np.argmax(E, 0) == owner).astype(np.float32)
-    # coarse coherent region: heavy close + median kills speckle, keeps big blobs
+    winner = np.argmax(E, 0)
+    srt = np.sort(E, axis=0)
+    top = srt[-1]
+    # winner is only meaningful where focus is decisive (F26): propagate the
+    # DECISIVE labels into textureless holes from the nearest decisive pixel
+    decisive = ((srt[-1] - srt[-2]) / (srt[-1] + 1e-6) > 0.3) & (top > np.median(top))
+    if decisive.sum() < 100:
+        return np.zeros_like(top)[..., None] * np.zeros(3), np.zeros_like(top)
+    inv = np.where(decisive, 0, 1).astype(np.uint8)
+    _, lbl = cv2.distanceTransformWithLabels(inv, cv2.DIST_L2, 5,
+                                             labelType=cv2.DIST_LABEL_PIXEL)
+    lut = np.zeros(int(lbl.max()) + 1, np.uint8)
+    ys, xs = np.where(decisive)
+    lut[lbl[ys, xs]] = winner[ys, xs]
+    winner_filled = lut[lbl]
+    side = (winner_filled == owner).astype(np.float32)
     side = cv2.medianBlur((side * 255).astype(np.uint8), 15).astype(np.float32) / 255.0
     a = np.clip(guided_filter(grays[owner] / 255.0, side, 4, 1e-3), 0.0, 1.0)
     near_pm = frames[owner].astype(np.float32) * a[..., None]
@@ -229,3 +243,31 @@ def p2():
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "p2":
     p2()
+
+
+def o2():
+    """True alpha, ESTIMATED content (near premult from owner frame, far observed):
+    if O2 ~= O1b, matte quality alone closes the gap -> semantic alpha is the path."""
+    from focusstack.fusion import _auto_levels
+    for coc in (0.04, 0.012):
+        print(f"\n===== O2: true alpha + estimated content, CoC {coc} =====")
+        for sc in scenes(coc):
+            gt, alpha, max_r = sc["gt"], sc["alpha"], sc["max_r"]
+            fr = fringe_mask(alpha, max_r)
+            base = fuse_perband(sc["frames"], harden=0.5)
+            near_pm = sc["frames"][0].astype(np.float32) * alpha[..., None]
+            far_f = sc["frames"][1].astype(np.float32)
+            ab = disk_blur(alpha, 0.7 * max_r)
+            pm_b = np.stack([disk_blur(near_pm[..., c], 0.7 * max_r) for c in range(3)], 2)
+            D = ((pm_b - near_pm) + far_f * (alpha - ab)[..., None]) * (alpha < 0.5)[..., None]
+            e0 = float(np.abs(base.astype(np.float32) - gt.astype(np.float32)).sum(2)[fr].mean())
+            row = []
+            for k_from in (0, 3):
+                cor = fuse_perband_weighted_corr(sc["frames"], D, k_from)
+                ec = float(np.abs(cor.astype(np.float32) - gt.astype(np.float32)).sum(2)[fr].mean())
+                row.append(f"k>={k_from}: {ec:5.1f}/{M.ref_ssim(cor, gt):.4f}")
+            print(f"  {sc['sid']:22s} base {e0:5.1f}/{M.ref_ssim(base, gt):.4f} | " + "  ".join(row))
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "o2":
+    o2()

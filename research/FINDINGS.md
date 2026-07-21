@@ -65,6 +65,23 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F41 — Veil correction: mechanism fully validated; the matte is (again) the missing input
+Completing the 16d ladder isolated everything. O2 (TRUE alpha + estimated content —
+near premult from the owner frame, far observed): fringe AND global improve on all 8
+scenes, both CoC regimes (e.g. 44.9→38.2 fringe, 0.9430→0.9464 global) — estimated
+content is good enough; the matte alone separates success from failure. P2 (estimated
+alpha, two iterations: coherent-winner matte, then decisive-label propagation via
+distance transform — the F26 borrow-from-nearest-signal move): alpha err stuck at
+0.09-0.29 because sky-scale TEXTURELESS regions are fundamentally ambiguous to focus
+evidence; global regresses. Conclusion: weight-scaled in-loop veil correction is a
+proven mechanism awaiting a proven matte — and the semantic channel's demonstrated
+strength (F31: crisp closed wide-object boundaries, camouflage included) is exactly
+this input. Design forward: correct_veil accepts an external alpha (two-pass semantic
+bridge; classical fallback stays off); P3 gates + packaging once semantic-alpha lands.
+Pattern note (three arcs now: 16b, 16c, 16d): every reconstruction-family mechanism
+validates on oracle mattes and stalls on classical matte estimation — the matte IS the
+frontier, and it is semantic.
+
 ## F40 — Veil correction (16d): weight-scaled forward-model subtraction — oracle ceiling strong; band-limitation premise refuted
 P0 (measure first): wide-occluder haze is REAL only at giant CoC (fringe = 19-25% of
 total error at r=0.04·dim, with the predicted coarse-band bump; at moderate CoC the

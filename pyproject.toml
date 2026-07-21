@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+docs = ["latex2mathml>=3.75"]
 
 [project.scripts]
 focusstack = "focusstack.cli:main"

@@ -33,6 +33,7 @@ research/**/*.jpg
 research/**/*.jpeg
 research/**/*.tif
 research/*.html
+!research/showcase_template.html
 research/*.output
 research/inspect/
 

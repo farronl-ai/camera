@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>focusstack — Progress Showcase</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%23e6b155' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23e6b155'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0b0e13;
+    --bg-soft: #10141c;
+    --surface: #141924;
+    --surface-2: #1a2130;
+    --ink: #e9e6df;
+    --ink-dim: #a8b0be;
+    --ink-faint: #78818f;
+    --gold: #e6b155;
+    --gold-soft: #f2cf8d;
+    --cyan: #7cc7dd;
+    --line: rgba(255,255,255,0.09);
+    --line-soft: rgba(255,255,255,0.055);
+    --serif: "Charter", "Bitstream Charter", "Iowan Old Style", Georgia, Cambria, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(230,177,85,0.28); }
+
+  /* ---------- top nav ---------- */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 1.5rem;
+    padding: 0.65rem 1.4rem;
+    background: rgba(11,14,19,0.82);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 0.85rem;
+  }
+  nav .brand {
+    font-family: var(--mono);
+    color: var(--gold);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  nav .links { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+  nav a { border-bottom: none; }
+  nav .links a {
+    color: var(--ink-dim); text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  nav .links a:hover { color: var(--gold-soft); }
+  @media (max-width: 720px) { nav .links { display: none; } }
+
+  /* ---------- hero ---------- */
+  header.hero {
+    position: relative;
+    padding: 5.5rem 1.4rem 3.5rem;
+    text-align: center;
+    overflow: hidden;
+  }
+  header.hero::before {
+    content: "";
+    position: absolute; inset: -40% -20% auto;
+    height: 130%;
+    background:
+      radial-gradient(ellipse 55% 60% at 50% 0%, rgba(230,177,85,0.13), transparent 65%),
+      radial-gradient(ellipse 40% 50% at 72% 10%, rgba(124,199,221,0.08), transparent 60%);
+    pointer-events: none;
+  }
+  .hero-kicker {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0 0 1.1rem;
+  }
+  h1.title {
+    font-family: var(--mono);
+    font-size: clamp(2.4rem, 7vw, 4.2rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--ink);
+  }
+  h1.title .dim { color: var(--ink-faint); font-weight: 400; }
+  .hero-sub {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(1.05rem, 2.4vw, 1.3rem);
+    color: var(--ink-dim);
+    max-width: 46em;
+    margin: 1.4rem auto 0;
+    line-height: 1.7;
+  }
+  .hero-sub strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- layout ---------- */
+  main { max-width: 860px; margin: 0 auto; padding: 0 1.4rem 5rem; }
+  section { margin-top: 4.5rem; }
+
+  .kicker {
+    display: flex; align-items: center; gap: 0.8rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.9rem;
+  }
+  .kicker::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, rgba(230,177,85,0.4), transparent);
+  }
+  h2 {
+    font-family: var(--serif);
+    font-size: clamp(1.7rem, 4vw, 2.3rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    margin: 0 0 1.1rem;
+  }
+  h3 {
+    font-family: var(--serif);
+    font-size: 1.45rem;
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 3rem 0 0.9rem;
+  }
+  p { margin: 0 0 1.1rem; }
+  a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid rgba(124,199,221,0.3); }
+  a:hover { color: #a5dcec; border-bottom-color: rgba(124,199,221,0.7); }
+  strong { color: #f4f1ea; }
+  em { color: inherit; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: 5px;
+    padding: 0.12em 0.4em;
+    color: var(--gold-soft);
+  }
+
+  /* ---------- idea numbering ---------- */
+  .idea { position: relative; margin-top: 3.4rem; }
+  .idea h3 { display: flex; align-items: baseline; gap: 0.9rem; margin-top: 0; }
+  .idea .num {
+    font-family: var(--mono);
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(230,177,85,0.55);
+    line-height: 1;
+    flex: none;
+  }
+
+  /* ---------- figures ---------- */
+  figure { margin: 2rem 0 2.2rem; }
+  figure a.imglink { display: block; border: none; }
+  figure img {
+    display: block; width: 100%; height: auto;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  figure a.imglink:hover img {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+  }
+  figcaption {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 0.92rem;
+    color: var(--ink-dim);
+    margin-top: 0.8rem;
+    line-height: 1.6;
+    padding: 0 0.2rem;
+  }
+  figcaption strong { color: var(--ink); }
+  figcaption code { font-style: normal; font-size: 0.82em; }
+
+  /* ---------- math ---------- */
+  .eq {
+    margin: 1.6rem 0;
+    padding: 1.05rem 1.2rem;
+    background: var(--bg-soft);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    overflow-x: auto;
+    text-align: center;
+  }
+  .eq math { font-size: 1.18rem; }
+  math { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math, serif; }
+
+  /* ---------- callout ---------- */
+  .callout {
+    margin: 2rem 0;
+    padding: 1.3rem 1.6rem;
+    background: linear-gradient(135deg, rgba(230,177,85,0.10), rgba(230,177,85,0.03));
+    border: 1px solid rgba(230,177,85,0.28);
+    border-radius: 12px;
+    font-family: var(--serif);
+    font-size: 1.12rem;
+    line-height: 1.6;
+  }
+  .callout strong { color: var(--gold-soft); }
+
+  /* ---------- tables ---------- */
+  .table-wrap { overflow-x: auto; margin: 1.8rem 0; border-radius: 10px; border: 1px solid var(--line); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; min-width: 560px; }
+  th {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    text-align: left;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+    color: var(--ink-dim);
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(odd) td { background: rgba(255,255,255,0.015); }
+  td strong { color: var(--gold-soft); }
+  td .win { color: var(--gold-soft); font-weight: 700; }
+  td em { color: var(--ink); }
+
+  /* ---------- code block ---------- */
+  pre {
+    margin: 1.6rem 0;
+    padding: 1.2rem 1.4rem;
+    background: #0d1117;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.86rem;
+    line-height: 1.75;
+    color: var(--ink);
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+  pre .cmd { color: var(--gold-soft); font-weight: 600; }
+  pre .flag { color: var(--cyan); }
+  pre .comment { color: var(--ink-faint); }
+
+  /* ---------- roadmap cards ---------- */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1.4rem 0 2rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    padding: 1.15rem 1.3rem;
+    font-size: 0.94rem;
+    color: var(--ink-dim);
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .card:hover { border-color: rgba(230,177,85,0.35); transform: translateY(-2px); }
+  .card b {
+    display: block;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.06rem;
+    margin-bottom: 0.35rem;
+  }
+  .roadmap-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin: 2.2rem 0 0.2rem;
+  }
+
+  /* ---------- footer ---------- */
+  footer {
+    border-top: 1px solid var(--line-soft);
+    margin-top: 5rem;
+    padding: 2.5rem 1.4rem 3.5rem;
+    text-align: center;
+    font-size: 0.88rem;
+    color: var(--ink-faint);
+  }
+  footer .colophon {
+    font-family: var(--serif);
+    font-style: italic;
+    max-width: 42em;
+    margin: 0 auto 1.2rem;
+    line-height: 1.7;
+  }
+
+  /* ---------- reveal on scroll ---------- */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    figure a.imglink:hover img, .card:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="brand" href="#top">focusstack<span style="color:var(--ink-faint)"> / showcase</span></a>
+  <div class="links">
+    <a href="#problem">Problem</a>
+    <a href="#anatomy">How it thinks</a>
+    <a href="#ideas">Five ideas</a>
+    <a href="#real">Real optics</a>
+    <a href="#evidence">Evidence</a>
+    <a href="#run">Run it</a>
+    <a href="#next">What's next</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <p class="hero-kicker">Progress Showcase</p>
+  <h1 class="title">focus<span class="dim">/</span>stack</h1>
+  <p class="hero-sub">A visual tour of the engine as it stands today: what it does, how it
+  thinks, the mathematics underneath, the evidence behind every claim — and where it goes
+  next. <strong>This note is a milestone, not a destination.</strong></p>
+</header>
+
+<main>
+
+<!-- ================= problem ================= -->
+<section id="problem" class="reveal">
+  <p class="kicker">01 · The result</p>
+  <h2>The problem, and the result</h2>
+
+  <p>A lens can only focus at one distance. Anything nearer or farther is blurred by the
+  optics — the deeper the scene, the worse the compromise. <strong>Focus stacking</strong>
+  takes several photographs of the same scene focused at different depths and fuses them
+  into one image that is sharp everywhere.</p>
+
+  <p>Below: two real light-field captures — one focused on the chain-link fence, one on
+  the players behind it — and the engine's fusion. Both the fence <em>and</em> the gym are
+  sharp, with no halo around the wires:</p>
+
+  <figure>
+    <a class="imglink" href="img/hero_fence.jpg" target="_blank" rel="noopener">
+      <img src="img/hero_fence.jpg" alt="Two differently-focused sources and the fused all-in-focus result">
+    </a>
+    <figcaption>Left: near focus (fence sharp, gym blurred). Middle: far focus (gym sharp,
+    fence a soft smear). Right: <code>focusstack</code> output — everything sharp.</figcaption>
+  </figure>
+
+  <p>This is a genuinely hard case: the fence is a <em>thin, high-contrast structure over a
+  sharp background</em>, the exact geometry where classical fusion methods leave bright
+  halos or grey, ghosted wires.</p>
+</section>
+
+<!-- ================= anatomy ================= -->
+<section id="anatomy" class="reveal">
+  <p class="kicker">02 · Anatomy</p>
+  <h2>How it thinks</h2>
+
+  <p>The engine's reasoning is visible. For the fence pair, left to right: where it
+  measures sharp detail, which frame wins each pixel, the cleaned-up weight it
+  actually uses, and the fused result:</p>
+
+  <figure>
+    <a class="imglink" href="img/anatomy.jpg" target="_blank" rel="noopener">
+      <img src="img/anatomy.jpg" alt="Pipeline anatomy: focus energy, winner map, guided weight, fusion">
+    </a>
+    <figcaption>Left: focus-energy map (bright = sharp detail present). Second: raw per-pixel
+    winner (blue = fence frame, red = background frame). Third: the guided weight for
+    the fence frame — the raw decision cleaned into a smooth, edge-snapped lattice.
+    Right: the fusion.</figcaption>
+  </figure>
+
+  <p>That strip is the whole philosophy in one image: <strong>measure sharpness, decide per
+  location, clean the decision so it follows real object edges, then reconstruct
+  without seams.</strong> Everything below is the mathematics of doing each step right.</p>
+</section>
+
+<!-- ================= five ideas ================= -->
+<section id="ideas" class="reveal">
+  <p class="kicker">03 · The mathematics</p>
+  <h2>The five ideas</h2>
+
+  <div class="idea reveal">
+    <h3><span class="num">1</span> Focus is high-frequency energy that survived</h3>
+
+    <p>Defocus is a physical low-pass filter: a point at depth <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>z</mi></mrow></math> images to a disk (the
+    <em>circle of confusion</em>) with radius proportional to its distance from the focal
+    plane, <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>r</mi><mo>&#x0221D;</mo><mo stretchy="false">&#x0007C;</mo><mi>z</mi><mo>&#x02212;</mo><msub><mi>z</mi><mi>f</mi></msub><mo stretchy="false">&#x0007C;</mo></mrow></math>. Blur with a disk kernel erases fine detail — so
+    <strong>sharpness is simply the high-frequency energy that survived</strong>. We measure it with
+    second-derivative operators, pooled over a small window for noise robustness:</p>
+
+    <div class="eq"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>E</mi><mo stretchy="false">&#x00028;</mo><mi>x</mi><mo>&#x0002C;</mo><mi>y</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0003D;</mo><mo minsize="1.2em" maxsize="1.2em">|</mo><msup><mo>&#x02207;</mo><mn>2</mn></msup><mi>I</mi><mo minsize="1.2em" maxsize="1.2em">|</mo><mo>&#x0002A;</mo><mi>w</mi><mspace width="1em" /><mtext>(Laplacian&#x000A0;energy,&#x000A0;box-pooled)</mtext></mrow></math></div>
+
+    <p>One measured subtlety: on smooth, low-contrast surfaces (polished metal, gradual
+    shading) the signed Laplacian <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msub><mi>I</mi><mrow><mi>x</mi><mi>x</mi></mrow></msub><mo>&#x0002B;</mo><msub><mi>I</mi><mrow><mi>y</mi><mi>y</mi></mrow></msub></mrow></math> can <em>cancel</em> — curvature in <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>x</mi></mrow></math>
+    offsetting curvature in <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>y</mi></mrow></math> — hiding real focus. The <strong>modified Laplacian</strong>
+    <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mo stretchy="false">&#x0007C;</mo><msub><mi>I</mi><mrow><mi>x</mi><mi>x</mi></mrow></msub><mo stretchy="false">&#x0007C;</mo><mo>&#x0002B;</mo><mo stretchy="false">&#x0007C;</mo><msub><mi>I</mi><mrow><mi>y</mi><mi>y</mi></mrow></msub><mo stretchy="false">&#x0007C;</mo></mrow></math> can't cancel, and measurably wins there. The engine routes
+    between the two per pixel by local contrast (<code>content_aware</code>), so textured and
+    smooth regions each get the operator that suits them.</p>
+  </div>
+
+  <div class="idea reveal">
+    <h3><span class="num">2</span> Decide, then clean the decision — with no edge detector</h3>
+
+    <p>The raw per-pixel winner map is speckled (noise flips ties) and ragged at object
+    boundaries. We clean it with a <strong>guided filter</strong>: inside each local window, fit the
+    weight map <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>p</mi></mrow></math> as a linear function of the image <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>I</mi></mrow></math> itself:</p>
+
+    <div class="eq"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>q</mi><mo>&#x0003D;</mo><mi>a</mi><mi>I</mi><mo>&#x0002B;</mo><mi>b</mi><mo>&#x0002C;</mo><mspace width="2em" /><mi>a</mi><mo>&#x0003D;</mo><mfrac><mrow><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">v</mi></mrow><mo stretchy="false">&#x00028;</mo><mi>I</mi><mo>&#x0002C;</mo><mi>p</mi><mo stretchy="false">&#x00029;</mo></mrow><mrow><mrow><mi mathvariant="normal">v</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">r</mi></mrow><mo stretchy="false">&#x00028;</mo><mi>I</mi><mo stretchy="false">&#x00029;</mo><mo>&#x0002B;</mo><mi>&#x003F5;</mi></mrow></mfrac></mrow></math></div>
+
+    <p>Where the image is flat, <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mrow><mi mathvariant="normal">v</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">r</mi></mrow><mo stretchy="false">&#x00028;</mo><mi>I</mi><mo stretchy="false">&#x00029;</mo></mrow></math> is small, <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>a</mi><mo>&#x02192;</mo><mn>0</mn></mrow></math>, and the decision is
+    smoothed. Where the image has a real edge, <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mrow><mi mathvariant="normal">v</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">r</mi></mrow><mo stretchy="false">&#x00028;</mo><mi>I</mi><mo stretchy="false">&#x00029;</mo></mrow></math> is large, <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>a</mi><mo>&#x02192;</mo><mn>1</mn></mrow></math>,
+    and the decision <em>snaps to that edge</em>. <strong>Edge-awareness emerges from local variance
+    — there is no explicit edge detector to tune, and the whole filter is a handful of
+    box filters (O(1) per pixel, any radius).</strong></p>
+  </div>
+
+  <div class="idea reveal">
+    <h3><span class="num">3</span> Decide per scale — the centerpiece</h3>
+
+    <p>The deepest lesson of this project: <strong>a single decision scale cannot be right.</strong> A
+    window tuned for 500-pixel images is far smaller than the blur disks in a 4K image;
+    scale it up globally and it destroys exactly the fine details high resolution
+    exists to capture. Measuring a local scale map helps, but there is a cleaner
+    answer.</p>
+
+    <p>Decompose each frame into a <strong>Laplacian pyramid</strong> — a stack of frequency bands:</p>
+
+    <div class="eq"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><msub><mi>L</mi><mi>i</mi></msub><mo>&#x0003D;</mo><msub><mi>G</mi><mi>i</mi></msub><mo>&#x02212;</mo><mrow><mi mathvariant="normal">u</mi><mi mathvariant="normal">p</mi></mrow><mo stretchy="false">&#x00028;</mo><msub><mi>G</mi><mrow><mi>i</mi><mo>&#x0002B;</mo><mn>1</mn></mrow></msub><mo stretchy="false">&#x00029;</mo><mo>&#x0002C;</mo><mspace width="2em" /><msub><mi>G</mi><mrow><mi>i</mi><mo>&#x0002B;</mo><mn>1</mn></mrow></msub><mo>&#x0003D;</mo><mrow><mi mathvariant="normal">d</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">w</mi><mi mathvariant="normal">n</mi></mrow><mo stretchy="false">&#x00028;</mo><msub><mi>G</mi><mi>i</mi></msub><mo stretchy="false">&#x00029;</mo></mrow></math></div>
+
+    <p>where each band holds exactly the detail the next blur-and-halve removed
+    (reconstruction is exact: collapse by <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mrow><mi mathvariant="normal">u</mi><mi mathvariant="normal">p</mi></mrow></mrow></math>-and-add). Now make the
+    <strong>edge-aware decision of idea 2 independently at every band</strong>, with one fixed
+    small window. Because band <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>i</mi></mrow></math> is downsampled <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mn>2</mn><mi>i</mi></msup><mo>&#x000D7;</mo></mrow></math>, that fixed window
+    <em>automatically</em> covers <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><msup><mn>2</mn><mi>i</mi></msup><mo>&#x000D7;</mo></mrow></math> the area at full resolution:</p>
+
+    <div class="callout"><strong>A fixed small window per band <em>is</em> local scale</strong> — at every
+    location, structurally, with zero magic numbers and no scale-estimation step.</div>
+
+    <p>This method — <code>perband</code>, the engine's default — is the unique combination of four
+    properties, each of which we watched fail when absent:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Without it</th></tr></thead>
+        <tbody>
+          <tr><td>Edge-aware decision (idea 2)</td><td>speckle and seams (<code>max</code>)</td></tr>
+          <tr><td>Confidence-hardened decision (idea 4)</td><td>greyed thin structures, defocus-spread bleed</td></tr>
+          <tr><td><strong>Multi-scale decision</strong> (idea 3)</td><td>ranking reversals between low-res and high-res</td></tr>
+          <tr><td>Multi-band reconstruction</td><td>visible seams at region transitions</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Classical Laplacian-pyramid fusion has the multi-scale decision but no
+    edge-awareness — it <strong>halos</strong>. Guided multiband blending has edge-awareness but
+    one single-scale decision — it <strong>softens fine detail at high resolution</strong>. Look:</p>
+
+    <figure>
+      <a class="imglink" href="img/zoom_halo.jpg" target="_blank" rel="noopener">
+        <img src="img/zoom_halo.jpg" alt="Fence wires: pyramid halos, blend is clean, perband is clean and sharper">
+      </a>
+      <figcaption>3× zoom on the fence wires. Left — classical pyramid fusion: note the bright halo
+      hugging the wire. Middle — guided blend: clean but slightly soft. Right — <code>perband</code>:
+      clean <strong>and</strong> the sharpest wire edges.</figcaption>
+    </figure>
+
+    <figure>
+      <a class="imglink" href="img/zoom_hires.jpg" target="_blank" rel="noopener">
+        <img src="img/zoom_hires.jpg" alt="High-res fine structures: GT, blend soft, perband close">
+      </a>
+      <figcaption>High-resolution benchmark with thin structures at a different depth than the
+      background (ground truth on the left). Middle — blend's single-scale decision
+      smears the fine lines wide and grey. Right — <code>perband</code> keeps them thin. Not yet
+      perfect — this is the hardest regime we test — but clearly closest to truth.</figcaption>
+    </figure>
+  </div>
+
+  <div class="idea reveal">
+    <h3><span class="num">4</span> Confidence hardening — one formula, two rescues</h3>
+
+    <p>Soft blending has a failure mode: where one frame is <em>decisively</em> the sharp one (a
+    hair, a wire, a bright point), blending in the other frame's contribution imports
+    its defocus — thin structures fuse grey, and bright out-of-focus disks ("defocus
+    spread") bleed over sharp backgrounds. The fix is to measure decision confidence
+    from the top-two focus energies,</p>
+
+    <div class="eq"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mi>c</mi><mo>&#x0003D;</mo><mfrac><mrow><msub><mi>E</mi><mrow><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo stretchy="false">&#x00029;</mo></mrow></msub><mo>&#x02212;</mo><msub><mi>E</mi><mrow><mo stretchy="false">&#x00028;</mo><mn>2</mn><mo stretchy="false">&#x00029;</mo></mrow></msub></mrow><mrow><msub><mi>E</mi><mrow><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo stretchy="false">&#x00029;</mo></mrow></msub></mrow></mfrac><mo>&#x0002C;</mo><mspace width="2em" /><mi>w</mi><mo>&#x0003D;</mo><mo stretchy="false">&#x00028;</mo><mn>1</mn><mo>&#x02212;</mo><mi>c</mi><mo stretchy="false">&#x00029;</mo><mspace width="0.167em" /><msub><mi>w</mi><mrow><mtext>soft</mtext></mrow></msub><mo>&#x0002B;</mo><mi>c</mi><mspace width="0.167em" /><msub><mrow><mn mathvariant="double-struck">1</mn></mrow><mrow><mtext>winner</mtext></mrow></msub></mrow></math></div>
+
+    <p>and push the weight toward a hard selection exactly where confidence is high,
+    keeping soft blending where focus is genuinely ambiguous. One mechanism, two
+    failure modes cured:</p>
+
+    <figure>
+      <a class="imglink" href="img/harden.jpg" target="_blank" rel="noopener">
+        <img src="img/harden.jpg" alt="Bright structure: GT white, un-hardened grey, hardened near-white">
+      </a>
+      <figcaption>Zoom on a bright structure over noise texture. Left — ground truth: pure white.
+      Middle — fusion without hardening: the structure fuses dimmed and hazy. Right —
+      with hardening: restored to near-white.</figcaption>
+    </figure>
+  </div>
+
+  <div class="idea reveal">
+    <h3><span class="num">5</span> Physical invariants make it robust for free</h3>
+
+    <p>Real capture wobbles: auto-exposure drifts brightness and white balance between
+    frames, which measurably breaks fusion (−0.025 SSIM in our drift benchmark). The
+    fix rests on a small theorem: <strong>blur preserves the mean</strong> — a defocused frame has
+    (essentially) the same channel means as a sharp one. So <em>any</em> difference in frame
+    means within a stack is exposure, never focus, and a per-frame scalar gain toward
+    the stack median removes drift without touching focus content. It is provably
+    near-identity on undrifted stacks, so it runs by default:</p>
+
+    <figure>
+      <a class="imglink" href="img/drift.jpg" target="_blank" rel="noopener">
+        <img src="img/drift.jpg" alt="Exposure drift: wobbling frames, and fusion without/with normalization">
+      </a>
+      <figcaption>Top: four frames of one stack with injected exposure/white-balance wobble (note
+      the brightness differences). Bottom: fused without (left) and with (right)
+      normalization. The visual difference is subtle at this size — the measured
+      difference is −0.023 SSIM — which is itself a lesson we keep: metrics catch what
+      the eye misses, and vice versa.</figcaption>
+    </figure>
+
+    <p>And a byproduct falls out for free: in an <math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow><mi>N</mi></mrow></math>-frame stack, <em>which frame wins</em> each
+    pixel encodes depth — the winner index is a coarse <strong>depth-from-focus</strong> map
+    (<code>--depth-out</code>):</p>
+
+    <figure>
+      <a class="imglink" href="img/depth.jpg" target="_blank" rel="noopener">
+        <img src="img/depth.jpg" alt="Depth from focus: image and its depth map">
+      </a>
+      <figcaption>An 8-frame stack over a left-to-right depth ramp. The textured subject reads the
+      ramp cleanly (blue → orange); the featureless background is speckle — depth from
+      focus is only observable where there is texture, a documented physical limitation,
+      not a bug.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ================= real optics ================= -->
+<section id="real" class="reveal">
+  <p class="kicker">04 · Ground truth</p>
+  <h2>Real optics, not just synthetic</h2>
+
+  <p>Everything above must survive contact with <em>real</em> defocus — actual lens physics,
+  not simulated disks. On real fluorescence-microscopy z-stacks (BBBC006, genuine
+  optical defocus, three focal planes):</p>
+
+  <figure>
+    <a class="imglink" href="img/real_micro.jpg" target="_blank" rel="noopener">
+      <img src="img/real_micro.jpg" alt="Real microscopy z-stack: defocused source vs fused">
+    </a>
+  </figure>
+
+  <figure>
+    <a class="imglink" href="img/real_micro_zoom.jpg" target="_blank" rel="noopener">
+      <img src="img/real_micro_zoom.jpg" alt="Nuclei zoom: soft blobs become defined nuclei with internal texture">
+    </a>
+    <figcaption>3× zoom. Left: one source plane — nuclei are soft blobs. Right: the fusion —
+    boundaries tighten and internal chromatin speckle becomes visible. On this real
+    data the classical pyramid method visibly softens and halos; <code>perband</code> is the
+    sharpest, confirming the synthetic conclusions on genuine optics.</figcaption>
+  </figure>
+</section>
+
+<!-- ================= evidence ================= -->
+<section id="evidence" class="reveal">
+  <p class="kicker">05 · Measured</p>
+  <h2>The evidence, in one table</h2>
+
+  <p>Every number is GT-referenced SSIM against a true all-in-focus reference unless
+  noted; each row is a different validation <em>regime</em>, because the project's core
+  discipline is that <strong>a verdict in one regime is a hypothesis in every other</strong>.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Regime</th><th>Result</th><th>Honest caveat</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Low-res, real content + GT (Real-MFF, 710 pairs)</td>
+          <td>perband <span class="win">0.9918</span> &gt; blend 0.9915 &gt; pyramid 0.9913</td>
+          <td>near-ceiling data; differences small but consistent</td>
+        </tr>
+        <tr>
+          <td>High-res (3072px) fine-depth benchmark</td>
+          <td>perband <span class="win">0.9021</span> &gt; pyramid 0.8926 &gt; blend 0.8704</td>
+          <td>synthetic (disk-PSF) defocus on real photos</td>
+        </tr>
+        <tr>
+          <td>Occlusion-honest (α-matte layered defocus)</td>
+          <td>perband <span class="win">0.9434</span> &gt; pyramid 0.9308 &gt; blend 0.9283</td>
+          <td>perband's lead <em>widens</em> under more honest physics</td>
+        </tr>
+        <tr>
+          <td>Real optical defocus (microscopy z-stacks)</td>
+          <td>perband sharpest — <span class="win">eye-confirmed</span></td>
+          <td>no GT exists; no-ref metric ordering confirmed visually</td>
+        </tr>
+        <tr>
+          <td>Deep stacks (N = 2 → 8)</td>
+          <td>quality <span class="win">rises</span> with N for every method</td>
+          <td>broad soft weights act as multi-frame denoising</td>
+        </tr>
+        <tr>
+          <td>Exposure drift (±12% + WB tilt)</td>
+          <td>−0.025 SSIM broken → <span class="win">−0.002</span> with default-on fix</td>
+          <td>clipped highlights slightly weaken the mean invariant</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>The metric itself got the same treatment as the engine: the standard gradient-transfer
+  metric (Q<sup>AB/F</sup>) collapses at high resolution for the same fixed-window reason —
+  so it, too, was made multi-scale (per pyramid level, mean-pooled), and the resulting
+  composite is the best GT-predictor at <strong>both</strong> resolutions (+0.785 / +0.869 Spearman).</p>
+</section>
+
+<!-- ================= run ================= -->
+<section id="run" class="reveal">
+  <p class="kicker">06 · CLI</p>
+  <h2>Run it</h2>
+
+<pre><code><span class="cmd">focusstack</span> shots/*.jpg <span class="flag">-o</span> sharp.png                    <span class="comment"># perband default, drift-corrected</span>
+<span class="cmd">focusstack</span> shots/*.jpg <span class="flag">-o</span> sharp.png <span class="flag">--harden</span> 0.5       <span class="comment"># bright/thin-structure scenes</span>
+<span class="cmd">focusstack</span> big/*.png  <span class="flag">-o</span> sharp.png <span class="flag">--fast</span>              <span class="comment"># ~1.5x for high-res, quality-safe</span>
+<span class="cmd">focusstack</span> shots/*.jpg <span class="flag">-o</span> sharp.png <span class="flag">--depth-out</span> z.png  <span class="comment"># + depth-from-focus map</span></code></pre>
+</section>
+
+<!-- ================= roadmap ================= -->
+<section id="next" class="reveal">
+  <p class="kicker">07 · Frontier</p>
+  <h2>This is only the beginning</h2>
+
+  <p>The engine is the <em>foundation</em> of a leading-edge system, not the finished one. The
+  frontier is tracked live in <a href="../research/FRONTIER.md"><code>research/FRONTIER.md</code></a> —
+  probed items spawn new sub-frontiers, and several were <strong>closed as rigorous
+  negatives</strong> (occlusion de-veiling loses even with oracle knowledge; deep-stack
+  spread import doesn't materialize), which is the discipline working: settled
+  questions, not lingering doubts.</p>
+
+  <p class="roadmap-label">Near-term, already scoped</p>
+  <div class="cards">
+    <div class="card"><b>Real photographic deep stacks</b> the one regime not yet validated
+    end-to-end (microscopy is covered; macro/landscape bracketed stacks are next,
+    including first-party captures).</div>
+    <div class="card"><b>Deep-stack alignment</b> chained/feature-initialized registration and
+    focus-breathing compensation for 10–50 frame handheld rails.</div>
+    <div class="card"><b>Noise-adaptive fusion</b> low-light stacks where sensor noise mimics
+    focus energy.</div>
+    <div class="card"><b>A learned no-reference metric</b> close the remaining gap between
+    no-GT scoring and truth for per-region decisions.</div>
+  </div>
+
+  <p class="roadmap-label">Bigger swings, with groundwork already laid</p>
+  <div class="cards">
+    <div class="card"><b>One-pass neural fusion at classical quality</b> distillation already
+    <em>matches</em> the classical engine's quality (0.9885 vs 0.9888); the speed win awaits
+    GPU hardware. The self-supervised training loss (no answer key) is designed and tested.</div>
+    <div class="card"><b>Object-aware fusion</b> semantic segmentation as a routing layer above
+    the structural one; the torch environment and per-region machinery already exist.</div>
+    <div class="card"><b>Occlusion-aware fusion, revisited on its stated conditions</b> large
+    occluders, float pipeline, regularized unmixing.</div>
+    <div class="card"><b>Temporal focus stacking</b> fusing focus sweeps from video with
+    temporal coherence.</div>
+  </div>
+
+  <p>The deeper record: <a href="../research/FINDINGS.md"><code>research/FINDINGS.md</code></a> (29 dated
+  findings + a living synthesis), <a href="../research/PLAYBOOK.md"><code>research/PLAYBOOK.md</code></a>
+  (domain knowledge and every trap we hit), and
+  <a href="../research/DEVSTYLE.md"><code>research/DEVSTYLE.md</code></a> (the working method that produced
+  all of it — hypothesis → measure → look → A/B → gate — so any future session starts
+  where this one leaves off).</p>
+</section>
+
+</main>
+
+<footer>
+  <p class="colophon">Every figure in this document was regenerated from the current engine by
+  <code>research/make_showcase.py</code> and visually verified before its caption was written.</p>
+  <p>focusstack · progress showcase · generated from <code>docs/SHOWCASE.md</code></p>
+</footer>
+
+<script>
+  (function () {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.querySelectorAll(".reveal").forEach(el => el.classList.add("in"));
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.05 });
+    document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+  })();
+</script>
+
+</body>
+</html>

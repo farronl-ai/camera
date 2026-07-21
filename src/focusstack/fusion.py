@@ -177,7 +177,7 @@ def _box(x: np.ndarray, radius: int) -> np.ndarray:
 
 
 def guided_filter(
-    guide: np.ndarray, src: np.ndarray, radius: int = 8, eps: float = 1e-3
+    guide: np.ndarray, src: np.ndarray, radius: int = 8, eps=1e-3
 ) -> np.ndarray:
     """Edge-preserving filter (He et al. 2010).
 
@@ -197,6 +197,8 @@ def guided_filter(
     var_i = mean_ii - mean_i * mean_i          # local variance of the guide
     cov_ip = mean_ip - mean_i * mean_p         # local covariance guide<->src
 
+    # `eps` may be a scalar OR a per-pixel map (boundary-aware smoothing: small
+    # eps preserves structure at true boundaries, large eps smooths within objects).
     a = cov_ip / (var_i + eps)
     b = mean_p - a * mean_i
     return _box(a, radius) * guide + _box(b, radius)
@@ -439,6 +441,9 @@ def fuse_perband(
     eps: float = 1e-3,
     energy_ksize: int = 7,
     harden: float = 0.0,
+    boundary: np.ndarray | None = None,
+    b_lambda: float = 0.5,
+    b_eps_gain: float = 4.0,
 ) -> np.ndarray:
     """Per-band edge-aware fusion — pyramid's multi-scale DECISION + guided (halo-free).
 
@@ -471,6 +476,15 @@ def fuse_perband(
     image_pyramids = [_laplacian_pyramid(im, levels) for im in floats]
     guide_pyramids = [_gaussian_pyramid(to_gray_float(f), levels) for f in images]
 
+    # Optional boundary map B in [0,1] (from the boundary engine): consumed as its
+    # OWN guide component (F30: never filter B through luminance alone, or the
+    # integration collapses back to appearance) and as an eps modulator (preserve
+    # decisions at true boundaries, smooth harder within objects). boundary=None
+    # -> byte-identical to the plain path.
+    b_pyr = None
+    if boundary is not None:
+        b_pyr = _gaussian_pyramid(np.clip(boundary.astype(np.float32), 0.0, 1.0), levels)
+
     fused_bands: list[np.ndarray] = []
     w_last: np.ndarray | None = None
     for band in range(levels + 1):
@@ -481,6 +495,12 @@ def fuse_perband(
             # the decision into a global mean.
             r_b = max(1, min(radius, min(bh, bw) // 6))
             k_b = max(3, min(energy_ksize, (min(bh, bw) // 4) | 1))
+            Bb = None
+            eps_b = eps
+            if b_pyr is not None:
+                Bb = b_pyr[band]
+                Bb = Bb / (float(Bb.max()) + 1e-6)   # restore contrast lost to pyrDown
+                eps_b = eps * (1.0 + b_eps_gain * (1.0 - np.minimum(1.0, 3.0 * Bb)))
             energy = np.stack(
                 [cv2.boxFilter((coeffs[k] ** 2).sum(axis=2), cv2.CV_32F, (k_b, k_b))
                  for k in range(n)], axis=0)
@@ -492,7 +512,10 @@ def fuse_perband(
             weights = []
             for k in range(n):
                 raw = (winner == k).astype(np.float32)
-                wg = np.clip(guided_filter(guide_pyramids[k][band] / 255.0, raw, r_b, eps), 0.0, None)
+                g = guide_pyramids[k][band] / 255.0
+                if Bb is not None:
+                    g = (1.0 - b_lambda) * g + b_lambda * Bb   # B as its own guide component
+                wg = np.clip(guided_filter(g, raw, r_b, eps_b), 0.0, None)
                 if conf is not None:
                     wg = (1.0 - conf) * wg + conf * raw
                 weights.append(wg)

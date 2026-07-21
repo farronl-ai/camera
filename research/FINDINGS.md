@@ -54,6 +54,23 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F34 — Matte-aware boundary RECONSTRUCTION: ceiling validated (-22% bband err); matte quality is the bottleneck
+16b rung B (TRUE sharp alpha, everything else from frames): bband k=2 err 21.8→16.9
+(-22%), in-band SSIM 0.9471→0.9672, global IMPROVES 0.944→0.949 — the physics-correct
+formulation works: out = obs_near + (1-α)(far_est − blur(far_est)) with far_est =
+veil-strength blend of observed far frame and inward inpainting, overriding ONLY the
+strong-veil ribbon. Three implementation lessons en route (each measured): replacing
+the whole band with inpaint destroys good data (-0.08 global); α·obs_near double-counts
+alpha (systematic on thin structures — obs_near already contains the composite); the
+faint-veil zone must keep perband (fused output beats raw frames there).
+Rung C (naive focus-dominance matte): bband ≈ baseline and GLOBAL REGRESSES (0.9221) —
+false-positive support applies reconstruction where none belongs. THE MATTE IS THE
+BOTTLENECK, and this recasts the boundary engine's role: not a decision-guide (dead per
+F33) but the matte-support + ownership provider for reconstruction — B gates WHERE,
+near-side says WHO owns the contour, the owner frame yields the sharp silhouette.
+Next: B-gated matte estimation (guided-filter the side mask with the OWNER frame as
+guide inside the high-B ribbon), then all-regime gates.
+
 ## F33 — E4 rigorous negative: decision-side boundary integration cannot cash the bband error
 Ablation (guide-enrichment / eps-modulation / both, estimated B): null vs baseline
 (29.6→29.9 err). Oracle ladder then killed the lever class entirely: a PERFECT GT

@@ -63,6 +63,16 @@ def test_normalize_exposure_identity_and_recovery():
     assert err_after < err_before * 0.35
 
 
+def test_bridge_runner_graceful_absence():
+    from focusstack.bridge import find_bridge_python, run_bridge
+
+    # explicit-but-missing python resolves to None, and run degrades to None
+    assert find_bridge_python("/nonexistent/python") is None
+    assert run_bridge("depth", "/nonexistent/img.png", python="/nonexistent/python") is None
+    # unknown bridge kind is also a graceful None (never raises)
+    assert run_bridge("nope", "/nonexistent/img.png", python="/nonexistent/python") is None
+
+
 def test_reconstruct_boundaries_safe_and_off_by_default(tmp_path):
     from focusstack.reconstruct import reconstruct_boundaries
 

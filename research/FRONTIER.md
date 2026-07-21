@@ -28,4 +28,6 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 14 | **Video / temporal focus stacking** | Fuse focus sweeps from video; temporal coherence constraints. | ⬜ |
 | 15 | **UHD-MFF & MFFW datasets** | Real+hard benchmarks; not publicly downloadable at last check. Re-probe occasionally. | ❌ re-check later |
 
+| 16 | **Boundary Engine (E-phase)** | True object boundaries + near-side occlusion tags from stack evidence ∪ learned appearance; additive integration into guided/perband/harden. THE current push — plan: NEXT_STEPS_boundary.md. Relates to 3b (ownership rule revives its goal), 10 (segmentation), 12 (learned signals). | 🔶 E0 |
+
 Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEPS_breadth.md).

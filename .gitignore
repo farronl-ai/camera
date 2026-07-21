@@ -40,3 +40,4 @@ research/inspect/
 # M4 torch env (python 3.12) + model weights
 .venv312/
 research/*.pt
+research/models/

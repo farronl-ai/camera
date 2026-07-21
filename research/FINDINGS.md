@@ -65,6 +65,23 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F37 — FIRST REAL-HANDHELD RESULT: blend beats perband (misalignment robustness is a new regime axis)
+mobiledepth quick suite (real optical, N=12-14, graded handheld motion, no GT; F25
+protocol: q_ssim ordering + eye): blend > perband > pyramid on ALL four sequences, and
+the blend-perband gap GROWS with motion (zero +0.001 / small +0.002 / large +0.016 /
+kitchen +0.023). Eye-confirmed on kitchen: perband shows double-edge GHOSTING (doubled
+text strokes, pot-rim echoes) — residual misalignment leaks through per-band fine
+decisions, which can flip per band on offset content; blend's single coarse decision
+broadcast to all bands picks one frame's content consistently → ghost-free, slightly
+softer. Our four-property theory implicitly assumed ALIGNED frames — misalignment
+robustness is a FIFTH regime axis no synthetic benchmark tested (all were perfectly
+aligned). Both methods score low absolutely (kitchen 0.89-0.91): alignment residuals +
+focus breathing, not fusion, are the dominant real-data quality limiter → FRONTIER 7/8
+now top practical priority. NOT flipping the default on one no-GT dataset: iphone12
+(real photographic + pseudo-GT) is the decider; also motivates a misalignment-robust
+perband variant (cross-band decision consistency). Real-data honesty: the user's
+too-clean-synthetic warning materialized exactly as predicted.
+
 ## F36 — C3 gates: wins ON-model, regresses OFF-model → shipped default-OFF; gating is the successor
 All-regime gates on the buildable reconstruction: occ (matte-model data) passes with
 graceful radius degradation (0.5x/1x/2x: improve/best/≈baseline); fence eye shows the

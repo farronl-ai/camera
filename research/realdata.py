@@ -141,11 +141,15 @@ def download_learn2af() -> None:
 def download_iphone12() -> None:
     """Learn2Refocus iPhone-12 stacks: 1637 scenes, N=9, 4K, WITH Helicon AiF GT."""
     print("Learn2Refocus / iPhone-12 focal stacks (SIGGRAPH Asia 2025).")
-    print("  Project + data: https://learn2refocus.github.io")
-    print("  Paper:          https://arxiv.org/abs/2512.19823")
+    print("  Project:  https://learn2refocus.github.io")
+    print("  Paper:    https://arxiv.org/abs/2512.19823")
+    print("  Download: https://ln5.sync.com/dl/dc6d99c50#ra9336yd-w9u958dw-"
+          "w4s4xnjv-54qd4drj  (Sync.com, single 'Download Full Dataset' link)")
     print("  1637 scenes x 9 frames @ 4032x3024, real optical, all-in-focus GT via")
-    print("  Helicon Focus (pseudo-GT). Very large; follow the project-page download")
-    print(f"  instructions and extract into {os.path.join(DATA, 'iphone12')}/.")
+    print("  Helicon Focus (pseudo-GT). ~50-70 GB estimated (page states no exact")
+    print("  size); NOT chunked — one Sync.com archive, all-or-nothing.")
+    print(f"  Download via the Sync.com link and extract into "
+          f"{os.path.join(DATA, 'iphone12')}/.")
 
 
 def build_registry() -> None:

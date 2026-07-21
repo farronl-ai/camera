@@ -17,12 +17,41 @@ verifier over-refuted precise numbers) and are corrected below.
 ## Status legend
 ✅ in-tree now · ⬇️ scripted, run to pull · 📄 documented (manual/huge) · ❌ unavailable
 
+## Access options — how to get data without pulling everything
+
+You do NOT download a terabyte to get started. Three tiers, cheapest first:
+
+**A. Choose from what's already downloaded (0 GB, instant).** `mobiledepth` is in-tree
+(`research/data/mobiledepth/`, 551 MB, 13 real phone sweeps). Pick individual sequences
+by folder — e.g. `Figure6/{large,small,zero}motion` for alignment stress, `Figure5/*`
+for varied deep stacks. This covers real handheld + deep + align with zero new download.
+`python research/realdata.py mobiledepth` (idempotent; skips if present).
+
+**B. Pick ~90 GB archive(s) inside learn2af (870 GB total, but selectable).** The 870 GB
+is 8 independent archives; grab only what you need:
+`test.tar.gz` 89 GB · `train1` 95 · `train2` 100 · `train3` 99 · `train4` 102 ·
+`train5` 99 · `train6` 99 · `train7` 87 GB. **Start with `test.tar.gz` (89 GB)** — one
+archive is a usable real N=49 handheld set on its own. `python research/realdata.py
+learn2af` prints the per-archive `wget -c` commands; run just the line(s) you want.
+This is the finest selection the hosting allows (tar.gz isn't seekable → no per-image).
+
+**C. iphone12 — one download, ~50-70 GB, NOT chunked, but ships GT.** Hosted on Sync.com
+as a single "Download Full Dataset" link (no sub-archive selection, no published exact
+size; ~50-70 GB estimated from 1637×9 @ 4K). All-or-nothing, but ~12× smaller than
+learn2af and the only real-photographic set here WITH all-in-focus GT. Best single grab
+when you need GT-referenced fidelity on everyday content.
+`python research/realdata.py iphone12` prints the Sync.com link + extract path.
+
+Rule of thumb: **A** for align/handheld/deep checks now, **C** when you need GT on
+photographic content, **B** only when you need many deep real N=49 stacks and have the
+disk. `araujo` (⬇️, few GB via gdown) sits between A and C — real bursts + pseudo-GT.
+
 ## The catalog (ranked by how well it fills the real-data gaps)
 
 | Dataset | Real optical? | N/scene | Res | AiF GT? | Size | Access | Fills |
 |---|---|---|---|---|---|---|---|
 | **mobiledepth** ✅ | yes (phone sweep) | 12–41 | 1280×720 | **no** (depth) | 551MB | verified direct zip | handheld/deep/align |
-| **iphone12** (Learn2Refocus) 📄 | yes (iPhone 12) | 9 | 4K 4032×3024 | yes (Helicon pseudo) | very large | project page | photographic/deep/GT |
+| **iphone12** (Learn2Refocus) 📄 | yes (iPhone 12) | 9 | 4K 4032×3024 | yes (Helicon pseudo) | ~50-70GB (1 file) | Sync.com | photographic/deep/GT |
 | **learn2af** (Learning to Autofocus) 📄 | yes (5×Pixel-3 rig) | **49** | 1512×2016 | confirm | **870 GB** | public GCS, no wall | deep/handheld/align |
 | **araujo** ⬇️ | yes (focus bracketing) | multi | high-res raw | yes (pseudo) | ~few GB | Google Drive (gdown) | photographic/macro-ish/GT |
 | **ddff12** 📄 | yes (Lytro ILLUM LF) | 10 (of 9×9) | 383×552 | depth GT | h5 | TUM server | deep(low-res)/GT |
@@ -47,8 +76,10 @@ Pull: `python research/realdata.py mobiledepth` (verified HTTP 200, 285MB zip).
 SIGGRAPH Asia 2025. 1637 scenes (1474 train / 163 test), **N=9** frames, real iPhone-12
 focus sweeps at **4032×3024 (4K)** with all-in-focus GT via Helicon Focus (depth mode).
 Real focus breathing + handheld misalignment. GT is *pseudo* (commercial software), not
-optical truth. Very large — download from the project page:
-- https://learn2refocus.github.io · paper https://arxiv.org/abs/2512.19823
+optical truth. Hosted on **Sync.com as a single "Download Full Dataset" archive** — NOT
+chunked, all-or-nothing, ~50-70 GB estimated (page publishes no exact size).
+- Project: https://learn2refocus.github.io · Paper: https://arxiv.org/abs/2512.19823
+- Download: https://ln5.sync.com/dl/dc6d99c50#ra9336yd-w9u958dw-w4s4xnjv-54qd4drj
 Pull instructions: `python research/realdata.py iphone12`.
 
 ### learn2af (Learning to Autofocus) — 📄 deepest real stacks, but 870 GB

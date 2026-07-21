@@ -65,6 +65,20 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F44 — Outcome-trained routing gate satisfies the every-scene property (T2 complete)
+The routing layer works when the gate predicts THE OUTCOME, not a proxy. Arc: (a) matte
+lands 3/7→8/28 after ring-contrast + owner-fix (interior majority winner); (b) 42-scene
+factory + snap-consistency feature + margin-tau: still one held false-fire — because the
+aerr<0.05 LABEL was a proxy (a small mean alpha error can hide a misplaced edge);
+(c) LABEL = the chain's actual outcome on factory GT (fringe improves AND global drop
+< 0.0005) → logistic gate at tau=0.823: 6/42 fire, EVERY fire a win or neutral, worst
+global delta −0.0001. The every-scene ≥ baseline property that default-ON requires now
+HOLDS on the honest object benchmark. Conservative firing (14%) is the correct trade —
+withheld wins cost nothing, regressions cost trust; recall can grow with features/data.
+Also: fringe-band D clamp (physics hygiene, kept), outcome labels cost nothing extra
+(the factory holds GT). Remaining for default-ON: T3 all-regime no-harm gates + T4
+--enhance auto packaging (identity when bridge absent / gate silent).
+
 ## F43 — Mask matting v1: benchmark pathology CONFIRMED by looking; benchmark must upgrade to objects-as-occluders
 T1 (FastSAM masks + seed/depth selection) scored WORSE than depth-thresholding
 (|a err| 0.18-0.45, owner wrong on all 8) — and one look at the mask visualization

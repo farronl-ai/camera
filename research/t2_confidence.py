@@ -126,10 +126,23 @@ def main():
     for i, sc in enumerate(scenes()):
         feats, a_est, owner = matte_with_features(sc)
         aerr = float(np.abs(a_est - sc["alpha"]).mean()) if a_est.max() > 0 else 1.0
-        data.append(dict(i=i, sc=sc, feats=feats, a=a_est, owner=owner, aerr=aerr,
-                         label=1.0 if aerr < 0.05 else 0.0))
-        print(f"  {sc['sid']:9s} aerr={aerr:.3f} owner={owner} "
-              f"feats={'None' if feats is None else np.round(feats, 2)}")
+        # LABEL = the OUTCOME (did the correction actually help), not a matte
+        # proxy — a small mean alpha error can still hide a misplaced edge.
+        base = fuse_perband(sc["frames"], harden=0.5)
+        label = 0.0
+        if feats is not None and a_est.max() > 0:
+            D = build_D(sc["frames"], a_est, sc["max_r"], owner, 1 - owner)
+            cor = fuse_perband_weighted_corr(sc["frames"], D, 0, far_idx=1 - owner)
+            fr = fringe_mask(sc["alpha"], sc["max_r"])
+            e0 = float(np.abs(base.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)[fr].mean())
+            ec = float(np.abs(cor.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)[fr].mean())
+            g0, gc = M.ref_ssim(base, sc["gt"]), M.ref_ssim(cor, sc["gt"])
+            label = 1.0 if (ec < e0 and gc - g0 >= -0.0005) else 0.0
+            sc["_cache"] = (base, cor, e0, ec, g0, gc)
+        else:
+            sc["_cache"] = (base, base, 0, 0, 0, 0)
+        data.append(dict(i=i, sc=sc, feats=feats, a=a_est, owner=owner, aerr=aerr, label=label))
+        print(f"  {sc['sid']:9s} aerr={aerr:.3f} owner={owner} label={int(label)}")
 
     n_tr = int(0.75 * len(data))
     train = [r for r in data if r["i"] < n_tr and r["feats"] is not None]
@@ -139,13 +152,10 @@ def main():
     wgt, mu, sd = logistic_fit(X, y)
     # threshold: highest tau with precision 1.0 on train
     ps = np.array([logistic_p(wgt, mu, sd, r["feats"]) for r in train])
-    taus = np.unique(ps)
-    tau = 1.0
-    for t in taus:
-        fired = ps >= t
-        if fired.any() and (y[fired] == 1).all():
-            tau = float(t)
-            break
+    # tau = worst bad-example probability + a SAFETY MARGIN (train-only choice;
+    # bare precision-1.0 thresholds leak borderline candidates on held data)
+    bad_p = ps[y == 0]
+    tau = float(min(1.0, (bad_p.max() if len(bad_p) else 0.0) + 0.10))
     print(f"\n  train fired@tau={tau:.3f}: {int((ps>=tau).sum())}/{len(train)} "
           f"(all-good={bool((y[ps>=tau]==1).all())})")
     ph = np.array([logistic_p(wgt, mu, sd, r["feats"]) for r in held])
@@ -159,20 +169,14 @@ def main():
     worst = 0.0
     for r in data:
         sc = r["sc"]
-        base = fuse_perband(sc["frames"], harden=0.5)
+        base, cor, e0, ec, g0, gc = sc["_cache"]
         p = logistic_p(wgt, mu, sd, r["feats"]) if r["feats"] is not None else 0.0
-        if p >= tau and r["a"].max() > 0:
-            D = build_D(sc["frames"], r["a"], sc["max_r"], r["owner"], 1 - r["owner"])
-            out = fuse_perband_weighted_corr(sc["frames"], D, 0, far_idx=1 - r["owner"])
-            fired = True
-        else:
-            out, fired = base, False
-        fr = fringe_mask(sc["alpha"], sc["max_r"])
-        e0 = float(np.abs(base.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)[fr].mean())
-        ec = float(np.abs(out.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)[fr].mean())
-        g0, gc = M.ref_ssim(base, sc["gt"]), M.ref_ssim(out, sc["gt"])
-        worst = min(worst, g0 and (gc - g0))
-        print(f"  {sc['sid']:9s} {str(fired):5s} {e0:6.1f}->{ec:6.1f}   {g0:.4f}->{gc:.4f}")
+        fired = p >= tau and r["a"].max() > 0
+        if not fired:
+            ec, gc = e0, g0
+        if fired:
+            worst = min(worst, gc - g0)
+            print(f"  {sc['sid']:9s} {str(fired):5s} {e0:6.1f}->{ec:6.1f}   {g0:.4f}->{gc:.4f}")
     print(f"\n  worst global delta = {worst:+.4f}  (property: >= -0.001)")
     np.savez("/home/farron/camera/research/t2_gate.npz", w=wgt, mu=mu, sd=sd, tau=tau)
 

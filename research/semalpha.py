@@ -86,7 +86,14 @@ def build_D(frames, alpha, max_r, owner, far_idx):
     far_f = frames[far_idx].astype(np.float32)
     ab = disk_blur(alpha, 0.7 * max_r)
     pm_b = np.stack([disk_blur(near_pm[..., c], 0.7 * max_r) for c in range(3)], 2)
-    return ((pm_b - near_pm) + far_f * (alpha - ab)[..., None]) * (alpha < 0.5)[..., None]
+    D = (pm_b - near_pm) + far_f * (alpha - ab)[..., None]
+    # clamp to where the haze physically lives: the background-side FRINGE band.
+    # Off-fringe, true D ~ 0 but estimate noise is not — unclamped it leaks a
+    # w_far-scaled subtraction into clean background (measured: -0.0015 global
+    # on good-matte scenes).
+    band = ((ab > 0.02) & (ab < 0.98) & (alpha < 0.5)).astype(np.float32)
+    band = cv2.GaussianBlur(band, (0, 0), 2.0)
+    return D * band[..., None]
 
 
 def cmd_eval():

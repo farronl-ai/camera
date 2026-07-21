@@ -56,11 +56,20 @@ def mask_matte(masks, depth, frames):
         tot = float(dec_in.sum())
         if tot < 50:
             continue
+        # RING CONTRAST — the occlusion discriminator: a true occluder's ring is
+        # won by a DIFFERENT frame than its interior (winner mismatch across the
+        # contour); a background subject's ring is the same plane/winner.
+        ring = (cv2.dilate(mm.astype(np.uint8), np.ones((25, 25), np.uint8)) > 0) & ~mm
+        dec_ring = decisive & ring
+        rtot = float(dec_ring.sum())
         for k in range(n):
             sk = float((dec_in & (winner == k)).sum())
             purity = sk / tot
             areafit = sk / area
-            score = purity * np.sqrt(min(1.0, areafit * 4))
+            ring_other = (float((dec_ring & (winner != k)).sum()) / rtot) if rtot > 50 else 0.0
+            if ring_other < 0.5:
+                continue
+            score = purity * np.sqrt(min(1.0, areafit * 4)) * ring_other
             scored.append((score, mi, k, purity))
             if score > best[0]:
                 best = (score, mi, k)

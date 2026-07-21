@@ -54,6 +54,24 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F30 — Stack boundary channel doubles Canny; two honest lessons reshape E3/E4
+E2 on layered GT scenes (tolerance ±3px): stack channel (defocus-robust max-over-frames
+edges + winner discontinuities + focus-depth gradient) F=0.443 vs Canny F=0.215 — the
+physics channel carries real information appearance lacks. But absolute F is modest and
+two findings matter more than the win:
+(a) **Camo-probe correction:** offset-crop camouflage leaves a texture-PHASE seam that
+Canny sees (camo recall 0.76 vs stack 0.40) — the probe tests low-contrast seams, not
+zero-appearance boundaries; true iso-appearance probes need texture synthesis (logged,
+not built). Don't over-trust your own probe's construction.
+(b) **Guide-blindness (architectural):** depth_from_focus smooths with a LUMINANCE-guided
+filter → it smooths ACROSS depth boundaries that lack luminance contrast → our stack
+depth evidence inherits appearance-blindness through its guide, exactly where
+orthogonality matters. Consequence for E4: boundary data B must enter guided decisions
+as its OWN guide channel (or via winner-consistency guides), NOT filtered through
+luminance — else the integration partially collapses back to the parallel vector.
+Also: edges sub-channel fires on intra-object texture (precision ceiling) — the
+semantic channel's job to fix.
+
 ## F29 — Deep-stack bright-source spread (1b): no defect; harden holds at N=8
 Harshest spread scene (26px CoC bright bars/dots), planes AT the depths: N=8 matches
 N=2 (0.9881 vs 0.9888 GT-SSIM with harden; ring error 55.1 vs 53.6) — distant-frame

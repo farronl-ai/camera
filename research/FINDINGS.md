@@ -65,6 +65,21 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F46 — Cross-regime gate test CONFIRMS the scale-split adversarially; specialists need regime-matched mattes
+Ported the outcome-gate to reconstruction ON THE WIDE-OBJECT factory: fired 39/100,
+outcomes overwhelmingly harmful (contour errors explode, worst global −0.086) — and
+that is the 16d scale-split theory PASSING an adversarial test: wide occluders'
+boundary error is HAZE (veil's domain); their defocus-softened contours cannot be
+re-rendered from region-precision mattes. The two specialists have OPPOSITE matte
+requirements: reconstruction stamps a hard edge (needs ~1-2px matte precision — C3
+difference-mattes on thin structures, its proven regime F35); veil correction
+subtracts smooth fields (region-precision mask mattes suffice — F44/F45). Corollary:
+one matte pipeline cannot serve both; routing must pair each specialist with its
+regime AND its matte class. Reconstruction's gate will be built on a thin-structure
+factory with C3 mattes. (The ridge gate also failed to rank these outcomes — its
+features carry no contour-precision signal; a matte-edge-sharpness feature is the
+missing input for any future cross-regime firing.)
+
 ## F45 — Fire-rate refinement locked: per-candidate outcome-regression gate; no-ref self-audit is INVALID for synthesis corrections
 Checkpoint deepening (100-scene factory, 366 candidates, 2 CoC regimes), seven gate
 iterations, each from a diagnosed failure: per-candidate routing (top-K masks gated

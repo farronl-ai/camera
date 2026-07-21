@@ -114,3 +114,15 @@ the session. That is what this file is for.
 3. Pick up the current phase plan (or the top ⬜ FRONTIER item if between phases).
 4. Run the core loop (§1). Commit with evidence. Log findings. Update frontier.
 5. Before any "it works": isolation test + hard-regime check + eyetool look.
+
+## 7b. Negatives are guidance; discipline funds the bold moves (added after the gate arc)
+
+The loop (hypothesis → measure → look → A/B → gate) is not the opposite of
+creativity — it is what makes nonlinear moves AFFORDABLE. The two-gate arc took ~7
+iterations, three of them hard redirections (rebuild the benchmark around real
+objects; redefine labels from proxies to outcomes; split specialists by regime and
+matte class). Each swerve was safe to take because the loop guarantees you learn
+within hours whether it landed. Treat every negative as a direction signal with a
+mechanism attached (F27→16d, F39→silhouette licensing, F45→FRONTIER 17, F46→regime
+matching): five rigorous negatives redirected this project; none ended anything.
+Perseverance + belief in convergence is what keeps the bold moves coming.

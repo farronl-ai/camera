@@ -35,3 +35,20 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 16c | **Reconstruction applicability gating** | Fire only where the matte model holds. | 🔶 F38: plane-step ribbon (raw-winner median + energy floor) shipped — strongest on-model result (−16% e2, +global, all scenes), real-data neutral + fire moved to silhouettes. REMAINING: F39 killed veil-side licensing (thin structures have no strong veil — category mismatch); next license is SILHOUETTE-side (owner-frame contour sharpness + plane gap); iphone12 GT verdicts gate promotion. |
 
 Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEPS_breadth.md).
+
+## E-arc close ledger (2026-07-20)
+- **16c reconstruction gate: ✅ LOCKED** (F47) — home regime (thin + C3 mattes), held
+  5/30 fired all-positive mean +0.0083. Real-data promotion awaits iphone12 GT.
+- **16d veil correction: ✅ mechanism + gate locked** (F40/F41/F44/F47) — property
+  holds (held 2/2 good); recall ~4% (small effects price high under safety margin).
+- **16e semantic matte: 🔶 resolved by regime-matching** (F46) — mask mattes serve the
+  veil specialist; C3 serves reconstruction; SAM-quality matting for GENERAL scenes
+  remains the recall-growth lever.
+- **16f (NEW): composed --enhance stage** — both gates firing per stack; two-pass
+  packaging over shipped bridge plumbing; identity when bridgeless. NEXT SESSION.
+- **17 (NEW, born from F45): synthesis-aware no-reference metric** — a no-ref signal
+  that can audit corrections which deviate from every source (current q_ssim-family
+  structurally cannot). Would unlock runtime self-audit + recall growth safely.
+- **18 (NEW): gate recall growth** — more features (per-candidate veil evidence,
+  D-magnitude stats), bigger factories, nonlinear gate models; recall is the only
+  thing between "property-safe" and "most images benefit."

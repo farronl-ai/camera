@@ -58,6 +58,20 @@ formation model and must be GATED on evidence the model holds — it regresses o
 Canny; DA-V2 sees through defocus and camouflage) stands as a validated data product;
 orthogonality of evidence channels is a design requirement, not a nicety (F30–F32).
 
+**Routing & gates (F44–F47) — the fifth pillar.** Specialists compose; none replaces
+the generalists. Each specialist is paired with its REGIME and its MATTE CLASS
+(edge-stamping reconstruction needs ~px-precision C3 mattes on thin structures;
+field-subtracting veil correction needs region-precision mask mattes on wide
+occluders — one matte pipeline cannot serve both, F46). Every specialist ships behind
+the UNIFIED GATE RECIPE: regime-matched candidates → features incl. matte-edge
+quality → ridge regression on the ACTUAL outcome from factory GT → fire margin set
+on train by the every-scene property, verified held (F47: reconstruction held 5/30
+fired all-positive mean +0.0083; veil 2/2 good). Safety is structural; recall grows
+with features/data and is proportional to effect size (margins eat small-effect
+recall first). No-ref source-similarity metrics CANNOT audit synthesis corrections
+(F45) — GT-trained gates are the only valid audit until a synthesis-aware no-ref
+signal exists.
+
 **Learning.** Classical foundation first. Learned per-tile routing matches the
 oracle; distillation matches classical quality in one pass (speed win needs a GPU);
 per-tile no-GT labels are unreliable (~19% GT agreement) → train on GT dev-labels,

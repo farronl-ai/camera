@@ -163,3 +163,37 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
   engine already senses adds correlation, not information (parallel vectors). Semantic
   priors (monocular depth, learned segmentation) see what local math cannot: through
   defocus, through camouflage, closed topology (F31/F32).
+
+## Gate-building playbook (specialist routing arc, F43–F47)
+1. **The unified specialist-gate recipe**: (a) candidates from REGIME-MATCHED matting;
+   (b) features must include matte-edge quality (transition-shell sharpness,
+   silhouette-on-edge alignment) — the safety signal for anything that stamps edges;
+   (c) ridge-regress the ACTUAL outcome (delta global) from factory GT — never a
+   quality proxy (a small mean matte error can hide a misplaced edge); (d) fire margin
+   chosen ON TRAIN as (worst harmful prediction + eps), verified on held. Applied
+   twice, locked two gates.
+2. **Predict outcomes, not intermediates** — third confirmation of the pattern
+   (metric calibration, gate labels, threshold selection). If the factory holds GT,
+   outcome labels are free; use them.
+3. **Per-candidate granularity multiplies statistics**: 8 scene-level labels became
+   366 candidate-level labels from the same data. Gate at the unit you fire at.
+4. **Label factories**: generators with GT are unlimited-label machines — scale the
+   factory before tuning the model (42→100→120 scenes fixed what thresholds couldn't).
+5. **Regime-matched mattes** (F46): edge-stamping needs pixel precision; smooth-field
+   subtraction tolerates region precision. Match specialist ↔ regime ↔ matte class;
+   cross-regime firing without a precision feature is harmful (worst −0.086).
+6. **TRAP: no-reference source-similarity metrics cannot audit synthesis** (F45) —
+   a correction whose success means deviating from every source (de-hazing) is
+   scored as damage by q_ssim-family checks; they revert GT-verified wins.
+7. **TRAP: semantic models need natural content** (F43) — pastiche/synthetic blobs
+   fragment under SAM; photo bokeh spoofs objectness. Benchmarks judging semantic
+   components must be built FROM real objects (objects-as-occluders pattern:
+   model-generated cutouts double as GT silhouettes).
+8. **Cross-regime tests are adversarial theory checks** (F46): running a specialist
+   outside its regime and watching it fail EXACTLY as theory predicts is
+   confirmation, not waste.
+9. **Margins price recall in units of effect size**: small-effect specialists fire
+   rarely under the same safety bar — expected physics, not gate failure. Report
+   coverage per regime so correct refusal isn't misread as timidity.
+10. **Ops for long labelers**: flush caches and print progress PER UNIT, not at the
+    end — monitorability and interruption-safety are part of the method.

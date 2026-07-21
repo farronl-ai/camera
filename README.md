@@ -6,6 +6,10 @@ called producing an **extended depth-of-field (EDOF)** image. It's used in macro
 product, microscopy, and landscape photography, wherever one shot can't hold the
 whole scene in focus.
 
+> 📸 **[Progress Showcase](docs/SHOWCASE.md)** — the engine explained visually:
+> real before/after photos with zooms, the intuition and the math behind each
+> idea, the evidence across every validated regime, and the road ahead.
+
 ## How it works
 
 The pipeline has three stages, each a small signal/image-processing problem:

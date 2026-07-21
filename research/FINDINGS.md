@@ -65,6 +65,20 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F39 — Veil-evidence licensing: rigorous negative (category mismatch), reverted
+Built the 16c veil-evidence check (per component: far-frame energy suppressed inside
+the veil vs sharp outside). Both formulations (whole-ribbon medians; veil-core vs
+outside-ribbon) no-op'd EVERYTHING — including the on-model occ win. Mechanism, fully
+understood: THIN structures never produce a strong veil (blurred alpha of a 1-3px line
+peaks ~0.1-0.3 — F27's "thin-structure haze is small" rhyming back), so an
+energy-suppression license can never fire exactly where reconstruction wins; the
+on-model win's mechanism is SHARP-CONTOUR RE-COMPOSITE, not deep-veil removal — the
+license verified the wrong physics. Reverted to the F38 state (plane-step + energy
+floor: −16% on-model, real-neutral). A correct license must be SILHOUETTE-side, not
+veil-side: contour sharp in the owner frame + multi-plane gap across it (already in
+the plane-step ribbon) + owner-side matte contrast — plus GT verdicts (iphone12) as
+the promotion gate. Default stays OFF; the check design is the next 16c iteration.
+
 ## F38 — Reconstruction on real stacks: gate arc lands strongest on-model result; real-data now neutral, benefit unproven
 Tested the "true beast" on real handheld sweeps. v1 fired on OBJECT INTERIORS (kitchen
 alphafire eye-check: label text, in-focus texture — dominance = ordinary DOF at that

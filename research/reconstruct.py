@@ -97,13 +97,83 @@ def reconstruct_band(frames, alpha_sharp, band, base_fused, max_r, inpaint_r=5):
 
 
 def estimate_alpha(frames):
-    """Rung C matte estimate: owner-frame focus dominance, softened (no oracle)."""
+    """Rung C1 matte (naive focus dominance) — kept as the negative reference."""
     from focusstack.focus import content_aware_energies
     from focusstack.io import to_gray_float
     e0, e1 = content_aware_energies([to_gray_float(frames[0]), to_gray_float(frames[1])])
     raw = ((e0 > 2.0 * e1) & (e0 > np.percentile(e0, 60))).astype(np.float32)
     raw = cv2.dilate(raw, np.ones((3, 3), np.uint8))
     return np.clip(cv2.GaussianBlur(raw, (0, 0), 1.0), 0.0, 1.0)
+
+
+def estimate_alpha_v2(frames, max_r, ribbon_thresh=0.45):
+    """Rung C2 matte: B-gated + owner-guided (the F34 fixes).
+
+    1. Support gated to the boundary-engine ribbon -> no false-positive matte
+       away from true boundaries (C1's global-regression source).
+    2. Side-mask refined by a guided filter whose GUIDE IS THE OWNER FRAME —
+       the frame where the occluding structure is in focus holds the true sharp
+       silhouette, so alpha inherits it.
+    3. Ownership = majority focus-winner among structure-side pixels (v1 scope).
+    Returns (alpha, owner_index).
+    """
+    from boundary import stack_boundary
+    from focusstack.focus import content_aware_energies
+    from focusstack.io import to_gray_float
+
+    B = stack_boundary(frames)
+    rib_r = max(2, int(round(0.7 * max_r)))
+    ribbon = cv2.dilate((B >= ribbon_thresh).astype(np.uint8),
+                        np.ones((2 * rib_r + 1, 2 * rib_r + 1), np.uint8))
+
+    grays = [to_gray_float(f) for f in frames]
+    E = np.stack(content_aware_energies(grays), 0)
+    winner = np.argmax(E, 0)
+
+    # side mask: decisive local winner dominance, restricted to the ribbon
+    e_sorted = np.sort(E, axis=0)
+    dom = (e_sorted[-1] - e_sorted[-2]) / (e_sorted[-1] + 1e-6)
+    raw = ((dom > 0.35) & (ribbon > 0)).astype(np.float32)
+    if raw.sum() < 10:
+        return np.zeros_like(raw), 0
+
+    # ownership: majority winner among structure-side pixels
+    owner = int(np.bincount(winner[raw > 0.5].ravel(), minlength=len(frames)).argmax())
+    side = (raw > 0.5) & (winner == owner)
+    side = cv2.dilate(side.astype(np.float32), np.ones((3, 3), np.uint8))
+
+    # matte: snap the side mask to the owner frame's sharp silhouette
+    from focusstack.fusion import guided_filter
+    alpha = guided_filter(grays[owner] / 255.0, side.astype(np.float32), 2, 1e-4)
+    alpha = np.clip(alpha, 0.0, 1.0) * (ribbon > 0)
+    return alpha.astype(np.float32), owner
+
+
+def estimate_alpha_v3(frames, max_r, ribbon_thresh=0.45):
+    """Rung C3 matte: DIFFERENCE MATTING — thinness from content, not support.
+
+    The v2 matte was bloated (eye-checked): energy-dominance support is ~10px wide
+    around 2px structures and merges where structures are dense — support-based
+    mattes can never be thin. Instead: estimate the background plate by inpainting
+    the OWNER frame over the (generous) support, then alpha = robust-normalized
+    |owner - plate| — nonzero exactly ON the structure, however thin.
+    Returns (alpha, owner_index).
+    """
+    a2, owner = estimate_alpha_v2(frames, max_r, ribbon_thresh)
+    if a2.max() <= 0:
+        return a2, owner
+    support = (cv2.dilate((a2 > 0.15).astype(np.uint8), np.ones((5, 5), np.uint8)))
+    own = frames[owner]
+    plate = cv2.inpaint(own, support, 5, cv2.INPAINT_TELEA).astype(np.float32)
+    diff = np.abs(own.astype(np.float32) - plate).sum(axis=2) * (support > 0)
+    inside = diff[support > 0]
+    hi = np.percentile(inside[inside > 0], 90) if (inside > 0).any() else 1.0
+    alpha = np.clip(diff / (hi + 1e-6), 0.0, 1.0)
+    # light edge-aware snap to the owner frame (keeps AA transitions, kills speckle)
+    from focusstack.fusion import guided_filter
+    from focusstack.io import to_gray_float
+    alpha = np.clip(guided_filter(to_gray_float(own) / 255.0, alpha.astype(np.float32), 1, 1e-4), 0.0, 1.0)
+    return alpha.astype(np.float32), owner
 
 
 def main():
@@ -115,9 +185,10 @@ def main():
         base = fuse_perband(sc["frames"], harden=0.5)
         band = contamination_band(sc["alpha"], sc["max_r"])
         rec_b = reconstruct_band(sc["frames"], sc["alpha"], band, base, sc["max_r"])
-        a_est = estimate_alpha(sc["frames"])
+        a_est, owner = estimate_alpha_v2(sc["frames"], sc["max_r"])
+        fr_o = [sc["frames"][owner], sc["frames"][1 - owner]]
         band_c = contamination_band(a_est, sc["max_r"])
-        rec_c = reconstruct_band(sc["frames"], a_est, band_c, base, sc["max_r"])
+        rec_c = reconstruct_band(fr_o, a_est, band_c, base, sc["max_r"])
         e2b, s2b = bband(base, sc["gt"], gt_b, 2)
         e2r, s2r = bband(rec_b, sc["gt"], gt_b, 2)
         e2c, s2c = bband(rec_c, sc["gt"], gt_b, 2)

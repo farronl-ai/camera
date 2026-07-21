@@ -54,6 +54,22 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F35 — Buildable matte reconstruction WORKS: C3 recovers 73% of the oracle ceiling
+Closing the F34 gap took two diagnosed iterations, each driven by decomposition + eye:
+C2 (B-ribbon gating + owner-guided snap) still regressed globally — mixed-oracle rungs
+isolated the cause: matte VALUES were fine (est-value/true-mask ≈ baseline), the
+SUPPORT was the killer (true-value/est-mask −0.033 global), and the eye-check showed
+why: energy-dominance support is ~10px wide around 2px structures and merges into
+blobs where structures are dense — support-based mattes can never be thin.
+C3 = DIFFERENCE MATTING: inpaint the owner frame over the generous support to get a
+background plate; alpha = robust-normalized |owner − plate| — nonzero exactly ON the
+structure, however thin; light owner-guided snap. Result on occ (all 4 scenes win):
+bband err 22.0→18.5 (−16%; ceiling −22% → 73% recovered), in-band SSIM 0.9446→0.9561,
+**global 0.9410→0.9461 (improves)**. The buildable reconstruction now beats baseline
+with no oracle inputs. Lessons: mixed-oracle rungs decompose a 2-factor failure in one
+experiment; matte thinness must come from CONTENT (difference vs plate), not from
+detector support width.
+
 ## F34 — Matte-aware boundary RECONSTRUCTION: ceiling validated (-22% bband err); matte quality is the bottleneck
 16b rung B (TRUE sharp alpha, everything else from frames): bband k=2 err 21.8→16.9
 (-22%), in-band SSIM 0.9471→0.9672, global IMPROVES 0.944→0.949 — the physics-correct

@@ -65,6 +65,23 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F43 — Mask matting v1: benchmark pathology CONFIRMED by looking; benchmark must upgrade to objects-as-occluders
+T1 (FastSAM masks + seed/depth selection) scored WORSE than depth-thresholding
+(|a err| 0.18-0.45, owner wrong on all 8) — and one look at the mask visualization
+explained everything: (1) FastSAM fragments/misses our pasted texture-pastiche blobs
+(they are not objects; SAM-class models segment real-object statistics); (2) it
+segments every BOKEH DISK in the background photos as an object, and DA-V2 rates those
+bright circles near → the selector picks background masks. The wideocc benchmark is
+simultaneously too artificial for semantic models AND carries real-photo artifacts
+that spoof them — the F32/F42 pathology line, now terminal for this benchmark as a
+semantic-matte judge. FIX (next): OBJECTS-AS-OCCLUDERS generator — FastSAM cuts real
+objects (true silhouette = GT alpha) from source photos; composite those with the
+existing defocus physics. Also fixes T2's label factory. Infra shipped this stretch:
+bridge_masks.py (FastSAM, torch/torchvision pair fixed 2.13/0.28+cpu), maskmatte.py
+(seed/depth mask selection — logic reusable once the benchmark is honest).
+T0 note: Sync.com is JS/E2E-encrypted — iphone12 requires a one-time MANUAL browser
+download (link in REAL_DATA.md); nothing else blocks on it.
+
 ## F42 — Blind veil chain PROVEN end-to-end (1 scene); matte reliability blocks default-ON
 16e stack-seeded semantic matting (focus seeds pick the owner + depth range; DA-V2
 provides dense boundaries; components must contain seeds): when the matte lands

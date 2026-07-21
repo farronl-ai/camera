@@ -65,6 +65,22 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F40 — Veil correction (16d): weight-scaled forward-model subtraction — oracle ceiling strong; band-limitation premise refuted
+P0 (measure first): wide-occluder haze is REAL only at giant CoC (fringe = 19-25% of
+total error at r=0.04·dim, with the predicted coarse-band bump; at moderate CoC the
+fringe is 6-9% and mostly fine-band = reconstruction's domain). P1 (unweighted D
+subtracted from the fused pyramid, band-limited): FAILS — worse everywhere at moderate
+CoC, marginal at giant. Diagnosis → O1b: the haze enters the output ONLY through the
+far frame's per-band fusion weights, so the correction must be w_far-scaled and live
+INSIDE the perband loop (Farron's slots-into-the-band-machinery instinct, exactly).
+O1b (exact D, weight-scaled, ALL bands): fringe −18..−37%, **global SSIM +0.005..+0.019
+on every scene in BOTH CoC regimes** — the strongest oracle ceiling since F34. Theory
+correction, logged honestly: the band-limitation premise was WRONG — F27's amplifiers
+come from DIVISION; forward-model SUBTRACTION is safe at every band. The F27-evasion
+is subtraction-not-division, not band exclusion. (Coarse-only windows barely help.)
+P2 (blind estimator: alpha from coherent coarse winner region — wide occluders are the
+EASY matting case — near premult from owner frame, far observed) running next.
+
 ## F39 — Veil-evidence licensing: rigorous negative (category mismatch), reverted
 Built the 16c veil-evidence check (per component: far-frame energy suppressed inside
 the veil vs sharp outside). Both formulations (whole-ribbon medians; veil-core vs

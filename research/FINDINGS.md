@@ -47,6 +47,17 @@ preserves the mean, so frame-mean differences are exposure — per-frame gain to
 stack median; near-identity when undrifted). N-frame stacks are a strength, not a
 risk (F24/F29: quality rises with N; broad weights denoise; no spread import).
 
+**Boundaries (E-phase, F30–F36).** The decision/reconstruction split is now proven:
+residual hard-edge error is COEFFICIENT CONTAMINATION (the lens mixes both sides into
+the captured pixels) — unfixable by any decision scheme (even oracle decisions lose,
+F33); fixable only by matte-aware RE-RENDERING of the boundary band (F34: −22% ceiling;
+F35: buildable −16% with global win on-model). But the reconstruction assumes a
+formation model and must be GATED on evidence the model holds — it regresses off-model
+(F36) and ships default-OFF (--reconstruct-boundaries) pending veil-evidence gating
+(16c). The Boundary Engine itself (stack ∪ semantic channels, fused F=0.55, 2.6x
+Canny; DA-V2 sees through defocus and camouflage) stands as a validated data product;
+orthogonality of evidence channels is a design requirement, not a nicety (F30–F32).
+
 **Learning.** Classical foundation first. Learned per-tile routing matches the
 oracle; distillation matches classical quality in one pass (speed win needs a GPU);
 per-tile no-GT labels are unreliable (~19% GT agreement) → train on GT dev-labels,

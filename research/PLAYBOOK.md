@@ -146,3 +146,20 @@ Default engine: `blend` + `content_aware`; `--harden 0.5` for bright/thin struct
 `--fast` for high-res. `.venv` (3.14) for the engine, `.venv312` for torch. Before any
 "it works": isolate-test the stage, check hard data + eyes, distrust clean-data and
 global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
+
+## E-phase additions (boundary/reconstruction arc)
+- **Oracle ladders turn mystery negatives into understood ones** — each rung removes
+  one explanation (estimation → noise → PSF → model). Run the ladder BEFORE building
+  estimators; the ceiling decides whether estimators are worth building at all.
+- **Mixed-oracle rungs decompose two-factor failures in one experiment** (true-value/
+  est-mask vs est-value/true-mask isolated the matte SUPPORT as the killer, F35).
+- **Matte thinness must come from CONTENT (difference vs estimated plate), not
+  detector support width** — energy support is always fatter than the structure.
+- **A reconstruction that assumes a formation model must gate on evidence the model
+  holds** — focus dominance ≠ occlusion (every in-focus region dominates); demand veil
+  evidence. Benchmark-matched wins do not transfer; cross-generator gates are the
+  honest test (F36).
+- **Orthogonal evidence channels only** — a new detector fed by the same signals your
+  engine already senses adds correlation, not information (parallel vectors). Semantic
+  priors (monocular depth, learned segmentation) see what local math cannot: through
+  defocus, through camouflage, closed topology (F31/F32).

@@ -57,7 +57,8 @@ def main():
     rng = np.random.default_rng(7)
     manifest = []
     made = 0
-    for i, src in enumerate(photos):
+    srcs = [p for r in range(6) for p in photos]      # multiple rounds for scale
+    for i, src in enumerate(srcs):
         if made >= n_scenes:
             break
         mp = src + ".masks.npy"
@@ -69,7 +70,7 @@ def main():
             continue
         mm = masks[int(rng.integers(len(masks)))]
         # background = a DIFFERENT photo
-        bg_path = photos[(i + 3) % len(photos)]
+        bg_path = photos[(i + 3 + 2 * (i // len(photos))) % len(photos)]
         bg = cv2.imread(bg_path)
         bh, bw = bg.shape[:2]
         s = LONG / max(bh, bw)

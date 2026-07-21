@@ -52,12 +52,14 @@ def good_object_masks(masks, h, w):
 def main():
     n_scenes = int(sys.argv[1]) if len(sys.argv) > 1 else 8
     coc_frac = float(sys.argv[2]) if len(sys.argv) > 2 else 0.02
+    start = int(sys.argv[3]) if len(sys.argv) > 3 else 0
     photos = sorted(glob.glob(os.path.join(SRC, "*", "gt.png")))
     os.makedirs(OUT, exist_ok=True)
-    rng = np.random.default_rng(7)
-    manifest = []
-    made = 0
-    srcs = [p for r in range(6) for p in photos]      # multiple rounds for scale
+    rng = np.random.default_rng(7 + start)
+    manifest = json.load(open(os.path.join(OUT, "manifest.json"))) if start and \
+        os.path.exists(os.path.join(OUT, "manifest.json")) else []
+    made = start
+    srcs = [p for r in range(12) for p in photos]     # multiple rounds for scale
     for i, src in enumerate(srcs):
         if made >= n_scenes:
             break
@@ -70,7 +72,7 @@ def main():
             continue
         mm = masks[int(rng.integers(len(masks)))]
         # background = a DIFFERENT photo
-        bg_path = photos[(i + 3 + 2 * (i // len(photos))) % len(photos)]
+        bg_path = photos[(i + 3 + 2 * (i // len(photos)) + start) % len(photos)]
         bg = cv2.imread(bg_path)
         bh, bw = bg.shape[:2]
         s = LONG / max(bh, bw)

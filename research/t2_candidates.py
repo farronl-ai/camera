@@ -136,63 +136,126 @@ def candidates_with_features(sc, topk=4):
 
 
 def main():
+    CACHE = "/home/farron/camera/research/t2_cand_cache.npz"
+    cache = dict(np.load(CACHE, allow_pickle=True))["rows"].item() if os.path.exists(CACHE) else {}
     data = []          # candidate-level rows
     per_scene = []     # scene bookkeeping
+    dirty = False
     for i, sc in enumerate(scenes()):
-        base = fuse_perband(sc["frames"], harden=0.5)
         fr = fringe_mask(sc["alpha"], sc["max_r"])
-        e0 = float(np.abs(base.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)[fr].mean())
-        g0 = M.ref_ssim(base, sc["gt"])
-        cands = candidates_with_features(sc)
-        rows = []
-        for c in cands:
-            D = build_D(sc["frames"], c["alpha"], sc["max_r"], c["owner"], 1 - c["owner"])
-            cor = corr_multi(sc["frames"], {1 - c["owner"]: D})
-            ec = float(np.abs(cor.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)[fr].mean())
-            gc = M.ref_ssim(cor, sc["gt"])
-            label = 1.0 if (ec < e0 and gc - g0 >= -0.0005) else 0.0
-            row = dict(i=i, feats=c["feats"], alpha=c["alpha"], owner=c["owner"], label=label)
-            rows.append(row)
-            data.append(row)
-        per_scene.append(dict(i=i, sc=sc, base=base, e0=e0, g0=g0, fr=fr, cands=rows))
-        print(f"  scene_{i:02d}: {len(rows)} candidates, labels={[int(r['label']) for r in rows]}")
+        key = sc["sid"]
+        if key in cache:
+            e0, g0, crows = cache[key]
+            rows = [dict(i=i, feats=np.array(cr["feats"], np.float32), owner=int(cr["owner"]),
+                         label=float(cr["label"]), dg=float(cr["dg"]), de=float(cr["de"]),
+                         alpha=None) for cr in crows]
+        else:
+            base = fuse_perband(sc["frames"], harden=0.5)
+            e0 = float(np.abs(base.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)[fr].mean())
+            g0 = M.ref_ssim(base, sc["gt"])
+            rows = []
+            crows = []
+            for c in candidates_with_features(sc):
+                D = build_D(sc["frames"], c["alpha"], sc["max_r"], c["owner"], 1 - c["owner"])
+                cor = corr_multi(sc["frames"], {1 - c["owner"]: D})
+                ec = float(np.abs(cor.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)[fr].mean())
+                gc = M.ref_ssim(cor, sc["gt"])
+                label = 1.0 if (ec < e0 and gc - g0 >= -0.0005) else 0.0
+                rows.append(dict(i=i, feats=c["feats"], alpha=c["alpha"], owner=c["owner"],
+                                 label=label, dg=gc - g0, de=ec - e0))
+                crows.append(dict(feats=c["feats"].tolist(), owner=c["owner"], label=label,
+                                  dg=gc - g0, de=ec - e0))
+            cache[key] = (e0, g0, crows)
+            dirty = True
+        data.extend(rows)
+        per_scene.append(dict(i=i, sc=sc, e0=e0, g0=g0, fr=fr, cands=rows))
+    if dirty:
+        np.savez(CACHE, rows=np.array({k: v for k, v in cache.items()}, dtype=object))
+    print(f"  scenes={len(per_scene)} candidates={len(data)} "
+          f"positives={int(sum(r['label'] for r in data))}")
 
     n_tr_scene = int(0.75 * len(per_scene))
     train = [r for r in data if r["i"] < n_tr_scene]
     held = [r for r in data if r["i"] >= n_tr_scene]
-    X = np.stack([r["feats"] for r in train])
-    y = np.array([r["label"] for r in train])
-    wgt, mu, sd = logistic_fit(X, y)
-    ps = np.array([logistic_p(wgt, mu, sd, r["feats"]) for r in train])
-    bad_p = ps[y == 0]
-    tau = float(min(1.0, (bad_p.max() if len(bad_p) else 0.0) + 0.10))
-    ph = np.array([logistic_p(wgt, mu, sd, r["feats"]) for r in held])
-    yh = np.array([r["label"] for r in held])
-    fh = ph >= tau
-    print(f"\n  candidates: train={len(train)} held={len(held)}  tau={tau:.3f}")
-    print(f"  train fired {int((ps>=tau).sum())}/{len(train)} all-good={bool((y[ps>=tau]==1).all())}")
-    print(f"  held  fired {int(fh.sum())}/{len(held)}  good={int(yh[fh].sum())}/{int(fh.sum())}")
 
-    fired_scenes = 0
+    def expand(x):     # quadratic feature map: x + pairwise products
+        q = [x[a] * x[b] for a in range(len(x)) for b in range(a, len(x))]
+        return np.concatenate([x, q]).astype(np.float32)
+
+    # RIDGE REGRESSION on the OUTCOME dg itself — the gate predicts the gain;
+    # fire when predicted gain clears a positive margin. No tau, no label proxy.
+    X = np.stack([expand(r["feats"]) for r in train])
+    yg = np.array([r["dg"] for r in train], np.float32)
+    mu, sd = X.mean(0), X.std(0) + 1e-6
+    Xn = np.hstack([(X - mu) / sd, np.ones((len(X), 1), np.float32)])
+    lam = 3.0
+    A = Xn.T @ Xn + lam * np.eye(Xn.shape[1], dtype=np.float32)
+    wgt = np.linalg.solve(A, Xn.T @ yg)
+    FIRE_MARGIN = 3e-4
+
+    def pred(r):
+        xn = np.hstack([(expand(r["feats"]) - mu) / sd, [1.0]])
+        return float(xn @ wgt)
+
+    ptr = np.array([pred(r) for r in train]); ph = np.array([pred(r) for r in held])
+    ytr = yg; yh = np.array([r["dg"] for r in held])
+    ftr = ptr >= FIRE_MARGIN; fh = ph >= FIRE_MARGIN
+    print(f"\n  candidates: train={len(train)} held={len(held)}  fire if pred_dg>={FIRE_MARGIN}")
+    print(f"  train fired {int(ftr.sum())}/{len(train)}  actual-dg>=0: {int((ytr[ftr]>=0).sum())}/{int(ftr.sum())}"
+          f"  mean actual dg={ytr[ftr].mean() if ftr.any() else 0:+.4f}")
+    print(f"  held  fired {int(fh.sum())}/{len(held)}  actual-dg>=0: {int((yh[fh]>=0).sum())}/{int(fh.sum())}"
+          f"  mean actual dg={yh[fh].mean() if fh.any() else 0:+.4f}")
+    tau = FIRE_MARGIN
+    def logistic_p_shim(w_, m_, s_, x):     # keep property loop signature
+        return pred(dict(feats=x))
+    globals()["logistic_p"] = logistic_p_shim
+
+    fired_scenes = {"0.02": [0, 0], "0.035": [0, 0]}   # regime -> [fired, total]
     worst = 0.0
     for s in per_scene:
-        fired = [c for c in s["cands"] if logistic_p(wgt, mu, sd, c["feats"]) >= tau]
-        if not fired:
+        regime = "0.035" if s["sc"]["max_r"] > 40 else "0.02"
+        fired_scenes[regime][1] += 1
+        fired_idx = [j for j, c in enumerate(s["cands"]) if pred(c) >= FIRE_MARGIN]
+        if not fired_idx:
             continue
-        fired_scenes += 1
+        fired_scenes[regime][0] += 1
+        cands_full = candidates_with_features(s["sc"])     # recompute alphas (cache-safe)
         D_by_far = {}
-        for c in fired:
+        for j in fired_idx:
+            if j >= len(cands_full):
+                continue
+            c = cands_full[j]
             D = build_D(s["sc"]["frames"], c["alpha"], s["sc"]["max_r"], c["owner"], 1 - c["owner"])
-            f = 1 - c["owner"]
-            D_by_far[f] = D_by_far.get(f, 0) + D
+            fi = 1 - c["owner"]
+            D_by_far[fi] = D_by_far.get(fi, 0) + D
+        if not D_by_far:
+            continue
         out = corr_multi(s["sc"]["frames"], D_by_far)
+        # RUNTIME OUTPUT SELF-CHECK — DISABLED (F45): q_ssim measures similarity
+        # to the locally-sharpest SOURCE, but the veil correction synthesizes
+        # de-hazed content matching NO source; the check reverts GT-verified wins.
+        SELF_CHECK = False
+        base_img = fuse_perband(s["sc"]["frames"], harden=0.5)
+        reg = np.zeros(out.shape[:2], bool)
+        for fi, Dp in D_by_far.items():
+            reg |= np.abs(Dp).sum(2) > 0.5
+        if SELF_CHECK and reg.sum() > 100:
+            q_out = M.q_ssim_map(s["sc"]["frames"], out)[reg].mean()
+            q_base = M.q_ssim_map(s["sc"]["frames"], base_img)[reg].mean()
+            if q_out < q_base - 0.001:
+                out = base_img
+                print(f"  scene_{s['i']:02d}: REVERTED by output self-check "
+                      f"(regional q_ssim {q_base:.4f}->{q_out:.4f})")
         ec = float(np.abs(out.astype(np.float32) - s["sc"]["gt"].astype(np.float32)).sum(2)[s["fr"]].mean())
         gc = M.ref_ssim(out, s["sc"]["gt"])
         worst = min(worst, gc - s["g0"])
-        print(f"  scene_{s['i']:02d}: {len(fired)} fired  fringe {s['e0']:6.1f}->{ec:6.1f}  "
+        print(f"  scene_{s['i']:02d}: {len(fired_idx)} fired  fringe {s['e0']:6.1f}->{ec:6.1f}  "
               f"glob {s['g0']:.4f}->{gc:.4f}")
-    print(f"\n  scene coverage: {fired_scenes}/{len(per_scene)}  worst delta={worst:+.4f} (>= -0.001)")
-    np.savez("/home/farron/camera/research/t2_gate.npz", w=wgt, mu=mu, sd=sd, tau=tau)
+    for reg, (fc, tc) in fired_scenes.items():
+        print(f"  coverage CoC {reg}: {fc}/{tc}")
+    print(f"  worst delta={worst:+.4f} (>= -0.001)")
+    np.savez("/home/farron/camera/research/t2_gate.npz", w=wgt, mu=mu, sd=sd,
+             margin=FIRE_MARGIN)
 
 
 if __name__ == "__main__":

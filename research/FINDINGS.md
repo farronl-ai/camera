@@ -65,6 +65,22 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F45 — Fire-rate refinement locked: per-candidate outcome-regression gate; no-ref self-audit is INVALID for synthesis corrections
+Checkpoint deepening (100-scene factory, 366 candidates, 2 CoC regimes), seven gate
+iterations, each from a diagnosed failure: per-candidate routing (top-K masks gated
+independently, corrections compose per owner group) lifted coverage 6/42→17/100 with
+the RIGHT regime skew (14/58 giant-CoC vs 3/42 moderate — firing where P0 says the
+effect exists); outcome-REGRESSION (predict dg, fire above +3e-4) replaced label
+proxies entirely. Residual: ONE violator in 100 (scene_46, −0.0027 global) whose
+features are twins of winners — irreducible with current features. Attempted fix
+worth its own lesson: a runtime q_ssim output self-check REVERTED THE GT-VERIFIED WINS
+along with the loser — **no-reference source-similarity metrics cannot audit a
+correction whose success means deviating from every source** (the de-hazed output
+matches GT, not the hazy far frame). GT-trained gating is the only valid audit until
+a synthesis-aware no-ref signal exists. Ship stance per DEVSTYLE: veil correction
+stays default-OFF (one-in-100 known violator); the gate + machinery are locked and
+packaged-ready; promotion path = feature to split the scene_46 twin OR iphone12 GT.
+
 ## F44 — Outcome-trained routing gate satisfies the every-scene property (T2 complete)
 The routing layer works when the gate predicts THE OUTCOME, not a proxy. Arc: (a) matte
 lands 3/7→8/28 after ring-contrast + owner-fix (interior majority winner); (b) 42-scene

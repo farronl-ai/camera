@@ -65,6 +65,25 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F42 — Blind veil chain PROVEN end-to-end (1 scene); matte reliability blocks default-ON
+16e stack-seeded semantic matting (focus seeds pick the owner + depth range; DA-V2
+provides dense boundaries; components must contain seeds): when the matte lands
+(|a err|=0.008, scene 02_c0.012), the FULLY BLIND chain improves both fringe
+(26.8→24.8) and global (0.9652→0.9655) — the complete mechanism works with no oracle
+anywhere. But the matte lands in ~2/8 scenes: global Otsu fails on bg-internal depth
+(F32 pathology), and seeding fixes owner selection only partially (giant-CoC scenes
+still flip owner). Self-gating attempt: NO candidate confidence signal (depth margin,
+seed coverage, compactness) separates good from bad mattes — the worst matte has the
+HIGHEST depth margin (confidently wrong owner). Per DEVSTYLE, no threshold-hunting on
+n=8: default-ON is not evidence-supportable today. SHIPPED: fuse_perband(veil_D=,
+veil_far_idx=) — the weight-scaled in-loop correction as identity-gated package
+infrastructure (byte-identical when None, tested). Path to default-ON, concretely:
+(a) segmentation-mask matting (SAM-class) instead of depth thresholding — masks are
+the object-shaped signal, depth only orders them; (b) a learned matte-confidence
+model trained on our GT scenes (we have unlimited labeled mattes from the generators);
+(c) iphone12 GT for real-data verdicts. The half-marathon checkpoint stands at:
+mechanisms proven (16b/16d), infrastructure shipped, matte = the last wall.
+
 ## F41 — Veil correction: mechanism fully validated; the matte is (again) the missing input
 Completing the 16d ladder isolated everything. O2 (TRUE alpha + estimated content —
 near premult from the owner frame, far observed): fringe AND global improve on all 8

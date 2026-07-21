@@ -444,6 +444,8 @@ def fuse_perband(
     boundary: np.ndarray | None = None,
     b_lambda: float = 0.5,
     b_eps_gain: float = 4.0,
+    veil_D: np.ndarray | None = None,
+    veil_far_idx: int = -1,
 ) -> np.ndarray:
     """Per-band edge-aware fusion — pyramid's multi-scale DECISION + guided (halo-free).
 
@@ -485,6 +487,17 @@ def fuse_perband(
     if boundary is not None:
         b_pyr = _gaussian_pyramid(np.clip(boundary.astype(np.float32), 0.0, 1.0), levels)
 
+    # Optional veil correction (F40/F41): `veil_D` is the forward-simulated haze
+    # field of the frame at `veil_far_idx`; haze enters the output only through
+    # that frame's per-band weights, so we subtract w_far * L_k(D) at EVERY band
+    # (subtraction of a simulated field has no division -> no F27 amplification).
+    # veil_D=None -> byte-identical to the plain path.
+    d_pyr = None
+    if veil_D is not None:
+        d_pyr = _laplacian_pyramid(veil_D.astype(np.float32), levels)
+        if veil_far_idx < 0:
+            veil_far_idx = n - 1
+
     fused_bands: list[np.ndarray] = []
     w_last: np.ndarray | None = None
     for band in range(levels + 1):
@@ -521,7 +534,10 @@ def fuse_perband(
                 weights.append(wg)
             w = np.stack(weights, axis=0)
             w /= (w.sum(axis=0, keepdims=True) + 1e-8)
-            fused_bands.append(sum(w[k][..., None] * coeffs[k] for k in range(n)))
+            fb = sum(w[k][..., None] * coeffs[k] for k in range(n))
+            if d_pyr is not None:
+                fb = fb - w[veil_far_idx][..., None] * d_pyr[band]
+            fused_bands.append(fb)
             w_last = w
         else:
             # Base band: blend with the coarsest detail weights propagated down —
@@ -530,7 +546,10 @@ def fuse_perband(
             wb = np.stack([cv2.pyrDown(w_last[k]) for k in range(n)], axis=0)
             wb = np.clip(wb, 0.0, None)
             wb /= (wb.sum(axis=0, keepdims=True) + 1e-8)
-            fused_bands.append(sum(wb[k][..., None] * coeffs[k] for k in range(n)))
+            fb = sum(wb[k][..., None] * coeffs[k] for k in range(n))
+            if d_pyr is not None:
+                fb = fb - wb[veil_far_idx][..., None] * d_pyr[levels]
+            fused_bands.append(fb)
 
     result = fused_bands[-1]
     for band in range(levels - 1, -1, -1):

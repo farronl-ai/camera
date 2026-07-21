@@ -54,6 +54,25 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F36 — C3 gates: wins ON-model, regresses OFF-model → shipped default-OFF; gating is the successor
+All-regime gates on the buildable reconstruction: occ (matte-model data) passes with
+graceful radius degradation (0.5x/1x/2x: improve/best/≈baseline); fence eye shows the
+target artifact genuinely fixed (wires thinner, defocus halo reduced) with mild side
+effects (faint plate-ghost bands, few off-wire edits). BUT: hires_mixed regresses
+(bband +6.7, global −0.017), Real-MFF −0.0035, nframe/drift −0.0016, layered mildly
+harmed. Diagnosis: **focus dominance fires on every in-focus region** (the other frame
+is always defocused there — that is ordinary depth-of-field, NOT occlusion), so the
+matte stamps corrections onto non-occluder content; C3's formation model (matte
+composite + disk veil) only matches matte-composited data. Per the plan's pre-stated
+rule: shipped as default-OFF experimental (--reconstruct-boundaries;
+focusstack/reconstruct.py, tests for no-op safety + off-by-default identity).
+Lessons: (1) a reconstruction that ASSUMES a formation model must GATE on evidence the
+model holds (veil evidence in the far frame — energy suppression at the support — not
+mere dominance); (2) benchmark-matched wins do NOT transfer — cross-generator gates
+are the honest test (occ_gen win + mixed_gen loss = model overfit made visible).
+Successor (FRONTIER 16c): veil-evidence applicability gating + validation on real
+bracketed captures (#13) before any promotion.
+
 ## F35 — Buildable matte reconstruction WORKS: C3 recovers 73% of the oracle ceiling
 Closing the F34 gap took two diagnosed iterations, each driven by decomposition + eye:
 C2 (B-ribbon gating + owner-guided snap) still regressed globally — mixed-oracle rungs

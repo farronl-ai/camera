@@ -118,6 +118,12 @@ nuance; `FINDINGS.md` is the dated experimental log.
   numpy self-impl, or `uv` → py3.12 + CPU torch (`.venv312`). No GPU.
 - Data: Real-MFF (710 GT, gdown, ships RAR → build unrar from source if no sudo);
   Lytro (real optical defocus, yuliu316316/MFIF); MFFW/UHD-MFF not cleanly available.
+  **REAL deep/handheld/photographic stacks — the recurring bottleneck — are now
+  cataloged in `research/REAL_DATA.md` + fetched by `research/realdata.py`.**
+  `mobiledepth` (13 real phone sweeps, N=12–41, no AiF GT) is IN-TREE now; `iphone12`
+  (Learn2Refocus, N=9, 4K, +pseudo-GT), `learn2af` (N=49, real, 870 GB), `araujo`
+  (raw bursts +pseudo-GT) are scripted/documented there. `research/data/` is gitignored,
+  so a pull persists across branch checkouts in this working tree.
 - High-res speed: subscale ONLY the guided-filter (`weight_scale`), keep focus/
   confidence full-res or thin structures grey out. `--fast` ≈ 1.5x quality-safe (CPU ceiling).
 

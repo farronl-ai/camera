@@ -63,6 +63,31 @@ def test_normalize_exposure_identity_and_recovery():
     assert err_after < err_before * 0.35
 
 
+def test_reconstruct_boundaries_safe_and_off_by_default(tmp_path):
+    from focusstack.reconstruct import reconstruct_boundaries
+
+    rng = np.random.default_rng(9)
+    base = rng.integers(0, 255, (96, 96, 3)).astype(np.uint8)
+    stack = [base.copy(), cv2.GaussianBlur(base, (9, 9), 3)]
+    fused = base.copy()
+
+    # graceful no-op on degenerate inputs (single frame; no occluder found)
+    assert np.array_equal(reconstruct_boundaries([base], fused), fused)
+    out = reconstruct_boundaries(stack, fused)
+    assert out.shape == fused.shape and out.dtype == np.uint8
+
+    # pipeline default OFF -> byte-identical to a run without the stage
+    paths = []
+    for i, im in enumerate(stack):
+        p = str(tmp_path / f"f{i}.png")
+        cv2.imwrite(p, im)
+        paths.append(p)
+    a = run(paths, str(tmp_path / "a.png"), align=False, verbose=False)
+    b = run(paths, str(tmp_path / "b.png"), align=False, verbose=False,
+            reconstruct_boundaries=False)
+    assert np.array_equal(a, b)
+
+
 def test_pipeline_max_method_with_debug(tmp_path):
     d = str(tmp_path)
     _, _, _, paths = _write_two_region_stack(d)

@@ -92,6 +92,14 @@ def build_parser() -> argparse.ArgumentParser:
         "focus — near-identity on undrifted stacks).",
     )
     p.add_argument(
+        "--reconstruct-boundaries",
+        action="store_true",
+        help="EXPERIMENTAL: re-render occlusion-boundary bands as fresh matte "
+        "composites (sharper hard edges where a defocused occluder veils the "
+        "background). Validated on matte-occlusion benchmarks; may alter other "
+        "content — off by default.",
+    )
+    p.add_argument(
         "--depth-out",
         default=None,
         help="Also write a depth-from-focus map (uint8 PNG; near=dark, far=bright "
@@ -122,6 +130,7 @@ def main(argv: list[str] | None = None) -> int:
             harden=args.harden,
             weight_scale=weight_scale,
             normalize_exposure=not args.no_normalize_exposure,
+            reconstruct_boundaries=args.reconstruct_boundaries,
             depth_out=args.depth_out,
             debug_dir=args.debug_dir,
             verbose=args.verbose,

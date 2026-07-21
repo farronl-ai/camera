@@ -54,6 +54,7 @@ def run(
     harden: float = 0.0,
     weight_scale: float = 1.0,
     normalize_exposure: bool = True,
+    reconstruct_boundaries: bool = False,
     depth_out: str | None = None,
     debug_dir: str | None = None,
     verbose: bool = False,
@@ -135,6 +136,11 @@ def run(
         raise ValueError(
             f"Unknown method {method!r}; use 'blend', 'perband', 'decision', 'pyramid', or 'max'."
         )
+
+    if reconstruct_boundaries:
+        from .reconstruct import reconstruct_boundaries as _recon
+        log("reconstructing boundary bands (experimental) ...")
+        fused = _recon(images, fused)
 
     if depth_out:
         log("computing depth-from-focus map ...")

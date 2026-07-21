@@ -54,6 +54,24 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F33 — E4 rigorous negative: decision-side boundary integration cannot cash the bband error
+Ablation (guide-enrichment / eps-modulation / both, estimated B): null vs baseline
+(29.6→29.9 err). Oracle ladder then killed the lever class entirely: a PERFECT GT
+boundary map through the same levers is null (27.6 vs 27.4), and a PERFECT per-pixel
+decision (true nearest-plane winner, hard weights) is WORSE (39.9, global 0.9326 vs
+0.9503) — soft adaptive decisions beat the "correct" hard assignment. Mechanism: the
+residual boundary error is COEFFICIENT CONTAMINATION — defocus physics mixes
+cross-boundary content into the band coefficients themselves (same physics as F27's
+inversion negative); no weight map, however perfect, can unmix it, and hard selection
+amplifies it. Deepens F27's label: "decision-boundary error" is really reconstruction-
+physics error. Consequences: (1) E4 guide/eps injections stay in the code (identity-
+gated, harmless, may matter on real data with appearance-quiet boundaries) but are NOT
+promoted; (2) E5's ownership rule expectations tempered — oracle_dec already embodies
+boundary hard-select and lost; (3) the honest remaining levers for near-perfect hard
+lines are RECONSTRUCTION-side: matte-aware rendering of the boundary band or
+supersampled boundary reconstruction — logged to FRONTIER as the successor push; the
+boundary engine's value (B + near-side, F31/F32) stands for depth/segmentation uses.
+
 ## F32 — Channel fusion works: fused F=0.55 (2.6x Canny); two confounds diagnosed
 E3 quantitative on layered GT (tol ±3px): stack 0.443, semantic 0.400, **fused 0.551**
 (max- and mean-fusion tie) vs Canny 0.215 — the orthogonal channels combine; fusion

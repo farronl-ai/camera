@@ -28,6 +28,7 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 14 | **Video / temporal focus stacking** | Fuse focus sweeps from video; temporal coherence constraints. | ⬜ |
 | 15 | **UHD-MFF & MFFW datasets** | Real+hard benchmarks; not publicly downloadable at last check. Re-probe occasionally. | ❌ re-check later |
 
-| 16 | **Boundary Engine (E-phase)** | True object boundaries + near-side occlusion tags from stack evidence ∪ learned appearance; additive integration into guided/perband/harden. THE current push — plan: NEXT_STEPS_boundary.md. Relates to 3b/10/12. | 🔶 E3: stack channel F=0.44 (2x Canny, F30); DA-V2 bridge live and visually validated on layered + real fence (F31). |
+| 16 | **Boundary Engine (E-phase)** | True object boundaries + near-side occlusion tags from stack evidence ∪ learned appearance; additive integration into guided/perband/harden. THE current push — plan: NEXT_STEPS_boundary.md. Relates to 3b/10/12. | 🔶 E4 done as rigorous negative (F33): decision-side integration cannot fix boundary error — it is coefficient-contamination (reconstruction physics). Boundary engine (fused F=0.55) stands as data product. Successor lever: matte-aware / supersampled boundary RECONSTRUCTION (16b). |
+| 16b | **Matte-aware boundary reconstruction** | The real hard-lines lever per F33: render boundary pixels from layer model (near-owned coefficients + estimated matte), not blended bands. | ⬜ |
 
 Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEPS_breadth.md).

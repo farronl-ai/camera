@@ -79,6 +79,19 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F49 — harden defaults ON (0.5): the shipped default now matches the validated configuration
+User-caught inconsistency: every benchmark, both specialist gates, and the composed
+pass were validated at harden=0.5, while the CLI/pipeline default was 0.0 — the
+shipped default was a configuration no evidence covered (and the pipeline was even
+overriding enhance's internal 0.5 with it). Regime-spanning A/B before flipping:
+Real-MFF x15 mean +0.0001 (worst −0.0003 = noise), objocc −0.0001, microscopy −0.0001,
+thin-structure hires_mixed **+0.0054** (harden's home mechanism, F9). Default flipped
+to 0.5 across CLI/pipeline; help text corrected (applies to perband too); showcase
+run-line now shows how to DISABLE it instead of enable it. Lesson: when a config
+value appears in every experiment's invocation, it has de facto become part of the
+method — promote it to the default or the shipped product silently diverges from all
+published evidence.
+
 ## F48 — Composed pass + --enhance auto SHIPPED: the half-marathon closes
 The composed two-specialist stage is in the package (enhance.py; pipeline default
 enhance="auto", perband only, --fast forces off; identity when bridge absent or gates

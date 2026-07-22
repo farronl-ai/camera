@@ -59,8 +59,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--harden",
         type=float,
-        default=0.0,
-        help="Defocus-spread rejection strength 0..1 for blend/decision (default: 0 off). "
+        default=0.5,
+        help="Defocus-spread rejection strength 0..1 for perband/blend/decision "
+        "(default: 0.5 — the configuration every published benchmark and both "
+        "specialist gates were validated at; 0 disables). "
         "Hardens the blend toward hard-selection where one frame is confidently sharpest, "
         "so out-of-focus 'spread' can't bleed into bright/thin structures.",
     )

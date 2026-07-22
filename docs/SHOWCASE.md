@@ -296,7 +296,7 @@ composite is the best GT-predictor at **both** resolutions (+0.785 / +0.869 Spea
 
 ```bash
 focusstack shots/*.jpg -o sharp.png                    # perband default, drift-corrected
-focusstack shots/*.jpg -o sharp.png --harden 0.5       # bright/thin-structure scenes
+focusstack shots/*.jpg -o sharp.png --harden 0         # disable spread-rejection (on by default)
 focusstack big/*.png  -o sharp.png --fast              # ~1.5x for high-res, quality-safe
 focusstack shots/*.jpg -o sharp.png --depth-out z.png  # + depth-from-focus map
 ```

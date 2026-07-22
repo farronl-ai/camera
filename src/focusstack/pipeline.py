@@ -51,7 +51,7 @@ def run(
     align_motion: str = "affine",
     focus_method: str = "content_aware",
     levels: int | None = None,
-    harden: float = 0.0,
+    harden: float = 0.5,
     weight_scale: float = 1.0,
     normalize_exposure: bool = True,
     reconstruct_boundaries: bool = False,

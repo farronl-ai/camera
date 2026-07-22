@@ -92,7 +92,7 @@ def _soft(x, t):
 def fuse_perband_gain(images, D_by_far, ab, alpha, t0=0.25, omega=1.0,
                       g_law=glaw_lin, shrink_m=0.0, guide_radius=0, guide_beta=4.0,
                       ck=None, radius=6, eps=1e-3, energy_ksize=7, harden=0.5,
-                      return_float=False):
+                      wmode="scaled", return_float=False):
     """perband + w_far-scaled in-loop D subtraction + clamped residual gain.
 
     omega=0 -> pure 16d subtraction (corr_multi-equivalent).
@@ -148,17 +148,24 @@ def fuse_perband_gain(images, D_by_far, ab, alpha, t0=0.25, omega=1.0,
                 fb = fb - w[fidx][..., None] * pyr[bandk]
                 if gain_on:
                     g = np.maximum(g_law(ab_pyr[bandk]), t0)
-                    gm1 = omega * (1.0 / g - 1.0)                       # = G_k - 1
-                    corr = gm1[..., None] * (ip[fidx][bandk] - pyr[bandk])
+                    G = 1.0 + omega * (1.0 / g - 1.0)
+                    if wmode == "deficit":
+                        # output-deficit form: deficit vs GT is (1 - w_far*(1/G));
+                        # estimate true detail as remnant*G -> coef = G - w_far.
+                        coef = np.maximum(G - w[fidx], 0.0)
+                    else:
+                        # F40-style: restore only the far frame's own contribution
+                        coef = w[fidx] * (G - 1.0)
+                    corr = coef[..., None] * (ip[fidx][bandk] - pyr[bandk])
                     if shrink_m > 0.0:
-                        t = shrink_m * (1.0 + ab_pyr[bandk]) * SIGMA * ck[bandk] * gm1
+                        t = shrink_m * (1.0 + ab_pyr[bandk]) * SIGMA * ck[bandk] * coef
                         corr = _soft(corr, t[..., None])
                     if guide_radius > 0:
                         ge = guide_beta * (SIGMA * ck[bandk]) ** 2
                         guide = far_gray[gi][bandk]
                         for c in range(corr.shape[2]):
                             corr[..., c] = guided_filter(guide, corr[..., c], guide_radius, ge)
-                    fb = fb + w[fidx][..., None] * (m_pyr[bandk][..., None] * corr)
+                    fb = fb + m_pyr[bandk][..., None] * corr
             fused_bands.append(fb)
             w_last = w
         else:
@@ -389,6 +396,47 @@ def cmd_h1():
     dump("h1", dict(sub_cr_mid=sub_cr, sweep=results))
 
 
+def cmd_h1b():
+    """Deficit-mode sweep: coef = G - w_far (invert the OUTPUT deficit incl.
+    w_far dilution) vs H1's w_far*(G-1) which under-corrects where w_far<1 —
+    the mechanism behind H1's 0.90 contrast plateau."""
+    print("== H1b: output-deficit gain (coef = G - w_far) ==", flush=True)
+    pre = []
+    for sc in scenes(0.04):
+        ab, D, lv, base, sub = prep(sc)
+        g_base = M.ref_ssim(base, sc["gt"])
+        s_sub = score(sub, base, sc["gt"], sc["alpha"], sc["max_r"], ab, lv, g_base=g_base)
+        pre.append((sc, ab, D, lv, base, sub, g_base, s_sub))
+    results = []
+    for lname in ("lin", "sq"):
+        law = G_LAWS[lname]
+        for t0 in (0.05, 0.10, 0.25):
+            for om in (0.95, 1.0):
+                agg = []
+                for sc, ab, D, lv, base, sub, g_base, s_sub in pre:
+                    outp = fuse_perband_gain(sc["frames"], {FAR: D}, ab, sc["alpha"],
+                                             t0=t0, omega=om, g_law=law, wmode="deficit")
+                    s = score(outp, base, sc["gt"], sc["alpha"], sc["max_r"], ab, lv, g_base=g_base)
+                    s["dg_vs_sub"] = s["g"] - s_sub["g"]
+                    s["fr_vs_sub"] = s["fringe"] - s_sub["fringe"]
+                    agg.append(s)
+                row = dict(law=lname, t0=t0, omega=om, wmode="deficit",
+                           cr_mid=float(np.nanmean([cr_mid(a["cr"]) for a in agg])),
+                           dg_vs_sub=float(np.mean([a["dg_vs_sub"] for a in agg])),
+                           dg_off=float(np.mean([a["dg_off"] for a in agg])),
+                           worst_dg_off=float(np.min([a["dg_off"] for a in agg])),
+                           fringe=float(np.mean([a["fringe"] for a in agg])),
+                           fr_vs_sub=float(np.mean([a["fr_vs_sub"] for a in agg])),
+                           cr_bands=[float(np.nanmean([a["cr"][k] for a in agg]))
+                                     for k in range(len(agg[0]["cr"]))])
+                results.append(row)
+                print(f"  {lname:4s} t0={t0:.2f} om={om:.2f}  cr_mid={row['cr_mid']:.3f} "
+                      f"dg_vs_sub={row['dg_vs_sub']:+.4f} dg_off={row['dg_off']:+.4f} "
+                      f"(worst {row['worst_dg_off']:+.4f}) dfr={row['fr_vs_sub']:+.2f} "
+                      f"bands={['%.2f' % b for b in row['cr_bands']]}", flush=True)
+    dump("h1b", dict(sweep=results))
+
+
 def cmd_h1a():
     print("== H1a control: full-image clamped gain pre-fusion (F27 placement) ==", flush=True)
     h1 = json.load(open(os.path.join(HERE, "veilgain_h1.json")))
@@ -417,14 +465,23 @@ def cmd_h1a():
 
 
 def cmd_h2h3(which):
-    print(f"== {which.upper()}: denoising rung on the H1 winner config ==", flush=True)
-    h1 = json.load(open(os.path.join(HERE, "veilgain_h1.json")))
-    ok = [r for r in h1["sweep"] if r["worst_dg_off"] > -5e-4 and r["fr_vs_sub"] <= 0.0
-          and r["dg_vs_sub"] >= -5e-4]
-    pool = ok if ok else h1["sweep"]
-    win = max(pool, key=lambda r: r["cr_mid"])
-    print(f"  H1 winner{' (relaxed: none passed all criteria)' if not ok else ''}: "
-          f"{win['law']} t0={win['t0']} omega={win['omega']} cr={win['cr_mid']:.3f}", flush=True)
+    """Denoising rung on the best AMPLITUDE-CALIBRATED config: winner = closest
+    cr_mid to 1.0 (overshoot is as wrong as undershoot) among no-off-band-harm
+    rows, pooled over h1 (scaled) + h1b (deficit)."""
+    print(f"== {which.upper()}: denoising rung on the amplitude-calibrated winner ==", flush=True)
+    pool = []
+    for name in ("h1", "h1b"):
+        try:
+            sw = json.load(open(os.path.join(HERE, f"veilgain_{name}.json")))["sweep"]
+            for r in sw:
+                r.setdefault("wmode", "scaled")
+            pool += sw
+        except FileNotFoundError:
+            pass
+    ok = [r for r in pool if r["worst_dg_off"] > -5e-4]
+    win = min(ok if ok else pool, key=lambda r: abs(r["cr_mid"] - 1.0))
+    print(f"  winner: {win['wmode']}/{win['law']} t0={win['t0']} omega={win['omega']} "
+          f"cr={win['cr_mid']:.3f} dg_vs_sub={win['dg_vs_sub']:+.4f}", flush=True)
     law = load_emp() if win["law"] == "emp" else G_LAWS[win["law"]]
     scs = scenes(0.04)
     levels = _auto_levels(scs[0]["gt"].shape, None)
@@ -433,24 +490,35 @@ def cmd_h2h3(which):
     grid = [dict(shrink_m=m) for m in (1.0, 2.0, 3.0)] if which == "h2" else \
         [dict(guide_radius=r, guide_beta=b) for r in (2, 4, 8) for b in (1.0, 4.0, 16.0)]
     results = []
+    pre2 = []
+    for sc, ab, D, lv, base, sub in pre:
+        g_base = M.ref_ssim(base, sc["gt"])
+        s_sub = score(sub, base, sc["gt"], sc["alpha"], sc["max_r"], ab, lv, g_base=g_base)
+        pre2.append((sc, ab, D, lv, base, sub, g_base, s_sub))
     for cfg in grid:
         agg = []
-        for sc, ab, D, lv, base, sub in pre:
+        for sc, ab, D, lv, base, sub, g_base, s_sub in pre2:
             outp = fuse_perband_gain(sc["frames"], {FAR: D}, ab, sc["alpha"],
-                                     t0=win["t0"], omega=win["omega"], g_law=law, ck=ck, **cfg)
-            s = score(outp, base, sc["gt"], sc["alpha"], sc["max_r"], ab, lv)
-            s["dg_vs_sub"] = M.ref_ssim(outp, sc["gt"]) - M.ref_ssim(sub, sc["gt"])
+                                     t0=win["t0"], omega=win["omega"], g_law=law, ck=ck,
+                                     wmode=win["wmode"], **cfg)
+            s = score(outp, base, sc["gt"], sc["alpha"], sc["max_r"], ab, lv, g_base=g_base)
+            s["dg_vs_sub"] = s["g"] - s_sub["g"]
+            s["fr_vs_sub"] = s["fringe"] - s_sub["fringe"]
             agg.append(s)
         row = dict(cfg=cfg,
                    cr_mid=float(np.nanmean([cr_mid(a["cr"]) for a in agg])),
                    dg_vs_sub=float(np.mean([a["dg_vs_sub"] for a in agg])),
                    dg_off=float(np.mean([a["dg_off"] for a in agg])),
                    worst_dg_off=float(np.min([a["dg_off"] for a in agg])),
-                   fringe=float(np.mean([a["fringe"] for a in agg])))
+                   fringe=float(np.mean([a["fringe"] for a in agg])),
+                   fr_vs_sub=float(np.mean([a["fr_vs_sub"] for a in agg])),
+                   cr_bands=[float(np.nanmean([a["cr"][k] for a in agg]))
+                             for k in range(len(agg[0]["cr"]))])
         results.append(row)
         print(f"  {cfg}  cr_mid={row['cr_mid']:.3f} dg_vs_sub={row['dg_vs_sub']:+.4f} "
-              f"dg_off={row['dg_off']:+.4f} (worst {row['worst_dg_off']:+.4f})", flush=True)
-    dump(which, dict(h1_winner=win, sweep=results))
+              f"dg_off={row['dg_off']:+.4f} (worst {row['worst_dg_off']:+.4f}) "
+              f"dfr={row['fr_vs_sub']:+.2f}", flush=True)
+    dump(which, dict(winner=win, sweep=results))
 
 
 def main():
@@ -461,6 +529,8 @@ def main():
         cmd_h1()
     elif cmd == "h1a":
         cmd_h1a()
+    elif cmd == "h1b":
+        cmd_h1b()
     elif cmd in ("h2", "h3"):
         cmd_h2h3(cmd)
     else:

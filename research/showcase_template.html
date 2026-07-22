@@ -590,9 +590,82 @@
   </figure>
 </section>
 
+
+<!-- ================= specialists ================= -->
+<section id="specialists" class="reveal">
+  <p class="kicker">05 · Specialists</p>
+  <h2>The specialist layer — routing and gates</h2>
+
+  <p>The generalist engine above is what every stack gets. On top of it sit
+  <strong>specialists</strong>: narrow mechanisms that fix physics the generalist provably
+  cannot — a lens mixes both sides of a depth boundary into the captured pixels, so no
+  weighting scheme can unmix a contour, and none can subtract a wide occluder's veil.
+  Two are live: <strong>contour reconstruction</strong> (thin occluders — wires, stems, hairs:
+  re-renders the contaminated boundary band from a pixel-precise difference matte, purely
+  classical) and <strong>veil correction</strong> (wide occluders — a branch or finger near the
+  lens: subtracts a forward-modeled haze field inside the per-band fusion, weight-scaled
+  by how much hazy content each band actually admitted).</p>
+
+  <figure>
+    <a class="imglink" href="img/spec_recon.jpg" target="_blank" rel="noopener">
+      <img src="img/spec_recon.jpg" alt="Contour reconstruction: base fusion, reconstructed, ground truth">
+    </a>
+    <figcaption>Contour reconstruction, 3× zoom on a factory scene where the <em>shipped</em>
+    gate fires. Left: base fusion — the tall white spike and several thin lines are
+    semi-transparent, ghosting through the background. Middle: reconstructed — they return
+    solid and continuous. Right: ground truth. The background is untouched.</figcaption>
+  </figure>
+
+  <figure>
+    <a class="imglink" href="img/spec_matte.jpg" target="_blank" rel="noopener">
+      <img src="img/spec_matte.jpg" alt="Specialist internals: owner frame, difference matte, contamination band">
+    </a>
+    <figcaption>The specialist's internals for the same crop: the owner frame, the C3
+    difference matte (bright exactly on the thin structures, with an honest soft residual),
+    and the contamination band (orange) showing where edits are permitted — everywhere
+    else is identity by construction.</figcaption>
+  </figure>
+
+  <figure>
+    <a class="imglink" href="img/spec_veil.jpg" target="_blank" rel="noopener">
+      <img src="img/spec_veil.jpg" alt="Veil correction at giant defocus: base, corrected, ground truth">
+    </a>
+    <figcaption>Veil correction at giant defocus (2.5× fringe crop). The milky veil the
+    out-of-focus occluder spreads over the dark fur recedes in the corrected panel
+    (fringe error 44.9 → 38.1, global SSIM 0.9430 → 0.9465). Shown with the reference
+    matte for illustration; the shipped gate fires the blind version only where it
+    predicts a win. The correction removes haze — it does not re-sharpen the contour;
+    that is the other specialist's job.</figcaption>
+  </figure>
+
+  <p>Neither fires freely. Every specialist sits behind an <strong>outcome-trained
+  gate</strong>: candidates are scored by a model trained on hundreds of factory scenes with
+  exact ground truth, predicting <em>the actual quality change of firing</em> — and the fire
+  threshold is set so that on held-out scenes, firing never lost (18/19 positive fires;
+  composed worst case −0.0033 on 2 of 75 hardest synthetics). On 14 real photographs the
+  shipped path left 13 byte-identical and fired once — on the fence, the one image with
+  true veil physics:</p>
+
+  <figure>
+    <a class="imglink" href="img/spec_fence.jpg" target="_blank" rel="noopener">
+      <img src="img/spec_fence.jpg" alt="Real-data fire on the fence: base, enhanced, amplified difference">
+    </a>
+    <figcaption>The real-data fire, 4× zoom: base and enhanced are identical to the eye
+    (mean difference 0.012 gray levels); the ×16-amplified difference panel localizes the
+    entire edit to streaks hugging the two wires' defocus fringes. Conservative by design:
+    never harms, sometimes clearly helps.</figcaption>
+  </figure>
+
+  <p>The design rule this arc proved: <em>a specialist must be paired with its regime and
+  its matte class, and its gate must be trained on every regime it will meet — including
+  the ones where the correct answer is "never fire."</em> The composed stage ships as the
+  pipeline default (<code>--enhance auto</code>) and is byte-identical to the base engine
+  whenever its gates stay silent or its semantic bridge is absent.</p>
+</section>
+
 <!-- ================= evidence ================= -->
 <section id="evidence" class="reveal">
-  <p class="kicker">05 · Measured</p>
+  <p class="kicker">06 · Measured</p>
   <h2>The evidence, in one table</h2>
 
   <p>Every number is GT-referenced SSIM against a true all-in-focus reference unless
@@ -645,7 +718,7 @@
 
 <!-- ================= run ================= -->
 <section id="run" class="reveal">
-  <p class="kicker">06 · CLI</p>
+  <p class="kicker">07 · CLI</p>
   <h2>Run it</h2>
 
 <pre><code><span class="cmd">focusstack</span> shots/*.jpg <span class="flag">-o</span> sharp.png                    <span class="comment"># perband default, drift-corrected</span>
@@ -656,7 +729,7 @@
 
 <!-- ================= roadmap ================= -->
 <section id="next" class="reveal">
-  <p class="kicker">07 · Frontier</p>
+  <p class="kicker">08 · Frontier</p>
   <h2>This is only the beginning</h2>
 
   <p>The engine is the <em>foundation</em> of a leading-edge system, not the finished one. The
@@ -668,9 +741,12 @@
 
   <p class="roadmap-label">Near-term, already scoped</p>
   <div class="cards">
-    <div class="card"><b>Real photographic deep stacks</b> the one regime not yet validated
-    end-to-end (microscopy is covered; macro/landscape bracketed stacks are next,
-    including first-party captures).</div>
+    <div class="card"><b>Real photographic deep stacks</b> real handheld sweeps are now in
+    (13 phone sweeps — they exposed misalignment robustness as a new regime axis); the
+    iPhone-12 ground-truth dataset is the pending promotion gate.</div>
+    <div class="card"><b>Gate recall growth</b> the specialist gates never harm; making them
+    fire on more of their wins is the path from "never harms" to "most images benefit
+    somewhere."</div>
     <div class="card"><b>Deep-stack alignment</b> chained/feature-initialized registration and
     focus-breathing compensation for 10–50 frame handheld rails.</div>
     <div class="card"><b>Noise-adaptive fusion</b> low-light stacks where sensor noise mimics
@@ -686,13 +762,14 @@
     GPU hardware. The self-supervised training loss (no answer key) is designed and tested.</div>
     <div class="card"><b>Object-aware fusion</b> semantic segmentation as a routing layer above
     the structural one; the torch environment and per-region machinery already exist.</div>
-    <div class="card"><b>Occlusion-aware fusion, revisited on its stated conditions</b> large
-    occluders, float pipeline, regularized unmixing.</div>
+    <div class="card"><b>A synthesis-aware no-reference metric</b> today's no-reference metrics
+    score any deviation from the sources as damage, so they cannot audit corrections that
+    improve on every source; one that can would unlock runtime self-auditing.</div>
     <div class="card"><b>Temporal focus stacking</b> fusing focus sweeps from video with
     temporal coherence.</div>
   </div>
 
-  <p>The deeper record: <a href="../research/FINDINGS.md"><code>research/FINDINGS.md</code></a> (29 dated
+  <p>The deeper record: <a href="../research/FINDINGS.md"><code>research/FINDINGS.md</code></a> (48 dated
   findings + a living synthesis), <a href="../research/PLAYBOOK.md"><code>research/PLAYBOOK.md</code></a>
   (domain knowledge and every trap we hit), and
   <a href="../research/DEVSTYLE.md"><code>research/DEVSTYLE.md</code></a> (the working method that produced

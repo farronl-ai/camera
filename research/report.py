@@ -167,9 +167,21 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
     <tr><td>Metric at high-res</td><td>Multi-scale Q_ABF recovers the collapse (+0.11 → +0.78); <b>new composite best at both regimes</b> (+0.785 / +0.869) — adopted. (F26)</td></tr>
     <tr><td>Depth-from-focus byproduct</td><td><code>--depth-out</code> shipped; reliable on textured regions only (r=0.59; documented limitation). (F26)</td></tr>
   </tbody></table>
-  <p class="muted">The frontier inventory (research/FRONTIER.md) stays open: occlusion-aware
-  fusion, extreme spread across deep stacks, photographic real data, exposure drift, and more.
-  Session methodology is codified in research/DEVSTYLE.md.</p>
+  </div>
+
+  <h2>Specialist layer (E-arc, F30&ndash;F48) &mdash; routing + gated corrections</h2>
+  <div class="card">
+  <table><thead><tr><th>milestone</th><th>outcome</th></tr></thead><tbody>
+    <tr><td>Boundary physics settled</td><td>Residual hard-edge error is <b>coefficient contamination</b> &mdash; unfixable by any decision scheme (even oracle decisions lose); fixable only by re-rendering. (F33)</td></tr>
+    <tr><td>Contour reconstruction (thin occluders)</td><td>Sharp-matte re-composite: boundary error &minus;16%, global up, on-model &mdash; the buildable version reaches 73% of the oracle ceiling. (F35)</td></tr>
+    <tr><td>Veil correction (wide occluders)</td><td>Forward-modeled haze subtracted <i>inside</i> the per-band fusion, weight-scaled per band; no division anywhere. Oracle: fringe &minus;18..&minus;37%, global up everywhere. (F40/F41)</td></tr>
+    <tr><td>Outcome-trained gates</td><td>Unified recipe: regime-matched matte &rarr; features incl. matte-edge quality &rarr; ridge on the <i>actual</i> outcome from factory GT &rarr; property-driven fire margin. Held-out fires: 18/19 positive. (F44&ndash;F47)</td></tr>
+    <tr><td><code>--enhance auto</code> shipped</td><td>Composed stage is the pipeline default: 75 unseen scenes &mdash; wins to +0.020, worst &minus;0.0033 (2 documented outliers); real photos 13/14 byte-identical, 1 benign fence-wire fire (eye-verified). Identity when gates silent or bridge absent. (F48)</td></tr>
+    <tr><td>Rigorous negatives that redirected</td><td>No-ref metrics cannot audit synthesis corrections (F45); semantic models need natural benchmark content (F43); specialists firing cross-regime fail exactly as theory predicts (F46).</td></tr>
+  </tbody></table>
+  <p class="muted">Frontier now: gate recall growth, a synthesis-aware no-reference metric,
+  iPhone-12 GT verdicts, the two feature-invisible outliers. research/FRONTIER.md +
+  DEVSTYLE.md carry the full map and method.</p>
   </div>
 </div>"""
     out = os.path.join(HERE, "report.html")

@@ -187,6 +187,39 @@ boundaries tighten and internal chromatin speckle becomes visible. On this real
 data the classical pyramid method visibly softens and halos; `perband` is the
 sharpest, confirming the synthetic conclusions on genuine optics.*
 
+## The specialist layer — routing and gates
+
+The newest architectural layer (F43–F48). The generalist engine above is what every
+stack gets. On top of it sit **specialists**: narrow mechanisms that fix physics the
+generalist provably cannot (a lens mixes both sides of a depth boundary into the
+captured pixels — no weighting scheme can unmix a contour, and no weighting can
+subtract a wide occluder's veil). Two are live:
+
+- **Contour reconstruction** (thin occluders — wires, stems, hairs): re-renders the
+  contaminated boundary band as a fresh composite from a pixel-precise difference
+  matte. Purely classical; no extra dependencies.
+- **Veil correction** (wide occluders — a branch or finger near the lens): subtracts
+  a forward-modeled haze field inside the per-band fusion, weight-scaled by how much
+  hazy content each band actually admitted. Uses a semantic bridge (monocular depth
+  + segmentation in a separate torch environment) when available.
+
+Neither fires freely. Every specialist sits behind an **outcome-trained gate**: its
+candidates are scored by a model trained on thousands of factory-generated scenes
+where the ground truth is known, predicting *the actual quality change of firing* —
+and the fire threshold is set so that, on held-out scenes, firing never lost. The
+composed stage shipped as the pipeline default (`--enhance auto`) with this evidence:
+
+| Check | Result |
+|---|---|
+| Held-out gate fires (recon) | 18/19 positive, mean +0.007 |
+| Composed pass, 75 unseen scenes | wins to +0.020; worst case −0.0033 (2 outliers, documented) |
+| Real photographs (14 cases through the shipped path) | 13 byte-identical; 1 fire — a fence wire, eye-verified benign |
+| Bridge or gates unavailable | byte-identical to the base engine, by construction |
+
+The design rule this arc proved: **a specialist must be paired with its regime and
+its matte class, and its gate must be trained on every regime it will meet —
+including the ones where the correct answer is "never fire."**
+
 ## The evidence, in one table
 
 Every number is GT-referenced SSIM against a true all-in-focus reference unless
@@ -228,9 +261,15 @@ spread import doesn't materialize), which is the discipline working: settled
 questions, not lingering doubts.
 
 **Near-term, already scoped:**
-- **Real photographic deep stacks** — the one regime not yet validated end-to-end
-  (microscopy is covered; macro/landscape bracketed stacks are next, including
-  first-party captures).
+- **Real photographic deep stacks** — real handheld sweeps are now in
+  (`mobiledepth`, 13 sweeps: they exposed misalignment robustness as a new regime
+  axis, F37); the iPhone-12 GT dataset is the pending promotion gate.
+- **Gate recall growth** — the gates never harm; making them fire on more of their
+  wins (more features, bigger factories, better models) is the path from "never
+  harms" to "most images benefit somewhere."
+- **A synthesis-aware no-reference metric** — today's no-ref metrics score any
+  deviation from the sources as damage, so they cannot audit corrections that
+  *improve on* every source; a metric that can would unlock runtime self-auditing.
 - **Deep-stack alignment** — chained/feature-initialized registration and
   focus-breathing compensation for 10–50 frame handheld rails.
 - **Noise-adaptive fusion** — low-light stacks where sensor noise mimics focus energy.
@@ -243,12 +282,12 @@ questions, not lingering doubts.
   hardware. The self-supervised training loss (no answer key) is designed and tested.
 - **Object-aware fusion** — semantic segmentation as a routing layer above the
   structural one; the torch environment and per-region machinery already exist.
-- **Occlusion-aware fusion, revisited on its stated conditions** — large occluders,
-  float pipeline, regularized unmixing.
+- ~~Occlusion-aware fusion~~ — superseded: shipped as the two gated specialists
+  (contour reconstruction + veil correction) rather than global unmixing.
 - **Temporal focus stacking** — fusing focus sweeps from video with temporal
   coherence.
 
-The deeper record: [`research/FINDINGS.md`](../research/FINDINGS.md) (29 dated
+The deeper record: [`research/FINDINGS.md`](../research/FINDINGS.md) (48 dated
 findings + a living synthesis), [`research/PLAYBOOK.md`](../research/PLAYBOOK.md)
 (domain knowledge and every trap we hit), and
 [`research/DEVSTYLE.md`](../research/DEVSTYLE.md) (the working method that produced

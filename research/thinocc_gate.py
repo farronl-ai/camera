@@ -50,7 +50,7 @@ def thin_scenes(n):
         coc = 0.012
         if i >= 120:
             coc = float(rng.uniform(0.010, 0.020))
-            if rng.random() < 0.5:
+            if rng.random() < 0.5 or i >= 180:   # >=180: always mixed-style
                 mp = photos[(i + 5) % len(photos)] + ".masks.npy"
                 if os.path.exists(mp):
                     from objocc_gen import good_object_masks
@@ -114,11 +114,20 @@ def expand(x):
     return np.concatenate([x, q]).astype(np.float32)
 
 
+def all_scenes(n):
+    """Thin family (with expansion) + objocc family — the gate must learn every
+    regime it will meet, including where the right answer is 'never fire'."""
+    out = list(thin_scenes(n))
+    from t2_confidence import scenes as objocc_scenes
+    out.extend(objocc_scenes())
+    return out
+
+
 def main():
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 60
     cache = dict(np.load(CACHE, allow_pickle=True))["rows"].item() if os.path.exists(CACHE) else {}
     rows = []
-    for sc in thin_scenes(n):
+    for sc in all_scenes(n):
         key = sc["sid"]
         # cache holds LABELS only (feature-set independent); features recompute fresh
         if key not in cache:
@@ -147,8 +156,12 @@ def main():
     print(f"\n  scenes with matte: {len(rows)}/{n}  "
           f"helpful(de<0 & dg>=-5e-4): {sum(1 for r in rows if r['de'] < 0 and r['dg'] >= -5e-4)}")
 
-    n_tr = int(0.75 * len(rows))
-    train, held = rows[:n_tr], rows[n_tr:]
+    # per-family 75/25 split (families identified by sid prefix)
+    train, held = [], []
+    for fam in ("thin_", "scene_"):
+        fr = [r for r in rows if r["sid"].startswith(fam)]
+        k = int(0.75 * len(fr))
+        train.extend(fr[:k]); held.extend(fr[k:])
     X = np.stack([expand(r["feats"]) for r in train])
     yg = np.array([r["dg"] for r in train], np.float32)
     mu, sd = X.mean(0), X.std(0) + 1e-6

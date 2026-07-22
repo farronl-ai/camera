@@ -79,6 +79,27 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F48 — Composed pass + --enhance auto SHIPPED: the half-marathon closes
+The composed two-specialist stage is in the package (enhance.py; pipeline default
+enhance="auto", perband only, --fast forces off; identity when bridge absent or gates
+silent — tested byte-identical). Gate finalization took full distribution coverage:
+the recon gate is now trained on THREE families (canonical thin, varied-CoC/mixed,
+object-only where the right answer is NEVER FIRE — the F46 lesson completed: partial
+expansion had made the object-contour mistake MORE confident, −0.0217, before the
+object family taught refusal). Final gate: 320 labeled scenes, train 23/240 fired
+all-positive, held 19/80 with 18/19 positive (min −0.0007). COMPOSED VERDICT on 75
+unseen scenes: objocc-held clean (recon correctly silent), thin-held clean, mixed 16
+fires with wins to +0.020 (mean fired ≈ +0.006) and TWO persistent outliers
+(−0.0024/−0.0033) that survived three distribution extensions — documented as the
+honest worst-case bound, not distribution-fixable with current features. REAL-DATA
+SPOT SWEEP through the shipped path: 13/14 byte-identical (10 Real-MFF GT untouched,
+kitchen/largemotion/microscopy untouched); ONE fire on the fence (the one image with
+true veil physics), tiny footprint (0.012 mean diff), metrics unchanged — eyetool crop
+queued. Ship stance: default auto justified by strongly-positive mean, bounded
+worst-case (−0.0033 on 2/75 hardest synthetics), and real-data conservatism;
+package-vs-research parity proven (identical mattes, 0/30 fire flips). iphone12 GT
+remains the promotion gate for any stronger claim.
+
 ## F47 — BOTH specialists gate-locked under one rule: outcome regression + property-driven margin
 Reconstruction's gate, built on its home regime (120-scene thin-structure factory, C3
 difference-mattes, no bridges): ungated hit rate 56% with 10x the veil's effect sizes;

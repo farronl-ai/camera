@@ -44,7 +44,7 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
 - **16e semantic matte: 🔶 resolved by regime-matching** (F46) — mask mattes serve the
   veil specialist; C3 serves reconstruction; SAM-quality matting for GENERAL scenes
   remains the recall-growth lever.
-- **16f (NEW): composed --enhance stage** — both gates firing per stack; two-pass
+- **16f: ✅ SHIPPED (F48)** — composed --enhance auto in pipeline; 74/75 unseen scenes ≥ −0.0024, real data 13/14 identity + 1 tiny fence fire. Residual: 2 mixed outliers (feature-invisible), fence-fire eyetool check, iphone12 GT. Was: composed --enhance stage — both gates firing per stack; two-pass
   packaging over shipped bridge plumbing; identity when bridgeless. NEXT SESSION.
 - **17 (NEW, born from F45): synthesis-aware no-reference metric** — a no-ref signal
   that can audit corrections which deviate from every source (current q_ssim-family

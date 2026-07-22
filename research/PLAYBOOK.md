@@ -198,6 +198,33 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
 10. **Ops for long labelers**: flush caches and print progress PER UNIT, not at the
     end — monitorability and interruption-safety are part of the method.
 
+## Scene-recovery arc additions (F51/F52)
+1. **Correct at the level where the deficit is defined.** The veil gain's coefficient
+   must invert the OUTPUT's deficit vs GT (coef = G − w_far), not amplify one frame's
+   contribution (w_far·(G−1) under-corrects wherever w_far < 1). Generalizes F40's
+   in-loop law: placement AND coefficient both live at output level.
+2. **Gain laws are measured, not assumed.** Post-correction attenuation ≠ the forward
+   model's (subtraction already partially restores; fusion dilutes) — measure the
+   residual curve on factory GT and invert THAT. Assumed 1/(1−ab) overshoots 3-5x.
+3. **Amplified-remnant denoising wants the ANALYTIC threshold.** When the gain field
+   and sensor σ are known, per-band expected noise is computed, not estimated —
+   soft-threshold at m·σ·c_k·coef (c_k calibrated once through the actual pyramid).
+   Guided filtering with the degraded signal as its own guide LOSES (weak-guide trap):
+   the guide's authority must exceed the noise being removed.
+4. **TRAP: FFT deconvolution without replicate-padding** → circular-wrap stripes at
+   borders (eye-confirmed; fixing it RAISED the score — the artifact sat inside the
+   eval band). Pad ~4r, crop back. Applies to RL and Wiener alike.
+5. **TRAP: selectors comparing across regularization strengths are degenerate without
+   per-strength calibration** — re-blur residual picks under-deconvolution always
+   (reblur∘deconv → identity as r→0); Levin 2007's learned per-scale weights exist
+   for exactly this. Outcome regression (F47) is our native fix.
+6. **Median metrics are blind to sparse outliers** — the eye caught speckle the
+   per-band median called calibrated (H4 trigger). Pair every median with a
+   worst-case or a look before declaring a band clean.
+7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
+   peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
+   number while GT fidelity falls is the noise-fitting signature.
+
 ## Negatives are conditional (Farron, after reopening F27)
 A rigorous negative is a statement about its TEST CONDITIONS, not about the idea:
 record the conditions with the verdict (F27 did: 8-bit, thin structures — and wrote

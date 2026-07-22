@@ -61,7 +61,7 @@ The dividing line for every synthesis method admitted into this engine:
 
 | Prior conclusion / area | Status under the new goal |
 |---|---|
-| F27: de-veiling by inversion loses | **REOPENED** (FRONTIER 19) — conditional on 8-bit raw inversion without the restoration system; hybrid specified, viable at 8-bit |
+| F27: de-veiling by inversion loses | **RESOLVED** (F51) — the hybrid (in-loop deficit gain + analytic shrink) wins: float/home-regime positive on all backgrounds; residual 8-bit input-quantization wall (19c) and regime gating (19b) named |
 | F33: selection cannot fix boundary contamination | **STRENGTHENED** — the theorem that motivates the whole framework |
 | F45: no-ref metrics cannot audit synthesis | stands; the constructive path is the observation-domain audit (L1) |
 | Metric composite (q_abf_ms+q_ssim) | **RESCOPED** — valid for the selection floor only; must never steer or veto synthesis work |

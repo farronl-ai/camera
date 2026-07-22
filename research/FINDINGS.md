@@ -93,6 +93,10 @@ The lessons that generalize: correction placement must be in-loop and w-aware
 MEASURED, not assumed; denoising of an amplified remnant wants the analytic
 threshold, not a weak-guide guided filter. Regime-gating is mandatory (moderate
 CoC harms ungated); oracle alpha still bounds the claim (blind matte = 19d).
+Stack gaps (F52): where NO frame is sharp, one Wiener FFT at the known disk scale
+recovers +0.054 gap-SSIM (worst +0.034, off-gap zero); RL's iteration knob hits
+Lucy's noise-fitting turnover; radius error degrades gracefully (±15% keeps most).
+Both specialists await their gates + blind inputs (matte / DFF radius) before ship.
 
 **Learning.** Classical foundation first. Learned per-tile routing matches the
 oracle; distillation matches classical quality in one pass (speed win needs a GPU);

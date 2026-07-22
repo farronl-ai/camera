@@ -4,7 +4,7 @@ Purpose: `PLAYBOOK.md` carries the domain knowledge (MFIF theory, traps, environ
 THIS file carries the **working style** — the methodology, personality, and cadence that
 produced this project's results, so any session on ANY model (Opus, Fable, or later)
 starts in the same expert flow and improves from there.
-**Read order for a new session:** DEVSTYLE → PLAYBOOK → FINDINGS.md (SYNTHESIS section)
+**Read order for a new session:** MISSION.md (the goal + framework) → DEVSTYLE → PLAYBOOK → FINDINGS.md (SYNTHESIS section)
 → FRONTIER.md → NEXT_STEPS_*.md (current phase plan).
 
 ## 1. The core loop (every investigation runs this shape)

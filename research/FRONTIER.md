@@ -78,7 +78,13 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   surround-denoised contrast restoration). Success = strong-veil-band detail
   contrast approaches GT with no off-band harm; gates retrain on hybrid outcomes.
   If the hybrid wins at 8-bit, F27's epitaph reads: the idea was right, the system
-  around it was missing.
+  around it was missing. FIRST STEP (per MISSION ladder): a focused litscan on
+  CLASSICAL restoration under structured amplification — delegated, in flight.
+- **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
+  NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
+  there; scene recovery admits mild remnant-anchored deconvolution (known defocus
+  scale from depth-from-focus; surround + factory-GT audited). Previously out of
+  scope by definition; in scope under the mission.
 - **18 (NEW): gate recall growth** — more features (per-candidate veil evidence,
   D-magnitude stats), bigger factories, nonlinear gate models; recall is the only
   thing between "property-safe" and "most images benefit."

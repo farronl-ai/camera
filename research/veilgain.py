@@ -89,10 +89,45 @@ def _soft(x, t):
 # --------------------------------------------------------------------------- #
 # the hybrid operator (fork of t2_candidates.corr_multi + gain slot)
 # --------------------------------------------------------------------------- #
+CA = 0.04  # factory chromatic offset (occ_gen.occ_defocus offs = (-ca, 0, ca))
+
+
+def build_D_ca(frames, alpha, max_r, owner, far_idx):
+    """Per-channel D matching the factory's chromatic render: the near layer's
+    blur radius in the far frame is |near_d-(focus+off_c)|*max_r per channel
+    ({0.66,0.70,0.74}*max_r). A channel-shared D leaves a purple/green mottle
+    residual in the fringe (user-caught over-extension); per-channel D models
+    it out. Returns (D, ab3, pm3) — ab3/pm3 per-channel for the gain."""
+    near_pm = frames[owner].astype(np.float32) * alpha[..., None]
+    far_f = frames[far_idx].astype(np.float32)
+    D = np.empty_like(far_f)
+    ab3 = np.empty_like(far_f)
+    pm3 = np.empty_like(far_f)
+    for c, off in enumerate((-CA, 0.0, CA)):
+        r = abs(0.15 - (0.85 + off)) * max_r     # per-channel: {0.66,0.70,0.74}*max_r
+        ab3[..., c] = disk_blur(alpha, r)
+        pm3[..., c] = disk_blur(near_pm[..., c], r)
+        D[..., c] = (pm3[..., c] - near_pm[..., c]) + far_f[..., c] * (alpha - ab3[..., c])
+    ab_g = ab3[..., 1]
+    band = ((ab_g > 0.02) & (ab_g < 0.98) & (alpha < 0.5)).astype(np.float32)
+    band = cv2.GaussianBlur(band, (0, 0), 2.0)
+    return D * band[..., None], ab3, pm3
+
+
+def build_pm(frames, alpha, max_r, owner):
+    """Blurred near-premult pm_b — the occluder's own texture bleed. The
+    subtraction remnant is ab*pm_b + (1-ab^2)*far_true (+noise); without
+    removing the first term the gain re-amplifies OCCLUDER texture into the
+    background fringe (H6, user-caught over-extension artifact)."""
+    near_pm = frames[owner].astype(np.float32) * alpha[..., None]
+    return np.stack([disk_blur(near_pm[..., c], 0.7 * max_r) for c in range(3)], 2)
+
+
 def fuse_perband_gain(images, D_by_far, ab, alpha, t0=0.25, omega=1.0,
                       g_law=glaw_lin, shrink_m=0.0, guide_radius=0, guide_beta=4.0,
                       ck=None, radius=6, eps=1e-3, energy_ksize=7, harden=0.5,
-                      wmode="scaled", coherence=False, return_float=False):
+                      wmode="scaled", coherence=False, pm_by_far=None,
+                      return_float=False):
     """perband + w_far-scaled in-loop D subtraction + clamped residual gain.
 
     omega=0 -> pure 16d subtraction (corr_multi-equivalent).
@@ -113,10 +148,17 @@ def fuse_perband_gain(images, D_by_far, ab, alpha, t0=0.25, omega=1.0,
     gp = [_gaussian_pyramid(to_gray_float(f), levels) for f in images]
     dp = {f: _laplacian_pyramid(D.astype(np.float32), levels) for f, D in (D_by_far or {}).items()}
 
+    pp = {f: _laplacian_pyramid(P.astype(np.float32), levels)
+          for f, P in (pm_by_far or {}).items()}
     gain_on = bool(dp) and omega > 0.0
     if gain_on:
+        # ab may be 2D (shared) or HxWx3 (per-channel, chromatic model);
+        # normalize to 3-channel so the gain math is uniform.
         ab32 = ab.astype(np.float32)
-        band = ((ab32 > 0.02) & (ab32 < 0.98) & (alpha < 0.5)).astype(np.float32)
+        if ab32.ndim == 2:
+            ab32 = np.stack([ab32] * 3, axis=-1)
+        ab_g = ab32[..., 1]
+        band = ((ab_g > 0.02) & (ab_g < 0.98) & (alpha < 0.5)).astype(np.float32)
         band = cv2.GaussianBlur(band, (0, 0), 2.0)
         ab_pyr = _gaussian_pyramid(ab32, levels)
         m_pyr = _gaussian_pyramid(band, levels)
@@ -147,19 +189,22 @@ def fuse_perband_gain(images, D_by_far, ab, alpha, t0=0.25, omega=1.0,
             for gi, (fidx, pyr) in enumerate(dp.items()):
                 fb = fb - w[fidx][..., None] * pyr[bandk]
                 if gain_on:
-                    g = np.maximum(g_law(ab_pyr[bandk]), t0)
+                    g = np.maximum(g_law(ab_pyr[bandk]), t0)          # HxWx3
                     G = 1.0 + omega * (1.0 / g - 1.0)
                     if wmode == "deficit":
                         # output-deficit form: deficit vs GT is (1 - w_far*(1/G));
                         # estimate true detail as remnant*G -> coef = G - w_far.
-                        coef = np.maximum(G - w[fidx], 0.0)
+                        coef = np.maximum(G - w[fidx][..., None], 0.0)
                     else:
                         # F40-style: restore only the far frame's own contribution
-                        coef = w[fidx] * (G - 1.0)
-                    corr = coef[..., None] * (ip[fidx][bandk] - pyr[bandk])
+                        coef = w[fidx][..., None] * (G - 1.0)
+                    remnant = ip[fidx][bandk] - pyr[bandk]
+                    if fidx in pp:
+                        remnant = remnant - ab_pyr[bandk] * pp[fidx][bandk]
+                    corr = coef * remnant
                     if shrink_m > 0.0:
                         t = shrink_m * (1.0 + ab_pyr[bandk]) * SIGMA * ck[bandk] * coef
-                        corr = _soft(corr, t[..., None])
+                        corr = _soft(corr, t)
                     if guide_radius > 0:
                         ge = guide_beta * (SIGMA * ck[bandk]) ** 2
                         guide = far_gray[gi][bandk]
@@ -172,11 +217,12 @@ def fuse_perband_gain(images, D_by_far, ab, alpha, t0=0.25, omega=1.0,
                         # noise floor (ratio gate, no tuned threshold).
                         g1 = np.maximum(g_law(ab_pyr[1]), t0)
                         G1 = 1.0 + omega * (1.0 / g1 - 1.0)
-                        coef1 = (np.maximum(G1 - cv2.pyrDown(w[fidx]), 0.0)
-                                 if wmode == "deficit" else cv2.pyrDown(w[fidx]) * (G1 - 1.0))
-                        corr1 = coef1[..., None] * (ip[fidx][1] - pyr[1])
+                        w1 = cv2.pyrDown(w[fidx])[..., None]
+                        coef1 = (np.maximum(G1 - w1, 0.0)
+                                 if wmode == "deficit" else w1 * (G1 - 1.0))
+                        corr1 = coef1 * (ip[fidx][1] - pyr[1])
                         mag1 = cv2.boxFilter(np.abs(corr1).sum(axis=2), cv2.CV_32F, (5, 5))
-                        floor1 = 3.0 * (1.0 + ab_pyr[1]) * SIGMA * ck[1] * coef1
+                        floor1 = (3.0 * (1.0 + ab_pyr[1]) * SIGMA * ck[1] * coef1).mean(axis=2)
                         wc = mag1 / (mag1 + floor1 + 1e-6)
                         wc = cv2.resize(wc, (corr.shape[1], corr.shape[0]))
                         corr = corr * wc[..., None]

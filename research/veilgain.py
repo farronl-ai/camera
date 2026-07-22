@@ -521,6 +521,120 @@ def cmd_h2h3(which):
     dump(which, dict(winner=win, sweep=results))
 
 
+WINNER = dict(t0=0.05, omega=1.0, wmode="deficit")  # law=sq; shrink_m from FINAL
+
+
+def cmd_final():
+    """Winning stack (deficit/sq + analytic shrink m in {1,2}) on ALL 10
+    backgrounds x coc {0.04 primary, 0.012 off-regime} x {8bit, float}."""
+    print("== FINAL: 10 backgrounds x coc {0.04,0.012} x {8bit,float} ==", flush=True)
+    results = {"provenance": {"backgrounds": sorted(os.path.basename(os.path.dirname(p))
+                                                    for p in __import__("glob").glob(os.path.join(HERE, "data", "hires", "*", "gt.png"))),
+                              "factory": "wideocc_gen.scenes (blob occluder + real-photo texture, disk-PSF, noise sigma=3)",
+                              "alpha": "oracle (factory GT)", "config": dict(WINNER, law="sq")},
+               "rows": []}
+    ck = None
+    for coc in (0.04, 0.012):
+        for fl in (False, True):
+            tag = f"coc{coc:g}/{'float' if fl else '8bit'}"
+            for sc in scenes(coc, n_scenes=10, float_frames=fl):
+                ab, D, lv, base, sub = prep(sc)
+                if ck is None:
+                    ck, _ = calibrate_band_noise(sc["gt"].shape[:2], lv)
+                g_base = M.ref_ssim(base, sc["gt"])
+                s_sub = score(sub, base, sc["gt"], sc["alpha"], sc["max_r"], ab, lv, g_base=g_base)
+                row = dict(cond=tag, sid=sc["sid"],
+                           sub=dict(dg=s_sub["dg"], cr=cr_mid(s_sub["cr"]), fringe=s_sub["fringe"]))
+                for m in (1.0, 2.0):
+                    outp = fuse_perband_gain(sc["frames"], {FAR: D}, ab, sc["alpha"],
+                                             g_law=glaw_sq, shrink_m=m, ck=ck,
+                                             return_float=fl, **WINNER)
+                    s = score(outp, base, sc["gt"], sc["alpha"], sc["max_r"], ab, lv, g_base=g_base)
+                    row[f"m{m:g}"] = dict(dg=s["dg"], dg_vs_sub=s["g"] - s_sub["g"],
+                                          cr=cr_mid(s["cr"]), fringe=s["fringe"],
+                                          dfr=s["fringe"] - s_sub["fringe"], dg_off=s["dg_off"])
+                results["rows"].append(row)
+                print(f"  {tag:14s} {sc['sid']:22s} sub dg={s_sub['dg']:+.4f} cr={cr_mid(s_sub['cr']):.3f} | "
+                      f"m1 dgs={row['m1']['dg_vs_sub']:+.4f} cr={row['m1']['cr']:.3f} off={row['m1']['dg_off']:+.4f} | "
+                      f"m2 dgs={row['m2']['dg_vs_sub']:+.4f} cr={row['m2']['cr']:.3f} off={row['m2']['dg_off']:+.4f}", flush=True)
+    # aggregates per condition
+    print("\n-- aggregates --", flush=True)
+    agg = {}
+    for cond in sorted({r["cond"] for r in results["rows"]}):
+        rows = [r for r in results["rows"] if r["cond"] == cond]
+        a = {}
+        for m in ("m1", "m2"):
+            a[m] = dict(dg_vs_sub=float(np.mean([r[m]["dg_vs_sub"] for r in rows])),
+                        worst_dg_vs_sub=float(np.min([r[m]["dg_vs_sub"] for r in rows])),
+                        cr=float(np.nanmean([r[m]["cr"] for r in rows])),
+                        worst_dg_off=float(np.min([r[m]["dg_off"] for r in rows])),
+                        dfr=float(np.mean([r[m]["dfr"] for r in rows])))
+            print(f"  {cond:14s} {m}: dg_vs_sub={a[m]['dg_vs_sub']:+.4f} "
+                  f"(worst {a[m]['worst_dg_vs_sub']:+.4f}) cr={a[m]['cr']:.3f} "
+                  f"worst_off={a[m]['worst_dg_off']:+.4f} dfr={a[m]['dfr']:+.2f}", flush=True)
+        a["sub_cr"] = float(np.nanmean([r["sub"]["cr"] for r in rows]))
+        agg[cond] = a
+    results["agg"] = agg
+    dump("final", results)
+
+
+def cmd_h5():
+    """H5 decomposition: is the 8-bit wall INPUT quantization (frames) or
+    OUTPUT quantization (uint8 cast of a sub-step correction)? 8-bit inputs,
+    float outputs for BOTH sub and hybrid -> if the losing scenes recover,
+    the wall is output-side (ours to remove: emit 16-bit), and R5 bin
+    projection on inputs is unnecessary."""
+    print("== H5: 8-bit inputs, FLOAT outputs (output-quantization isolation) ==", flush=True)
+    rows = []
+    ck = None
+    for coc in (0.04, 0.012):
+        for sc in scenes(coc, n_scenes=10):
+            ab = disk_blur(sc["alpha"], 0.7 * sc["max_r"])
+            D = build_D(sc["frames"], sc["alpha"], sc["max_r"], OWNER, FAR)
+            lv = _auto_levels(sc["gt"].shape, None)
+            if ck is None:
+                ck, _ = calibrate_band_noise(sc["gt"].shape[:2], lv)
+            base = fuse_perband(sc["frames"], harden=0.5)
+            sub_f = fuse_perband_gain(sc["frames"], {FAR: D}, ab, sc["alpha"], omega=0.0,
+                                      return_float=True)
+            g_sub = M.ref_ssim(sub_f, sc["gt"])
+            row = dict(coc=coc, sid=sc["sid"])
+            for m in (1.0, 2.0):
+                hyb = fuse_perband_gain(sc["frames"], {FAR: D}, ab, sc["alpha"],
+                                        g_law=glaw_sq, shrink_m=m, ck=ck,
+                                        return_float=True, **WINNER)
+                s = score(hyb, base, sc["gt"], sc["alpha"], sc["max_r"], ab, lv)
+                row[f"m{m:g}"] = dict(dg_vs_sub=float(M.ref_ssim(hyb, sc["gt"]) - g_sub),
+                                      dg_off=s["dg_off"], cr=cr_mid(s["cr"]))
+            rows.append(row)
+            print(f"  coc{coc:g} {sc['sid']:22s} m1 dgs={row['m1']['dg_vs_sub']:+.4f} "
+                  f"m2 dgs={row['m2']['dg_vs_sub']:+.4f} off={row['m2']['dg_off']:+.4f}", flush=True)
+    for coc in (0.04, 0.012):
+        rr = [r for r in rows if r["coc"] == coc]
+        for m in ("m1", "m2"):
+            print(f"  agg coc{coc:g} {m}: mean={np.mean([r[m]['dg_vs_sub'] for r in rr]):+.4f} "
+                  f"worst={np.min([r[m]['dg_vs_sub'] for r in rr]):+.4f}", flush=True)
+    dump("h5", dict(rows=rows))
+
+
+def cmd_eye():
+    """Eye pass (artifact detection only): max-disagreement crops sub vs hybrid
+    + GT, plus a clamp-edge crop, per the 2 highest-fringe scenes."""
+    from eyetool import compare
+    outdir = os.path.join(HERE, "veilgain_eye")
+    os.makedirs(outdir, exist_ok=True)
+    ck = None
+    for sc in scenes(0.04, n_scenes=10)[:4]:
+        ab, D, lv, base, sub = prep(sc)
+        if ck is None:
+            ck, _ = calibrate_band_noise(sc["gt"].shape[:2], lv)
+        hyb = fuse_perband_gain(sc["frames"], {FAR: D}, ab, sc["alpha"],
+                                g_law=glaw_sq, shrink_m=1.0, ck=ck, **WINNER)
+        p = os.path.join(outdir, f"{sc['sid']}.png")
+        compare({"sub": sub, "hybrid": hyb}, gt=sc["gt"], out=p, k=3)
+        print(f"  {p}", flush=True)
+
+
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "p0"
     if cmd == "p0":
@@ -533,6 +647,12 @@ def main():
         cmd_h1b()
     elif cmd in ("h2", "h3"):
         cmd_h2h3(cmd)
+    elif cmd == "final":
+        cmd_final()
+    elif cmd == "h5":
+        cmd_h5()
+    elif cmd == "eye":
+        cmd_eye()
     else:
         print(f"unknown/not-yet-built subcommand: {cmd}")
 

@@ -197,3 +197,13 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    coverage per regime so correct refusal isn't misread as timidity.
 10. **Ops for long labelers**: flush caches and print progress PER UNIT, not at the
     end — monitorability and interruption-safety are part of the method.
+
+## Negatives are conditional (Farron, after reopening F27)
+A rigorous negative is a statement about its TEST CONDITIONS, not about the idea:
+record the conditions with the verdict (F27 did: 8-bit, thin structures — and wrote
+its own revisit clause). At every checkpoint, sweep standing negatives for triggered
+revisit clauses — pipelines, factories, and metrics evolve, and a negative whose
+conditions changed is a hypothesis again. Corollary: when the mission is to recover
+the TRUE SCENE (beyond the best mix of what the camera saw), the evaluation apparatus
+itself is part of the method — an idea can only be as good as the bench's ability to
+credit it (17a: pseudo-GT ceiling; F45: no-ref blindness).

@@ -58,6 +58,17 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   structurally cannot). Would unlock runtime self-audit + recall growth safely.
   lit-scan 2026-07: two concrete candidates found — forward-model re-degradation
   audit (L1) and inpainting-difficulty scoring (L8).
+- **19 (Farron, 2026-07-22): the division revisit — F27's conditions have been triggered.**
+  F27's negative (de-veiling by inversion loses) was conditional: 8-bit quantization
+  (pipeline artifact, not physics) and thin structures (weak veils). Its own revisit
+  clause — large occluders + float pipeline + regularized unmixing — is now half-met
+  (wideocc factory exists; float/16-bit on the product roadmap). And subtraction-with-
+  estimated-inputs has a structural ceiling: it removes the additive haze but CANNOT
+  re-amplify the surviving background detail's contrast (still scaled by 1−α_blur);
+  only multiplication can. EXPERIMENT: on the giant-CoC wideocc factory in float —
+  hybrid correction = modeled-haze subtraction (current 16d) + SNR-regularized Wiener
+  contrast restoration in the strong-veil band, GT-credited, vs subtraction alone.
+  If the hybrid wins, F27 gets its conditional epitaph and 16d gets its second stage.
 - **18 (NEW): gate recall growth** — more features (per-candidate veil evidence,
   D-magnitude stats), bigger factories, nonlinear gate models; recall is the only
   thing between "property-safe" and "most images benefit."

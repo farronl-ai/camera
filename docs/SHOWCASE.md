@@ -203,6 +203,46 @@ subtract a wide occluder's veil). Two are live:
   hazy content each band actually admitted. Uses a semantic bridge (monocular depth
   + segmentation in a separate torch environment) when available.
 
+Here is contour reconstruction on a factory thin-occluder scene — one where the
+shipped gate actually fires (predicted gain +0.0044 ≥ margin +0.0040; the actual
+GT-SSIM gain was +0.0071):
+
+![Thin occluders: ghosted in the base fusion, solid after reconstruction, ground truth](img/spec_recon.jpg)
+*3× zoom, crop chosen by disagreement (not by hand). Left — base `perband`
+fusion: the thin white spike and several lines fuse semi-transparent, the blurred
+background bleeding through them. Middle — after contour reconstruction: the same
+structures come back solid and continuous. Right — ground truth. The background
+itself is untouched — only the contaminated band around each contour was
+re-rendered.*
+
+And the same crop through the specialist's eyes — the inputs the mechanism
+actually runs on:
+
+![Specialist internals: owner frame, difference matte, contamination band](img/spec_matte.jpg)
+*Left — the frame that owns the contours (occluders in focus, background
+defocused). Middle — the C3 difference matte: inpaint the owner frame over the
+support to get a background plate, then α = normalized |owner − plate| — bright
+exactly on the structures, however thin (the softer grey mass is honest residual
+where the plate estimate is imperfect). Right — the contamination band (orange)
+around every contour: only this band gets re-rendered; everything outside it
+keeps the base fusion byte-for-byte.*
+
+Veil correction is the wide-occluder counterpart. At giant blur (the
+finger-near-the-lens regime) a defocused occluder lays a translucent veil far
+over the background — content no weighting can remove, because every frame
+already contains it:
+
+![Wide occluder: hazy fusion, veil-corrected, ground truth](img/spec_veil.jpg)
+*2.5× crop on the fringe of a wide synthetic occluder at giant CoC (0.04·dim).
+Left — base fusion: the defocused green occluder washes a milky green veil over
+the dark fur and the yellow patch. Middle — veil-corrected: the veil visibly
+recedes and the background beneath it darkens toward truth (fringe error −15%,
+global SSIM 0.9430 → 0.9465). Right — ground truth. Honesty notes: this is the
+mechanism shown with the reference matte (oracle alpha) for clarity — the shipped
+gate fires the blind version only where it predicts a win — and the correction
+subtracts haze; it does not (and cannot) re-sharpen the giant blurred contour
+itself.*
+
 Neither fires freely. Every specialist sits behind an **outcome-trained gate**: its
 candidates are scored by a model trained on thousands of factory-generated scenes
 where the ground truth is known, predicting *the actual quality change of firing* —
@@ -215,6 +255,18 @@ composed stage shipped as the pipeline default (`--enhance auto`) with this evid
 | Composed pass, 75 unseen scenes | wins to +0.020; worst case −0.0033 (2 outliers, documented) |
 | Real photographs (14 cases through the shipped path) | 13 byte-identical; 1 fire — a fence wire, eye-verified benign |
 | Bridge or gates unavailable | byte-identical to the base engine, by construction |
+
+That one real-photograph fire is worth seeing, because it is the whole ship
+stance in one image — the fence again, this time through the shipped
+`--enhance auto` path, where the veil gate fired on the wires:
+
+![The real-data fire: base, enhanced, and the difference amplified 16x](img/spec_fence.jpg)
+*4× crop at the fence wires. Left — base fusion. Middle — after the shipped
+enhance pass: to the eye the two panels are identical (the mean change is 0.012
+gray levels). Right — the difference, amplified 16×: the entire edit is the
+faint streaks hugging the two wires' defocus fringes — exactly where the veil
+physics says contamination lives — and flat mid-grey everywhere else. A
+conservative gate does not mean an idle one; it means edits this surgical.*
 
 The design rule this arc proved: **a specialist must be paired with its regime and
 its matte class, and its gate must be trained on every regime it will meet —
@@ -295,4 +347,5 @@ all of it — hypothesis → measure → look → A/B → gate — so any future
 where this one leaves off).
 
 *Every figure in this document was regenerated from the current engine by
-`research/make_showcase.py` and visually verified before its caption was written.*
+`research/make_showcase.py` and `research/make_showcase_specialists.py`, and
+visually verified before its caption was written.*

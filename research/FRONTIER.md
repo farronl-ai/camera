@@ -58,17 +58,27 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   structurally cannot). Would unlock runtime self-audit + recall growth safely.
   lit-scan 2026-07: two concrete candidates found — forward-model re-degradation
   audit (L1) and inpainting-difficulty scoring (L8).
-- **19 (Farron, 2026-07-22): the division revisit — F27's conditions have been triggered.**
-  F27's negative (de-veiling by inversion loses) was conditional: 8-bit quantization
-  (pipeline artifact, not physics) and thin structures (weak veils). Its own revisit
-  clause — large occluders + float pipeline + regularized unmixing — is now half-met
-  (wideocc factory exists; float/16-bit on the product roadmap). And subtraction-with-
-  estimated-inputs has a structural ceiling: it removes the additive haze but CANNOT
-  re-amplify the surviving background detail's contrast (still scaled by 1−α_blur);
-  only multiplication can. EXPERIMENT: on the giant-CoC wideocc factory in float —
-  hybrid correction = modeled-haze subtraction (current 16d) + SNR-regularized Wiener
-  contrast restoration in the strong-veil band, GT-credited, vs subtraction alone.
-  If the hybrid wins, F27 gets its conditional epitaph and 16d gets its second stage.
+- **19 (Farron, 2026-07-22, updated): the division revisit — scene recovery, float NOT a prerequisite.**
+  MISSION REFRAME: the goal is to produce the REAL OBJECTS being captured, not the
+  perfect mix of camera-received focuses. Under that goal, F27's bench tested the
+  wrong thing — raw inversion alone — when the question is the best scene-recovery
+  SYSTEM we can engineer. Subtraction-with-estimated-inputs has a structural ceiling
+  (removes additive haze; cannot re-amplify surviving detail contrast, still scaled
+  by 1−α_blur); only multiplication restores amplitude. The amplification noise that
+  killed raw division is STRUCTURED and SURROUNDED BY CLEAN EVIDENCE — addressable
+  even at 8-bit with our existing toolkit:
+  (a) per-band SNR-weighted amplification (full gain at coarse/mid bands where
+      averaging gives headroom; tapered at fine bands — the F40 in-loop idiom);
+  (b) surround-informed denoising of the amplified band: guided filtering with the
+      un-veiled neighboring content and/or the owner frame as guide (the geometry of
+      the surviving detail is known from the attenuated signal + the matte);
+  (c) fringe-clamped, gate-protected application (the 16d safety stack unchanged).
+  EXPERIMENT (giant-CoC wideocc factory, GT-credited, 8-bit first, float as a
+  second condition): 16d subtraction alone vs hybrid (subtract + regularized,
+  surround-denoised contrast restoration). Success = strong-veil-band detail
+  contrast approaches GT with no off-band harm; gates retrain on hybrid outcomes.
+  If the hybrid wins at 8-bit, F27's epitaph reads: the idea was right, the system
+  around it was missing.
 - **18 (NEW): gate recall growth** — more features (per-candidate veil evidence,
   D-magnitude stats), bigger factories, nonlinear gate models; recall is the only
   thing between "property-safe" and "most images benefit."

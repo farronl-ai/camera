@@ -7,6 +7,15 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
 
+**The mission (2026-07-22).** The goal has graduated: produce the image TRUE TO THE
+PHYSICAL OBJECTS captured — not the best mix of what the camera received. Selection
+is the floor; model-based synthesis (remove modeled corruption, restore attenuated
+amplitude, re-composite where truth survives) is the ceiling being built. At this
+level the evaluation apparatus is part of the method: no-ref metrics punish scene
+recovery (F45), pseudo-GT inherits its toolmaker's ceiling (17a), and negatives are
+conditional on their bench (F27→19). Only analytic factories, observation-domain
+audits, and the eye can see the frontier.
+
 **The engine.** Every fusion method = a DECISION (which frame is sharpest, where) +
 a RECONSTRUCTION (combine without artifacts). Four properties determine quality:
 

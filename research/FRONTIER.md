@@ -73,6 +73,15 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
       un-veiled neighboring content and/or the owner frame as guide (the geometry of
       the surviving detail is known from the attenuated signal + the matte);
   (c) fringe-clamped, gate-protected application (the 16d safety stack unchanged).
+  POST-GAIN CLEANUP (Farron): amplified quantization/noise has a DETECTABLE
+  signature — a sudden excess of very-fine-grain HF that does not match the
+  should-exist HF implied by the true object's structure. Two analytic levers:
+  (1) the gain field is OURS (1/(1−α_blur)) ⇒ the expected noise amplitude map is
+  computed, not estimated — per-pixel-σ shrinkage (R4, upgraded) with zero blind
+  estimation; (2) cross-scale coherence: real edges carry aligned energy across
+  bands; artificial grain is finest-band-isolated ⇒ shrink incoherent fine-band
+  energy only, guided by mid-band/owner structure. Simple-first per the ladder;
+  ML/AI admitted if simple saturates. Goal: make the 8-bit case truly clean.
   EXPERIMENT (giant-CoC wideocc factory, GT-credited, 8-bit first, float as a
   second condition): 16d subtraction alone vs hybrid (subtract + regularized,
   surround-denoised contrast restoration). Success = strong-veil-band detail

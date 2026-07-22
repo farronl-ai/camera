@@ -163,3 +163,23 @@ subagent — but delegation has its own discipline:
   voice as first-party work. Credit what the agent did well; name what you fixed.
 - Verify the mechanical state after all agents land: clean tree, pushes ordered,
   tests green — a three-way push race leaves exactly one branch history; check it.
+
+## 11. Recurring rituals are SKILLS — invoke, don't reinvent
+
+The workflows that recur at checkpoints are packaged as project skills
+(`.claude/skills/`). Each is built to UPDATE FROM THE PREVIOUS ITERATION (diff
+against the last run, extend, verify) — never to regenerate from scratch. When one
+of these situations arises, invoke the skill instead of re-deriving the procedure:
+
+| Skill | Invoke when |
+|---|---|
+| `/checkpoint-close` | every phase/arc close, or end-of-day wrap — the umbrella ritual (distribute lessons → refresh faces → memory → git audit → ship) |
+| `/showcase-refresh` | a capability ships or figures go stale; called from checkpoint-close when warranted |
+| `/frontier-litscan` | at the START of a new phase (fresh directions in) and roughly monthly; delegate to a web-capable subagent per §10 |
+| `/market-refresh` | our capability cells change materially (a red cell turns), a quarter passes, or before any external positioning conversation |
+
+Skills carry the house discipline internally (look-before-caption, verify-on-source,
+exclusion lists, no-trailer commits, rebase-before-push) so a subagent invoking one
+inherits the rules without a hand-written brief. If a skill's procedure conflicts
+with new evidence, fix the SKILL.md in the same commit as the work — skills are
+under the same revision discipline as this file (§7).

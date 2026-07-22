@@ -126,3 +126,40 @@ within hours whether it landed. Treat every negative as a direction signal with 
 mechanism attached (F27→16d, F39→silhouette licensing, F45→FRONTIER 17, F46→regime
 matching): five rigorous negatives redirected this project; none ended anything.
 Perseverance + belief in convergence is what keeps the bold moves coming.
+
+## 10. Delegation — subagent management & integration (added during the three-agent sweep)
+
+When work is parallelizable, context-heavy, or self-contained (figure generation,
+literature scans, market/competitive analysis, bulk labeling), DELEGATE it to a
+subagent — but delegation has its own discipline:
+
+**Briefing (the quality of the output is set here):**
+- The brief must TRANSMIT THE HOUSE DISCIPLINE, not assume it: name the exact md
+  files to read first (DEVSTYLE → SYNTHESIS → FRONTIER/PLAYBOOK as relevant) and the
+  specific rules that bind the task (look-before-caption for figures; verify claims
+  on the actual source, not search snippets; honest-gaps-first for analysis).
+- Give the agent OUR CONTEXT COMPACTLY: what exists, what was refuted, what's open —
+  so it can judge redundancy instead of rediscovering. A literature agent that
+  doesn't know F27/F45/F46 will re-import our own measured negatives as "novel."
+- Demand the NEGATIVE deliverable too: what it excluded/rejected and why. The
+  exclusion list is as valuable as the additions.
+- Specify concrete output paths, style/tone anchors ("match the document's voice"),
+  and completion criteria (tests green, commit message rules — no author trailers).
+
+**Isolation (agents must not collide):**
+- Scope each agent to DISJOINT files; never two agents on one file.
+- Every agent that pushes must `git pull --rebase origin main` first; the main
+  session does the same for its own commits while agents are in flight.
+- The main session must NOT touch the agents' files while they run.
+
+**Integration (the main agent's real job — respond to their work, don't just relay):**
+- Read the agent's summary CRITICALLY: spot-check claims that matter (open the
+  committed diff; look at at least one generated figure yourself; verify a cited
+  fact if a decision hangs on it).
+- Sanity-check additions against the project's theory and negatives — the classic
+  failure is a subagent re-proposing something we measured to death.
+- CONNECT the work into the record: findings entries, FRONTIER statuses, and the
+  user-facing narrative are the main agent's responsibility, in the same honest
+  voice as first-party work. Credit what the agent did well; name what you fixed.
+- Verify the mechanical state after all agents land: clean tree, pushes ordered,
+  tests green — a three-way push race leaves exactly one branch history; check it.

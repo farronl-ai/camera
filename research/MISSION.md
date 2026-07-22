@@ -28,12 +28,20 @@ The dividing line for every synthesis method admitted into this engine:
       pushed back through the physics, must reproduce what the camera saw. It
       punishes deviation from anything the sources could have COME FROM, not
       deviation from the sources — hallucination fails it, exceeding every source
-      passes it; (3) **the eye**, judging physical plausibility / GT, never
-      source-resemblance.
+      passes it; (3) **the eye** — scoped tightly: it is an ARTIFACT DETECTOR and EDIT
+      LOCATOR (ringing, halos, banding, ghosting; where changes landed —
+      amplified diffs read as locations, never severities), and a verifier of
+      visible structure WHEN a GT panel is alongside. It is NEVER a truth
+      certifier for synthesized detail: F21 measured its fidelity judgments
+      failing against GT, and under this mission its worst mode is being TOO
+      GENEROUS — plausible hallucination looks good; the eye pays out in the
+      exact currency blind generation optimizes. In the null space, eye
+      approval of fine detail is not evidence of truth.
   Caveat: re-degradation is NECESSARY, not sufficient — blur has a null space
   (several scenes explain the same observations), and inside it the audit cannot
   tell truth from invention. Hence the lattice: re-degradation everywhere,
-  factory GT where it exists, the eye as arbiter beyond both — plus the
+  factory GT where it exists, the eye for artifacts/targeting beyond both (never
+  for certifying synthesized detail) — plus the
   remnant-anchoring requirement itself, which is what confines synthesis to the
   observable-rooted part of the null space.
 

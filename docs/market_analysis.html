@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>focusstack — Competitive &amp; Market Analysis (July 2026)</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fcfcfb;
+    --surface: #ffffff;
+    --surface-2: #f4f4f1;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #8a8880;
+    --rule: #e3e2dc;
+    --accent: #2a78d6;
+    --accent-2: #eb6834;
+    --good-bg: #e4f2e4; --good-ink: #135c13;
+    --part-bg: #fdf0d7; --part-ink: #7a5200;
+    --bad-bg: #fbe4e4;  --bad-ink: #8f1f1f;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161615;
+      --surface: #1e1e1c;
+      --surface-2: #262624;
+      --ink: #f2f1ec;
+      --ink-2: #c3c2b7;
+      --ink-3: #8a8880;
+      --rule: #3a3936;
+      --accent: #3987e5;
+      --accent-2: #d95926;
+      --good-bg: #1c331c; --good-ink: #9ed49e;
+      --part-bg: #3a2f14; --part-ink: #e8c26a;
+      --bad-bg: #3d1d1d;  --bad-ink: #ec9c9c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161615;
+    --surface: #1e1e1c;
+    --surface-2: #262624;
+    --ink: #f2f1ec;
+    --ink-2: #c3c2b7;
+    --ink-3: #8a8880;
+    --rule: #3a3936;
+    --accent: #3987e5;
+    --accent-2: #d95926;
+    --good-bg: #1c331c; --good-ink: #9ed49e;
+    --part-bg: #3a2f14; --part-ink: #e8c26a;
+    --bad-bg: #3d1d1d;  --bad-ink: #ec9c9c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 62rem; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0.2rem 0 0.4rem; letter-spacing: -0.02em; }
+  h2 { font-size: 1.35rem; margin: 3rem 0 0.8rem; letter-spacing: -0.01em; border-bottom: 1px solid var(--rule); padding-bottom: 0.4rem; }
+  h3 { font-size: 1.05rem; margin: 1.6rem 0 0.5rem; }
+  p { margin: 0.6rem 0; }
+  .kicker { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3); font-weight: 600; }
+  .subtitle { color: var(--ink-2); font-size: 1.02rem; max-width: 46rem; }
+  .meta { color: var(--ink-3); font-size: 0.85rem; margin-top: 0.8rem; }
+  code { font-family: var(--mono); font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 4px; }
+
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 1.1rem 1.4rem;
+    margin: 1.8rem 0;
+  }
+  .verdict p { margin: 0.5rem 0; }
+  .verdict .lede { font-size: 1.05rem; font-weight: 600; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+  }
+  .card h3 { margin-top: 0; }
+  .card ul { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+  .card li { margin: 0.35rem 0; }
+  .card.win  { border-top: 3px solid var(--good-ink); }
+  .card.gap  { border-top: 3px solid var(--bad-ink); }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; margin: 1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.82rem; min-width: 62rem; }
+  th, td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+  thead th {
+    background: var(--surface-2);
+    position: sticky; top: 0;
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.rowlabel { font-weight: 600; white-space: nowrap; }
+  th.us, td.us { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .cell { display: inline-block; border-radius: 5px; padding: 0.05rem 0.4rem; font-weight: 600; white-space: nowrap; }
+  .cell + .note { display: block; font-weight: 400; color: var(--ink-2); margin-top: 0.15rem; white-space: normal; }
+  .yes  { background: var(--good-bg); color: var(--good-ink); }
+  .part { background: var(--part-bg); color: var(--part-ink); }
+  .no   { background: var(--bad-bg);  color: var(--bad-ink); }
+  .legendline { font-size: 0.82rem; color: var(--ink-2); margin: 0.4rem 0 0.2rem; }
+
+  .simpletable table { min-width: 0; font-size: 0.88rem; }
+
+  .figure { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 1.1rem 1.2rem 0.6rem; margin: 1.2rem 0; }
+  .figure figcaption { font-size: 0.82rem; color: var(--ink-2); padding: 0.5rem 0.2rem 0.6rem; }
+  .chart-legend { display: flex; gap: 1.2rem; font-size: 0.8rem; color: var(--ink-2); padding: 0.2rem 0.2rem 0.4rem; flex-wrap: wrap; }
+  .chart-legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 0.35rem; vertical-align: -1px; }
+  .sw.b1 { background: var(--accent); }
+  .sw.b2 { background: var(--accent-2); }
+  svg { max-width: 100%; height: auto; display: block; }
+  svg .bar1 { fill: var(--accent); }
+  svg .bar2 { fill: var(--accent-2); }
+  svg .grid { stroke: var(--rule); stroke-width: 1; }
+  svg .axis { fill: var(--ink-3); font-size: 11px; }
+  svg .lbl  { fill: var(--ink-2); font-size: 12px; }
+  svg .val  { fill: var(--ink); font-size: 12px; font-weight: 600; }
+
+  ol.pos { padding-left: 1.3rem; }
+  ol.pos > li { margin: 1rem 0; }
+  .tag { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border-radius: 4px; padding: 0.1rem 0.45rem; vertical-align: 1px; }
+  .tag.rec  { background: var(--good-bg); color: var(--good-ink); }
+  .tag.cond { background: var(--part-bg); color: var(--part-ink); }
+  .tag.avoid{ background: var(--bad-bg);  color: var(--bad-ink); }
+
+  .srcs { font-size: 0.85rem; color: var(--ink-2); }
+  .srcs li { margin: 0.25rem 0; }
+  .footnote { font-size: 0.82rem; color: var(--ink-3); border-top: 1px solid var(--rule); margin-top: 3rem; padding-top: 1rem; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<p class="kicker">Internal analysis &middot; candid, no marketing</p>
+<h1>focusstack: where it actually stands against the market</h1>
+<p class="subtitle">An honest competitive and market analysis of the <code>focusstack</code> research engine
+(per-band edge-aware multi-focus fusion, Python/OpenCV, CLI-only, CPU-only) against professional,
+free, and in-camera focus-stacking alternatives, as of July 2026.</p>
+<p class="meta">All prices verified on vendor pages July 2026 and linked inline. Every red cell in the
+comparison table is a real gap, including ours.</p>
+
+<div class="verdict">
+  <p class="lede">Executive summary</p>
+  <p><strong>As an algorithm, focusstack is genuinely competitive at the research frontier; as a product, it is
+  not shippable today, and the market it would ship into is small, cheap, and being commoditized from below.</strong></p>
+  <p>The engine's core fusion (<code>perband</code>) is validated against ground truth in six regimes and its
+  gated-specialist architecture — boundary corrections behind outcome-trained "never-harm" gates — has no
+  equivalent in any commercial or open-source stacker we found. But: it has no GUI, no RAW support, an 8-bit
+  pipeline, no retouching workflow, unresolved deep-stack handheld alignment, and no benchmark against
+  Helicon or Zerene outputs — only against our own reimplementations of their algorithm families.
+  Meanwhile the paid market tops out at a <a href="https://zerenesystems.com/cms/stacker/docs/purchasing">$289 one-time license</a>,
+  Affinity's focus merge went <a href="https://www.shutternoise.com/articles/affinity-photo-free-canva-2026.html">free under Canva</a>,
+  and OM System cameras <a href="https://www.photoworkout.com/best-focus-stacking-cameras/">stack in-body</a>.
+  The realistic paths are open-source credibility, an embeddable engine/SDK, or a microscopy/machine-vision
+  vertical — not a consumer app.</p>
+</div>
+
+<h2 id="product">1. What we are, honestly</h2>
+<p><strong>What exists:</strong> a research-grade CLI (<code>focusstack shots/*.jpg -o sharp.png</code>) built on
+Python 3 + OpenCV, CPU-only. The scientific core is real and unusually well-evidenced:</p>
+<div class="grid2">
+  <div class="card win">
+    <h3>Validated strengths</h3>
+    <ul>
+      <li><strong>Per-band edge-aware fusion (<code>perband</code>)</strong> — multi-scale decision <em>and</em> halo-free reconstruction; GT-SSIM 0.9918 on Real-MFF (710 real pairs) and 0.9021 at 3072&nbsp;px, beating classical pyramid and guided-blend baselines at both resolutions, with the lead <em>widening</em> under honest occlusion physics.</li>
+      <li><strong>Confidence hardening</strong> — one mechanism that rescues thin bright structures and rejects defocus-spread bleed.</li>
+      <li><strong>Two gated boundary specialists</strong> (contour reconstruction, veil correction) behind outcome-trained gates calibrated so that, on held-out scenes, firing never lost. On 14 real photographs the shipped path left 13 byte-identical and made 1 tiny, eye-verified-benign fix.</li>
+      <li><strong>GT-calibrated multi-scale metrics</strong> — we fixed the standard Q<sup>AB/F</sup> metric's high-res collapse and validated the composite against ground truth (+0.785/+0.869 Spearman at low/high res).</li>
+      <li><strong>Exposure/WB-drift correction, default-on</strong> — recovers −0.025 SSIM of damage to −0.002, provably near-identity on clean stacks.</li>
+      <li><strong>Real-data validation</strong> — real fluorescence-microscopy z-stacks (BBBC006) and 13 real handheld phone sweeps, plus a depth-from-focus byproduct (<code>--depth-out</code>).</li>
+      <li><strong>Content-aware focus operators</strong>, quality-safe <code>--fast</code> path (~1.5×), honest research record (48 dated findings incl. rigorous negatives).</li>
+    </ul>
+  </div>
+  <div class="card gap">
+    <h3>Known gaps (our red cells)</h3>
+    <ul>
+      <li><strong>No GUI.</strong> Every competitor below, including the free ones, has one.</li>
+      <li><strong>No RAW, 8-bit only.</strong> The pipeline is uint8 JPEG/PNG/TIFF in, 8-bit out. Pros shoot RAW and expect 16-bit; Helicon does RAW-in-DNG-out.</li>
+      <li><strong>No retouching workflow.</strong> The single feature pros most cite when choosing Zerene/Helicon. Our answer (gates that never harm) is philosophically elegant but currently fires on ~17% of its home regime.</li>
+      <li><strong>CPU-only Python; no GPU.</strong> Quality-safe speedup ceiling measured at ~1.5×. No head-to-head timing exists vs Helicon's OpenCL engine, and we should assume we lose badly on 100-frame 45&nbsp;MP stacks.</li>
+      <li><strong>Handheld deep-stack alignment is an open wall</strong> — single-pass ECC to a middle frame; large-motion sweeps ghost (tracked as frontier item #7/#8).</li>
+      <li><strong>Deep stacks validated to N=8;</strong> macro pros routinely shoot 50–200 frames.</li>
+      <li><strong>No benchmark against commercial tools' actual output.</strong> Our GT wins are vs our own implementations of the classical method families, not vs Helicon/Zerene binaries.</li>
+      <li><strong>Real-photographic GT validation still pending</strong> (the iPhone-12 dataset is the promotion gate), single-maintainer research code, no installer, no support.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="table">2. Feature-by-feature comparison</h2>
+<p class="legendline">✓ = has it &nbsp;·&nbsp; ◐ = partial/qualified &nbsp;·&nbsp; ✗ = lacks it. Color is redundant with the symbol. The table scrolls horizontally.</p>
+<div class="tablewrap">
+<table>
+  <thead>
+    <tr>
+      <th>Capability</th>
+      <th class="us">focusstack (us)</th>
+      <th><a href="https://www.heliconsoft.com/helicon-focus-versions-licensing/">Helicon Focus</a></th>
+      <th><a href="https://zerenesystems.com/cms/stacker/docs/purchasing">Zerene Stacker</a></th>
+      <th><a href="https://www.adobe.com/creativecloud/photography/compare-plans.html">Photoshop (Auto-Blend)</a></th>
+      <th><a href="https://www.shutternoise.com/articles/affinity-photo-free-canva-2026.html">Affinity (Canva)</a></th>
+      <th><a href="https://github.com/PetteriAimonen/focus-stack">focus-stack (Aimonen)</a></th>
+      <th><a href="https://github.com/noah-peeters/ChimpStackr">ChimpStackr</a></th>
+      <th><a href="https://hugin.sourceforge.io/docs/manual/Enfuse.html">enfuse + Hugin</a></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="rowlabel">Price</td>
+      <td class="us"><span class="cell part">◐ n/a</span><span class="note">unreleased research code</span></td>
+      <td><span class="cell yes">✓ $30–65/yr or $115–240 lifetime</span></td>
+      <td><span class="cell yes">✓ $39–289 one-time</span></td>
+      <td><span class="cell part">◐ ~$20–23/mo subscription</span></td>
+      <td><span class="cell yes">✓ free</span><span class="note">since Canva unification</span></td>
+      <td><span class="cell yes">✓ free (OSS)</span></td>
+      <td><span class="cell yes">✓ free (OSS)</span></td>
+      <td><span class="cell yes">✓ free (OSS)</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">GUI</td>
+      <td class="us"><span class="cell no">✗ CLI only</span></td>
+      <td><span class="cell yes">✓</span></td>
+      <td><span class="cell yes">✓</span></td>
+      <td><span class="cell yes">✓</span></td>
+      <td><span class="cell yes">✓</span></td>
+      <td><span class="cell no">✗ CLI</span><span class="note">community GUIs exist</span></td>
+      <td><span class="cell yes">✓ GUI + CLI</span></td>
+      <td><span class="cell part">◐ via Hugin</span><span class="note">clunky for stacking</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">RAW input</td>
+      <td class="us"><span class="cell no">✗</span></td>
+      <td><span class="cell yes">✓ + RAW-in-DNG-out (Premium)</span></td>
+      <td><span class="cell part">◐ via converter/LR plugin</span></td>
+      <td><span class="cell yes">✓ (ACR)</span></td>
+      <td><span class="cell yes">✓</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Bit depth</td>
+      <td class="us"><span class="cell no">✗ 8-bit</span></td>
+      <td><span class="cell yes">✓ 16-bit</span></td>
+      <td><span class="cell yes">✓ 16-bit TIFF</span></td>
+      <td><span class="cell yes">✓ 16/32-bit</span></td>
+      <td><span class="cell yes">✓ 16/32-bit</span></td>
+      <td><span class="cell yes">✓ 16-bit</span></td>
+      <td><span class="cell yes">✓ 16-bit</span></td>
+      <td><span class="cell yes">✓ 16-bit</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Fusion quality at focus boundaries (halos, thin structures)</td>
+      <td class="us"><span class="cell yes">✓ GT-validated</span><span class="note">but only vs our own baselines, not their binaries</span></td>
+      <td><span class="cell yes">✓ 3 methods (A/B/C)</span><span class="note">strong; manual retouch for hard cases</span></td>
+      <td><span class="cell yes">✓ PMax/DMap</span><span class="note">PMax renowned on crossing bristles</span></td>
+      <td><span class="cell no">✗ documented halo/edge failures</span></td>
+      <td><span class="cell part">◐ good reports, no published eval</span></td>
+      <td><span class="cell part">◐ wavelet method, no GT eval</span></td>
+      <td><span class="cell part">◐ classical pyramid</span><span class="note">the family that halos</span></td>
+      <td><span class="cell no">✗ halos documented</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Retouching / manual source painting</td>
+      <td class="us"><span class="cell no">✗</span><span class="note">auto never-harm gates instead; low recall today</span></td>
+      <td><span class="cell yes">✓</span><span class="note">Lite tier: evaluation-only strokes</span></td>
+      <td><span class="cell yes">✓ best-in-class workflow</span></td>
+      <td><span class="cell yes">✓ full layer/mask editing</span></td>
+      <td><span class="cell yes">✓ layer editing</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Alignment robustness (handheld, deep stacks)</td>
+      <td class="us"><span class="cell no">✗ open wall</span><span class="note">single ECC pass; ghosts on large motion</span></td>
+      <td><span class="cell yes">✓ mature</span></td>
+      <td><span class="cell yes">✓ mature</span></td>
+      <td><span class="cell part">◐ auto-align, mixed reports</span></td>
+      <td><span class="cell part">◐ built-in</span></td>
+      <td><span class="cell yes">✓ ECC + scale/rotation/exposure</span></td>
+      <td><span class="cell part">◐ translation or rot+scale</span></td>
+      <td><span class="cell part">◐ align_image_stack; slow</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Deep stacks (50–200 frames) proven</td>
+      <td class="us"><span class="cell no">✗ validated to N=8</span></td>
+      <td><span class="cell yes">✓ unlimited, routine</span></td>
+      <td><span class="cell yes">✓ routine in macro community</span></td>
+      <td><span class="cell no">✗ user reports of failures at ~100</span></td>
+      <td><span class="cell part">◐ works, less field lore</span></td>
+      <td><span class="cell yes">✓ designed for microscopy stacks</span></td>
+      <td><span class="cell part">◐</span></td>
+      <td><span class="cell part">◐ slow</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Speed / GPU</td>
+      <td class="us"><span class="cell no">✗ Python CPU; ~1.5× fast path</span></td>
+      <td><span class="cell yes">✓ OpenCL GPU (Pro+)</span></td>
+      <td><span class="cell part">◐ CPU Java; slower but liked</span></td>
+      <td><span class="cell yes">✓ GPU</span></td>
+      <td><span class="cell yes">✓ GPU</span></td>
+      <td><span class="cell yes">✓ C++, OpenCL</span></td>
+      <td><span class="cell part">◐</span></td>
+      <td><span class="cell no">✗ notoriously slow</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Batch / scripting / CLI</td>
+      <td class="us"><span class="cell yes">✓ CLI-first + Python API</span></td>
+      <td><span class="cell yes">✓ batch, folder monitor, CLI</span></td>
+      <td><span class="cell part">◐ batch in Prosumer+</span></td>
+      <td><span class="cell part">◐ actions/scripting</span></td>
+      <td><span class="cell part">◐ macros</span></td>
+      <td><span class="cell yes">✓</span></td>
+      <td><span class="cell yes">✓</span></td>
+      <td><span class="cell yes">✓</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Depth map / 3D output</td>
+      <td class="us"><span class="cell part">◐ coarse depth-from-focus</span><span class="note">texture-only observability, r=0.59</span></td>
+      <td><span class="cell yes">✓ depth map, 3D model, micropanorama (Premium)</span></td>
+      <td><span class="cell part">◐ 3D rocking animations</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell yes">✓ depth map</span></td>
+      <td><span class="cell part">◐ depth-map method</span></td>
+      <td><span class="cell no">✗</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Tethered capture / camera control</td>
+      <td class="us"><span class="cell no">✗</span></td>
+      <td><span class="cell yes">✓ Helicon Remote (desktop + mobile)</span></td>
+      <td><span class="cell no">✗ (pairs with rails)</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Exposure-drift correction</td>
+      <td class="us"><span class="cell yes">✓ default-on, GT-measured</span></td>
+      <td><span class="cell yes">✓ brightness adjustment</span></td>
+      <td><span class="cell yes">✓ in alignment</span></td>
+      <td><span class="cell part">◐</span></td>
+      <td><span class="cell part">◐</span></td>
+      <td><span class="cell yes">✓ exposure/WB in align</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell part">◐ enfuse's native domain</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Published, GT-referenced validation of its own quality</td>
+      <td class="us"><span class="cell yes">✓ 6 regimes, incl. negatives</span></td>
+      <td><span class="cell no">✗ marketing + reputation</span></td>
+      <td><span class="cell no">✗ reputation + docs</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell part">◐ cites source paper</span></td>
+      <td><span class="cell no">✗</span></td>
+      <td><span class="cell no">✗</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Installer, support, maintenance track record</td>
+      <td class="us"><span class="cell no">✗ research repo, 1 maintainer</span></td>
+      <td><span class="cell yes">✓ ~20 yrs commercial</span></td>
+      <td><span class="cell yes">✓ ~15+ yrs, responsive author</span></td>
+      <td><span class="cell yes">✓ Adobe</span></td>
+      <td><span class="cell yes">✓ Canva</span></td>
+      <td><span class="cell part">◐ active OSS</span></td>
+      <td><span class="cell part">◐ small OSS</span></td>
+      <td><span class="cell part">◐ old but maintained</span></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p class="legendline">Sources for competitor cells: <a href="https://www.heliconsoft.com/helicon-focus-versions-licensing/">Helicon licensing page</a>,
+<a href="https://zerenesystems.com/cms/stacker/docs/purchasing">Zerene purchasing docs</a>,
+<a href="https://macrobyraghu.com/2024/11/03/zerene-stacker-a-guide-to-pmax-and-dmap/">Zerene PMax/DMap guide</a>,
+<a href="https://community.adobe.com/t5/photoshop-ecosystem-bugs/p-focus-stacking-auto-blend-layers-poor-quality/idi-p/12250428">Adobe community bug thread on Auto-Blend quality</a>,
+<a href="https://www.dpreview.com/forums/threads/photoshop-cs6-auto-blend-layers-awful-results-for-focus-stacking.4222695/">DPReview thread</a>,
+<a href="https://github.com/PetteriAimonen/focus-stack">focus-stack README</a>,
+<a href="https://github.com/noah-peeters/ChimpStackr">ChimpStackr README</a>,
+<a href="https://patdavid.net/2013/01/focus-stacking-macro-photos-enfuse/">enfuse focus-stacking writeup (halos)</a>.
+Where a competitor cell says "no published eval," that is itself the finding: nobody else in this market publishes GT-referenced quality numbers.</p>
+
+<h2 id="diff">3. What is genuinely differentiated</h2>
+<p>Three things in this repo do not exist elsewhere in the focus-stacking market, as far as our research found:</p>
+<h3>3.1 The gated-specialist / never-harm architecture</h3>
+<p>Every stacker fails at depth boundaries sometimes; the industry's universal answer is <em>manual retouching</em>
+(Zerene's flagship workflow, Helicon's brush tools). Our answer is structural: narrow specialists that fix physics the
+generalist provably cannot, each behind a gate <em>trained on the actual quality outcome</em> of firing, with the fire
+threshold set so that held-out firing never lost (18/19 positive fires, worst held-out case −0.0033 on 2 of 75 hardest
+synthetics; 13/14 real photos byte-identical). No competitor has automated boundary correction with a calibrated
+do-no-harm guarantee. This is a real research contribution — and also honest about its current recall (~17% of the
+reconstruction regime, ~4% veil): today it is "never harms," not yet "usually helps."</p>
+<h3>3.2 GT-calibrated honesty as a feature</h3>
+<p>The evidence culture — six validation regimes, metrics themselves validated against ground truth, negatives
+published (oracle de-veiling loses; spread import doesn't materialize) — is unique in this market. Commercial tools
+compete on reputation and forum lore; academic MFIF papers compete on benchmark tables that rarely survive contact
+with high resolution. A GT-validated, per-regime evidence table is a credibility asset if we ever publish or open-source.</p>
+<h3>3.3 The multi-scale decision insight (perband)</h3>
+<p>The specific combination — edge-aware, confidence-hardened decision made independently per pyramid band — resolved
+the low-res/high-res ranking reversals that break single-scale methods, with zero tuned scale parameters. Aimonen's
+tool uses complex wavelets (also multi-scale) but with no edge-aware decision or confidence hardening and no published
+quality evaluation; commercial vendors don't disclose their algorithms. Caveat, again: we have never scored Helicon's
+or Zerene's actual output against our GT benchmarks. Doing so is cheap and should precede any external quality claim.</p>
+
+<h2 id="blockers">4. What blocks productization</h2>
+<div class="grid2">
+  <div class="card gap">
+    <h3>Hard blockers (table stakes we lack)</h3>
+    <ul>
+      <li><strong>16-bit + RAW pipeline.</strong> An 8-bit engine is disqualifying for the entire professional segment. This is also the deepest change — every stage assumes uint8.</li>
+      <li><strong>GUI with before/after and retouch.</strong> The buying population is photographers, not CLI users.</li>
+      <li><strong>Deep-stack alignment.</strong> 50–200 frame handheld/rail stacks are the professional workload; our alignment is the known open wall.</li>
+      <li><strong>Speed.</strong> Python/CPU with a measured 1.5× quality-safe ceiling; competitors are C++/GPU.</li>
+    </ul>
+  </div>
+  <div class="card gap">
+    <h3>Soft blockers (trust and operations)</h3>
+    <ul>
+      <li><strong>Packaging &amp; platform:</strong> no installer, no Windows/macOS builds, torch side-environment for the semantic bridge.</li>
+      <li><strong>Support:</strong> single maintainer; Zerene's author-answers-email support is part of what its $289 buys.</li>
+      <li><strong>Real-photographic GT validation</strong> is still pending (iPhone-12 gate) — our own standards say the strongest claims aren't yet earned.</li>
+      <li><strong>Head-to-head benchmark vs Helicon/Zerene output</strong> — absent, and required before any competitive quality claim.</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="market">5. Market: who buys, and what they pay</h2>
+
+<h3>5.1 The pricing landscape</h3>
+<figure class="figure">
+  <div class="chart-legend">
+    <span><span class="sw b1"></span>One-time / lifetime license</span>
+    <span><span class="sw b2"></span>Recurring (per year)</span>
+  </div>
+  <svg viewBox="0 0 860 372" role="img" aria-label="Bar chart of focus stacking software prices in US dollars, July 2026. One-time licenses range from free to 289 dollars; Adobe's subscription is roughly 240 dollars per year.">
+    <!-- gridlines at $0/$100/$200/$300 ; x = 210 + value*2 -->
+    <line class="grid" x1="210" y1="8" x2="210" y2="330"/>
+    <line class="grid" x1="410" y1="8" x2="410" y2="330"/>
+    <line class="grid" x1="610" y1="8" x2="610" y2="330"/>
+    <line class="grid" x1="810" y1="8" x2="810" y2="330"/>
+    <text class="axis" x="210" y="348" text-anchor="middle">$0</text>
+    <text class="axis" x="410" y="348" text-anchor="middle">$100</text>
+    <text class="axis" x="610" y="348" text-anchor="middle">$200</text>
+    <text class="axis" x="810" y="348" text-anchor="middle">$300</text>
+    <text class="axis" x="510" y="366" text-anchor="middle">USD, verified July 2026</text>
+
+    <!-- rows: y = 14 + i*31, bar height 18 -->
+    <text class="lbl" x="202" y="27" text-anchor="end">Zerene Professional</text>
+    <rect class="bar1" x="210" y="14" width="578" height="18" rx="4"><title>Zerene Stacker Professional — $289 one-time</title></rect>
+    <text class="val" x="794" y="27">$289</text>
+
+    <text class="lbl" x="202" y="58" text-anchor="end">Helicon Premium (lifetime)</text>
+    <rect class="bar1" x="210" y="45" width="480" height="18" rx="4"><title>Helicon Focus Premium — $240 lifetime</title></rect>
+    <text class="val" x="696" y="58">$240</text>
+
+    <text class="lbl" x="202" y="89" text-anchor="end">Adobe Photography plan</text>
+    <rect class="bar2" x="210" y="76" width="480" height="18" rx="4"><title>Adobe Photography plan — about $19.99–22.99/month, roughly $240–276 per year, recurring</title></rect>
+    <text class="val" x="696" y="89">≈$240–276 / yr</text>
+
+    <text class="lbl" x="202" y="120" text-anchor="end">Helicon Pro (lifetime)</text>
+    <rect class="bar1" x="210" y="107" width="400" height="18" rx="4"><title>Helicon Focus Pro — $200 lifetime</title></rect>
+    <text class="val" x="616" y="120">$200</text>
+
+    <text class="lbl" x="202" y="151" text-anchor="end">Zerene Prosumer</text>
+    <rect class="bar1" x="210" y="138" width="378" height="18" rx="4"><title>Zerene Stacker Prosumer — $189 one-time</title></rect>
+    <text class="val" x="594" y="151">$189</text>
+
+    <text class="lbl" x="202" y="182" text-anchor="end">Helicon Lite (lifetime)</text>
+    <rect class="bar1" x="210" y="169" width="230" height="18" rx="4"><title>Helicon Focus Lite — $115 lifetime</title></rect>
+    <text class="val" x="446" y="182">$115</text>
+
+    <text class="lbl" x="202" y="213" text-anchor="end">Zerene Personal</text>
+    <rect class="bar1" x="210" y="200" width="178" height="18" rx="4"><title>Zerene Stacker Personal — $89 one-time</title></rect>
+    <text class="val" x="394" y="213">$89</text>
+
+    <text class="lbl" x="202" y="244" text-anchor="end">Helicon Premium (1-year)</text>
+    <rect class="bar2" x="210" y="231" width="130" height="18" rx="4"><title>Helicon Focus Premium — $65 per year</title></rect>
+    <text class="val" x="346" y="244">$65 / yr</text>
+
+    <text class="lbl" x="202" y="275" text-anchor="end">Affinity by Canva</text>
+    <rect class="bar1" x="210" y="262" width="3" height="18"><title>Affinity by Canva — free since the Canva unification</title></rect>
+    <text class="val" x="220" y="275">$0 (free since late 2025)</text>
+
+    <text class="lbl" x="202" y="306" text-anchor="end">Open source (4+ tools)</text>
+    <rect class="bar1" x="210" y="293" width="3" height="18"><title>enfuse/Hugin, focus-stack, ChimpStackr, CombineZP, Picolay — free</title></rect>
+    <text class="val" x="220" y="306">$0</text>
+  </svg>
+  <figcaption>Desktop focus-stacking prices, July 2026. Sources:
+  <a href="https://www.heliconsoft.com/helicon-focus-versions-licensing/">Helicon Soft licensing</a>,
+  <a href="https://zerenesystems.com/cms/stacker/docs/purchasing">Zerene Systems purchasing</a>,
+  <a href="https://www.adobe.com/creativecloud/photography/compare-plans.html">Adobe plan comparison</a> (plus the
+  <a href="https://www.techradar.com/computing/creative-software/adobes-photoshop-and-lightroom-photo-plans-get-a-huge-price-hike-but-theres-a-way-to-avoid-it">2026 price increase</a>),
+  <a href="https://www.shutternoise.com/articles/affinity-photo-free-canva-2026.html">Affinity-free coverage</a>.
+  The ceiling of the entire specialist market is a $289 one-time purchase with free updates forever.</figcaption>
+</figure>
+
+<h3>5.2 Who actually buys</h3>
+<p>We found no credible market-size report specific to focus-stacking software, and we decline to invent one.
+(Generic "market research" mills sell numbers for this; none survive scrutiny.) The honest sizing is qualitative:
+this is a <strong>niche utility market measured in tens of thousands of enthusiast/professional seats, dominated by two
+lifestyle-scale vendors</strong> (Helicon Soft, Zerene Systems — the latter essentially one person). Segments, in rough
+order of willingness to pay:</p>
+<div class="grid2">
+  <div class="card">
+    <h3>Macro / insect / nature photographers</h3>
+    <ul>
+      <li>The core enthusiast market; communities like <a href="https://www.photomacrography.net/forum/viewtopic.php?t=13302">photomacrography.net</a> run detailed Zerene-vs-Helicon comparisons.</li>
+      <li>Shoot 20–200+ frame stacks on rails; care about crossing-bristle detail and retouching.</li>
+      <li>Price-anchored at $89–289 one-time. <a href="https://photographylife.com/reviews/zerene-stacker">Reviews</a> frame these tools as the quality benchmarks.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Product / jewelry / watch e-commerce</h3>
+    <ul>
+      <li>Focus stacking is standard practice for <a href="https://www.packshot-creator.com/how-to/focus-stacking-jewelry/">jewelry</a> and <a href="https://www.iconasys.com/blog/focus-stacking-in-product-photography/">product photography</a>; shallow DoF at close range makes it mandatory.</li>
+      <li>Increasingly bought as part of automated capture systems (Orbitvu, PackshotCreator, Iconasys turntables) — the stacker is a component, not the product.</li>
+      <li>Values batch throughput and consistency: the segment most compatible with a headless engine.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Microscopy labs, museums, archives</h3>
+    <ul>
+      <li>EDOF is a routine need in <a href="https://www.microscopeworld.com/p-4306-how-to-use-z-stacking-microscopy-software.aspx">z-stack microscopy</a>; vendors sell it as software modules (e.g. <a href="https://promicra.com/quickphoto-microscope-software/deep-focus/">PROMICRA Deep Focus</a>) or built into microscope suites.</li>
+      <li>Zerene's <a href="https://zerenesystems.com/cms/stacker/docs/purchasing">license tiers</a> explicitly name museums and funded projects — evidence institutions are paying customers.</li>
+      <li>Values reproducibility, batch CLI, documented behavior — our actual strengths; also where our only real-optics validation lives (BBBC006).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Industrial / machine vision (adjacent)</h3>
+    <ul>
+      <li>Focus stacking ships inside AOI inspection systems (e.g. <a href="https://www.baslerweb.com/en/use-cases/focus-stacking/">Basler's integrated EDOF use case</a>) for PCB/semiconductor inspection.</li>
+      <li>B2B component licensing, not shrink-wrap: quality guarantees and determinism matter — a natural fit for the never-harm gate story, but demands C++/GPU-grade speed we don't have.</li>
+    </ul>
+  </div>
+</div>
+
+<h3>5.3 The squeeze from below</h3>
+<ul>
+  <li><strong>Free desktop tier is now genuinely good.</strong> Affinity's focus merge — previously a $70 one-time app and a credible Photoshop rival — is <a href="https://www.makeuseof.com/this-photoshop-rival-now-free-i-like-it-better-than-photoshop/">now free under Canva</a>, with focus stacking <a href="https://www.shutternoise.com/articles/affinity-photo-free-canva-2026.html">included in the free tier</a>.</li>
+  <li><strong>Cameras stack in-body.</strong> OM System bodies <a href="https://www.photoworkout.com/best-focus-stacking-cameras/">composite bracketed frames in-camera</a>; Canon offers depth compositing on recent R-series bodies; Nikon/Fuji auto-bracket for external stacking. The casual end of the market never opens a desktop stacker.</li>
+  <li><strong>Smartphones absorb the bottom.</strong> Computational photography delivers "everything in focus" by default for snapshots.</li>
+  <li>What remains willing to pay is precisely the deep-stack professional segment — whose top requirements (retouching, RAW/16-bit, speed on 100+ frames, robust alignment) map one-to-one onto our four biggest gaps.</li>
+</ul>
+
+<h2 id="positioning">6. Realistic positioning options</h2>
+<ol class="pos">
+  <li>
+    <strong>Open-source research engine</strong> <span class="tag rec">Most realistic now</span><br>
+    Release as the best-evidenced OSS stacker: GT-validated quality, the gated-specialist architecture, the
+    depth-from-focus output, and the research record as documentation. Competes with
+    <a href="https://github.com/PetteriAimonen/focus-stack">focus-stack</a>/<a href="https://github.com/noah-peeters/ChimpStackr">ChimpStackr</a>
+    on evidence rather than features. Costs: 16-bit support is near-mandatory even here. Payoff is credibility,
+    users, contributors, and real-world stacks — not revenue. This also de-risks every other option.
+  </li>
+  <li>
+    <strong>Embeddable engine / SDK for people who already own the workflow</strong> <span class="tag cond">Best economics, if we close speed + 16-bit</span><br>
+    License the fusion core to automated product-photography systems (Orbitvu/PackshotCreator/Iconasys class),
+    microscopy software vendors (PROMICRA class), or machine-vision integrators (<a href="https://www.baslerweb.com/en/use-cases/focus-stacking/">Basler-style AOI</a>).
+    Sidesteps our GUI/RAW/retouch gaps entirely — the customer owns capture and UI; we provide a deterministic,
+    quality-guaranteed fusion core where the never-harm gate is a genuine B2B selling point. Blockers: C++/GPU-grade
+    throughput, 16-bit, and at least one head-to-head benchmark. This is the only option where our differentiation
+    converts to money at more than hobby scale.
+  </li>
+  <li>
+    <strong>Niche vertical: microscopy / scientific EDOF</strong> <span class="tag cond">Plausible, slow</span><br>
+    Our only real-optics validation is microscopy; labs value batch CLI, reproducibility, and documented behavior
+    over GUIs. But incumbents ship EDOF inside microscope-vendor suites, and reaching labs means integrations
+    (Bio-Formats/OME-TIFF, proprietary stage formats) plus institutional sales cycles. Viable as a focused wedge,
+    not a quick win.
+  </li>
+  <li>
+    <strong>Prosumer desktop app vs Helicon/Zerene</strong> <span class="tag avoid">Avoid</span><br>
+    We would enter a two-decade-incumbent, reputation-driven market, missing its four table-stakes features, with a
+    price ceiling of $289 one-time, a free Affinity below, and in-camera stacking eroding the base. Even executed
+    perfectly this is a lifestyle business, and we would start years behind on the features that decide purchases.
+  </li>
+</ol>
+
+<h2 id="bottomline">7. Bottom line</h2>
+<div class="verdict">
+  <p><strong>Where we beat the professionals:</strong> evidence and architecture. Nobody else publishes GT-referenced
+  quality across regimes; nobody else has automated boundary correction with a calibrated never-harm guarantee;
+  the per-band decision resolves a real failure mode (resolution-dependent ranking reversals) that classical
+  pyramid tools — and by their halos, likely some commercial modes — still exhibit.</p>
+  <p><strong>Where we lose:</strong> everything the buyer touches. GUI, RAW, 16-bit, retouching, deep-stack alignment,
+  speed, packaging, support — and we have never scored our output against Helicon's or Zerene's actual binaries.</p>
+  <p><strong>What the market says:</strong> the specialist price ceiling is $289 one-time; the free floor now includes a
+  professional-grade GUI app (Affinity); capture hardware is absorbing the casual segment. The differentiated,
+  defensible path is the engine — open-sourced for credibility, then embedded where someone else owns the
+  camera and the buttons.</p>
+</div>
+
+<h2 id="sources">Sources</h2>
+<ul class="srcs">
+  <li>Helicon Soft — <a href="https://www.heliconsoft.com/helicon-focus-versions-licensing/">Helicon Focus versions &amp; licensing</a> (tiers, prices, RAW-in-DNG-out, OpenCL, Helicon Remote)</li>
+  <li>Zerene Systems — <a href="https://zerenesystems.com/cms/stacker/docs/purchasing">Purchasing licenses</a> (editions, one-time prices, museum/professional terms); <a href="https://zerenesystems.com/cms/stacker/docs/howtouseit">How to use it</a></li>
+  <li>Macro by Raghu — <a href="https://macrobyraghu.com/2024/11/03/zerene-stacker-a-guide-to-pmax-and-dmap/">Zerene PMax/DMap guide</a>; Photography Life — <a href="https://photographylife.com/reviews/zerene-stacker">Zerene Stacker review</a>; photomacrography.net — <a href="https://www.photomacrography.net/forum/viewtopic.php?t=13302">Zerene vs Helicon image comparison</a>; Allan Walls — <a href="https://www.allanwallsphotography.com/blog/zereneorheliconpt3">Helicon or Zerene, part III</a></li>
+  <li>Adobe — <a href="https://www.adobe.com/creativecloud/photography/compare-plans.html">Photography plan comparison</a>; TechRadar — <a href="https://www.techradar.com/computing/creative-software/adobes-photoshop-and-lightroom-photo-plans-get-a-huge-price-hike-but-theres-a-way-to-avoid-it">2026 photo-plan price hike</a>; Adobe Community — <a href="https://community.adobe.com/t5/photoshop-ecosystem-bugs/p-focus-stacking-auto-blend-layers-poor-quality/idi-p/12250428">Auto-Blend quality bug thread</a>; DPReview — <a href="https://www.dpreview.com/forums/threads/photoshop-cs6-auto-blend-layers-awful-results-for-focus-stacking.4222695/">Auto-Blend results thread</a></li>
+  <li>Affinity/Canva — Shutternoise: <a href="https://www.shutternoise.com/articles/affinity-photo-free-canva-2026.html">Affinity Photo is now free</a>; MakeUseOf: <a href="https://www.makeuseof.com/this-photoshop-rival-now-free-i-like-it-better-than-photoshop/">$70 Photoshop rival now free</a>; Amateur Photographer: <a href="https://amateurphotographer.com/review/affinity-by-canva-review/">Affinity by Canva review</a></li>
+  <li>Open source — <a href="https://github.com/PetteriAimonen/focus-stack">PetteriAimonen/focus-stack</a> (complex-wavelet fusion, ECC alignment, OpenCL); <a href="https://github.com/noah-peeters/ChimpStackr">noah-peeters/ChimpStackr</a>; <a href="https://hugin.sourceforge.io/docs/manual/Enfuse.html">Enfuse manual</a>; Pat David — <a href="https://patdavid.net/2013/01/focus-stacking-macro-photos-enfuse/">Focus stacking with enfuse</a> (halo limitations); <a href="https://listoffreeware.com/best-free-focus-stacking-software-windows/">CombineZP/Picolay roundup</a></li>
+  <li>In-camera — PhotoWorkout: <a href="https://www.photoworkout.com/best-focus-stacking-cameras/">Best cameras for focus stacking</a> (OM System in-body compositing, Canon depth compositing, Nikon focus shift, Fuji bracketing); Canon — <a href="https://support.usa.canon.com/kb/index?page=content&amp;id=ART178282">EOS R5 focus bracketing</a></li>
+  <li>Market segments — PackshotCreator: <a href="https://www.packshot-creator.com/how-to/focus-stacking-jewelry/">Focus stacking jewelry</a>; Iconasys: <a href="https://www.iconasys.com/blog/focus-stacking-in-product-photography/">Focus stacking in product photography</a>; Basler: <a href="https://www.baslerweb.com/en/use-cases/focus-stacking/">Integrated focus stacking for AOI</a>; PROMICRA: <a href="https://promicra.com/quickphoto-microscope-software/deep-focus/">Deep Focus module</a>; Microscope World: <a href="https://www.microscopeworld.com/p-4306-how-to-use-z-stacking-microscopy-software.aspx">Z-stacking microscopy software</a></li>
+  <li>Internal evidence — <code>docs/SHOWCASE.md</code>, <code>research/FINDINGS.md</code> (SYNTHESIS, F14/F15/F44–F48), <code>research/FRONTIER.md</code> in this repository</li>
+</ul>
+
+<p class="footnote">Prepared July 2026 from vendor pages, community sources, and this repository's own research record.
+No market-size figures are quoted because no credible source publishes one for this niche; qualitative sizing is
+stated instead. All quality claims about our engine are GT-referenced per <code>research/FINDINGS.md</code>; all claims
+about competitors are linked. The single most important missing datum is a head-to-head benchmark of Helicon and
+Zerene binaries on our GT suites — it costs two license fees and a day of work.</p>
+
+</div>
+</body>
+</html>

@@ -16,10 +16,26 @@ The dividing line for every synthesis method admitted into this engine:
   to ML/AI-learning level when fitting — recover what the physical object must
   look like there. The ceiling: the perfect natural result as if the corruption
   (veil, contamination, quantization) never existed.
-- Every admitted method must be auditable: analytic-factory GT, observation-domain
-  re-degradation (re-corrupt our output through the forward model; it must
-  reproduce what the camera saw), and the eye. Source-similarity metrics and
-  pseudo-GT cannot see this work (F45, FRONTIER 17a) and must not steer it.
+- Every admitted method must be auditable — by the three instruments that survive
+  the doctrine shift, NOT the ones that enforce the old one. The distinction is a
+  direction of comparison:
+    - OLD doctrine (barred from steering): `output ≈ sources` — no-ref
+      source-similarity metrics (F45) and pseudo-GT (17a). Under these, scene
+      recovery scores as damage.
+    - Admitted: (1) **analytic-factory GT** — truth-to-SCENE, never contained the
+      corruption, so removing it scores as improvement; (2) **observation-domain
+      re-degradation** — `forward_model(output) ≈ sources`: the claimed scene,
+      pushed back through the physics, must reproduce what the camera saw. It
+      punishes deviation from anything the sources could have COME FROM, not
+      deviation from the sources — hallucination fails it, exceeding every source
+      passes it; (3) **the eye**, judging physical plausibility / GT, never
+      source-resemblance.
+  Caveat: re-degradation is NECESSARY, not sufficient — blur has a null space
+  (several scenes explain the same observations), and inside it the audit cannot
+  tell truth from invention. Hence the lattice: re-degradation everywhere,
+  factory GT where it exists, the eye as arbiter beyond both — plus the
+  remnant-anchoring requirement itself, which is what confines synthesis to the
+  observable-rooted part of the null space.
 
 ## The escalation ladder (thoroughness-first)
 

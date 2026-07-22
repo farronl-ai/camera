@@ -23,8 +23,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "data", "hires")
 
 
-def scenes(coc_frac=0.012, n_scenes=4):
-    """Yield dicts: sid, gt, alpha, frames (N=2, noisy), max_r, near, far."""
+def scenes(coc_frac=0.012, n_scenes=4, float_frames=False):
+    """Yield dicts: sid, gt, alpha, frames (N=2, noisy), max_r, near, far.
+
+    float_frames=True: frames stay float32 end-to-end (no render or output
+    quantization) with the SAME noise seeds — the FRONTIER 19 float condition.
+    Default path is byte-identical to before the kw existed.
+    """
     photos = [cv2.imread(p) for p in sorted(glob.glob(os.path.join(SRC, "*", "gt.png")))]
     photos = [p for p in photos if p is not None]
     out = []
@@ -42,8 +47,13 @@ def scenes(coc_frac=0.012, n_scenes=4):
         near = near.astype(np.float32)
         gt = (near * alpha[..., None] + far.astype(np.float32) * (1 - alpha[..., None])).astype(np.uint8)
         max_r = coc_frac * max(hh, ww)
-        frames = [add_noise(occ_defocus(far, near, alpha, f, 0.15, 0.85, max_r), 3.0, 10 * i + k)
-                  for k, f in enumerate([0.15, 0.85])]
+        if float_frames:
+            frames = [np.clip(occ_defocus(far, near, alpha, f, 0.15, 0.85, max_r, quantize=False)
+                              + np.random.default_rng(10 * i + k).normal(0, 3.0, far.shape), 0, 255).astype(np.float32)
+                      for k, f in enumerate([0.15, 0.85])]
+        else:
+            frames = [add_noise(occ_defocus(far, near, alpha, f, 0.15, 0.85, max_r), 3.0, 10 * i + k)
+                      for k, f in enumerate([0.15, 0.85])]
         out.append(dict(sid=f"{os.path.basename(os.path.dirname(gp))}_c{coc_frac:g}",
                         gt=gt, alpha=alpha, frames=frames, max_r=max_r,
                         near=near, far=far.astype(np.float32)))

@@ -57,7 +57,7 @@ def near_layer(far, seed):
     return near.astype(np.float32), np.clip(alpha, 0, 1)
 
 
-def occ_defocus(far, near, alpha, focus, near_d, far_d, max_r, ca=0.04):
+def occ_defocus(far, near, alpha, focus, near_d, far_d, max_r, ca=0.04, quantize=True):
     offs = (-ca, 0.0, ca)
     out = np.empty_like(far, np.float32)
     for c in range(3):
@@ -67,7 +67,8 @@ def occ_defocus(far, near, alpha, focus, near_d, far_d, max_r, ca=0.04):
         a_b = disk_blur(alpha, rn)
         far_b = disk_blur(far[..., c].astype(np.float32), rf)
         out[..., c] = npm + far_b * (1.0 - a_b)
-    return np.clip(out, 0, 255).astype(np.uint8)
+    out = np.clip(out, 0, 255)
+    return out.astype(np.uint8) if quantize else out
 
 
 def main():

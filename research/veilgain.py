@@ -92,7 +92,7 @@ def _soft(x, t):
 def fuse_perband_gain(images, D_by_far, ab, alpha, t0=0.25, omega=1.0,
                       g_law=glaw_lin, shrink_m=0.0, guide_radius=0, guide_beta=4.0,
                       ck=None, radius=6, eps=1e-3, energy_ksize=7, harden=0.5,
-                      wmode="scaled", return_float=False):
+                      wmode="scaled", coherence=False, return_float=False):
     """perband + w_far-scaled in-loop D subtraction + clamped residual gain.
 
     omega=0 -> pure 16d subtraction (corr_multi-equivalent).
@@ -165,6 +165,21 @@ def fuse_perband_gain(images, D_by_far, ab, alpha, t0=0.25, omega=1.0,
                         guide = far_gray[gi][bandk]
                         for c in range(corr.shape[2]):
                             corr[..., c] = guided_filter(guide, corr[..., c], guide_radius, ge)
+                    if coherence and bandk == 0:
+                        # H4: real edges carry energy across scales; speckle is
+                        # finest-band-isolated. Attenuate finest-band correction
+                        # where the mid-band correction is below its own analytic
+                        # noise floor (ratio gate, no tuned threshold).
+                        g1 = np.maximum(g_law(ab_pyr[1]), t0)
+                        G1 = 1.0 + omega * (1.0 / g1 - 1.0)
+                        coef1 = (np.maximum(G1 - cv2.pyrDown(w[fidx]), 0.0)
+                                 if wmode == "deficit" else cv2.pyrDown(w[fidx]) * (G1 - 1.0))
+                        corr1 = coef1[..., None] * (ip[fidx][1] - pyr[1])
+                        mag1 = cv2.boxFilter(np.abs(corr1).sum(axis=2), cv2.CV_32F, (5, 5))
+                        floor1 = 3.0 * (1.0 + ab_pyr[1]) * SIGMA * ck[1] * coef1
+                        wc = mag1 / (mag1 + floor1 + 1e-6)
+                        wc = cv2.resize(wc, (corr.shape[1], corr.shape[0]))
+                        corr = corr * wc[..., None]
                     fb = fb + m_pyr[bandk][..., None] * corr
             fused_bands.append(fb)
             w_last = w
@@ -617,6 +632,45 @@ def cmd_h5():
     dump("h5", dict(rows=rows))
 
 
+def cmd_h4():
+    """H4 (eye-triggered): cross-scale coherence gate on the finest-band
+    correction. Sparse speckle seen in recovered dark regions (eye pass,
+    scene 02) = finest-band-isolated energy; real edges are coherent with
+    the mid band. Ratio gate vs the mid band's analytic noise floor."""
+    print("== H4: cross-scale coherence on finest-band correction (8-bit) ==", flush=True)
+    rows = []
+    ck = None
+    for coc in (0.04, 0.012):
+        for sc in scenes(coc, n_scenes=10):
+            ab, D, lv, base, sub = prep(sc)
+            if ck is None:
+                ck, _ = calibrate_band_noise(sc["gt"].shape[:2], lv)
+            g_base = M.ref_ssim(base, sc["gt"])
+            g_sub = M.ref_ssim(sub, sc["gt"])
+            row = dict(coc=coc, sid=sc["sid"])
+            for m in (1.0, 2.0):
+                for coh in (False, True):
+                    outp = fuse_perband_gain(sc["frames"], {FAR: D}, ab, sc["alpha"],
+                                             g_law=glaw_sq, shrink_m=m, ck=ck,
+                                             coherence=coh, **WINNER)
+                    s = score(outp, base, sc["gt"], sc["alpha"], sc["max_r"], ab, lv, g_base=g_base)
+                    row[f"m{m:g}{'c' if coh else ''}"] = dict(
+                        dg_vs_sub=float(s["g"] - g_sub), cr=cr_mid(s["cr"]),
+                        dg_off=s["dg_off"], fringe=s["fringe"])
+            rows.append(row)
+            print(f"  coc{coc:g} {sc['sid']:22s} "
+                  f"m1 {row['m1']['dg_vs_sub']:+.4f}->{row['m1c']['dg_vs_sub']:+.4f} "
+                  f"m2 {row['m2']['dg_vs_sub']:+.4f}->{row['m2c']['dg_vs_sub']:+.4f} "
+                  f"cr {row['m2']['cr']:.3f}->{row['m2c']['cr']:.3f}", flush=True)
+    for coc in (0.04, 0.012):
+        rr = [r for r in rows if r["coc"] == coc]
+        for key in ("m1", "m1c", "m2", "m2c"):
+            print(f"  agg coc{coc:g} {key:3s}: mean={np.mean([r[key]['dg_vs_sub'] for r in rr]):+.4f} "
+                  f"worst={np.min([r[key]['dg_vs_sub'] for r in rr]):+.4f} "
+                  f"cr={np.nanmean([r[key]['cr'] for r in rr]):.3f}", flush=True)
+    dump("h4", dict(rows=rows))
+
+
 def cmd_eye():
     """Eye pass (artifact detection only): max-disagreement crops sub vs hybrid
     + GT, plus a clamp-edge crop, per the 2 highest-fringe scenes."""
@@ -651,6 +705,8 @@ def main():
         cmd_final()
     elif cmd == "h5":
         cmd_h5()
+    elif cmd == "h4":
+        cmd_h4()
     elif cmd == "eye":
         cmd_eye()
     else:

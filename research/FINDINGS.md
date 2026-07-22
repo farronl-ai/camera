@@ -81,12 +81,58 @@ recall first). No-ref source-similarity metrics CANNOT audit synthesis correctio
 (F45) — GT-trained gates are the only valid audit until a synthesis-aware no-ref
 signal exists.
 
+**Scene recovery (F51, FRONTIER 19).** Beyond the selection floor, the first
+synthesis win: veil-attenuated detail is restored MULTIPLICATIVELY in the perband
+loop — subtract the haze field D, then amplify the far frame's post-subtraction
+band detail by coef = G − w_far (G from the derived attenuation 1−ab², clamped
+t0/ω, fringe-masked, base band excluded), then soft-threshold at the ANALYTIC
+noise level (σ known, per-band c_k calibrated, gain field ours — zero estimation).
+Float, home regime (giant CoC): positive on every scene with contrast ratio → 1.0.
+The lessons that generalize: correction placement must be in-loop and w-aware
+(full-image placement loses — F27's true killer alongside division); gain laws are
+MEASURED, not assumed; denoising of an amplified remnant wants the analytic
+threshold, not a weak-guide guided filter. Regime-gating is mandatory (moderate
+CoC harms ungated); oracle alpha still bounds the claim (blind matte = 19d).
+
 **Learning.** Classical foundation first. Learned per-tile routing matches the
 oracle; distillation matches classical quality in one pass (speed win needs a GPU);
 per-tile no-GT labels are unreliable (~19% GT agreement) → train on GT dev-labels,
 deploy feature-only. No answer key at inference — fully achieved.
 
 ---
+
+## F51 — FRONTIER 19 lands: multiplicative veil recovery REDEEMED inside the restoration system; F27's epitaph written
+The MISSION's first constructive scene-recovery experiment (veilgain.py; giant-CoC
+wideocc factory, oracle alpha, 8-bit first). The hybrid = 16d subtraction + clamped
+residual gain in the perband loop + analytic shrink. Rung ladder, one variable each:
+P0 headroom REAL (post-subtraction strong-band contrast 0.877; subtraction alone
+moves it 0.919→0.923 — the structural ceiling as predicted); measured attenuation
+g(ab) far shallower than 1−ab (0.64 vs 0.20 @ ab=0.8). H1 (w_far·(G−1), 36 configs):
+every config beats subtraction, off-band 0.0000, but contrast plateaus 0.900 —
+w_far DILUTION diagnosed. H1b: deficit form (coef = G − w_far) + sq law (1−ab², the
+derived physics) → contrast ratio 1.000 EXACT, at dg −0.0006 (noise rides the gain).
+H2 analytic shrink (T = m·(1+ab)·σ·c_k·coef, σ=3 KNOWN, c_k calibrated — zero blind
+estimation) m=2 → dg_vs_sub +0.0004 at cr 0.956: amplitude converted to net GT-SSIM
+gain. FINAL (10 backgrounds × 2 CoC × {8-bit, float}): **coc0.04/float m2 +0.0019
+mean, worst +0.0006 — ALL TEN scenes positive**; coc0.04/8-bit +0.0007 mean, worst
+−0.0015 (3/10 small negatives, all three FLIP POSITIVE in float — the 8-bit wall
+isolated). Eye pass: corrections hug the fringe, veil-band darkness/texture visibly
+restored toward GT, NO ringing/halos/banding; mild speckle in recovered dark regions.
+Negatives, all mechanism-diagnosed: H1a full-image placement loses decisively
+(−0.005..−0.010 — placement was half of F27's verdict; F40 idiom confirmed 3rd time);
+H3 guided-denoise of the correction loses everywhere (the attenuated band is too weak
+a guide at amplified scale); H4 cross-scale coherence gate ≈ null at σ=3; H5
+decomposition: float OUTPUTS do not rescue the 8-bit losers → the wall is INPUT-side
+structured quantization (output bit depth exonerated; R5/MAP-AC debanding stays an
+open conditional rung). Off-regime (coc 0.012): ungated harm (mean −0.0012, worst
+−0.0034; strong-veil band nearly empty on 7/10) — F46's third rhyme: specialists fire
+only in their regime; gate retrain on HYBRID outcomes is the promotion path.
+Provenance: 10 real-photo backgrounds (data/hires: fine_detail×4, foliage×2,
+metal_specular×2, rough_texture, hard_edges), blob occluders, disk PSF, σ=3, oracle
+alpha (blind-matte chain is the next phase). F27's epitaph, verbatim as FRONTIER 19
+hoped: THE IDEA WAS RIGHT, THE SYSTEM AROUND IT WAS MISSING — division redeemed by
+placement (in-loop, w-aware), form (deficit coefficient), law (measured attenuation,
+not assumed), clamps (t0/ω/fringe-mask), and an analytic noise model.
 
 ## F50 — F49-class audit: five drift points between shipped product and evidence, all fixed
 Systematic sweep for default-vs-evidence mismatches and promised-but-unwired

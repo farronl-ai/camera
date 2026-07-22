@@ -89,6 +89,20 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   If the hybrid wins at 8-bit, F27's epitaph reads: the idea was right, the system
   around it was missing. FIRST STEP (per MISSION ladder): a focused litscan on
   CLASSICAL restoration under structured amplification — delegated, in flight.
+  **STATUS 2026-07-22: ✅ MECHANISM PROVEN (F51, veilgain.py).** Hybrid = deficit-form
+  clamped gain (coef = G − w_far, sq law) + analytic shrink (σ known, c_k calibrated).
+  Float, home regime: +0.0019 mean vs subtraction, ALL 10 backgrounds positive, contrast
+  ratio →1.000, off-band clean — the full FRONTIER-19 success criterion. 8-bit: mean
+  +0.0007, worst −0.0015 (3/10 small losses; all flip positive in float). F27's epitaph
+  written. Sub-frontiers spawned:
+  - **19b: gate retrain on HYBRID outcomes** (F47 recipe) — required for ship: off-regime
+    (moderate CoC) ungated harm −0.0012 mean (F46's third rhyme). Needs a ~100-scene
+    wide-occluder outcome factory; merge with #18 recall work.
+  - **19c: input-side structured quantization** (the residual 8-bit wall) — H5 decomposition
+    exonerated output bit depth; R5/MAP-AC debanding is the open conditional rung; the
+    gate (19b) is the nearer path for the −0.0015 worst case.
+  - **19d: blind-matte hybrid** — all F51 results are oracle-alpha; the semantic-matte
+    chain (16e/F42) gates real-data promotion, as for every specialist.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

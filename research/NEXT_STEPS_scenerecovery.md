@@ -16,22 +16,29 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
 
 ## Rungs (one variable each; success = cr_mid ↑ AND fringe not worse AND
 ## |dg_off| ≤ 5e-4 AND dg ≥ dg_sub − 5e-4; ties ±5e-4 are ties)
-- [ ] **P0** kill switch: c_k calibration, byte-identities (no-D == fuse_perband;
-      omega=0 == corr_multi), GT/GT contrast ratio = 1, empirical g(ab) curve,
-      headroom (proceed iff post-subtraction cr_mid < ~0.9).
-- [ ] **H1** clamped in-loop gain sweep: t0 ∈ {.10,.15,.25,.40} × ω ∈ {.9,.95,1} ×
-      law ∈ {lin, sq, emp}. **H1a** full-image control (F27 placement) — expect worse.
-- [ ] **H2** analytic shrink-after-gain (m ∈ {1,2,3}) vs **H3** guided denoise of the
-      correction, guide = far frame's own gray band (remnant provenance; NEVER the
-      owner frame — it carries the occluder), eps = β·(σ·c_k)², r ∈ {2,4,8}.
-      Head-to-head on H1 winner; compose if both positive.
-- [ ] **H4** (conditional: finest-band grain excess) cross-scale coherence shrink.
-- [ ] **H5** (conditional: 8-bit trails float > 2e-3 or banding by eye)
-      quantization-bin projection through the forward model.
-- [ ] **FINAL** winning stack × 10 backgrounds × coc {0.04, 0.012 off-regime
-      no-harm} × {8-bit, float same-seed}. Eye pass: clamp-edge + max-disagreement
-      crops, GT alongside (artifact detection only).
-- [ ] FINDINGS entry + FRONTIER 19 status + F27 epitaph; commits per milestone.
+- [x] **P0** ✅ identities byte-pass; GT/GT=1.000; headroom real (cr_sub 0.877 mean;
+      subtraction barely moves contrast 0.919→0.923). Empirical g(ab) measured:
+      much shallower than 1−ab (0.64 vs 0.20 @ ab=0.8) → theoretical laws over-gain.
+- [x] **H1** ✅ every config beats sub (dg to +0.0009, off-band 0.0000, fringe −1.4)
+      but plateaus at cr 0.900 — w_far dilution diagnosed. **H1b** (deficit form,
+      coef = G−w_far, sq law): cr = 1.000 EXACT at cost dg −0.0006 (noise rides in).
+      **H1a** ✅ full-image placement decisively worse (dg −0.005..−0.010) — F40
+      idiom confirmed 3rd time. lin-deficit overshoots (cr 1.07-1.20): ruled out.
+- [x] **H2** ✅ analytic shrink m=2: dg_vs_sub +0.0004, cr 0.956 — converts amplitude
+      into net GT-SSIM gain. **H3** ✅ NEGATIVE at every (r,β): guide too weak at the
+      amplified scale (dg −0.001..−0.002, cr crushed). Analytic threshold wins the slot.
+- [x] **H4** ✅ (eye-triggered: speckle in recovered dark regions) coherence gate =
+      near-null at σ=3 (no losers flip, ±0.0004 best). Kept OFF.
+- [x] **H5** ✅ decomposition: float OUTPUTS don't rescue 8-bit losers → wall is
+      INPUT-side structured quantization, output bit depth exonerated. R5/MAP-AC
+      debanding = open conditional rung; nearer path is the outcome gate.
+- [x] **FINAL** ✅ 10 backgrounds × 2 coc × 2 dtypes (veilgain_final.json):
+      coc0.04/float m2 +0.0019 mean, worst +0.0006 — ALL 10 positive, F27 idea
+      vindicated. coc0.04/8bit +0.0007 mean, 3/10 small negatives (quantization).
+      coc0.012 ungated HARM (−0.0012 mean) → regime gating required (F46 3rd rhyme).
+      Eye pass ✅: corrections hug the fringe, contrast visibly restored toward GT,
+      no ringing/halos/banding; mild speckle in recovered dark regions (measured).
+- [ ] FINDINGS entry + FRONTIER 19 status + F27 epitaph; final commit.
 
 ## Follow-up phases (open only on a FINAL win)
 1. Gate retrain on hybrid outcomes (F47 recipe) — needs a ~100-scene wide-occluder

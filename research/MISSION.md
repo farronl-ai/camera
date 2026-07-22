@@ -80,5 +80,7 @@ conditional") — the framework reshapes almost everything, a little or a lot.
 ## Attestation
 Any agent (main or sub) working under this framework closes its report with a
 DOCTRINE line per DEVSTYLE §10: the single most binding rule here for the task
-at hand, and how the work complied or why it deviated. A missing or generic
-line means this document was not truly considered — reviewers audit accordingly.
+at hand, and how the work complied or why it deviated. Compose it BEFORE finalizing — if writing it reveals a compliance gap, go back
+and close the gap first; the attestation is a mirror, not a signature. A missing
+or generic line means this document was not truly considered — reviewers audit
+accordingly.

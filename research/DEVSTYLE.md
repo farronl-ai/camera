@@ -156,8 +156,12 @@ subagent — but delegation has its own discipline:
 verifies neither):** every brief that names governing docs (MISSION/DEVSTYLE/
 PLAYBOOK/skill) must require the agent's final report to include:
 `DOCTRINE: <the one rule from those docs most binding on THIS task, and how the
-work complied — or the good reason it deviated>`. Generic or missing DOCTRINE
-line ⇒ treat the whole summary as unverified: audit the diff harder or re-run.
+work complied — or the good reason it deviated>`. COMPOSE IT BEFORE FINALIZING, not as a signature: the intended effect is that
+while formulating "how did I comply," you notice where you didn't — then GO BACK,
+close the gap (or document the deviation honestly), and only then report. An
+attestation that survives its own writing unchanged is a check passed; one that
+sends you back to fix something is the mechanism working at its best.
+Generic or missing DOCTRINE line ⇒ treat the whole summary as unverified: audit the diff harder or re-run.
 This attests consideration at report time only — it never replaces the
 integration audit below (defense in depth: docs → skills → attestation →
 manager audit → tests/gates).

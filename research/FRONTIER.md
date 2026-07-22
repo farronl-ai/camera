@@ -108,6 +108,20 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus
   scale from depth-from-focus; surround + factory-GT audited). Previously out of
   scope by definition; in scope under the mission.
+  **STATUS 2026-07-22: ✅ FIRST PASS PROVEN (F52, gapfill.py).** Wiener one-shot at the
+  known scale: gap-SSIM +0.0544 mean / +0.0340 worst, off-gap 0.0000 everywhere;
+  ±15% radius error keeps most of the win (graceful degradation). Lucy turnover
+  measured (RL k=40 worst goes negative); wrap-pad pitfall confirmed & fixed by eye.
+  Sub-frontiers:
+  - **20b: scale from DFF + calibrated selection** — naive re-blur-residual selection
+    is degenerate toward under-deconvolution (measured); needs Levin-style per-scale
+    calibration or the gate's outcome regression; then real DFF radii (--depth-out).
+  - **20c: prior rungs + harder gaps** — TV/hyper-Laplacian (R8 α<2), asymmetric gaps
+    (d≠0.5: per-frame radii differ), continuous depth ramps (L7 family), giant-CoC
+    gaps (approx-kernel regime breaks the exact-PSF assumption — measure the cost).
+  - **20d: gating + composition** — gap detector (where does NO frame win decisively?
+    the F26 decisiveness floor inverted), outcome gate per F47, composition with
+    --enhance; real handheld stacks (mobiledepth) once 20b lands.
 - **18 (NEW): gate recall growth** — more features (per-candidate veil evidence,
   D-magnitude stats), bigger factories, nonlinear gate models; recall is the only
   thing between "property-safe" and "most images benefit."

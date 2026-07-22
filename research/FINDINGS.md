@@ -101,6 +101,32 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F52 — FRONTIER 20 first pass: gap deconvolution WORKS — Wiener one-shot at the known scale recovers half the oracle gap; scale selection is the open problem
+Stack-gap recovery (gapfill.py): where NO frame is sharp, selection is structurally
+blurred (the F33 limit); scene recovery admits deconvolution with the known disk PSF.
+GAP FACTORY: real-photo GT sharp everywhere, 3 wavy depth bands {0.15, 0.5, 0.85},
+frames focused {0.15, 0.85} → middle band carries r_gap=6.5px disk blur in BOTH
+frames (exact-kernel regime); gap-eval eroded from seams; σ=3; 4 fine_detail
+backgrounds (data/hires). P0: baseline gap contrast 0.39–0.79 (mean 0.51 — ~10x the
+veil arc's headroom); ORACLE RL8 on noiseless blurred GT: +0.040..+0.067 gap-SSIM,
+off-gap 0.0000 → ceiling justifies estimators. LADDER on noisy fused stacks (all
+off-gap deltas 0.0000 throughout — the gap mask contains everything):
+**R8 Wiener one-shot WINS: λ=0.05 → gap-SSIM +0.0544 mean, worst +0.0340** (after
+the replicate-pad fix; one FFT). R6 RL monotone to k=15 (+0.0366) then LUCY'S
+TURNOVER MEASURED at k=40: contrast still rising (0.740) while worst-case fidelity
+goes NEGATIVE (−0.0088) — noise-fitting exactly as Lucy 1974 warned; early stopping
+is the regularizer. R7 gain-controlled RL ≈ plain RL (slightly better worst case).
+EYE (before/after fix): FFT circular-wrap stripes at image borders — the R8 litscan
+pitfall CONFIRMED then eliminated (replicate-pad 4r); post-fix panels show real
+recovery (feather barbs, bark cracks restored toward GT), faint overshoot at the
+strongest edges, no off-gap change. R9 scale robustness: ±15% radius error keeps
+most of the win (+0.036/+0.041), ±30% still positive — graceful, never harmful
+on-model. R9 scale SELECTION: naive re-blur-residual selector is DEGENERATE toward
+under-deconvolution (picks 0.7·r always: reblur∘deconv → identity as r→0) — the
+uncalibrated version of Levin 2007's selector fails for the reason their learned
+λ_k exists. Bound on all claims: oracle radius + on-model PSF + symmetric gap;
+DFF-estimated radius, asymmetric gaps, real stacks = the next phase.
+
 ## F51 — FRONTIER 19 lands: multiplicative veil recovery REDEEMED inside the restoration system; F27's epitaph written
 The MISSION's first constructive scene-recovery experiment (veilgain.py; giant-CoC
 wideocc factory, oracle alpha, 8-bit first). The hybrid = 16d subtraction + clamped

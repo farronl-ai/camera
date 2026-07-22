@@ -38,7 +38,20 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       coc0.012 ungated HARM (−0.0012 mean) → regime gating required (F46 3rd rhyme).
       Eye pass ✅: corrections hug the fringe, contrast visibly restored toward GT,
       no ringing/halos/banding; mild speckle in recovered dark regions (measured).
-- [ ] FINDINGS entry + FRONTIER 19 status + F27 epitaph; final commit.
+- [x] FINDINGS F51 + FRONTIER 19 status (19b/c/d spawned) + F27 epitaph. ✅ CLOSED.
+
+## FRONTIER 20 first pass (same session) — ✅ CLOSED (F52)
+- [x] Gap factory (gapfill.py): 3 wavy depth bands, r_gap=6.5px both frames,
+      exact-kernel regime, gap-eval eroded from seams.
+- [x] P0: deficit real (gap contrast 0.51 mean), oracle RL ceiling +0.051 → proceed.
+- [x] R6 RL: monotone to k=15; Lucy turnover at k=40 (worst −0.0088) — early
+      stopping IS the regularizer, measured. R7 gain-controlled ≈ plain RL.
+- [x] R8 Wiener one-shot λ=0.05 WINS: +0.0544/+0.0340 worst, off-gap 0.0000;
+      wrap-pad pitfall eye-confirmed and fixed (replicate-pad 4r).
+- [x] R9: ±15% radius error → most of win kept; naive residual scale-selection
+      DEGENERATE (under-deconv bias) → 20b.
+- Next phase (see FRONTIER 20b/c/d): DFF radii + calibrated selection, TV/α<2/3
+  rungs, asymmetric/ramp/giant gaps, gap detector + outcome gate, real stacks.
 
 ## Follow-up phases (open only on a FINAL win)
 1. Gate retrain on hybrid outcomes (F47 recipe) — needs a ~100-scene wide-occluder

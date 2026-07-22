@@ -110,15 +110,23 @@ def _conv(img, otf):
     return np.fft.irfft2(np.fft.rfft2(img) * otf, s=img.shape)
 
 
+def _pad(img2d, p):
+    return np.pad(img2d, ((p, p), (p, p)), mode="edge")
+
+
 def rl_deconv(img, radius, iters, gain=None):
     """Richardson-Lucy, channel-wise, disk PSF (symmetric -> self-adjoint).
-    gain: optional per-pixel map in [0,1] damping the multiplicative update
-    (Yuan 2007 gain-controlled RL)."""
+    Replicate-padded before the FFT (circular-wrap artifacts otherwise — the
+    R8 litscan pitfall, CONFIRMED by eye before this fix). gain: optional
+    per-pixel update damping (Yuan 2007)."""
     psf = disk_kernel(radius)
+    p = 4 * int(np.ceil(radius))
     eps = 1e-3
     out = np.empty_like(img, np.float32)
+    if gain is not None:
+        gain = _pad(gain, p)
     for c in range(img.shape[2]):
-        b = np.maximum(img[..., c].astype(np.float32), eps)
+        b = np.maximum(_pad(img[..., c].astype(np.float32), p), eps)
         otf = _psf_otf(psf, b.shape)
         est = b.copy()
         for _ in range(iters):
@@ -127,18 +135,19 @@ def rl_deconv(img, radius, iters, gain=None):
             if gain is not None:
                 upd = 1.0 + gain * (upd - 1.0)
             est = est * upd
-        out[..., c] = est
+        out[..., c] = est[p:-p, p:-p]
     return out
 
 
 def wiener_deconv(img, radius, lam):
     psf = disk_kernel(radius)
+    p = 4 * int(np.ceil(radius))
     out = np.empty_like(img, np.float32)
     for c in range(img.shape[2]):
-        b = img[..., c].astype(np.float32)
+        b = _pad(img[..., c].astype(np.float32), p)
         K = _psf_otf(psf, b.shape)
         est = np.fft.irfft2(np.conj(K) * np.fft.rfft2(b) / (np.abs(K) ** 2 + lam), s=b.shape)
-        out[..., c] = est
+        out[..., c] = est[p:-p, p:-p]
     return out
 
 

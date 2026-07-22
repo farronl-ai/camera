@@ -360,3 +360,242 @@ classes, register it as a third matte class in gate training and measure recall.
   the generative exclusion above.
 - **MFI-WHU / Road-MF**: easy-synthetic (Gaussian) or small no-GT benchmarks —
   the regime PLAYBOOK explicitly warns against optimizing on.
+
+### Lit scan: classical restoration for 19/20 (2026-07-22)
+
+Focused scan for the MISSION ladder step 1: SIMPLE/CLASSICAL methods for (A)
+contrast restoration under a semi-transparent veil with structured amplification
+noise (frontier 19) and (B) mild anchored deconvolution for stack gaps (frontier
+20). Every citation verified by reading the actual paper (full PDFs for all nine).
+Entry format: what → mapping onto our machinery → failure modes vs our gates →
+first experiment. Doctrine check: all nine are remnant-guided (they operate on
+degraded observations of the true content, never synthesize from external
+priors); drift risks flagged inline. The task's "regularized/Wiener inversion"
+bullet is covered structurally inside R4 (subband SNR gain = Wiener-shaped
+attenuation) and R8 (its FFT quadratic sub-step IS the Tikhonov/Wiener inverse).
+
+#### A — veil-contrast restoration under amplification noise
+
+**R1 (A) — Dark channel prior dehazing with lower-bounded transmission.** He,
+Sun, Tang, "Single Image Haze Removal Using Dark Channel Prior," TPAMI
+33(12):2341–2353, 2011 (doi:10.1109/TPAMI.2010.168).
+*What:* haze model I = J·t + A(1−t); radiance recovery J = (I−A)/max(t,t0) + A
+with t0 ≈ 0.1, plus ω = 0.95 deliberately keeping a little haze. The paper
+itself notes (Eq. 13–14) that the model generalizes to "veiling luminance" and
+is IDENTICAL in form to the matting equation I = Fα + B(1−α) — single-image
+dehazing is literally our matte-veil problem with t = 1−α.
+*Mapping:* frontier 19's division revisit IS radiance recovery with t known
+from our matte (better than DCP's estimate). DCP's two safety devices are the
+field's standard answer to amplification noise at 8-bit: the gain clamp
+max(t,t0) bounds amplification at 1/t0, and ω < 1 under-corrects on purpose.
+Both drop directly into the 16d in-loop idiom.
+*Failure modes:* objects similar to airlight without shadow → t underestimated
+→ over-amplification (their Fig. 18 marble); halos from patch-constant t; noise
+at low t. We don't inherit the prior's failures (our t comes from the matte);
+over-amplification is exactly what factory GT + fringe clamps + outcome gates
+measure.
+*First experiment:* in the 16d loop, replace subtraction with clamped division
+J = (I − A·α)/max(1−α, t0); sweep t0 ∈ {0.1…0.5} × ω ∈ {0.9, 0.95, 1.0} on the
+giant-CoC wideocc factory, 8-bit; GT-credit strong-veil band contrast + off-band
+harm; retrain gates on hybrid outcomes.
+
+**R2 (A, also B) — Guided image filtering as gain-field refinement and
+structure-transfer denoiser.** He, Sun, Tang, ECCV 2010 / TPAMI
+35(6):1397–1409, 2013 (doi:10.1109/TPAMI.2012.213).
+*What:* our existing primitive (q = aI + b local linear model). The literature
+gives it two roles we haven't used: refining the transmission/gain map so the
+amplification boundary hugs image edges (its flagship dehazing application),
+and joint filtering with a CLEAN guide (flash/no-flash) — filter the amplified
+noisy band using the un-veiled surround / owner frame as guide.
+*Mapping:* frontier 19(b) verbatim; zero new code — guided_filter is in-tree.
+*Failure modes:* halos when the guide lacks structural correspondence; eps is
+"how much contrast counts as an edge" — mis-set eps smooths the recovered
+detail back out (undoing the amplification we just paid noise for). Both
+GT-measurable per band.
+*First experiment:* after per-band amplification, guided-filter each amplified
+band with the owner-frame band as guide; sweep (radius, eps) per band vs
+unguided amplification on factory GT.
+
+**R3 (A) — Flash/no-flash: joint bilateral denoising + ratio detail transfer
+with mask-gated fallback.** Petschnigg, Szeliski, Agrawala, Cohen, Hoppe,
+Toyama, "Digital Photography with Flash and No-Flash Image Pairs," SIGGRAPH
+2004 (ToG 23(3):664–672); cross-bilateral variant: Eisemann & Durand, SIGGRAPH
+2004.
+*What:* denoise a noisy image with edge-stopping weights computed from the
+clean paired image (joint bilateral, their Eq. 4); transfer detail as a
+multiplicative ratio layer F_Detail = (F+ε)/(F_Base+ε), ε = 0.02 (Eq. 6);
+detect regions where the guide is untrustworthy (flash shadows/specularities)
+and fall back: A_Final = (1−M)·A_NR·F_Detail + M·A_Base (Eq. 7).
+*Mapping:* the exact template for "surround-informed denoising of the
+amplified band" (19(b)): our amplified veil band = their noisy ambient; our
+owner frame / clean surround = their flash. Their mask-gated fallback is our
+gate idiom, published 2004. The multiplicative detail-layer idiom is a
+ringing-free way to re-inject contrast.
+*Failure modes (stated in the paper):* guide detail that does not exist in the
+target gets transferred (their shallow-angle flash texture; for us:
+owner-frame content leaking across the matte boundary = misattribution); halos
+when bilateral widths grow too wide. Fringe clamps + factory GT catch the
+first; eye + L1 re-degradation the second. Doctrine flag: detail transfer is
+remnant-guided ONLY when the guide is the same scene's clean content (owner
+frame / surround) — with any external exemplar it becomes blind import;
+enforce guide provenance.
+*First experiment:* build the amplified band's edge-stopping from the owner
+frame; per-pixel mask from matte confidence falls back to subtraction-only
+where guide trust is low; factory GT + outcome gates.
+
+**R4 (A) — Per-subband SNR-adaptive shrinkage (BayesShrink).** Chang, Yu,
+Vetterli, "Adaptive Wavelet Thresholding for Image Denoising and Compression,"
+IEEE TIP 9(9):1532–1546, 2000.
+*What:* soft-threshold each subband with the closed-form T_B = σ̂²/σ̂_X (noise
+variance over signal std); σ̂ = Median|Y|/0.6745 from the finest subband; σ̂_X
+= sqrt(max(σ̂_Y² − σ̂², 0)); within 5% of the optimal soft-threshold, beats
+SureShrink most of the time.
+*Mapping:* the closed-form recipe for 19(a) per-band SNR-weighted amplification
+in our Laplacian band loop: after multiplying a band by 1/(1−α) the noise σ
+scales identically, so T_B rises exactly where amplification hurt SNR —
+shrink-after-gain = per-band, per-region gain tapering with no tuning. Same
+SNR-driven shape as the Wiener gain, without FFTs.
+*Failure modes:* MAD noise estimation assumes the finest band is mostly noise —
+ours is spatially STRUCTURED (amplified only inside the veil), so σ must be
+estimated per region (in-veil vs out) or the threshold is wrong on both sides;
+soft-thresholding biases amplitudes down (systematic contrast under-recovery —
+GT-measurable).
+*First experiment:* amplify per band, in-veil MAD noise estimate, soft-threshold
+with T_B; GT-score band contrast + off-band harm; head-to-head vs R2/R3 guided
+denoising — competing implementations of the same slot in the hybrid.
+
+**R5 (A) — Dequantization with a hard re-quantization constraint (MAP-AC
+bit-depth enhancement).** Wan, Cheung, Florencio, Zhang, Au, "Image Bit-Depth
+Enhancement via Maximum-A-Posteriori Estimation of AC Signal," IEEE TIP 25(6),
+2016.
+*What:* recover the high-bit-depth image from its quantized version; the
+feasible set is every signal that RE-QUANTIZES to the observation (their
+Eq. 5); a graph-Laplacian smoothness prior with edge weights from observed
+gradients picks within the bin (MAP for AC, closed-form MMSE for DC) — removes
+false contours/banding without blurring true edges.
+*Mapping:* our 8-bit failure in its purest form — after division by 1−α,
+quantization steps become visible bands. Two portable ideas: (i) the
+quantization-bin constraint is the L1 observation-domain audit BUILT INTO the
+estimator (re-degradation consistency by construction, not post-hoc); (ii)
+gradient-derived edge weights are guided-filter-style structure awareness, so
+debanding never fights detail recovery.
+*Failure modes:* edge weights from the quantized observation can read genuine
+sub-bin gradients as flat (over-smooths textureless ramps); block seams
+(half-overlapped blocks mitigate). Factory GT + eye catch both.
+*First experiment:* cheapest version first — after amplification, guided-filter
+each band, then PROJECT the result back into the per-pixel quantization bin
+implied by the observed 8-bit value pushed through the forward model. Measures
+whether bin-projection alone kills the banding noise F27's bench saw.
+
+#### B — anchored deconvolution for stack gaps
+
+**R6 (B) — Richardson–Lucy with early stopping as the regularizer.**
+Richardson, JOSA 62(1):55–59, 1972; Lucy, "An iterative technique for the
+rectification of observed distributions," AJ 79(6):745–754, 1974 (read in
+full).
+*What:* multiplicative ratio updates ψ^{r+1} = ψ^r·[(φ̂/φ^r) ⊛ PSF]; conserves
+non-negativity and flux; likelihood rises monotonically but Lucy's own Sec. IV:
+"no attempt should be made to achieve convergence" — past a few iterations the
+gains only fit noise (his Fig. 1: r=15 visibly worse than r=3). His stopping
+rule: stop when residuals against the OBSERVED data become ascribable to noise
+(χ² with P > 0.05). His Sec. V(iv) "model testing": if iterations cannot reduce
+residuals, the assumed kernel is wrong.
+*Mapping:* safest first tool for gap deblur with our known disk PSF — one knob
+(iteration count). Lucy's stopping rule IS the L1 audit, published 1974:
+re-blur the estimate, compare to the observed gap, stop at noise-level
+residuals. His model test doubles as a free mis-estimated-CoC detector — a
+gate feature.
+*Failure modes:* ringing at strong edges grows with iterations (Gibbs;
+confirmed independently in Yuan 2007 and Levin 2007 Fig. 7); noise
+amplification past the stopping point. The factory measures the
+iteration-vs-artifact curve directly; outcome gates learn the safe count.
+*First experiment:* build the GAP FACTORY (matte generator variant with a focus
+gap: a depth band where no frame is sharp — GT sharp everywhere); RL with the
+DFF-estimated disk PSF, k ∈ {2…15}; GT-credit sharpness vs ringing; gate on
+predicted delta-global with the L1 residual as a feature.
+
+**R7 (B) — Residual + gain-controlled RL with guided detail add-back.** Yuan,
+Sun, Quan, Shum, "Image Deblurring with Blurred/Noisy Image Pairs," SIGGRAPH
+2007 (ToG 26(3)) (read in full).
+*What:* anchored deconvolution: write I = N_D + ΔI (denoised anchor + detail
+residual) and deconvolve only the residual ΔB = B − N_D⊗K — ringing is
+proportional to the magnitude of the deconvolved signal, and ΔB is small
+(their Fig. 5). Remaining ringing suppressed by a gain map I_Gain = (1−α) +
+α·Σ_l‖∇N_D^l‖ (α = 0.2, pyramid gradients of the CLEAN anchor) multiplying each
+RL iterate; fine detail lost to gain control re-added as a joint/cross-bilateral
+detail layer.
+*Mapping:* THE anchored-deconvolution template for stack gaps, and our anchor is
+better than theirs: the best-mix image (sharp surround + mildly blurred gap)
+plays N_D; deconvolve only the gap residual; gain map from surround gradients;
+the F40 fringe-clamp is a gain map. Every piece (pyramid gradients, joint
+filtering) is already in-tree.
+*Failure modes (stated):* gain control suppresses some true fine detail (hence
+their add-back — GT-measurable); assumes one spatially-invariant kernel (their
+limitation; our per-region CoC from depth-from-focus is the fix).
+*First experiment (the centerpiece B experiment):* gap factory; plain RL (R6)
+vs residual RL anchored on the best-mix vs + gain map; hypothesis per their
+Fig. 5: residual anchoring cuts ringing at equal recovered sharpness.
+
+**R8 (B) — Fast non-blind deconvolution with a hyper-Laplacian gradient
+prior.** Krishnan, Fergus, NIPS 2009 (read in full).
+*What:* min λ/2‖x⊗k − y‖² + Σ|∇x|^α with α ∈ [0.5, 0.8] (α = 2/3 fits natural
+gradient statistics); half-quadratic splitting alternates an FFT-solvable
+quadratic step (3 FFTs — a Tikhonov/Wiener-regularized inverse) with a
+per-pixel shrinkage solved by LUT or analytic cubic/quartic roots (α = 1/2,
+2/3); ~3 s/megapixel on a 2009 CPU vs ~20 min IRLS at comparable quality. TV
+deconvolution (Wang, Yang, Yin, Zhang, SIAM J. Imaging Sci. 1(3), 2008) is the
+α = 1 special case with plain shrinkage.
+*Mapping:* the one-shot alternative to iterative RL for the gap — numpy-only
+(FFT + LUT), CPU-friendly, fits our no-scipy env. One implementation yields
+three rungs of the comparison ladder: α = 2 (pure regularized Wiener baseline,
+single FFT solve), α = 1 (TV), α = 2/3 (hyper-Laplacian).
+*Failure modes:* circular-boundary wrap artifacts (pad/taper); the sparse prior
+favors piecewise-flat — cartoonifies texture at strong λ; ringing under kernel
+error. All GT-measurable; λ swept on the factory.
+*First experiment:* gap factory; Wiener vs TV vs α = 2/3 at matched runtime;
+full-image vs per-band application; chart the artifact-safety frontier against
+R6/R7.
+
+**R9 (B) — Depth-indexed deconvolution with reconstruction-error scale
+selection.** Levin, Fergus, Durand, Freeman, "Image and Depth from a
+Conventional Camera with a Coded Aperture," SIGGRAPH 2007
+(doi:10.1145/1275808.1276464) (read in full).
+*What:* defocus PSF = the aperture shape scaled by depth (y = f_k∗x, our disk
+model exactly); deconvolve with a BANK of scaled PSFs; the WRONG scale produces
+ringing, so a local reconstruction-error energy Ê_k with learned per-scale
+weights λ_k selects depth per window (their Eq. 13–15); the all-focus image is
+assembled per pixel from the correctly-scaled deconvolution. Works with a
+conventional circular aperture, but adjacent scales share overlapping frequency
+zeros — weaker discrimination (their motivation for coding the aperture).
+*Mapping:* the focal-stack-specific answer to "defocus scale approximately
+known": don't trust the DFF scale point-estimate — deconvolve at 3–5 CoC
+candidates bracketing it and let LOCAL reconstruction error pick; that selector
+is an in-situ L1 audit (wrong scale = high re-blur residual). Also a calibrated
+warning: with our disk PSF expect a shallow error valley between adjacent
+scales, so gate margins carry the safety.
+*Failure modes:* textureless windows give unreliable scale (they patch with MRF
++ user strokes; we instead REFUSE — the recon-gate energy-floor idiom); ringing
+bleeds across depth discontinuities (deconvolve per matte region).
+*First experiment:* gap factory with CoC deliberately mis-estimated ±30%;
+verify reconstruction-error selection recovers the true scale where texture
+exists and the gate refuses where it doesn't.
+
+#### Excluded from this scan
+- **Learned dehazing / deblurring / bit-depth expansion** (DehazeNet, AOD-Net;
+  DeblurGAN-class; BitNet 2019): not necessarily blind generation, but ladder
+  step 2 by definition — admissible later, only where R1–R9 measurably plateau
+  below the oracle ceiling on factory GT.
+- **Blind deconvolution** (Fergus et al. 2006 kernel estimation and kin): our
+  defocus scale is approximately known from depth-from-focus and R9 selects
+  among candidates; blind kernel estimation adds an unanchored failure axis for
+  zero benefit here.
+- **Diffusion/GAN restoration and inpainting** (diffusion posterior sampling,
+  generative deblur): blind generation — doctrine-excluded (consistent with the
+  existing generative-MFIF exclusion above).
+- **Example-based / hallucinating detail synthesis** (exemplar super-resolution
+  and kin): imports texture from EXTERNAL exemplars rather than the scene's own
+  remnants — doctrine-excluded. Contrast with R3, which is admissible precisely
+  because its guide is the same scene's clean content.
+- **Histogram equalization / CLAHE / unsharp masking**: He et al. (TPAMI 2011,
+  Fig. 17) demonstrate they cannot determine the spatially-variant correction
+  the physics demands; no forward model → the L1 audit cannot even be posed.

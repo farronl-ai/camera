@@ -79,6 +79,23 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F50 — F49-class audit: five drift points between shipped product and evidence, all fixed
+Systematic sweep for default-vs-evidence mismatches and promised-but-unwired
+functionality, inspired by the harden catch. Found and fixed: (1) fuse_perband's
+LIBRARY default was still harden=0.0 (pipeline flipped in F49 but library callers got
+the unvalidated config) — now 0.5; (2) --boundary-out was promised in the 16b plan and
+task ledger but NEVER WIRED — now shipped (stack-evidence boundary map as a data
+product, mirroring --depth-out); (3) --reconstruct-boundaries still advertised as
+"experimental" though superseded by the gated --enhance path and known to regress
+off-model (F36) — now marked DEPRECATED with the honest reason; (4) --fast still
+claimed "quality-neutral-or-better" — true vs the OLD blend default, false since
+perband: measured −0.005..−0.025 GT-SSIM — help now states the cost; (5) --levels help
+claimed pyramid-only while blend consumes it and perband ignores it — corrected.
+Verified clean: the F26 metric composite adoption DID land (metric_weights.json).
+Meta-lesson (extends F49): help text and speed-preset claims are EVIDENCE CLAIMS —
+when the default method changes, every comparative claim in the CLI is invalidated
+and must be re-measured, not just the benchmarks.
+
 ## F49 — harden defaults ON (0.5): the shipped default now matches the validated configuration
 User-caught inconsistency: every benchmark, both specialist gates, and the composed
 pass were validated at harden=0.5, while the CLI/pipeline default was 0.0 — the

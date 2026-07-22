@@ -57,6 +57,7 @@ def run(
     reconstruct_boundaries: bool = False,
     enhance: str = "auto",
     depth_out: str | None = None,
+    boundary_out: str | None = None,
     debug_dir: str | None = None,
     verbose: bool = False,
 ) -> np.ndarray:
@@ -149,6 +150,13 @@ def run(
         from .reconstruct import reconstruct_boundaries as _recon
         log("reconstructing boundary bands (experimental) ...")
         fused = _recon(images, fused)
+
+    if boundary_out:
+        from .reconstruct import stack_boundary
+        log("computing stack boundary map ...")
+        b = stack_boundary(images)
+        fio.save_image(boundary_out, (np.clip(b, 0, 1) * 255.0).astype(np.uint8))
+        log(f"wrote boundary map {boundary_out}")
 
     if depth_out:
         log("computing depth-from-focus map ...")

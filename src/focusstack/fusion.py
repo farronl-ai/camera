@@ -440,7 +440,7 @@ def fuse_perband(
     radius: int = 6,
     eps: float = 1e-3,
     energy_ksize: int = 7,
-    harden: float = 0.0,
+    harden: float = 0.5,
     boundary: np.ndarray | None = None,
     b_lambda: float = 0.5,
     b_eps_gain: float = 4.0,

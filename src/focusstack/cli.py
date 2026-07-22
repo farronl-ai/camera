@@ -54,7 +54,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--levels",
         type=int,
         default=None,
-        help="Pyramid levels for the pyramid method (default: auto).",
+        help="Pyramid levels for the pyramid and blend methods (default: auto; "
+        "perband always sizes its own pyramid).",
     )
     p.add_argument(
         "--harden",
@@ -82,9 +83,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--fast",
         action="store_true",
-        help="Speed preset for high-res: image-space decision fusion + "
-        "--weight-scale 0.5 (~1.5x faster, quality-neutral-or-better). "
-        "Overrides --method/--weight-scale unless those are set explicitly.",
+        help="Speed preset: image-space decision fusion + --weight-scale 0.5 "
+        "(~1.5x faster) and disables --enhance. Measured cost vs the perband "
+        "default: about -0.005 to -0.025 GT-SSIM, largest on fine detail at high "
+        "resolution. Overrides --method/--weight-scale unless set explicitly.",
     )
     p.add_argument(
         "--no-normalize-exposure",
@@ -105,10 +107,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--reconstruct-boundaries",
         action="store_true",
-        help="EXPERIMENTAL: re-render occlusion-boundary bands as fresh matte "
-        "composites (sharper hard edges where a defocused occluder veils the "
-        "background). Validated on matte-occlusion benchmarks; may alter other "
-        "content — off by default.",
+        help="DEPRECATED: ungated boundary re-rendering, superseded by the gated "
+        "--enhance auto path (which fires the same mechanism only where its "
+        "outcome-trained gate predicts a win). Kept for reproduction of F36-era "
+        "results; known to regress off-model.",
+    )
+    p.add_argument(
+        "--boundary-out",
+        default=None,
+        help="Also write the stack-evidence boundary map (uint8 PNG): depth "
+        "discontinuities seen by the focal stack itself — object contours, not "
+        "texture edges. A free byproduct of the boundary engine.",
     )
     p.add_argument(
         "--depth-out",
@@ -144,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
             reconstruct_boundaries=args.reconstruct_boundaries,
             enhance="off" if args.fast else args.enhance,
             depth_out=args.depth_out,
+            boundary_out=args.boundary_out,
             debug_dir=args.debug_dir,
             verbose=args.verbose,
         )

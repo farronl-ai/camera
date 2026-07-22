@@ -46,6 +46,13 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   remains the recall-growth lever.
 - **16f: ✅ SHIPPED (F48)** — composed --enhance auto in pipeline; 74/75 unseen scenes ≥ −0.0024, real data 13/14 identity + 1 tiny fence fire. Residual: 2 mixed outliers (feature-invisible), fence-fire eyetool check, iphone12 GT. Was: composed --enhance stage — both gates firing per stack; two-pass
   packaging over shipped bridge plumbing; identity when bridgeless. NEXT SESSION.
+- **17a (Farron, 2026-07-22): the pseudo-GT ceiling** — external "GT" benchmarks
+  (iphone12 = Helicon output) inherit the toolmaker's ceiling: selection-made
+  references CONTAIN the veil, so they score veil removal as ERROR. Consequence:
+  the iphone12 gate validates the generalist + never-harm property, but can NEVER
+  credit synthesis corrections — only our analytic factories and the observation-
+  domain audit (17/L1) can. Head-to-head vs Helicon/Zerene must use factory GT +
+  eye, never their pseudo-GT, on veil scenes.
 - **17 (NEW, born from F45): synthesis-aware no-reference metric** — a no-ref signal
   that can audit corrections which deviate from every source (current q_ssim-family
   structurally cannot). Would unlock runtime self-audit + recall growth safely.

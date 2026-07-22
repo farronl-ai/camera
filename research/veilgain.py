@@ -307,6 +307,25 @@ def contrast_by_abbin(out, gt, ab, alpha, levels, bands=(1, 2, 3), floor=1.0, mi
     return bins
 
 
+def false_texture(out, gt, ab, alpha, levels, floor=1.0, bands=(1, 2, 3)):
+    """GT-credited hallucination detector (the bench blind spot the
+    over-extension artifact exposed): mean band-texture energy of OUT over
+    fringe pixels where GT is TEXTURELESS (lstd_gt < floor) — exactly the
+    pixels contrast_ratio excludes. Positive delta vs baseline = invented
+    texture in regions the true scene says are smooth."""
+    po = _laplacian_pyramid(M._gray32(out), levels)
+    pg = _laplacian_pyramid(M._gray32(gt), levels)
+    fr = ((ab > 0.05) & (ab < 0.95) & (alpha < 0.5)).astype(np.float32)
+    vals = []
+    for k in bands:
+        m = cv2.resize(fr, (po[k].shape[1], po[k].shape[0])) > 0.5
+        sg = _lstd(pg[k])
+        sel = m & (sg < floor)
+        if sel.sum() > 100:
+            vals.append(float(_lstd(po[k])[sel].mean()))
+    return float(np.mean(vals)) if vals else float("nan")
+
+
 def offband_harm(out, base, gt, alpha, max_r):
     """SSIM delta vs baseline OUTSIDE the (dilated) fringe — leakage detector."""
     fr = fringe_mask(alpha, max_r)
@@ -639,6 +658,70 @@ def cmd_final():
     dump("final", results)
 
 
+def cmd_final2():
+    """FINAL rerun with the chromatic-D model + pm-residual + false-texture
+    index: 10 backgrounds x coc {0.04, 0.012} x {8bit, float}."""
+    print("== FINAL2: chromatic-D stack, full matrix, with false-texture index ==", flush=True)
+    results = {"provenance": {"config": dict(WINNER, law="sq", D="chromatic ca=0.04", pm="on"),
+                              "backgrounds": "data/hires x10 (see veilgain_final.json)"},
+               "rows": []}
+    ck = None
+    for coc in (0.04, 0.012):
+        for fl in (False, True):
+            tag = f"coc{coc:g}/{'float' if fl else '8bit'}"
+            for sc in scenes(coc, n_scenes=10, float_frames=fl):
+                D, ab3, pm3 = build_D_ca(sc["frames"], sc["alpha"], sc["max_r"], OWNER, FAR)
+                ab_g = ab3[..., 1]
+                lv = _auto_levels(sc["gt"].shape, None)
+                if ck is None:
+                    ck, _ = calibrate_band_noise(sc["gt"].shape[:2], lv)
+                base = fuse_perband(sc["frames"], harden=0.5)
+                sub = fuse_perband_gain(sc["frames"], {FAR: D}, ab3, sc["alpha"], omega=0.0,
+                                        return_float=fl)
+                g_base = M.ref_ssim(base, sc["gt"])
+                s_sub = score(sub, base, sc["gt"], sc["alpha"], sc["max_r"], ab_g, lv, g_base=g_base)
+                ft_gt = false_texture(sc["gt"], sc["gt"], ab_g, sc["alpha"], lv)
+                ft_base = false_texture(base, sc["gt"], ab_g, sc["alpha"], lv)
+                ft_sub = false_texture(sub, sc["gt"], ab_g, sc["alpha"], lv)
+                row = dict(cond=tag, sid=sc["sid"], ft_gt=ft_gt, ft_base=ft_base, ft_sub=ft_sub,
+                           sub=dict(dg=s_sub["dg"], cr=cr_mid(s_sub["cr"]), fringe=s_sub["fringe"]))
+                for m in (1.0, 2.0):
+                    outp = fuse_perband_gain(sc["frames"], {FAR: D}, ab3, sc["alpha"],
+                                             g_law=glaw_sq, shrink_m=m, ck=ck,
+                                             pm_by_far={FAR: pm3}, return_float=fl, **WINNER)
+                    s = score(outp, base, sc["gt"], sc["alpha"], sc["max_r"], ab_g, lv, g_base=g_base)
+                    row[f"m{m:g}"] = dict(dg=s["dg"], dg_vs_sub=s["g"] - s_sub["g"],
+                                          cr=cr_mid(s["cr"]), fringe=s["fringe"],
+                                          dfr=s["fringe"] - s_sub["fringe"], dg_off=s["dg_off"],
+                                          ft=false_texture(outp, sc["gt"], ab_g, sc["alpha"], lv))
+                results["rows"].append(row)
+                print(f"  {tag:14s} {sc['sid']:22s} m1 dgs={row['m1']['dg_vs_sub']:+.4f} "
+                      f"cr={row['m1']['cr']:.3f} dfr={row['m1']['dfr']:+.2f} off={row['m1']['dg_off']:+.4f} "
+                      f"ft {ft_base:.2f}b/{ft_sub:.2f}s/{row['m1']['ft']:.2f}h (gt {ft_gt:.2f})", flush=True)
+    print("\n-- aggregates --", flush=True)
+    agg = {}
+    for cond in sorted({r["cond"] for r in results["rows"]}):
+        rows = [r for r in results["rows"] if r["cond"] == cond]
+        a = {}
+        for m in ("m1", "m2"):
+            a[m] = dict(dg_vs_sub=float(np.mean([r[m]["dg_vs_sub"] for r in rows])),
+                        worst_dg_vs_sub=float(np.min([r[m]["dg_vs_sub"] for r in rows])),
+                        cr=float(np.nanmean([r[m]["cr"] for r in rows])),
+                        worst_dg_off=float(np.min([r[m]["dg_off"] for r in rows])),
+                        dfr=float(np.mean([r[m]["dfr"] for r in rows])),
+                        ft=float(np.nanmean([r[m]["ft"] for r in rows])))
+            print(f"  {cond:14s} {m}: dgs={a[m]['dg_vs_sub']:+.4f} (worst {a[m]['worst_dg_vs_sub']:+.4f}) "
+                  f"cr={a[m]['cr']:.3f} dfr={a[m]['dfr']:+.2f} off_worst={a[m]['worst_dg_off']:+.4f} "
+                  f"ft={a[m]['ft']:.2f}", flush=True)
+        a["ft_gt"] = float(np.nanmean([r["ft_gt"] for r in rows]))
+        a["ft_base"] = float(np.nanmean([r["ft_base"] for r in rows]))
+        a["ft_sub"] = float(np.nanmean([r["ft_sub"] for r in rows]))
+        print(f"  {cond:14s} ft: gt={a['ft_gt']:.2f} base={a['ft_base']:.2f} sub={a['ft_sub']:.2f}", flush=True)
+        agg[cond] = a
+    results["agg"] = agg
+    dump("final2", results)
+
+
 def cmd_h5():
     """H5 decomposition: is the 8-bit wall INPUT quantization (frames) or
     OUTPUT quantization (uint8 cast of a sub-step correction)? 8-bit inputs,
@@ -749,6 +832,8 @@ def main():
         cmd_h2h3(cmd)
     elif cmd == "final":
         cmd_final()
+    elif cmd == "final2":
+        cmd_final2()
     elif cmd == "h5":
         cmd_h5()
     elif cmd == "h4":

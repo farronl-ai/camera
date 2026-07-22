@@ -103,6 +103,10 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     gate (19b) is the nearer path for the −0.0015 worst case.
   - **19d: blind-matte hybrid** — all F51 results are oracle-alpha; the semantic-matte
     chain (16e/F42) gates real-data promotion, as for every specialist.
+  - **19e (from F53, user-caught): chromatic veil model + false-texture instrument** —
+    per-channel D (build_D_ca) is now the standard; deep-veil under-recovery (shrink
+    scales with gain) remains open; blind ca estimation needed for real data; the
+    false-texture index joins the bench for ALL synthesis work (gate feature candidate).
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

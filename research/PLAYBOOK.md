@@ -221,6 +221,12 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
 6. **Median metrics are blind to sparse outliers** — the eye caught speckle the
    per-band median called calibrated (H4 trigger). Pair every median with a
    worst-case or a look before declaring a band clean.
+6b. **A metric's EXCLUSION FILTER is a blind spot in disguise** (F53): contrast_ratio
+   excluded textureless-GT pixels — exactly where hallucinated texture lands; a
+   user's eye caught what the whole bench missed. For every selective metric, build
+   its complement (the false-texture index measures precisely the excluded pixels).
+   Corollary: the forward model must match the RENDER (chromatic per-channel radii)
+   — a channel-shared model turns aberration into amplifiable residual.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

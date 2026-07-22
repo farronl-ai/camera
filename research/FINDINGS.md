@@ -105,6 +105,33 @@ deploy feature-only. No answer key at inference — fully achieved.
 
 ---
 
+## F53 — User-caught over-extension artifact → chromatic-D model fix + the false-texture instrument (bench blind spot closed)
+Farron spotted occluder texture extending past the silhouette in the F51 evidence
+crops — flagrant to the eye, invisible to every metric in the bench. Three-layer
+diagnosis: (1) pm-residual — the subtraction remnant is ab·pm_b + (1−ab²)·far and
+the gain amplified the blurred-occluder-texture term; analytic fix (subtract
+ab_k·L_k(pm_b)) real but minor. (2) CHROMATIC model mismatch, the main term: the
+factory renders ca=0.04 (per-channel disk radii {0.66,0.70,0.74}·max_r); the
+channel-shared D left a purple/green mottle residual the gain amplified outward.
+build_D_ca (per-channel ab/pm/D + per-channel gain) flips the hybrid's fringe
+|err| from worse-than-subtraction to BETTER (rough_texture 43.6→37.7) and
+improves the home-regime worst case (8-bit m2 −0.0015→−0.0011; float worst
+−0.0004 ≈ tie). Mottle reduced, not eliminated: deep-veil zones stay
+under-recovered (the analytic shrink scales with the gain — it suppresses its
+own correction at extreme attenuation; a knowable trade, open). (3) BENCH BLIND
+SPOT: contrast_ratio EXCLUDES textureless-GT pixels — exactly where false
+texture lands. New instrument: **false-texture index** (band-texture energy of
+the output over fringe pixels where GT is smooth). Verdict on the full matrix
+(final2): in-regime hybrid ft 0.62–0.67 vs GT's own 0.60 — the artifact is at
+noise level after the fix; OFF-regime ft 0.79–0.85 vs GT 0.66 — the index
+cleanly flags cross-regime firing as hallucination-adding, in float too
+(structural, not quantization). The index would have caught the artifact
+automatically; it joins the bench for all synthesis work. Note for the honest
+record: home-regime dgs vs the NEW baseline is smaller than F51's headline
+(+0.0011 vs +0.0019 float) because chromatic-D strengthens subtraction itself —
+the baseline moved, the total win grew. Blind-side implication for 19d: real
+data needs ca estimated or absorbed per-channel into the matte (19e).
+
 ## F52 — FRONTIER 20 first pass: gap deconvolution WORKS — Wiener one-shot at the known scale recovers half the oracle gap; scale selection is the open problem
 Stack-gap recovery (gapfill.py): where NO frame is sharp, selection is structurally
 blurred (the F33 limit); scene recovery admits deconvolution with the known disk PSF.

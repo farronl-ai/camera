@@ -76,3 +76,9 @@ The dividing line for every synthesis method admitted into this engine:
 **Standing directive**: at every /checkpoint-close, sweep standing conclusions and
 frontier statuses against this framework (extends PLAYBOOK "negatives are
 conditional") — the framework reshapes almost everything, a little or a lot.
+
+## Attestation
+Any agent (main or sub) working under this framework closes its report with a
+DOCTRINE line per DEVSTYLE §10: the single most binding rule here for the task
+at hand, and how the work complied or why it deviated. A missing or generic
+line means this document was not truly considered — reviewers audit accordingly.

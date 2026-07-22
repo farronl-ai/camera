@@ -152,6 +152,16 @@ subagent — but delegation has its own discipline:
   session does the same for its own commits while agents are in flight.
 - The main session must NOT touch the agents' files while they run.
 
+**Attestation (verify the docs were read AND considered — a bare canary token
+verifies neither):** every brief that names governing docs (MISSION/DEVSTYLE/
+PLAYBOOK/skill) must require the agent's final report to include:
+`DOCTRINE: <the one rule from those docs most binding on THIS task, and how the
+work complied — or the good reason it deviated>`. Generic or missing DOCTRINE
+line ⇒ treat the whole summary as unverified: audit the diff harder or re-run.
+This attests consideration at report time only — it never replaces the
+integration audit below (defense in depth: docs → skills → attestation →
+manager audit → tests/gates).
+
 **Integration (the main agent's real job — respond to their work, don't just relay):**
 - Read the agent's summary CRITICALLY: spot-check claims that matter (open the
   committed diff; look at at least one generated figure yourself; verify a cited

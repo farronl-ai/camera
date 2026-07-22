@@ -33,6 +33,10 @@ FIRE_MARGIN = 3e-4
 
 
 def thin_scenes(n):
+    """Scenes 0-119: canonical thin (CoC 0.012). Scenes >=120: DISTRIBUTION
+    EXPANSION (F48) — varied CoC 0.010-0.020 and 50% chance of a pasted object
+    cutout (mixed-style), so the gate learns its safety region under the
+    conditions the composed pass runs in."""
     photos = sorted(glob.glob(os.path.join(HERE, "data", "hires", "*", "gt.png")))
     out = []
     for i in range(n):
@@ -42,8 +46,36 @@ def thin_scenes(n):
         s = LONG / max(h, w)
         far = cv2.resize(far, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
         near, alpha = near_layer(far, seed=2000 + i)
+        rng = np.random.default_rng(9000 + i)
+        coc = 0.012
+        if i >= 120:
+            coc = float(rng.uniform(0.010, 0.020))
+            if rng.random() < 0.5:
+                mp = photos[(i + 5) % len(photos)] + ".masks.npy"
+                if os.path.exists(mp):
+                    from objocc_gen import good_object_masks
+                    src = cv2.imread(photos[(i + 5) % len(photos)])
+                    objs = good_object_masks(np.load(mp), *src.shape[:2])
+                    if objs:
+                        mm = objs[int(rng.integers(len(objs)))]
+                        ys, xs = np.where(mm > 0)
+                        obj = src[ys.min():ys.max() + 1, xs.min():xs.max() + 1].astype(np.float32)
+                        a_o = mm[ys.min():ys.max() + 1, xs.min():xs.max() + 1].astype(np.float32)
+                        hh, ww = far.shape[:2]
+                        sc_f = min(0.4 * hh / obj.shape[0], 0.4 * ww / obj.shape[1], 1.5)
+                        obj = cv2.resize(obj, None, fx=sc_f, fy=sc_f)
+                        a_o = cv2.GaussianBlur(cv2.resize(a_o, None, fx=sc_f, fy=sc_f), (0, 0), 1.0)
+                        oh, ow = a_o.shape
+                        py = int(rng.integers(0, hh - oh)) if hh > oh else 0
+                        px = int(rng.integers(0, ww - ow)) if ww > ow else 0
+                        af = np.zeros((hh, ww), np.float32)
+                        af[py:py + oh, px:px + ow] = a_o
+                        of = np.zeros((hh, ww, 3), np.float32)
+                        of[py:py + oh, px:px + ow] = obj
+                        near = of * af[..., None] + near * (1 - af[..., None])
+                        alpha = np.maximum(alpha, af)
         gt = (near * alpha[..., None] + far.astype(np.float32) * (1 - alpha[..., None])).astype(np.uint8)
-        max_r = 0.012 * max(gt.shape[:2])
+        max_r = coc * max(gt.shape[:2])
         frames = [add_noise(occ_defocus(far, near, alpha, f, 0.15, 0.85, max_r), 3.0, 7 * i + k)
                   for k, f in enumerate([0.15, 0.85])]
         out.append(dict(sid=f"thin_{i:02d}", gt=gt, alpha=alpha, frames=frames, max_r=max_r))

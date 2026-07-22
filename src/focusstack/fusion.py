@@ -492,11 +492,14 @@ def fuse_perband(
     # that frame's per-band weights, so we subtract w_far * L_k(D) at EVERY band
     # (subtraction of a simulated field has no division -> no F27 amplification).
     # veil_D=None -> byte-identical to the plain path.
-    d_pyr = None
+    d_pyrs = {}
     if veil_D is not None:
-        d_pyr = _laplacian_pyramid(veil_D.astype(np.float32), levels)
-        if veil_far_idx < 0:
-            veil_far_idx = n - 1
+        if isinstance(veil_D, dict):
+            d_pyrs = {int(k): _laplacian_pyramid(np.asarray(D, np.float32), levels)
+                      for k, D in veil_D.items()}
+        else:
+            fidx = veil_far_idx if veil_far_idx >= 0 else n - 1
+            d_pyrs = {fidx: _laplacian_pyramid(veil_D.astype(np.float32), levels)}
 
     fused_bands: list[np.ndarray] = []
     w_last: np.ndarray | None = None
@@ -535,8 +538,8 @@ def fuse_perband(
             w = np.stack(weights, axis=0)
             w /= (w.sum(axis=0, keepdims=True) + 1e-8)
             fb = sum(w[k][..., None] * coeffs[k] for k in range(n))
-            if d_pyr is not None:
-                fb = fb - w[veil_far_idx][..., None] * d_pyr[band]
+            for fidx, dp in d_pyrs.items():
+                fb = fb - w[fidx][..., None] * dp[band]
             fused_bands.append(fb)
             w_last = w
         else:
@@ -547,8 +550,8 @@ def fuse_perband(
             wb = np.clip(wb, 0.0, None)
             wb /= (wb.sum(axis=0, keepdims=True) + 1e-8)
             fb = sum(wb[k][..., None] * coeffs[k] for k in range(n))
-            if d_pyr is not None:
-                fb = fb - wb[veil_far_idx][..., None] * d_pyr[levels]
+            for fidx, dp in d_pyrs.items():
+                fb = fb - wb[fidx][..., None] * dp[levels]
             fused_bands.append(fb)
 
     result = fused_bands[-1]

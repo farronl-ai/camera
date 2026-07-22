@@ -178,3 +178,89 @@ def reconstruct_boundaries(
     m = cv2.GaussianBlur(strong.astype(np.float32), (0, 0), 1.5)[..., None]
     out = m * recon + (1.0 - m) * fused.astype(np.float32)
     return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def contamination_band(alpha: np.ndarray, radius: float) -> np.ndarray:
+    """Where a defocused occluder veils the background: blurred-alpha support
+    minus the deep interior."""
+    ab = _disk_blur(alpha, 0.7 * radius)
+    return ((ab > 0.02) & (alpha < 0.98)).astype(np.uint8)
+
+
+def reconstruct_band(frames_owner_far, alpha_sharp, band, base_fused, radius,
+                     inpaint_r: int = 5) -> np.ndarray:
+    """Re-render the strong-veil ribbon as a fresh matte composite (F34/F35).
+
+    frames_owner_far = [owner_frame, far_frame]; identity outside the ribbon.
+    """
+    near_f = frames_owner_far[0].astype(np.float32)
+    far_f = frames_owner_far[1]
+    ab = _disk_blur(alpha_sharp, 0.7 * radius)
+    strong = (ab > 0.15).astype(np.uint8)
+    if strong.sum() == 0:
+        return base_fused
+    far_ext = cv2.inpaint(far_f, strong, inpaint_r, cv2.INPAINT_TELEA).astype(np.float32)
+    v = np.clip((ab - 0.15) / 0.5, 0.0, 1.0)[..., None]
+    far_est = (1.0 - v) * far_f.astype(np.float32) + v * far_ext
+    r_bg = 0.75 * radius
+    far_est_blur = np.stack([_disk_blur(far_est[..., c], r_bg) for c in range(3)], axis=2)
+    recon = near_f + (1.0 - alpha_sharp[..., None]) * (far_est - far_est_blur)
+    m = cv2.GaussianBlur(strong.astype(np.float32), (0, 0), 1.5)[..., None]
+    return np.clip(m * recon + (1.0 - m) * base_fused.astype(np.float32), 0, 255).astype(np.uint8)
+
+
+def estimate_thin_matte(images: list[np.ndarray], radius: float,
+                        ribbon_thresh: float = 0.45):
+    """C3 difference matte for THIN occluders (F35): boundary-gated support,
+    background plate by inpainting, alpha = |owner - plate| — thin as the
+    structure itself. Returns (alpha, owner). Matches the research pipeline the
+    reconstruction gate was trained on."""
+    grays = [to_gray_float(im) for im in images]
+    B = stack_boundary(images)
+    rib_r = max(2, int(round(0.7 * radius)))
+    ribbon = cv2.dilate((B >= ribbon_thresh).astype(np.uint8),
+                        np.ones((2 * rib_r + 1, 2 * rib_r + 1), np.uint8))
+    E = np.stack(content_aware_energies(grays), 0)
+    winner = np.argmax(E, 0)
+    e_sorted = np.sort(E, axis=0)
+    dom = (e_sorted[-1] - e_sorted[-2]) / (e_sorted[-1] + 1e-6)
+    raw = ((dom > 0.35) & (ribbon > 0)).astype(np.float32)
+    if raw.sum() < 10:
+        return np.zeros_like(raw), 0
+    owner = int(np.bincount(winner[raw > 0.5].ravel(), minlength=len(images)).argmax())
+    side = ((raw > 0.5) & (winner == owner)).astype(np.float32)
+    side = cv2.dilate(side, np.ones((3, 3), np.uint8))
+    a2 = np.clip(guided_filter(grays[owner] / 255.0, side, 2, 1e-4), 0.0, 1.0) * (ribbon > 0)
+    if a2.max() <= 0:
+        return np.zeros_like(raw), owner
+    support = cv2.dilate((a2 > 0.15).astype(np.uint8), np.ones((5, 5), np.uint8))
+    plate = cv2.inpaint(images[owner], support, 5, cv2.INPAINT_TELEA).astype(np.float32)
+    diff = np.abs(images[owner].astype(np.float32) - plate).sum(axis=2) * (support > 0)
+    inside = diff[support > 0]
+    hi = np.percentile(inside[inside > 0], 90) if (inside > 0).any() else 1.0
+    alpha = np.clip(diff / (hi + 1e-6), 0.0, 1.0)
+    alpha = np.clip(guided_filter(grays[owner] / 255.0, alpha.astype(np.float32), 1, 1e-4), 0.0, 1.0)
+    return alpha.astype(np.float32), owner
+
+
+def thin_matte_features(images: list[np.ndarray], alpha: np.ndarray,
+                        radius: float):
+    """Feature vector for the reconstruction gate (order matches training)."""
+    grays = [to_gray_float(im) for im in images]
+    E = np.stack(content_aware_energies(grays), 0)
+    srt = np.sort(E, axis=0)
+    dom = (srt[-1] - srt[-2]) / (srt[-1] + 1e-6)
+    sup = alpha > 0.15
+    if not sup.any():
+        return None
+    supf = float(sup.mean())
+    dom_in = float(dom[sup].mean())
+    a_hi = float((alpha > 0.6).sum()) / (float(sup.sum()) + 1e-6)
+    grad = _grad_mag(grays[0])
+    edge_in = float(grad[sup].mean()) / (float(grad.mean()) + 1e-6)
+    bandf = float(contamination_band(alpha, radius).mean())
+    shell = (alpha > 0.2) & (alpha < 0.8)
+    ga = _grad_mag(alpha)
+    sharpness = float(ga[shell].mean()) if shell.any() else 0.0
+    align = float(grad[shell].mean()) / (float(grad.mean()) + 1e-6) if shell.any() else 0.0
+    return np.array([supf, dom_in, a_hi, edge_in, bandf, sharpness, align], np.float32)

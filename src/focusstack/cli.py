@@ -92,6 +92,15 @@ def build_parser() -> argparse.ArgumentParser:
         "focus — near-identity on undrifted stacks).",
     )
     p.add_argument(
+        "--enhance",
+        choices=["auto", "off"],
+        default="auto",
+        help="Gated specialist enhancement (default auto): contour reconstruction "
+        "and — when a torch bridge environment is available — wide-occluder veil "
+        "correction, each firing only where its outcome-trained gate predicts a "
+        "win. Identity when gates stay silent. 'off' disables. perband method only.",
+    )
+    p.add_argument(
         "--reconstruct-boundaries",
         action="store_true",
         help="EXPERIMENTAL: re-render occlusion-boundary bands as fresh matte "
@@ -131,6 +140,7 @@ def main(argv: list[str] | None = None) -> int:
             weight_scale=weight_scale,
             normalize_exposure=not args.no_normalize_exposure,
             reconstruct_boundaries=args.reconstruct_boundaries,
+            enhance="off" if args.fast else args.enhance,
             depth_out=args.depth_out,
             debug_dir=args.debug_dir,
             verbose=args.verbose,

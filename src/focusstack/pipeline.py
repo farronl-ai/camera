@@ -55,6 +55,7 @@ def run(
     weight_scale: float = 1.0,
     normalize_exposure: bool = True,
     reconstruct_boundaries: bool = False,
+    enhance: str = "auto",
     depth_out: str | None = None,
     debug_dir: str | None = None,
     verbose: bool = False,
@@ -136,6 +137,13 @@ def run(
         raise ValueError(
             f"Unknown method {method!r}; use 'blend', 'perband', 'decision', 'pyramid', or 'max'."
         )
+
+    if enhance == "auto" and method == "perband":
+        from .enhance import enhance as _enhance
+        fused, rep = _enhance(images, fused, harden=harden, log=log)
+        if rep["veil_fired"] or rep["recon_fired"]:
+            log(f"enhance: veil={rep['veil_fired']} recon={rep['recon_fired']} "
+                f"(bridge={'yes' if rep['bridge'] else 'no'})")
 
     if reconstruct_boundaries:
         from .reconstruct import reconstruct_boundaries as _recon

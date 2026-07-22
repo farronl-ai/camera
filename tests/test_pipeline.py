@@ -63,6 +63,32 @@ def test_normalize_exposure_identity_and_recovery():
     assert err_after < err_before * 0.35
 
 
+def test_enhance_auto_identity_when_silent(tmp_path, monkeypatch):
+    # no bridge (env points nowhere) + noise stack (gates silent) => byte-identical
+    monkeypatch.setenv("FOCUSSTACK_BRIDGE_PYTHON", "/nonexistent/python")
+    rng = np.random.default_rng(3)
+    base = rng.integers(0, 255, (128, 128, 3)).astype(np.uint8)
+    stack = [base.copy(), cv2.GaussianBlur(base, (9, 9), 3)]
+    paths = []
+    for i, im in enumerate(stack):
+        pth = str(tmp_path / f"e{i}.png")
+        cv2.imwrite(pth, im)
+        paths.append(pth)
+    a = run(paths, str(tmp_path / "on.png"), align=False, enhance="auto")
+    b = run(paths, str(tmp_path / "off.png"), align=False, enhance="off")
+    assert np.array_equal(a, b)
+
+
+def test_gates_predict_gain_shapes():
+    from focusstack.gates import RECON_GATE, VEIL_GATE, predict_gain
+
+    x = np.linspace(0.1, 0.9, 7).astype(np.float32)
+    for gate in (VEIL_GATE, RECON_GATE):
+        v = predict_gain(gate, x)
+        assert isinstance(v, float) and np.isfinite(v)
+        assert 0 < gate["margin"] < 0.1
+
+
 def test_bridge_runner_graceful_absence():
     from focusstack.bridge import find_bridge_python, run_bridge
 

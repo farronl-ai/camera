@@ -71,32 +71,37 @@ orthogonality of evidence channels is a design requirement, not a nicety (F30–
 the generalists. Each specialist is paired with its REGIME and its MATTE CLASS
 (edge-stamping reconstruction needs ~px-precision C3 mattes on thin structures;
 field-subtracting veil correction needs region-precision mask mattes on wide
-occluders — one matte pipeline cannot serve both, F46). Every specialist ships behind
-the UNIFIED GATE RECIPE: regime-matched candidates → features incl. matte-edge
+occluders — one matte pipeline cannot serve both, F46). The historical promotion
+recipe was the UNIFIED GATE RECIPE: regime-matched candidates → features incl. matte-edge
 quality → ridge regression on the ACTUAL outcome from factory GT → fire margin set
 on train by the every-scene property, verified held (F47: reconstruction held 5/30
 fired all-positive mean +0.0083; veil 2/2 good). Safety is structural; recall grows
 with features/data and is proportional to effect size (margins eat small-effect
 recall first). No-ref source-similarity metrics CANNOT audit synthesis corrections
 (F45) — GT-trained gates are the only valid audit until a synthesis-aware no-ref
-signal exists.
+signal exists. F54 strengthened the rule: a gate inherits the blind spots of its
+labels and factory, so the veil gate is now disabled; contour reconstruction remains
+the only live enhancement specialist.
 
-**Scene recovery (F51, FRONTIER 19).** Beyond the selection floor, the first
-synthesis win: veil-attenuated detail is restored MULTIPLICATIVELY in the perband
-loop — subtract the haze field D, then amplify the far frame's post-subtraction
-band detail by coef = G − w_far (G from the derived attenuation 1−ab², clamped
-t0/ω, fringe-masked, base band excluded), then soft-threshold at the ANALYTIC
-noise level (σ known, per-band c_k calibrated, gain field ours — zero estimation).
-Float, home regime (giant CoC): positive on every scene with contrast ratio → 1.0.
-The lessons that generalize: correction placement must be in-loop and w-aware
-(full-image placement loses — F27's true killer alongside division); gain laws are
-MEASURED, not assumed; denoising of an amplified remnant wants the analytic
-threshold, not a weak-guide guided filter. Regime-gating is mandatory (moderate
-CoC harms ungated); oracle alpha still bounds the claim (blind matte = 19d).
+**Scene recovery (F51–F54, FRONTIER 19).** The first multiplicative veil result was
+a NARROW ORACLE-FACTORY win, not a general mechanism. F54's realistic-object audit
+overturned the promotion thesis: even true matte + true radius can lose badly on
+natural object/background combinations, while semantic-matte + true-radius hybrid
+averages −0.0032 GT-SSIM (worst −0.0304). Channel-specific D and foreground-premult
+removal fix two real artifacts but not the model-class error. The core deficit law
+assumes the far remnant is the only surviving background evidence; actual fusion
+already admits frequency-dependent background evidence from other frames. A direct
+evidence-accounting replacement also fails because separating that contribution at
+the matte boundary is itself ill-conditioned. **Multiplicative veil gain is therefore
+research-only and the shipped subtraction veil branch is safety-disabled**: its four
+native-resolution fires are microscopic and fail the expanded worst-case/fringe/
+false-texture property. The general lessons that survive are in-loop weight-aware
+placement, analytic noise calibration, and—most importantly—null-space/false-texture
+auditing before any scene-recovery claim.
 Stack gaps (F52): where NO frame is sharp, one Wiener FFT at the known disk scale
 recovers +0.054 gap-SSIM (worst +0.034, off-gap zero); RL's iteration knob hits
 Lucy's noise-fitting turnover; radius error degrades gracefully (±15% keeps most).
-Both specialists await their gates + blind inputs (matte / DFF radius) before ship.
+Gap recovery awaits its gate + blind DFF radius before ship.
 
 **Learning.** Classical foundation first. Learned per-tile routing matches the
 oracle; distillation matches classical quality in one pass (speed win needs a GPU);
@@ -104,6 +109,53 @@ per-tile no-GT labels are unreliable (~19% GT agreement) → train on GT dev-lab
 deploy feature-only. No answer key at inference — fully achieved.
 
 ---
+
+## F54 — User-caught hallucination overturns the veil promotion thesis; auto veil branch safety-disabled
+The F53 mechanism fixes were real but insufficient. The required harder judge was
+the 100-scene objects-as-occluders factory, not the four simple wideocc blobs that
+made F51 look general. With runtime semantic mattes but the FACTORY-TRUE radius
+(an easier-than-shipping oracle), 98 candidates at max-side 512 give: subtraction
+mean dg −0.00025/worst −0.00937; corrected multiplicative hybrid mean
+**−0.00319**, median −0.00146, worst **−0.03041**, only 20/98 positive; true-fringe
+error worsens +1.62 on average. Low matte mean-error is not safety: scene_31 has
+|αerr|=0.0096 and still loses −0.0304. A true-alpha + true-radius spot audit also
+contains severe losses (to −0.032), proving this is not merely a blind-radius or
+semantic-matte problem. The wideocc all-positive result was a benchmark-class
+conditional, and F51's “division redeemed” generalization is withdrawn.
+
+Mechanism: `coef = G − w_far` restores the entire estimated scene deficit from the
+far remnant while ignoring background information already present through the
+other frames' frequency-dependent fusion contributions. It can therefore
+double-restore natural background structure. A new direct evidence-accounting
+formula was implemented and stopped after its first 14 scenes all worsened: owner
+background/foreground separation at the matte boundary is itself ill-conditioned.
+Radius-bank consensus likewise helped giant veils but harmed moderate scenes; raw
+forward residual was radius-biased; a single blind radius fit had mean relative
+error 0.43. These are mechanism negatives, not knobs awaiting a sweep.
+
+The SHIPPED subtraction path was then audited separately at native resolution under
+its exact locked gate (four fires among 366 candidates/100 scenes). Global dg was
+{+0.000059,+0.000030,−0.000003,+0.000150}; one fire worsened true-fringe error by
++0.031; smooth-region false-texture deltas were
+{+0.0005,+0.0011,+0.0117,+0.0101}. Its benefit is too small to spend trust on and
+the old every-fire property no longer holds under the expanded instrument. A
+pattern-limited low-pass D retained tiny gains but did not consistently reduce
+false texture, so it was not promoted.
+
+**Shipping action:** `VEIL_AUTO_ENABLED=False`; `--enhance auto` no longer launches
+the semantic bridge or fires veil subtraction, and reports
+`veil_disabled_safety=True`. Contour reconstruction remains live. The veil model,
+gate, and experiments remain reproducible but cannot affect product output. New
+tests make any accidental bridge call fail. The showcase and outward claims must
+describe the veil arc as a retired research result until a different identifiable
+model passes natural-object oracle, semantic-matte, native-resolution, false-texture,
+and worst-case gates.
+
+The benchmark lesson is larger than this feature: selective contrast metrics and
+mean SSIM both missed the user's visible failure; re-degradation can also miss
+null-space invention. Every restoration bench now needs the metric complement,
+model-class diversity, native resolution, per-scene tails, and an explicit
+identity/refusal baseline before “shippable” is uttered.
 
 ## F53 — User-caught over-extension artifact → chromatic-D model fix + the false-texture instrument (bench blind spot closed)
 Farron spotted occluder texture extending past the silhouette in the F51 evidence
@@ -131,6 +183,9 @@ record: home-regime dgs vs the NEW baseline is smaller than F51's headline
 (+0.0011 vs +0.0019 float) because chromatic-D strengthens subtraction itself —
 the baseline moved, the total win grew. Blind-side implication for 19d: real
 data needs ca estimated or absorbed per-channel into the matte (19e).
+**Superseded by F54:** those fixes cure two visible residual terms but do not make
+the multiplicative operator valid on realistic object scenes; the auto veil branch
+is now safety-disabled.
 
 ## F52 — FRONTIER 20 first pass: gap deconvolution WORKS — Wiener one-shot at the known scale recovers half the oracle gap; scale selection is the open problem
 Stack-gap recovery (gapfill.py): where NO frame is sharp, selection is structurally

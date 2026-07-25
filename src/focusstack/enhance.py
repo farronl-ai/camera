@@ -1,19 +1,15 @@
-"""Composed specialist enhancement — the gated two-specialist stage (F47).
+"""Composed specialist enhancement — conservative specialist routing.
 
-Two boundary specialists compose over the generalist fusion, each behind its
-locked outcome-trained gate (see gates.py):
+Contour reconstruction remains live behind its locked outcome-trained gate.
+The veil branch is retained as research machinery but safety-disabled after F54:
 
-- **Veil correction** (wide occluders): SAM mask candidates from a semantic
-  bridge (external python; see bridge.py) -> gated -> forward-modeled haze
-  fields subtracted inside the per-band fusion (fusion.fuse_perband veil_D).
-  Requires the bridge; silently skipped without it.
+- **Veil correction** (wide occluders): disabled in `enhance="auto"` because
+  native-resolution false-texture auditing overturned its never-harm claim.
 - **Contour reconstruction** (thin occluders): classical C3 difference matte
   -> gated -> strong-veil ribbon re-rendered post-fusion
   (reconstruct.reconstruct_band). No bridge needed.
 
-Identity by construction when the bridge is absent and gates stay silent —
-which is what makes `enhance="auto"` safe as a pipeline default. The gates are
-conservative on purpose: never harm, sometimes clearly help.
+Identity by construction when the contour gate stays silent.
 """
 
 from __future__ import annotations
@@ -31,6 +27,12 @@ from .gates import RECON_GATE, VEIL_GATE, predict_gain
 from .io import to_gray_float
 from .reconstruct import (contamination_band, estimate_thin_matte,
                           reconstruct_band, thin_matte_features, _disk_blur)
+
+
+# F54 safety hold. The model and gate remain in-tree for reproducible research,
+# but auto enhancement must not call them until a replacement passes the
+# expanded native-resolution hallucination audit.
+VEIL_AUTO_ENABLED = False
 
 
 def _mask_candidates(images, masks, depth, topk=4):
@@ -114,25 +116,31 @@ def enhance(images, fused_pass1, radius=None, harden=0.5,
 
     if radius is None:
         radius = 0.012 * max(fused_pass1.shape[:2])
-    report = {"bridge": False, "veil_fired": 0, "recon_fired": 0}
+    report = {
+        "bridge": False,
+        "veil_fired": 0,
+        "veil_disabled_safety": not VEIL_AUTO_ENABLED,
+        "recon_fired": 0,
+    }
     out = fused_pass1
 
     # --- veil branch (needs the bridge) ---
     D_by_far = {}
-    with tempfile.TemporaryDirectory() as td:
-        p1 = os.path.join(td, "pass1.png")
-        cv2.imwrite(p1, fused_pass1)
-        dp = run_bridge("depth", p1, python=bridge_python)
-        mp = run_bridge("masks", p1, python=bridge_python)
-        if dp and mp:
-            report["bridge"] = True
-            masks, depth = np.load(mp), np.load(dp)
-            for c in _mask_candidates(images, masks, depth):
-                if predict_gain(VEIL_GATE, c["feats"]) >= VEIL_GATE["margin"]:
-                    f = 1 - c["owner"] if len(images) == 2 else len(images) - 1
-                    D = _build_veil_D(images, c["alpha"], radius, c["owner"], f)
-                    D_by_far[f] = D_by_far.get(f, 0) + D
-                    report["veil_fired"] += 1
+    if VEIL_AUTO_ENABLED:
+        with tempfile.TemporaryDirectory() as td:
+            p1 = os.path.join(td, "pass1.png")
+            cv2.imwrite(p1, fused_pass1)
+            dp = run_bridge("depth", p1, python=bridge_python)
+            mp = run_bridge("masks", p1, python=bridge_python)
+            if dp and mp:
+                report["bridge"] = True
+                masks, depth = np.load(mp), np.load(dp)
+                for c in _mask_candidates(images, masks, depth):
+                    if predict_gain(VEIL_GATE, c["feats"]) >= VEIL_GATE["margin"]:
+                        f = 1 - c["owner"] if len(images) == 2 else len(images) - 1
+                        D = _build_veil_D(images, c["alpha"], radius, c["owner"], f)
+                        D_by_far[f] = D_by_far.get(f, 0) + D
+                        report["veil_fired"] += 1
     if D_by_far:
         say(f"veil correction firing on {report['veil_fired']} region(s); refusing ...")
         out = fuse_perband(images, harden=harden, veil_D=D_by_far)

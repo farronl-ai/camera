@@ -14,7 +14,7 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 2 | **Real N-frame optical data** (BBBC006 microscopy z-stacks) | Real optical defocus. | ✅ F25: got 4 real 3-plane stacks; perband visibly sharpest, pyramid softens/halos nuclei. Microscopy domain covered; macro/photographic real still open (2b). |
 | 2b | **Real photographic/macro deep stacks** | Microscopy ≠ everyday photography content; the photographic real-optical gap persists (MFFW/UHD blocked). | 🔶 DATA IN: `research/REAL_DATA.md`. `mobiledepth` in-tree (13 real phone sweeps, N=12–41, no AiF GT); `iphone12`/Learn2Refocus (N=9, 4K, +pseudo-GT) documented; `araujo` scripted. Photographic gap NARROWED; true macro/product still open. |
 | 3 | **Occlusion-boundary physics (α-matte)** | Real depth edges mix fg/bg semi-transparently. | ✅ F25: built layered α-matte defocus generator; re-ranked — perband crown WIDENS (blend worst under honest occlusion). Synthetic conclusions not artifacts. Fusion itself is still occlusion-UNAWARE (3b). |
-| 3b | **Occlusion-AWARE fusion** | Matte inversion (de-veiling). | ❌ F27: rigorous negative — even oracle+noiseless+exact-PSF loses to perband (thin-structure haze is small; fringe error is decision-boundary, not haze; division amplifies quantization). Revisit only for LARGE occluders + float pipeline + regularized unmixing. |
+| 3b | **Occlusion-AWARE fusion** | Matte inversion (de-veiling). | ❌ F27/F54: thin-structure inversion loses; the F51 large-occluder exception fails on realistic objects even with true matte/radius. Correction-after-fusion is retired. Reopen only as joint multi-frame two-layer inversion with a positive realistic-object oracle ceiling. |
 | 4 | **Per-band Q_ABF metric** | Fix Q_ABF's high-res collapse structurally. | ✅ F26: q_abf_ms (mean-pool) recovers +0.11→+0.78 at high-res; new composite best at BOTH regimes (+0.785/+0.869). Adopted. |
 | 5 | **Depth map byproduct** | Free feature from the fusion decision. | ✅ F26: --depth-out shipped; r=0.59 on textured pixels (texture-only observability — documented limitation). |
 | 6 | **Exposure/WB drift between frames** | Real capture drifts brightness/color. | ✅ F28: drift costs −0.025 SSIM; per-frame gain to stack-median means (mean is blur-invariant) recovers to −0.002; near-identity gate passed → default-ON (--no-normalize-exposure). lit-scan 2026-07: EDMF (Sensors 2024) = 1000 REAL phone pairs with genuine exposure differences, public — the in-the-wild test F28 never had (→ L9). |
@@ -30,7 +30,7 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 
 | 16 | **Boundary Engine (E-phase)** | True object boundaries + near-side occlusion tags from stack evidence ∪ learned appearance; additive integration into guided/perband/harden. THE current push — plan: NEXT_STEPS_boundary.md. Relates to 3b/10/12. | 🔶 E4 done as rigorous negative (F33): decision-side integration cannot fix boundary error — it is coefficient-contamination (reconstruction physics). Boundary engine (fused F=0.55) stands as data product. Successor lever: matte-aware / supersampled boundary RECONSTRUCTION (16b). |
 | 16b | **Matte-aware boundary reconstruction** | The hard-lines lever per F33. | 🔶 F34/F35/F36: ceiling −22%; buildable C3 −16% + global WIN on matte-model data; regresses off-model → shipped default-OFF experimental (--reconstruct-boundaries). |
-| 16d | **Weight-scaled in-loop veil correction** | F40/F41: mechanism VALIDATED (O1b exact-D: fringe −18..−37%, global up everywhere; O2 true-alpha: positive on all 8 scenes). Band-limitation premise refuted (subtraction-not-division is the F27 evasion). BLOCKED ON: wide-occluder matte — classical fails on textureless ambiguity; semantic alpha (DA-V2 two-pass) is the designed input. | 🔶 |
+| 16d | **Weight-scaled in-loop veil correction** | F54 overturned the narrow-factory validation: realistic object scenes fail even with oracle matte/radius; native shipped fires are microscopic and fail fringe/false-texture tails. Auto branch safety-disabled. Successor is joint two-layer inversion, not correction-after-fusion. | ❌ |
 | 16e | **Semantic matte input** | F42: stack-seeded semantic matting proves the blind chain (1 scene fully wins, no oracle) but lands only ~2/8; no self-gate signal separates. F43: mask matting v1 blocked by benchmark pathology (pastiche blobs aren't objects; bokeh spoofs objectness) — NEXT: objects-as-occluders generator (FastSAM cutouts = occluders with true silhouette GT), then re-run selection + per-component confidence + iphone12 GT (manual download required — Sync.com blocks scripts). | 🔶 |
 | 16c | **Reconstruction applicability gating** | Fire only where the matte model holds. | 🔶 F38: plane-step ribbon (raw-winner median + energy floor) shipped — strongest on-model result (−16% e2, +global, all scenes), real-data neutral + fire moved to silhouettes. REMAINING: F39 killed veil-side licensing (thin structures have no strong veil — category mismatch); next license is SILHOUETTE-side (owner-frame contour sharpness + plane gap); iphone12 GT verdicts gate promotion. |
 
@@ -39,13 +39,15 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
 ## E-arc close ledger (2026-07-20)
 - **16c reconstruction gate: ✅ LOCKED** (F47) — home regime (thin + C3 mattes), held
   5/30 fired all-positive mean +0.0083. Real-data promotion awaits iphone12 GT.
-- **16d veil correction: ✅ mechanism + gate locked** (F40/F41/F44/F47) — property
-  holds (held 2/2 good); recall ~4% (small effects price high under safety margin).
+- **16d veil correction: ❌ RETIRED / SAFETY-DISABLED** (F54) — the earlier
+  held 2/2 property was a benchmark blind spot. Native expanded audit breaks the
+  global/fringe/false-texture property; `--enhance auto` no longer calls the branch.
 - **16e semantic matte: 🔶 resolved by regime-matching** (F46) — mask mattes serve the
   veil specialist; C3 serves reconstruction; SAM-quality matting for GENERAL scenes
   remains the recall-growth lever.
-- **16f: ✅ SHIPPED (F48)** — composed --enhance auto in pipeline; 74/75 unseen scenes ≥ −0.0024, real data 13/14 identity + 1 tiny fence fire. Residual: 2 mixed outliers (feature-invisible), fence-fire eyetool check, iphone12 GT. Was: composed --enhance stage — both gates firing per stack; two-pass
-  packaging over shipped bridge plumbing; identity when bridgeless. NEXT SESSION.
+- **16f: ✅ SHIPPED, RESCOPED (F48/F54)** — `--enhance auto` retains gated contour
+  reconstruction. The veil half and its bridge call are safety-disabled after the
+  expanded audit overturned the original composed-stage claim.
 - **17a (Farron, 2026-07-22): the pseudo-GT ceiling** — external "GT" benchmarks
   (iphone12 = Helicon output) inherit the toolmaker's ceiling: selection-made
   references CONTAIN the veil, so they score veil removal as ERROR. Consequence:
@@ -89,12 +91,19 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   If the hybrid wins at 8-bit, F27's epitaph reads: the idea was right, the system
   around it was missing. FIRST STEP (per MISSION ladder): a focused litscan on
   CLASSICAL restoration under structured amplification — delegated, in flight.
-  **STATUS 2026-07-22: ✅ MECHANISM PROVEN (F51, veilgain.py).** Hybrid = deficit-form
+  **STATUS 2026-07-25: ❌ NARROW-FACTORY RESULT, GENERAL CLAIM WITHDRAWN (F54).**
+  Historical F51 result: hybrid = deficit-form
   clamped gain (coef = G − w_far, sq law) + analytic shrink (σ known, c_k calibrated).
   Float, home regime: +0.0019 mean vs subtraction, ALL 10 backgrounds positive, contrast
   ratio →1.000, off-band clean — the full FRONTIER-19 success criterion. 8-bit: mean
   +0.0007, worst −0.0015 (3/10 small losses; all flip positive in float). F27's epitaph
-  written. Sub-frontiers spawned:
+  written at the time. F54's objects-as-occluders audit then found semantic-matte +
+  true-radius mean −0.00319/worst −0.03041, and true-matte + true-radius spot checks
+  still lose to −0.032. The operator assumes the far remnant is the only surviving
+  background evidence and double-restores structure already contributed by other
+  frames. Auto subtraction was separately safety-disabled because its four native
+  fires are microscopic and fail expanded fringe/false-texture tails.
+  Retired/redirected sub-frontiers:
   - **19b: gate retrain on HYBRID outcomes** (F47 recipe) — required for ship: off-regime
     (moderate CoC) ungated harm −0.0012 mean (F46's third rhyme). Needs a ~100-scene
     wide-occluder outcome factory; merge with #18 recall work.
@@ -104,9 +113,13 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   - **19d: blind-matte hybrid** — all F51 results are oracle-alpha; the semantic-matte
     chain (16e/F42) gates real-data promotion, as for every specialist.
   - **19e (from F53, user-caught): chromatic veil model + false-texture instrument** —
-    per-channel D (build_D_ca) is now the standard; deep-veil under-recovery (shrink
-    scales with gain) remains open; blind ca estimation needed for real data; the
-    false-texture index joins the bench for ALL synthesis work (gate feature candidate).
+    per-channel D and pm-residual removal fix real terms but do not cure the
+    model-class error. The false-texture index permanently joins the bench.
+  - **19f (F54 replacement): joint two-layer inversion** — solve all focal-frame
+    formation equations simultaneously for foreground premultiplication and sharp
+    background, then render the all-focus scene. First rung is oracle alpha/radii on
+    realistic objects with Tikhonov/TV + quantization-bin projection. No blind work
+    until the oracle worst case and false texture are nonnegative.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus
@@ -126,9 +139,10 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   - **20d: gating + composition** — gap detector (where does NO frame win decisively?
     the F26 decisiveness floor inverted), outcome gate per F47, composition with
     --enhance; real handheld stacks (mobiledepth) once 20b lands.
-- **18 (NEW): gate recall growth** — more features (per-candidate veil evidence,
-  D-magnitude stats), bigger factories, nonlinear gate models; recall is the only
-  thing between "property-safe" and "most images benefit."
+- **18 (RESCOPED by F54): gate recall growth** — more features, bigger factories,
+  nonlinear gates. A gate cannot rescue an operator with a negative realistic
+  oracle ceiling; this row applies only to contour reconstruction and to future
+  recovery operators after their model class passes.
   lit-scan 2026-07: conformal risk control (L2) may buy recall back from the
   worst-case+eps margin with a formal guarantee; ramp-family factory (L7) attacks
   the two feature-invisible outliers.

@@ -61,7 +61,7 @@ The dividing line for every synthesis method admitted into this engine:
 
 | Prior conclusion / area | Status under the new goal |
 |---|---|
-| F27: de-veiling by inversion loses | **RESOLVED** (F51) — the hybrid (in-loop deficit gain + analytic shrink) wins: float/home-regime positive on all backgrounds; residual 8-bit input-quantization wall (19c) and regime gating (19b) named |
+| F27: de-veiling by inversion loses | **REOPENED / NOT SHIPPABLE** (F54) — F51's hybrid win was conditional on the simple wideocc oracle factory; realistic object scenes lose even with true matte/radius. Multiplicative gain is research-only and auto veil subtraction is safety-disabled pending a different identifiable model |
 | F33: selection cannot fix boundary contamination | **STRENGTHENED** — the theorem that motivates the whole framework |
 | F45: no-ref metrics cannot audit synthesis | stands; the constructive path is the observation-domain audit (L1) |
 | Metric composite (q_abf_ms+q_ssim) | **RESCOPED** — valid for the selection floor only; must never steer or veto synthesis work |

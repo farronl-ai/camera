@@ -79,6 +79,24 @@ def test_enhance_auto_identity_when_silent(tmp_path, monkeypatch):
     assert np.array_equal(a, b)
 
 
+def test_enhance_auto_does_not_call_safety_disabled_veil_bridge(monkeypatch):
+    import focusstack.enhance as enhance_module
+
+    def unsafe_bridge_call(*_args, **_kwargs):
+        raise AssertionError("safety-disabled veil branch called its bridge")
+
+    monkeypatch.setattr(enhance_module, "run_bridge", unsafe_bridge_call)
+    rng = np.random.default_rng(14)
+    image = rng.integers(0, 255, (96, 96, 3), dtype=np.uint8)
+    stack = [image, cv2.GaussianBlur(image, (9, 9), 3)]
+    output, report = enhance_module.enhance(stack, image.copy())
+
+    assert output.shape == image.shape
+    assert report["veil_fired"] == 0
+    assert report["veil_disabled_safety"] is True
+    assert report["bridge"] is False
+
+
 def test_gates_predict_gain_shapes():
     from focusstack.gates import RECON_GATE, VEIL_GATE, predict_gain
 

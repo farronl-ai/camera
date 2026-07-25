@@ -100,9 +100,10 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["auto", "off"],
         default="auto",
         help="Gated specialist enhancement (default auto): contour reconstruction "
-        "and — when a torch bridge environment is available — wide-occluder veil "
-        "correction, each firing only where its outcome-trained gate predicts a "
-        "win. Identity when gates stay silent. 'off' disables. perband method only.",
+        "fires only where its outcome-trained gate predicts a win. Wide-occluder "
+        "veil correction is safety-disabled after native-resolution false-texture "
+        "auditing. Identity when the contour gate stays silent. 'off' disables. "
+        "perband method only.",
     )
     p.add_argument(
         "--reconstruct-boundaries",

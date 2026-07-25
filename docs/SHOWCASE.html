@@ -593,17 +593,17 @@
 <!-- ================= specialists ================= -->
 <section id="specialists" class="reveal">
   <p class="kicker">05 · Specialists</p>
-  <h2>The specialist layer — routing and gates</h2>
+  <h2>The specialist layer — routing, gates, and refusal</h2>
 
   <p>The generalist engine above is what every stack gets. On top of it sit
   <strong>specialists</strong>: narrow mechanisms that fix physics the generalist provably
   cannot — a lens mixes both sides of a depth boundary into the captured pixels, so no
   weighting scheme can unmix a contour, and none can subtract a wide occluder's veil.
-  Two are live: <strong>contour reconstruction</strong> (thin occluders — wires, stems, hairs:
+  One is live: <strong>contour reconstruction</strong> (thin occluders — wires, stems, hairs:
   re-renders the contaminated boundary band from a pixel-precise difference matte, purely
-  classical) and <strong>veil correction</strong> (wide occluders — a branch or finger near the
-  lens: subtracts a forward-modeled haze field inside the per-band fusion, weight-scaled
-  by how much hazy content each band actually admitted).</p>
+  classical). <strong>Veil correction is safety-disabled</strong>: realistic-object tests
+  showed structure extension and double-restoration even with oracle matte and radius,
+  so <code>--enhance auto</code> no longer calls its semantic bridge.</p>
 
   <figure>
     <a class="imglink" href="img/spec_recon.jpg" target="_blank" rel="noopener">
@@ -627,39 +627,37 @@
 
   <figure>
     <a class="imglink" href="img/spec_veil.jpg" target="_blank" rel="noopener">
-      <img src="img/spec_veil.jpg" alt="Veil correction at giant defocus: base, corrected, ground truth">
+      <img src="img/spec_veil.jpg" alt="Retired veil recovery: subtraction, rejected gain, ground truth">
     </a>
-    <figcaption>Veil correction at giant defocus (2.5× fringe crop). The milky veil the
-    out-of-focus occluder spreads over the dark fur recedes in the corrected panel
-    (fringe error 44.9 → 38.1, global SSIM 0.9430 → 0.9465). Shown with the reference
-    matte for illustration; the shipped gate fires the blind version only where it
-    predicts a win. The correction removes haze — it does not re-sharpen the contour;
-    that is the other specialist's job.</figcaption>
+    <figcaption>A falsification, not a capability claim: subtraction-only, rejected
+    multiplicative recovery, and ground truth (left to right) on a realistic object
+    scene. Both recovery inputs use oracle matte and radius, yet global SSIM falls
+    0.9566 → 0.9372. This counterexample overturned the earlier simple-blob result
+    and safety-disabled the branch.</figcaption>
   </figure>
 
-  <p>Neither fires freely. Every specialist sits behind an <strong>outcome-trained
-  gate</strong>: candidates are scored by a model trained on hundreds of factory scenes with
-  exact ground truth, predicting <em>the actual quality change of firing</em> — and the fire
-  threshold is set so that on held-out scenes, firing never lost (18/19 positive fires;
-  composed worst case −0.0033 on 2 of 75 hardest synthetics). On 14 real photographs the
-  shipped path left 13 byte-identical and fired once — on the fence, the one image with
-  true veil physics:</p>
+  <p>The live contour specialist sits behind an <strong>outcome-trained gate</strong>:
+  candidates are scored on factory scenes with exact ground truth. F54 also exposed the
+  limit of that recipe: a gate inherits its factory and labels' blind spots. The retired
+  veil gate fired only four times among 366 candidates/100 scenes at native resolution;
+  one fire lost globally, one lost in the true fringe, and two added smooth-region false
+  texture. Its former real-photograph fire is retained below as an audit artifact:</p>
 
   <figure>
     <a class="imglink" href="img/spec_fence.jpg" target="_blank" rel="noopener">
       <img src="img/spec_fence.jpg" alt="Real-data fire on the fence: base, enhanced, amplified difference">
     </a>
-    <figcaption>The real-data fire, 4× zoom: base and enhanced are identical to the eye
-    (mean difference 0.012 gray levels); the ×16-amplified difference panel localizes the
-    entire edit to streaks hugging the two wires' defocus fringes. Conservative by design:
-    never harms, sometimes clearly helps.</figcaption>
+    <figcaption>The former real-data fire, 4× zoom: base and veil output are almost
+    identical (mean difference 0.012 gray levels); the ×16-amplified difference localizes
+    the edit. This once looked safely surgical. The expanded GT audit showed that “too
+    small to see” is not evidence of correctness, and the path is now disabled.</figcaption>
   </figure>
 
   <p>The design rule this arc proved: <em>a specialist must be paired with its regime and
-  its matte class, and its gate must be trained on every regime it will meet — including
-  the ones where the correct answer is "never fire."</em> The composed stage ships as the
-  pipeline default (<code>--enhance auto</code>) and is byte-identical to the base engine
-  whenever its gates stay silent or its semantic bridge is absent.</p>
+  matte class; its operator must first have a positive realistic oracle ceiling; and its
+  gate must be trained on every regime it will meet — including the ones where the correct
+  answer is "never fire."</em> <code>--enhance auto</code> now contains the contour
+  specialist only and is byte-identical whenever that gate stays silent.</p>
 </section>
 
 <!-- ================= evidence ================= -->
@@ -721,8 +719,8 @@
   <h2>Run it</h2>
 
 <pre><code><span class="cmd">focusstack</span> shots/*.jpg <span class="flag">-o</span> sharp.png                    <span class="comment"># perband default, drift-corrected</span>
-<span class="cmd">focusstack</span> shots/*.jpg <span class="flag">-o</span> sharp.png <span class="flag">--harden</span> 0.5       <span class="comment"># bright/thin-structure scenes</span>
-<span class="cmd">focusstack</span> big/*.png  <span class="flag">-o</span> sharp.png <span class="flag">--fast</span>              <span class="comment"># ~1.5x for high-res, quality-safe</span>
+<span class="cmd">focusstack</span> shots/*.jpg <span class="flag">-o</span> sharp.png <span class="flag">--harden</span> 0         <span class="comment"># disable spread rejection (on by default)</span>
+<span class="cmd">focusstack</span> big/*.png  <span class="flag">-o</span> sharp.png <span class="flag">--fast</span>              <span class="comment"># ~1.5x; costs ~0.005–0.025 GT-SSIM</span>
 <span class="cmd">focusstack</span> shots/*.jpg <span class="flag">-o</span> sharp.png <span class="flag">--depth-out</span> z.png  <span class="comment"># + depth-from-focus map</span></code></pre>
 </section>
 
@@ -743,9 +741,11 @@
     <div class="card"><b>Real photographic deep stacks</b> real handheld sweeps are now in
     (13 phone sweeps — they exposed misalignment robustness as a new regime axis); the
     iPhone-12 ground-truth dataset is the pending promotion gate.</div>
-    <div class="card"><b>Gate recall growth</b> the specialist gates never harm; making them
-    fire on more of their wins is the path from "never harms" to "most images benefit
-    somewhere."</div>
+    <div class="card"><b>Joint two-layer inversion</b> replace correction-after-fusion with
+    a solver that explains every focal frame as foreground + background. Realistic-object
+    oracle and false-texture worst cases come before blind inputs.</div>
+    <div class="card"><b>Contour-gate recall</b> grow useful fires only after the operator's
+    oracle ceiling and expanded safety labels hold.</div>
     <div class="card"><b>Deep-stack alignment</b> chained/feature-initialized registration and
     focus-breathing compensation for 10–50 frame handheld rails.</div>
     <div class="card"><b>Noise-adaptive fusion</b> low-light stacks where sensor noise mimics
@@ -768,7 +768,7 @@
     temporal coherence.</div>
   </div>
 
-  <p>The deeper record: <a href="../research/FINDINGS.md"><code>research/FINDINGS.md</code></a> (48 dated
+  <p>The deeper record: <a href="../research/FINDINGS.md"><code>research/FINDINGS.md</code></a> (54 dated
   findings + a living synthesis), <a href="../research/PLAYBOOK.md"><code>research/PLAYBOOK.md</code></a>
   (domain knowledge and every trap we hit), and
   <a href="../research/DEVSTYLE.md"><code>research/DEVSTYLE.md</code></a> (the working method that produced

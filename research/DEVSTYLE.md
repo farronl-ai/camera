@@ -30,6 +30,11 @@ and ALL local/per-region calls; magnitudes of no-ref metrics are suspect on atyp
 content (near-black microscopy backgrounds) — trust orderings confirmed by eye.
 Clean/easy data verdicts are mirages — re-check every conclusion on the regime the
 method is weakest in (hard boundaries, thin structures, real optical data, high-res).
+For restoration/synthesis, one GT factory is also a mirage: vary the MODEL CLASS
+(blob → realistic object, planar → continuous), run native resolution, report
+per-scene tails, and audit the complement of every selective metric. F54 showed an
+all-positive oracle result can reverse to −0.032 on a more realistic factory; a gate
+cannot promote an operator whose cross-family oracle ceiling is negative.
 
 ## 3. Honesty norms (non-negotiable, they produced every breakthrough here)
 

@@ -1,9 +1,9 @@
 # NEXT STEPS — hallucination-safe veil recovery to shipping
 
-Active objective (Farron, 2026-07-25): the multiplicative veil-recovery hybrid
-must stop extending foreground texture/patterns into background regions where
-they do not physically exist, then graduate from the oracle research rig into
-the shipped `--enhance auto` path.
+Active objective (Farron, 2026-07-25): stop veil recovery from extending
+foreground texture/patterns into background regions where they do not physically
+exist, and admit a replacement into `--enhance auto` only if it clears the
+expanded hallucination audit.
 
 This is not a cosmetic cleanup. False detail outside the occluder is a mission
 violation even when global SSIM rises. The shipping claim is therefore stronger
@@ -27,6 +27,25 @@ false texture, and preserve the existing never-harm property across regimes.
 - Off-regime firing remains structurally harmful. A better operator without a
   better refusal mechanism is not shippable.
 
+## F54 decision: the multiplicative formulation is retired
+
+The realistic-object oracle audit overturned the prior promotion path. With
+semantic mattes but true radii, the corrected hybrid averaged −0.00319 GT-SSIM
+(worst −0.03041) over 98 candidates; only 20 were positive and true-fringe error
+worsened on average. More decisively, true-matte + true-radius spot checks still
+lost as much as −0.032. The model—not merely the blind inputs—is wrong outside
+the simple wideocc factory.
+
+`coef = G − w_far` assumes the far remnant is the only surviving background
+evidence. Actual fusion already contains scale-dependent background evidence
+from other frames, so the hybrid can double-restore it. A direct
+evidence-accounting variant also failed because separating the owner's
+background contribution at the matte boundary is ill-conditioned.
+
+Shipping safety has been restored immediately: the subtraction veil branch is
+disabled in `--enhance auto`; contour reconstruction remains live. The next
+recovery attempt must replace the formulation rather than tune the gain.
+
 ## Why ordinary benchmarks are insufficient
 
 The failure landed in pixels excluded by `contrast_ratio`; global SSIM diluted
@@ -45,28 +64,33 @@ Required evidence is a lattice:
 
 ## Shipping requirements
 
-- [ ] **S0 — reproduce and instrument.** Reproduce the user-caught artifact and
+- [x] **S0 — reproduce and instrument.** Reproduce the user-caught artifact and
       retain `false_texture` as a first-class label. Add a GT-free analogue based
       on forward-model residual / unsupported high-frequency energy so runtime
       code can refuse without access to truth.
-- [ ] **S1 — blind chromatic model bank.** Fit bounded per-channel chromatic
+- [x] **S1 — blind chromatic model bank (conditional negative).** Fit bounded per-channel chromatic
       spread for a small bank of plausible base radii from the observed
       owner/far pair and semantic matte. Do not force a point estimate: retain
       candidate disagreement as uncertainty, and reject low-confidence or
-      out-of-range banks. No hard-coded factory CA.
-- [ ] **S2 — blind noise + safe hybrid.** Port deficit-form in-loop gain,
+      out-of-range banks. No hard-coded factory CA. Result: point fits and raw
+      residual selection are too unstable; bank disagreement is useful evidence
+      but does not rescue the operator.
+- [x] **S2 — blind noise + safe hybrid (operator rejected).** Port deficit-form in-loop gain,
       foreground-premult residual removal, analytic shrink, base-band exclusion,
       fringe clamp, and a strict correction cap. Estimate noise conservatively
-      from observed flat-region high-pass residuals.
-- [ ] **S3 — hybrid outcome gate.** Retrain on regime-matched
+      from observed flat-region high-pass residuals. Result: noise estimation
+      works; the hybrid fails realistic oracle scenes, so gate training would
+      learn around a broken model and was stopped.
+- [ ] **S3 — replacement outcome gate.** Train only after the replacement
+      operator has a positive realistic-object oracle ceiling. Then use regime-matched
       objects-as-occluders scenes spanning moderate, giant, chromatic, and
       never-fire regimes. Features must include radius-fit confidence,
-      forward-model residual change, D magnitude, gain exposure, and the
-      GT-free false-texture proxy. Margin is set from harmful training outcomes
+      forward-model residual change, layer-solver uncertainty, correction
+      magnitude, and the GT-free false-texture proxy. Margin is set from harmful training outcomes
       and verified on a scene-disjoint holdout.
-- [ ] **S4 — package integration.** `--enhance auto` may use the hybrid only when
-      S1–S3 all license it; otherwise retain safe subtraction or identity.
-      Absence/failure of semantic bridges remains byte-identical.
+- [x] **S4 — package safety.** `--enhance auto` no longer calls the veil branch
+      or semantic bridge; it reports the safety disable and retains contour
+      reconstruction. Identity/refusal is the shipped veil behavior.
 - [ ] **S5 — verification.** Add focused unit tests for channel-specific
       modeling, unsupported-texture refusal, kill-switch identity, and gate
       shape. Run the full test suite plus factory holdout, off-regime families,
@@ -103,6 +127,26 @@ shipping path. The active design is a calibrated candidate bank:
 This changes the question from “which uncertain model is true?” to “what
 recovery survives the plausible model set?” It may leave some contrast
 unrecovered; that is the correct trade when the alternative is invented detail.
+
+## Active replacement: joint two-layer inversion, not correction-after-fusion
+
+The failed hybrid tries to repair a fused image after the fusion weights have
+mixed two unknown layers. The physically cleaner formulation solves the two
+captured equations together for the sharp foreground premultiplication `P` and
+sharp background `S`:
+
+`O_i = H_near,i P + (1 - H_alpha,i alpha) * H_far,i S + noise`
+
+for every focal frame `i`, then renders the all-focus scene
+`P + (1 - alpha) * S`. This accounts for every frame's background transfer
+before fusion instead of pretending the far remnant is the sole observation.
+
+First rung: oracle alpha/radii, small crops, linear operators with
+Tikhonov/TV regularization and quantization-bin projection. Required stopping
+rule: the joint solver must beat subtraction on every realistic-object oracle
+scene and reduce false texture before any blind radius/matte work resumes.
+Failure at this rung retires wide-veil inversion entirely; success earns the
+model-bank/refusal work above.
 
 ## Doctrine
 

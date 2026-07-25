@@ -6,7 +6,7 @@ Three figures, same conventions as make_showcase.py (docs/img/*.jpg, JPEG q85):
   spec_recon.jpg — contour reconstruction on a canonical thin-occluder scene
       where the SHIPPED gate (focusstack.gates.RECON_GATE) actually fires:
       [base perband | reconstructed | ground truth] at the most-differing crop.
-  spec_veil.jpg  — veil correction at giant CoC with the ORACLE matte
+  spec_veil.jpg  — retired veil-gain failure on a realistic object scene
       (mechanism at its clearest): [base | corrected | ground truth] fringe crop.
   spec_fence.jpg — the real-data fire: the fence stack through the SHIPPED
       enhance path, [base | enhanced | amplified difference] at the wire edge.
@@ -113,28 +113,56 @@ def fig_recon():
 
 
 def fig_veil():
-    """Veil correction at giant CoC, oracle matte (mechanism figure)."""
-    from wideocc_gen import scenes
-    from semalpha import build_D
-    from veilband import fuse_perband_weighted_corr, fringe_mask
-    best = None
-    for sc in scenes(0.04):
-        gt, alpha, max_r = sc["gt"], sc["alpha"], sc["max_r"]
-        base = fuse_perband(sc["frames"], harden=0.5)
-        D = build_D(sc["frames"], alpha, max_r, owner=0, far_idx=1)
-        cor = fuse_perband_weighted_corr(sc["frames"], D, 0)
-        fr = fringe_mask(alpha, max_r)
-        e0 = float(np.abs(base.astype(np.float32) - gt.astype(np.float32)).sum(2)[fr].mean())
-        e1 = float(np.abs(cor.astype(np.float32) - gt.astype(np.float32)).sum(2)[fr].mean())
-        g0, g1 = M.ref_ssim(base, gt), M.ref_ssim(cor, gt)
-        print(f"  {sc['sid']}: fringe |err| {e0:.1f}->{e1:.1f}  global {g0:.4f}->{g1:.4f}")
-        if best is None or (e0 - e1) > best["gain"]:
-            best = dict(gain=e0 - e1, base=base, cor=cor, gt=gt, fr=fr, sid=sc["sid"])
-    # crop where the correction moved the output most, restricted to the fringe
-    heat = _disagreement(best["base"], best["cor"]) * best["fr"].astype(np.float32)
+    """F54 failure panel: subtraction, rejected gain, and GT.
+
+    Scene 31 is selected by the recorded realistic-object oracle audit because
+    it is the worst low-matte-error counterexample—not for visual drama. The
+    crop is located automatically where gain increases GT error inside the true
+    fringe.
+    """
+    from t2_confidence import scenes
+    from veilband import fringe_mask
+    from veilgain import (
+        WINNER,
+        build_D_ca,
+        calibrate_band_noise,
+        fuse_perband_gain,
+        glaw_sq,
+    )
+    from focusstack.fusion import _auto_levels
+
+    sc = list(scenes())[31]
+    D, ab, pm = build_D_ca(
+        sc["frames"], sc["alpha"], sc["max_r"], owner=0, far_idx=1
+    )
+    levels = _auto_levels(sc["gt"].shape, None)
+    ck, _ = calibrate_band_noise(sc["gt"].shape[:2], levels)
+    subtraction = fuse_perband_gain(
+        sc["frames"], {1: D}, ab, sc["alpha"], omega=0.0
+    )
+    hybrid = fuse_perband_gain(
+        sc["frames"],
+        {1: D},
+        ab,
+        sc["alpha"],
+        g_law=glaw_sq,
+        shrink_m=2.0,
+        ck=ck,
+        pm_by_far={1: pm},
+        **WINNER,
+    )
+    fringe = fringe_mask(sc["alpha"], sc["max_r"])
+    e_sub = np.abs(subtraction.astype(np.float32) - sc["gt"]).mean(axis=2)
+    e_hybrid = np.abs(hybrid.astype(np.float32) - sc["gt"]).mean(axis=2)
+    heat = np.maximum(e_hybrid - e_sub, 0.0) * fringe.astype(np.float32)
     (cy, cx), = _top_regions(heat, 1, 130)
-    cells = crop_at([best["base"], best["cor"], best["gt"]], (cy, cx), 130, 2.5)
-    print(f"  chose {best['sid']} crop ({cy},{cx})")
+    cells = crop_at(
+        [subtraction, hybrid, sc["gt"]], (cy, cx), 130, 2.5
+    )
+    print(
+        f"  {sc['sid']}: subtraction {M.ref_ssim(subtraction, sc['gt']):.4f}, "
+        f"rejected gain {M.ref_ssim(hybrid, sc['gt']):.4f}; crop ({cy},{cx})"
+    )
     save("spec_veil.jpg", hstack(*cells))
 
 

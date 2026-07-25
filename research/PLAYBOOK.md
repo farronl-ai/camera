@@ -75,7 +75,8 @@ nuance; `FINDINGS.md` is the dated experimental log.
 - **Fusion ladder:** `max` (crisp, speckly) → `pyramid` (seamless, HALOS at high-
   contrast boundaries — coarse bands select defocused spread in a ring) → `decision`
   (guided-filter-cleaned selection; crisp+clean, single-scale) → `blend` (guided
-  weight per pyramid band = Burt–Adelson; halo-free + multiscale; default).
+  weight per pyramid band = Burt–Adelson; halo-free + multiscale) → `perband`
+  (multi-scale decision + edge-aware reconstruction; default).
 - **Guided filter = edge-aware smoothing without edge detection**: local linear fit
   `out=a·guide+b`, `a=cov/(var+eps)`; edge-awareness emerges from local variance;
   ~6 box filters, O(1) in radius; `eps` = contrast-that-counts-as-an-edge.
@@ -125,7 +126,9 @@ nuance; `FINDINGS.md` is the dated experimental log.
   (raw bursts +pseudo-GT) are scripted/documented there. `research/data/` is gitignored,
   so a pull persists across branch checkouts in this working tree.
 - High-res speed: subscale ONLY the guided-filter (`weight_scale`), keep focus/
-  confidence full-res or thin structures grey out. `--fast` ≈ 1.5x quality-safe (CPU ceiling).
+  confidence full-res or thin structures grey out. `--fast` ≈ 1.5x but costs
+  roughly 0.005–0.025 GT-SSIM versus the perband default (CPU tradeoff, not a
+  quality-safe path).
 
 ## VI. Traps hit (skip them)
 
@@ -142,8 +145,9 @@ nuance; `FINDINGS.md` is the dated experimental log.
 
 ## VII. Fast start
 
-Default engine: `blend` + `content_aware`; `--harden 0.5` for bright/thin structures;
-`--fast` for high-res. `.venv` (3.14) for the engine, `.venv312` for torch. Before any
+Default engine: `perband` + `content_aware` + `harden=0.5`; `--harden 0` disables
+spread rejection; `--fast` trades measured quality for speed. `.venv` (3.14) for
+the engine, `.venv312` for torch. Before any
 "it works": isolate-test the stage, check hard data + eyes, distrust clean-data and
 global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
 
@@ -170,8 +174,9 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    silhouette-on-edge alignment) — the safety signal for anything that stamps edges;
    (c) ridge-regress the ACTUAL outcome (delta global) from factory GT — never a
    quality proxy (a small mean matte error can hide a misplaced edge); (d) fire margin
-   chosen ON TRAIN as (worst harmful prediction + eps), verified on held. Applied
-   twice, locked two gates.
+   chosen ON TRAIN as (worst harmful prediction + eps), verified on held. This
+   locked contour reconstruction; the veil gate was later retired by F54 because
+   its factory/labels omitted the failure axis.
 2. **Predict outcomes, not intermediates** — third confirmation of the pattern
    (metric calibration, gate labels, threshold selection). If the factory holds GT,
    outcome labels are free; use them.
@@ -198,11 +203,12 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
 10. **Ops for long labelers**: flush caches and print progress PER UNIT, not at the
     end — monitorability and interruption-safety are part of the method.
 
-## Scene-recovery arc additions (F51/F52)
-1. **Correct at the level where the deficit is defined.** The veil gain's coefficient
-   must invert the OUTPUT's deficit vs GT (coef = G − w_far), not amplify one frame's
-   contribution (w_far·(G−1) under-corrects wherever w_far < 1). Generalizes F40's
-   in-loop law: placement AND coefficient both live at output level.
+## Scene-recovery arc additions (F51–F54)
+1. **Do not infer a scene deficit after fusion unless every contributing transfer
+   function is modeled.** The historical veil law `coef = G − w_far` corrected the
+   far remnant but ignored scale-dependent background evidence already admitted from
+   other frames; it double-restored realistic structure. Correction-after-fusion is
+   retired. Solve the multi-frame layer equations jointly or refuse.
 2. **Gain laws are measured, not assumed.** Post-correction attenuation ≠ the forward
    model's (subtraction already partially restores; fusion dilutes) — measure the
    residual curve on factory GT and invert THAT. Assumed 1/(1−ab) overshoots 3-5x.
@@ -227,6 +233,11 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    its complement (the false-texture index measures precisely the excluded pixels).
    Corollary: the forward model must match the RENDER (chromatic per-channel radii)
    — a channel-shared model turns aberration into amplifiable residual.
+6c. **An oracle win is conditional on the FACTORY CLASS, not just oracle inputs**
+   (F54). True matte/radius on four blob scenes did not license realistic objects.
+   Before promotion: cross model families, run native resolution, report tails, pair
+   every selective metric with its complement, and include identity/refusal as a
+   candidate. A learned gate cannot rescue a negative realistic oracle ceiling.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

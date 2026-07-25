@@ -187,21 +187,22 @@ boundaries tighten and internal chromatin speckle becomes visible. On this real
 data the classical pyramid method visibly softens and halos; `perband` is the
 sharpest, confirming the synthetic conclusions on genuine optics.*
 
-## The specialist layer — routing and gates
+## The specialist layer — routing, gates, and refusal
 
-The newest architectural layer (F43–F48). The generalist engine above is what every
+The specialist architecture began in F43–F48 and was stress-tested again in F54.
+The generalist engine above is what every
 stack gets. On top of it sit **specialists**: narrow mechanisms that fix physics the
 generalist provably cannot (a lens mixes both sides of a depth boundary into the
 captured pixels — no weighting scheme can unmix a contour, and no weighting can
-subtract a wide occluder's veil). Two are live:
+subtract a wide occluder's veil). One is live:
 
 - **Contour reconstruction** (thin occluders — wires, stems, hairs): re-renders the
   contaminated boundary band as a fresh composite from a pixel-precise difference
   matte. Purely classical; no extra dependencies.
-- **Veil correction** (wide occluders — a branch or finger near the lens): subtracts
-  a forward-modeled haze field inside the per-band fusion, weight-scaled by how much
-  hazy content each band actually admitted. Uses a semantic bridge (monocular depth
-  + segmentation in a separate torch environment) when available.
+- **Veil correction is safety-disabled.** Its conservative subtraction path made
+  only microscopic changes, while the more ambitious multiplicative recovery
+  extended or double-restored structure on realistic object scenes—even with the
+  true matte and blur radius. `--enhance auto` no longer calls its semantic bridge.
 
 Here is contour reconstruction on a factory thin-occluder scene — one where the
 shipped gate actually fires (predicted gain +0.0044 ≥ margin +0.0040; the actual
@@ -227,50 +228,44 @@ where the plate estimate is imperfect). Right — the contamination band (orange
 around every contour: only this band gets re-rendered; everything outside it
 keeps the base fusion byte-for-byte.*
 
-Veil correction is the wide-occluder counterpart. At giant blur (the
-finger-near-the-lens regime) a defocused occluder lays a translucent veil far
-over the background — content no weighting can remove, because every frame
-already contains it:
+The veil arc is shown here as a falsification, not a capability claim:
 
-![Wide occluder: hazy fusion, veil-corrected, ground truth](img/spec_veil.jpg)
-*2.5× crop on the fringe of a wide synthetic occluder at giant CoC (0.04·dim).
-Left — base fusion: the defocused green occluder washes a milky green veil over
-the dark fur and the yellow patch. Middle — veil-corrected: the veil visibly
-recedes and the background beneath it darkens toward truth (fringe error −15%,
-global SSIM 0.9430 → 0.9465). Right — ground truth. Honesty notes: this is the
-mechanism shown with the reference matte (oracle alpha) for clarity — the shipped
-gate fires the blind version only where it predicts a win — and the correction
-subtracts haze; it does not (and cannot) re-sharpen the giant blurred contour
-itself.*
+![Retired veil recovery: subtraction, rejected multiplicative recovery, ground truth](img/spec_veil.jpg)
+*2.5× GT-error-guided crop from a realistic object-occluder factory scene. Left —
+subtraction-only result. Middle — the rejected multiplicative recovery, which
+darkens and distorts background/edge structure already contributed by the other
+frame. Right — ground truth. Both recovery inputs are oracle matte + oracle radius,
+yet global SSIM falls 0.9566 → 0.9372. This counterexample overturned the earlier
+simple-blob result and is why the branch is disabled rather than “fixed” by a more
+selective benchmark.*
 
-Neither fires freely. Every specialist sits behind an **outcome-trained gate**: its
-candidates are scored by a model trained on thousands of factory-generated scenes
-where the ground truth is known, predicting *the actual quality change of firing* —
-and the fire threshold is set so that, on held-out scenes, firing never lost. The
-composed stage shipped as the pipeline default (`--enhance auto`) with this evidence:
+The live contour specialist sits behind an **outcome-trained gate**: candidates are
+scored by a model trained on factory scenes where the ground truth is known,
+predicting *the actual quality change of firing*. F54 also demonstrated the limit of
+that recipe: a gate inherits its factory and labels' blind spots. The current
+`--enhance auto` evidence is therefore:
 
 | Check | Result |
 |---|---|
 | Held-out gate fires (recon) | 18/19 positive, mean +0.007 |
 | Composed pass, 75 unseen scenes | wins to +0.020; worst case −0.0033 (2 outliers, documented) |
-| Real photographs (14 cases through the shipped path) | 13 byte-identical; 1 fire — a fence wire, eye-verified benign |
-| Bridge or gates unavailable | byte-identical to the base engine, by construction |
+| Veil gate, expanded native-resolution audit | retired: 4 tiny fires; one global loss, one fringe loss, false texture in two |
+| Semantic bridge | no longer called by `--enhance auto` |
+| Contour gate silent | byte-identical to the base engine, by construction |
 
-That one real-photograph fire is worth seeing, because it is the whole ship
-stance in one image — the fence again, this time through the shipped
-`--enhance auto` path, where the veil gate fired on the wires:
+The former real-photograph veil fire is retained as an audit artifact:
 
 ![The real-data fire: base, enhanced, and the difference amplified 16x](img/spec_fence.jpg)
-*4× crop at the fence wires. Left — base fusion. Middle — after the shipped
-enhance pass: to the eye the two panels are identical (the mean change is 0.012
-gray levels). Right — the difference, amplified 16×: the entire edit is the
-faint streaks hugging the two wires' defocus fringes — exactly where the veil
-physics says contamination lives — and flat mid-grey everywhere else. A
-conservative gate does not mean an idle one; it means edits this surgical.*
+*4× crop at the fence wires. Left — base fusion. Middle — the former veil output,
+visually almost identical (mean change 0.012 gray levels). Right — the difference,
+amplified 16×. This once looked like evidence of a safely surgical edit; F54's
+factory-GT complement showed that “too small to see” is not evidence of correctness.
+The path is now disabled.*
 
 The design rule this arc proved: **a specialist must be paired with its regime and
-its matte class, and its gate must be trained on every regime it will meet —
-including the ones where the correct answer is "never fire."**
+its matte class; its operator must first have a positive oracle ceiling on every
+realistic model family; and its gate must be trained on every regime it will meet —
+including the ones where the correct answer is “never fire.”**
 
 ## The evidence, in one table
 
@@ -297,7 +292,7 @@ composite is the best GT-predictor at **both** resolutions (+0.785 / +0.869 Spea
 ```bash
 focusstack shots/*.jpg -o sharp.png                    # perband default, drift-corrected
 focusstack shots/*.jpg -o sharp.png --harden 0         # disable spread-rejection (on by default)
-focusstack big/*.png  -o sharp.png --fast              # ~1.5x for high-res, quality-safe
+focusstack big/*.png  -o sharp.png --fast              # ~1.5x; costs ~0.005–0.025 GT-SSIM
 focusstack shots/*.jpg -o sharp.png --depth-out z.png  # + depth-from-focus map
 ```
 
@@ -316,9 +311,12 @@ questions, not lingering doubts.
 - **Real photographic deep stacks** — real handheld sweeps are now in
   (`mobiledepth`, 13 sweeps: they exposed misalignment robustness as a new regime
   axis, F37); the iPhone-12 GT dataset is the pending promotion gate.
-- **Gate recall growth** — the gates never harm; making them fire on more of their
-  wins (more features, bigger factories, better models) is the path from "never
-  harms" to "most images benefit somewhere."
+- **Joint two-layer inversion** — replace correction-after-fusion with a solver
+  that explains every focal frame as foreground + background layers. It must first
+  pass realistic-object oracle and false-texture worst-case tests.
+- **Contour-gate recall growth** — more features and model families can increase
+  useful fires only after the operator's oracle ceiling and expanded safety labels
+  hold.
 - **A synthesis-aware no-reference metric** — today's no-ref metrics score any
   deviation from the sources as damage, so they cannot audit corrections that
   *improve on* every source; a metric that can would unlock runtime self-auditing.
@@ -334,12 +332,13 @@ questions, not lingering doubts.
   hardware. The self-supervised training loss (no answer key) is designed and tested.
 - **Object-aware fusion** — semantic segmentation as a routing layer above the
   structural one; the torch environment and per-region machinery already exist.
-- ~~Occlusion-aware fusion~~ — superseded: shipped as the two gated specialists
-  (contour reconstruction + veil correction) rather than global unmixing.
+- **Occlusion-aware fusion** — contour reconstruction ships; veil correction was
+  withdrawn. The next attempt is joint physical layer inversion, not global
+  unmixing or post-fusion gain.
 - **Temporal focus stacking** — fusing focus sweeps from video with temporal
   coherence.
 
-The deeper record: [`research/FINDINGS.md`](../research/FINDINGS.md) (48 dated
+The deeper record: [`research/FINDINGS.md`](../research/FINDINGS.md) (54 dated
 findings + a living synthesis), [`research/PLAYBOOK.md`](../research/PLAYBOOK.md)
 (domain knowledge and every trap we hit), and
 [`research/DEVSTYLE.md`](../research/DEVSTYLE.md) (the working method that produced

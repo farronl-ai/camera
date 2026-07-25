@@ -49,10 +49,11 @@ Required evidence is a lattice:
       retain `false_texture` as a first-class label. Add a GT-free analogue based
       on forward-model residual / unsupported high-frequency energy so runtime
       code can refuse without access to truth.
-- [ ] **S1 — blind chromatic forward fit.** Estimate per-channel veil radii from
-      the observed owner/far pair and semantic matte by rendering candidate
-      observations back into the far frame. Reject low-confidence or
-      out-of-range fits. No hard-coded factory CA.
+- [ ] **S1 — blind chromatic model bank.** Fit bounded per-channel chromatic
+      spread for a small bank of plausible base radii from the observed
+      owner/far pair and semantic matte. Do not force a point estimate: retain
+      candidate disagreement as uncertainty, and reject low-confidence or
+      out-of-range banks. No hard-coded factory CA.
 - [ ] **S2 — blind noise + safe hybrid.** Port deficit-form in-loop gain,
       foreground-premult residual removal, analytic shrink, base-band exclusion,
       fringe clamp, and a strict correction cap. Estimate noise conservatively
@@ -75,22 +76,33 @@ Required evidence is a lattice:
       run the F49/F50 drift sweep; clean-tree/origin/test audit; commit and push
       logical checkpoints without author trailers.
 
-## Current experiment: blind radius fitting
+## Blind-radius result: point estimation is the wrong abstraction
 
 Candidate model for channel `c`:
 
 `far_hat_c(r) = disk_blur(owner_c * alpha, r) + plate_c * (1 - disk_blur(alpha, r))`
 
 where `plate` is conservatively inpainted from the observed far frame outside a
-maximum veil support. Search a shared base radius plus a bounded chromatic spread
-rather than three unconstrained radii. Score robust observation residual only in
-the background-side veil shell. The fit must beat a null/neighbor-radius model
-by a margin; otherwise gain refuses to fire.
+maximum veil support. On 20 object-occluder scenes, constrained shared-radius
+fits still had mean relative error 0.43, median 0.30, p90 0.67, and maximum 2.56.
+A pure high-pass correlation variant was similarly poor. A raw forward-residual
+selector was also radius-biased on the wide-occluder factory, repeating the
+scale-selection degeneracy Levin et al. warn about for circular apertures.
 
-Initial prototype note: unconstrained per-channel fitting is unstable on textured
-backgrounds. The constrained shared-radius/chromatic-spread search is the active
-path; its error distribution on all 100 existing object-occluder scenes is the
-next checkpoint.
+Therefore a blind radius point estimate is a conditional negative, not the
+shipping path. The active design is a calibrated candidate bank:
+
+1. fit only the small chromatic spread within each proposed base radius;
+2. form the hybrid correction for every physically plausible radius;
+3. compute per-band correction consensus and disagreement across the bank;
+4. retain only remnant-supported consensus, attenuating high-disagreement
+   components as inverse-problem uncertainty;
+5. use scene-disjoint factory labels to calibrate outcome and false-texture
+   refusal. Raw forward residual remains a feature, never the selector.
+
+This changes the question from “which uncertain model is true?” to “what
+recovery survives the plausible model set?” It may leave some contrast
+unrecovered; that is the correct trade when the alternative is invented detail.
 
 ## Doctrine
 

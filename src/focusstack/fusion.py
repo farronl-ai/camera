@@ -47,6 +47,20 @@ from .focus import content_aware_energies, focus_measure
 from .io import to_gray_float
 
 
+# Unit-white-noise standard deviation after each Laplacian pyramid band.
+# Calibrated over multiple shapes/seeds in F53; variation was small through the
+# six detail levels used by `_auto_levels`.  The final value is only a fallback
+# for unusually deep/custom pyramids.
+_BAND_NOISE_STD = np.asarray(
+    [0.9430, 0.2305, 0.1008, 0.0490, 0.0245, 0.0125, 0.0065],
+    np.float32,
+)
+
+
+def _soft_threshold(x: np.ndarray, threshold: np.ndarray) -> np.ndarray:
+    return np.sign(x) * np.maximum(np.abs(x) - threshold, 0.0)
+
+
 # --------------------------------------------------------------------------- #
 # Baseline: per-pixel maximum-sharpness selection
 # --------------------------------------------------------------------------- #
@@ -446,6 +460,7 @@ def fuse_perband(
     b_eps_gain: float = 4.0,
     veil_D: np.ndarray | None = None,
     veil_far_idx: int = -1,
+    veil_models: list[dict] | None = None,
 ) -> np.ndarray:
     """Per-band edge-aware fusion — pyramid's multi-scale DECISION + guided (halo-free).
 
@@ -501,6 +516,38 @@ def fuse_perband(
             fidx = veil_far_idx if veil_far_idx >= 0 else n - 1
             d_pyrs = {fidx: _laplacian_pyramid(veil_D.astype(np.float32), levels)}
 
+    # Experimental remnant-recovery models are deliberately a separate opt-in
+    # path. Each carries the channel-specific forward fields required to avoid
+    # turning model mismatch or foreground premultiplication into false detail.
+    # Runtime outcome/refusal gating happens before this function.
+    veil_states = []
+    for model in veil_models or []:
+        fidx = int(model["far_idx"])
+        if not 0 <= fidx < n:
+            raise ValueError("veil model far_idx outside the image stack")
+        ab = np.asarray(model["ab"], np.float32)
+        pm = np.asarray(model["pm"], np.float32)
+        mask = np.asarray(model["mask"], np.float32)
+        D = np.asarray(model["D"], np.float32)
+        if ab.shape != floats[0].shape or pm.shape != floats[0].shape:
+            raise ValueError("veil model ab/pm must match the image shape")
+        if D.shape != floats[0].shape or mask.shape != floats[0].shape[:2]:
+            raise ValueError("veil model D/mask must match the image shape")
+        veil_states.append(
+            {
+                "far_idx": fidx,
+                "D": _laplacian_pyramid(D, levels),
+                "ab": _gaussian_pyramid(ab, levels),
+                "pm": _laplacian_pyramid(pm, levels),
+                "mask": _gaussian_pyramid(np.clip(mask, 0.0, 1.0), levels),
+                "sigma": max(float(model.get("sigma", 3.0)), 0.0),
+                "strength": float(np.clip(model.get("gain_strength", 1.0), 0.0, 1.0)),
+                "t0": float(np.clip(model.get("min_transmission", 0.05), 0.05, 1.0)),
+                "shrink": max(float(model.get("shrink", 2.0)), 0.0),
+                "cap": max(float(model.get("correction_cap", 24.0)), 0.0),
+            }
+        )
+
     fused_bands: list[np.ndarray] = []
     w_last: np.ndarray | None = None
     for band in range(levels + 1):
@@ -540,6 +587,39 @@ def fuse_perband(
             fb = sum(w[k][..., None] * coeffs[k] for k in range(n))
             for fidx, dp in d_pyrs.items():
                 fb = fb - w[fidx][..., None] * dp[band]
+            for state in veil_states:
+                fidx = state["far_idx"]
+                Dk = state["D"][band]
+                fb = fb - w[fidx][..., None] * Dk
+                if state["strength"] <= 0.0:
+                    continue
+
+                # F53 corrected hybrid. After additive subtraction, the far
+                # remnant contains attenuated scene detail plus `ab * pm`.
+                # Remove the foreground-premult term before deficit-form gain;
+                # otherwise foreground texture is extended past its silhouette.
+                abk = state["ab"][band]
+                gain = 1.0 + state["strength"] * (
+                    1.0 / np.maximum(1.0 - abk * abk, state["t0"]) - 1.0
+                )
+                coef = np.maximum(gain - w[fidx][..., None], 0.0)
+                remnant = coeffs[fidx] - Dk - abk * state["pm"][band]
+                correction = coef * remnant
+
+                ck = float(
+                    _BAND_NOISE_STD[min(band, len(_BAND_NOISE_STD) - 1)]
+                )
+                threshold = (
+                    state["shrink"]
+                    * (1.0 + abk)
+                    * state["sigma"]
+                    * ck
+                    * coef
+                )
+                correction = _soft_threshold(correction, threshold)
+                if state["cap"] > 0.0:
+                    correction = np.clip(correction, -state["cap"], state["cap"])
+                fb = fb + state["mask"][band][..., None] * correction
             fused_bands.append(fb)
             w_last = w
         else:
@@ -552,6 +632,11 @@ def fuse_perband(
             fb = sum(wb[k][..., None] * coeffs[k] for k in range(n))
             for fidx, dp in d_pyrs.items():
                 fb = fb - wb[fidx][..., None] * dp[levels]
+            for state in veil_states:
+                fidx = state["far_idx"]
+                # Never amplify the base band: the physical target is recovered
+                # contrast, not a synthesized DC/color shift.
+                fb = fb - wb[fidx][..., None] * state["D"][levels]
             fused_bands.append(fb)
 
     result = fused_bands[-1]

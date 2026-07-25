@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+from focusstack.fusion import fuse_perband
 from focusstack.veil import (
     build_veil_model,
     estimate_noise_sigma,
@@ -81,3 +82,29 @@ def test_chromatic_spread_fit_is_bounded_and_finite():
     assert evidence["spread"] in (0.0, 0.04, 0.08, 0.12)
     assert np.isfinite(evidence["fit_error"])
     assert evidence["fit_margin"] >= 0.0
+
+
+def test_empty_veil_models_preserve_fusion_byte_for_byte():
+    images, _ = _veil_stack()
+    assert np.array_equal(fuse_perband(images), fuse_perband(images, veil_models=[]))
+
+
+def test_zero_gain_model_matches_legacy_subtraction():
+    images, alpha = _veil_stack()
+    model = build_veil_model(images, alpha, (4.5, 5.0, 5.5), owner=0, far_idx=1)
+    model["gain_strength"] = 0.0
+
+    legacy = fuse_perband(images, veil_D=model["D"], veil_far_idx=1)
+    modeled = fuse_perband(images, veil_models=[model])
+    assert np.array_equal(legacy, modeled)
+
+
+def test_hybrid_veil_model_runs_with_bounded_output():
+    images, alpha = _veil_stack()
+    model = build_veil_model(images, alpha, (4.5, 5.0, 5.5), owner=0, far_idx=1)
+    model["correction_cap"] = 12.0
+
+    output = fuse_perband(images, veil_models=[model])
+    assert output.shape == images[0].shape
+    assert output.dtype == np.uint8
+    assert output.min() >= 0 and output.max() <= 255

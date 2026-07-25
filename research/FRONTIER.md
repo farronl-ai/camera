@@ -640,3 +640,82 @@ exists and the gate refuses where it doesn't.
 - **Histogram equalization / CLAHE / unsharp masking**: He et al. (TPAMI 2011,
   Fig. 17) demonstrate they cannot determine the spatially-variant correction
   the physics demands; no forward model → the L1 audit cannot even be posed.
+
+### Lit scan: restoration hallucination and model uncertainty (2026-07-25)
+
+This scan follows the user-caught F53 failure: false structure can improve a
+global restoration score and can even survive re-degradation. It does not admit
+generative restoration; it strengthens the audit and refusal machinery for the
+remnant-guided classical operator.
+
+**R10 — Generalized measurement/null decomposition and hallucination maps.**
+Bhadra, Kelkar, Brooks, Anastasio, "On Hallucinations in Tomographic Image
+Reconstruction," IEEE TMI 40(11), 2021 (arXiv:2012.00646).
+*What:* decomposes a reconstruction into generalized measurement and null
+components to expose structures introduced by a regularizer/prior that the
+measurement cannot determine; proposes hallucination maps for reconstruction
+analysis.
+*Mapping:* our forward residual audits the measurement component but is blind to
+detail in the blur null space. Radius-bank disagreement is a practical local
+null/uncertainty proxy: admit only correction components stable across plausible
+forward models, and label the rejected component rather than rewarding its
+sharpness.
+*Failure modes / scope:* the paper studies stylized tomography and has an
+explicit linear operator; our occlusion/blur model is spatially varying and
+matte-estimated. We borrow the decomposition discipline, not its numerical
+operator.
+*First experiment:* per Laplacian band, compute the median correction across the
+radius bank and its MAD; compare full candidate selection against
+agreement-weighted consensus on GT false texture, fringe error, and worst-scene
+SSIM.
+
+**R11 — Learned fidelity under inaccurate degradation models.** Ren, Zuo,
+Zhang, Zhang, Yang, "Simultaneous Fidelity and Regularization Learning for
+Image Restoration," ECCV 2018 (arXiv:1804.04522).
+*What:* treats the residual from a partially known or inaccurate degradation
+model as spatially dependent and complexly distributed; learns a task-driven
+fidelity term from degraded/GT pairs rather than assuming a precise kernel.
+*Mapping:* the raw forward residual's radius bias is expected, not an
+implementation accident. Keep per-radius residual, fit margin, matte evidence,
+and disagreement as outcome features calibrated on the analytic factory. Do
+not make raw residual the radius selector.
+*Failure modes / scope:* their learned regularizer is beyond our current
+classical rung and could inject a learned prior. Only the fidelity-learning
+lesson is admitted now; scene synthesis remains the analytic remnant operator.
+*First experiment:* scene-disjoint ridge/monotone gate over bank evidence,
+compared with raw-min-residual selection and a refusal-only baseline.
+
+**R12 — Inherent uncertainty versus perceptual quality.** Cohen, Kligvasser,
+Rivlin, Freedman, "Looks Too Good To Be True: An Information-Theoretic Analysis
+of Hallucinations in Generative Restoration Models," NeurIPS 2024
+(arXiv:2405.16475).
+*What:* formalizes information irrecoverably lost by a non-invertible
+degradation and proves an uncertainty/perception tradeoff: increasingly
+natural-looking restoration cannot simultaneously erase the inverse problem's
+inherent uncertainty.
+*Mapping:* the product must expose uncertainty as identity/refusal, not spend it
+on plausible texture. Bank disagreement and low observed remnant SNR reduce the
+admitted gain even if the stronger output looks more natural.
+*Failure modes / scope:* the theory concerns distributions and generative
+estimators, not our deterministic focus-stack operator. It supplies a safety
+bound and evaluation stance, not a runtime formula.
+*First experiment:* chart recovered contrast against bank disagreement and
+false texture; choose the conservative knee, then require nonnegative held-out
+worst-case outcome.
+
+**R13 — Hallucination-specific evaluation beyond ordinary IQA.** Kim,
+Tregidgo, Jin, Figini, Alexander, "HalluGen: Synthesizing Realistic and
+Controllable Hallucinations for Evaluating Image Restoration," CVPR 2026
+(arXiv:2512.03345).
+*What:* constructs patch-labeled restoration hallucinations and reports weak
+hallucination sensitivity for ordinary pixel/feature quality metrics; a
+reference-free detector consumes both the restored prediction and measurement.
+*Mapping:* `false_texture` must remain a separate GT label, not be folded into
+SSIM, and the runtime proxy must compare correction with observations. Hard
+cases are mined by disagreement/patch location, not average score alone.
+*Failure modes / scope:* HalluGen is diffusion-based low-field MRI restoration,
+so neither its generator nor detector transfers directly to focus stacks. The
+portable result is metric insufficiency and measurement-conditioned detection.
+*First experiment:* evaluate the unsupported-texture feature and bank
+disagreement against GT `false_texture` on a scene-disjoint split; report
+AUC/false-negative rate beside restoration gain.

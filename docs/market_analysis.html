@@ -158,7 +158,8 @@ comparison table is a real gap, including ours.</p>
   <p><strong>As an algorithm, focusstack is genuinely competitive at the research frontier; as a product, it is
   not shippable today, and the market it would ship into is small, cheap, and being commoditized from below.</strong></p>
   <p>The engine's core fusion (<code>perband</code>) is validated against ground truth in six regimes and its
-  gated-specialist architecture — boundary corrections behind outcome-trained "never-harm" gates — has no
+  gated contour-reconstruction specialist — plus a demonstrated willingness to withdraw a branch when a
+  harder hallucination audit overturns its gate — has no
   equivalent in any commercial or open-source stacker we found. But: it has no GUI, no RAW support, an 8-bit
   pipeline, no retouching workflow, unresolved deep-stack handheld alignment, and no benchmark against
   Helicon or Zerene outputs — only against our own reimplementations of their algorithm families.
@@ -178,11 +179,11 @@ Python 3 + OpenCV, CPU-only. The scientific core is real and unusually well-evid
     <ul>
       <li><strong>Per-band edge-aware fusion (<code>perband</code>)</strong> — multi-scale decision <em>and</em> halo-free reconstruction; GT-SSIM 0.9918 on Real-MFF (710 real pairs) and 0.9021 at 3072&nbsp;px, beating classical pyramid and guided-blend baselines at both resolutions, with the lead <em>widening</em> under honest occlusion physics.</li>
       <li><strong>Confidence hardening</strong> — one mechanism that rescues thin bright structures and rejects defocus-spread bleed.</li>
-      <li><strong>Two gated boundary specialists</strong> (contour reconstruction, veil correction) behind outcome-trained gates calibrated so that, on held-out scenes, firing never lost. On 14 real photographs the shipped path left 13 byte-identical and made 1 tiny, eye-verified-benign fix.</li>
+      <li><strong>One gated boundary specialist</strong> (contour reconstruction). The former veil specialist is safety-disabled after a realistic-object/native-resolution audit overturned its narrow held-out result; this is a strength of the evidence process, not a second capability.</li>
       <li><strong>GT-calibrated multi-scale metrics</strong> — we fixed the standard Q<sup>AB/F</sup> metric's high-res collapse and validated the composite against ground truth (+0.785/+0.869 Spearman at low/high res).</li>
       <li><strong>Exposure/WB-drift correction, default-on</strong> — recovers −0.025 SSIM of damage to −0.002, provably near-identity on clean stacks.</li>
       <li><strong>Real-data validation</strong> — real fluorescence-microscopy z-stacks (BBBC006) and 13 real handheld phone sweeps, plus a depth-from-focus byproduct (<code>--depth-out</code>).</li>
-      <li><strong>Content-aware focus operators</strong>, quality-safe <code>--fast</code> path (~1.5×), honest research record (48 dated findings incl. rigorous negatives).</li>
+      <li><strong>Content-aware focus operators</strong>, an explicit speed/quality tradeoff via <code>--fast</code> (~1.5× at a measured −0.005 to −0.025 GT-SSIM), and an honest research record (54 dated findings incl. rigorous negatives and a shipped-feature withdrawal).</li>
     </ul>
   </div>
   <div class="card gap">
@@ -190,8 +191,8 @@ Python 3 + OpenCV, CPU-only. The scientific core is real and unusually well-evid
     <ul>
       <li><strong>No GUI.</strong> Every competitor below, including the free ones, has one.</li>
       <li><strong>No RAW, 8-bit only.</strong> The pipeline is uint8 JPEG/PNG/TIFF in, 8-bit out. Pros shoot RAW and expect 16-bit; Helicon does RAW-in-DNG-out.</li>
-      <li><strong>No retouching workflow.</strong> The single feature pros most cite when choosing Zerene/Helicon. Our answer (gates that never harm) is philosophically elegant but currently fires on ~17% of its home regime.</li>
-      <li><strong>CPU-only Python; no GPU.</strong> Quality-safe speedup ceiling measured at ~1.5×. No head-to-head timing exists vs Helicon's OpenCL engine, and we should assume we lose badly on 100-frame 45&nbsp;MP stacks.</li>
+      <li><strong>No retouching workflow.</strong> The single feature pros most cite when choosing Zerene/Helicon. Gated contour reconstruction is low-recall and does not replace manual correction.</li>
+      <li><strong>CPU-only Python; no GPU.</strong> The ~1.5× speed preset has a measured quality cost. No head-to-head timing exists vs Helicon's OpenCL engine, and we should assume we lose badly on 100-frame 45&nbsp;MP stacks.</li>
       <li><strong>Handheld deep-stack alignment is an open wall</strong> — single-pass ECC to a middle frame; large-motion sweeps ghost (tracked as frontier item #7/#8).</li>
       <li><strong>Deep stacks validated to N=8;</strong> macro pros routinely shoot 50–200 frames.</li>
       <li><strong>No benchmark against commercial tools' actual output.</strong> Our GT wins are vs our own implementations of the classical method families, not vs Helicon/Zerene binaries.</li>
@@ -275,7 +276,7 @@ Python 3 + OpenCV, CPU-only. The scientific core is real and unusually well-evid
     </tr>
     <tr>
       <td class="rowlabel">Retouching / manual source painting</td>
-      <td class="us"><span class="cell no">✗</span><span class="note">auto never-harm gates instead; low recall today</span></td>
+      <td class="us"><span class="cell no">✗</span><span class="note">low-recall gated contour correction is not a retouch workflow</span></td>
       <td><span class="cell yes">✓</span><span class="note">Lite tier: evaluation-only strokes</span></td>
       <td><span class="cell yes">✓ best-in-class workflow</span></td>
       <td><span class="cell yes">✓ full layer/mask editing</span></td>
@@ -398,14 +399,14 @@ Where a competitor cell says "no published eval," that is itself the finding: no
 
 <h2 id="diff">3. What is genuinely differentiated</h2>
 <p>Three things in this repo do not exist elsewhere in the focus-stacking market, as far as our research found:</p>
-<h3>3.1 The gated-specialist / never-harm architecture</h3>
+<h3>3.1 Gated contour correction with evidence-driven refusal</h3>
 <p>Every stacker fails at depth boundaries sometimes; the industry's universal answer is <em>manual retouching</em>
-(Zerene's flagship workflow, Helicon's brush tools). Our answer is structural: narrow specialists that fix physics the
-generalist provably cannot, each behind a gate <em>trained on the actual quality outcome</em> of firing, with the fire
-threshold set so that held-out firing never lost (18/19 positive fires, worst held-out case −0.0033 on 2 of 75 hardest
-synthetics; 13/14 real photos byte-identical). No competitor has automated boundary correction with a calibrated
-do-no-harm guarantee. This is a real research contribution — and also honest about its current recall (~17% of the
-reconstruction regime, ~4% veil): today it is "never harms," not yet "usually helps."</p>
+(Zerene's flagship workflow, Helicon's brush tools). Our answer is structural but narrower:
+contour reconstruction behind a gate <em>trained on the actual quality outcome</em> of firing.
+The veil branch originally used the same recipe, but F54 showed that a gate inherits its factory
+and labels' blind spots: the branch is now safety-disabled. No competitor we found publishes this
+kind of automated boundary-correction evidence or a comparable feature-withdrawal audit. This is
+a real research contribution, not a do-no-harm guarantee and not yet a replacement for retouching.</p>
 <h3>3.2 GT-calibrated honesty as a feature</h3>
 <p>The evidence culture — six validation regimes, metrics themselves validated against ground truth, negatives
 published (oracle de-veiling loses; spread import doesn't materialize) — is unique in this market. Commercial tools
@@ -426,13 +427,13 @@ or Zerene's actual output against our GT benchmarks. Doing so is cheap and shoul
       <li><strong>16-bit + RAW pipeline.</strong> An 8-bit engine is disqualifying for the entire professional segment. This is also the deepest change — every stage assumes uint8.</li>
       <li><strong>GUI with before/after and retouch.</strong> The buying population is photographers, not CLI users.</li>
       <li><strong>Deep-stack alignment.</strong> 50–200 frame handheld/rail stacks are the professional workload; our alignment is the known open wall.</li>
-      <li><strong>Speed.</strong> Python/CPU with a measured 1.5× quality-safe ceiling; competitors are C++/GPU.</li>
+      <li><strong>Speed.</strong> Python/CPU; the measured 1.5× preset costs roughly 0.005–0.025 GT-SSIM, while competitors are C++/GPU.</li>
     </ul>
   </div>
   <div class="card gap">
     <h3>Soft blockers (trust and operations)</h3>
     <ul>
-      <li><strong>Packaging &amp; platform:</strong> no installer, no Windows/macOS builds, torch side-environment for the semantic bridge.</li>
+      <li><strong>Packaging &amp; platform:</strong> no installer and no Windows/macOS builds.</li>
       <li><strong>Support:</strong> single maintainer; Zerene's author-answers-email support is part of what its $289 buys.</li>
       <li><strong>Real-photographic GT validation</strong> is still pending (iPhone-12 gate) — our own standards say the strongest claims aren't yet earned.</li>
       <li><strong>Head-to-head benchmark vs Helicon/Zerene output</strong> — absent, and required before any competitive quality claim.</li>
@@ -545,7 +546,7 @@ order of willingness to pay:</p>
     <h3>Industrial / machine vision (adjacent)</h3>
     <ul>
       <li>Focus stacking ships inside AOI inspection systems (e.g. <a href="https://www.baslerweb.com/en/use-cases/focus-stacking/">Basler's integrated EDOF use case</a>) for PCB/semiconductor inspection.</li>
-      <li>B2B component licensing, not shrink-wrap: quality guarantees and determinism matter — a natural fit for the never-harm gate story, but demands C++/GPU-grade speed we don't have.</li>
+      <li>B2B component licensing, not shrink-wrap: determinism and auditable failure matter — a natural fit for this evidence discipline, but it demands C++/GPU-grade speed we don't have.</li>
     </ul>
   </div>
 </div>
@@ -562,7 +563,7 @@ order of willingness to pay:</p>
 <ol class="pos">
   <li>
     <strong>Open-source research engine</strong> <span class="tag rec">Most realistic now</span><br>
-    Release as the best-evidenced OSS stacker: GT-validated quality, the gated-specialist architecture, the
+    Release as the best-evidenced OSS stacker: GT-validated quality, gated contour correction, the
     depth-from-focus output, and the research record as documentation. Competes with
     <a href="https://github.com/PetteriAimonen/focus-stack">focus-stack</a>/<a href="https://github.com/noah-peeters/ChimpStackr">ChimpStackr</a>
     on evidence rather than features. Costs: 16-bit support is near-mandatory even here. Payoff is credibility,
@@ -573,7 +574,7 @@ order of willingness to pay:</p>
     License the fusion core to automated product-photography systems (Orbitvu/PackshotCreator/Iconasys class),
     microscopy software vendors (PROMICRA class), or machine-vision integrators (<a href="https://www.baslerweb.com/en/use-cases/focus-stacking/">Basler-style AOI</a>).
     Sidesteps our GUI/RAW/retouch gaps entirely — the customer owns capture and UI; we provide a deterministic,
-    quality-guaranteed fusion core where the never-harm gate is a genuine B2B selling point. Blockers: C++/GPU-grade
+    deterministic, audit-friendly fusion core. Blockers: C++/GPU-grade
     throughput, 16-bit, and at least one head-to-head benchmark. This is the only option where our differentiation
     converts to money at more than hobby scale.
   </li>
@@ -595,7 +596,7 @@ order of willingness to pay:</p>
 <h2 id="bottomline">7. Bottom line</h2>
 <div class="verdict">
   <p><strong>Where we beat the professionals:</strong> evidence and architecture. Nobody else publishes GT-referenced
-  quality across regimes; nobody else has automated boundary correction with a calibrated never-harm guarantee;
+  quality across regimes; nobody else we found pairs automated contour correction with this level of outcome auditing;
   the per-band decision resolves a real failure mode (resolution-dependent ranking reversals) that classical
   pyramid tools — and by their halos, likely some commercial modes — still exhibit.</p>
   <p><strong>Where we lose:</strong> everything the buyer touches. GUI, RAW, 16-bit, retouching, deep-stack alignment,

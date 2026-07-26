@@ -11,10 +11,11 @@ do not let it replace the last pushed solver or use it to excuse a malformed
 input.
 
 The input formation is still **not accepted** merely because a region metric or
-the existing alpha-core counterfactual passes.  The user's visual diagnosis is
-the authority for the failure: foreground defocus must never transport hidden
-rear detail into a region claimed as opaque foreground.  On resume, stop inverse
-and gate tuning and prove the generator directly:
+the old alpha-core counterfactual passes.  The user's visual diagnosis is the
+authority for the failure: foreground defocus must never transport hidden rear
+detail into a region claimed as opaque foreground.  F69 reproduced the loophole
+and implemented the direct proof below; a compact visual carpet and fresh
+validation cohort remain open before inverse work resumes:
 
 1. Hold foreground radiance, geometry, focus, PSF, and noise fixed.
 2. Render once over a high-contrast checkerboard and once over its inverse.
@@ -28,6 +29,12 @@ and gate tuning and prove the generator directly:
    may spread outward into an explicitly labeled silhouette veil.  Blur of an
    already composed foreground/background image, or any normalization that can
    import rear samples into hard support, is forbidden.
+
+The old test covered only `alpha == 1` after resize and Gaussian antialiasing.
+On the actual diagnosed bird source, V1 changed 7,397/55,222 hard-owned pixels
+when only the hidden background was inverted. `one_sided_opaque_v2` now keeps
+that pre-antialias binary ownership as a separate field and changes 0/55,222,
+exactly, while retaining outward foreground spread.
 
 The inspection page seen at this pause mixed the new input example at the top
 with stale historical input frames in lower scene panels.  It is therefore not

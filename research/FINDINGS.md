@@ -5,6 +5,49 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F69 — Soft display alpha cannot define opaque ownership
+
+The user's repeated visual objection exposed a deeper defect in F65's purported
+one-sided renderer. The implementation used
+`W=max(alpha, disk(alpha))`, then certified only pixels where the already
+resized and Gaussian-softened matte happened to equal exactly `1`. That test
+silently excluded the antialiased portion of the source-owned silhouette. A
+high-contrast hidden-background counterfactual on a compact concave mask found
+776/5,345 owned pixels changing, by as much as 51.5 intensity levels, while the
+old `alpha == 1` assertion passed on the other 4,569 pixels.
+
+This was not a downstream ownership-threshold problem. It invalidated the input
+operator under the project's opaque contract. The new
+`one_sided_opaque_v2` formation keeps two different fields:
+
+- `S`, a binary source-ownership support resized with nearest-neighbor sampling
+  before any antialiasing or defocus;
+- `alpha`, the soft display/compositing matte used for the visible focused
+  contour and foreground radiance weighting.
+
+Far-frame foreground coverage is now `W=max(S, alpha, disk(alpha))`.
+Conditional foreground radiance remains
+`disk(alpha*F)/disk(alpha)`, so only foreground samples spread. Consequently,
+rear throughput is exactly zero throughout `S`, while the PSF still creates a
+nonempty outward veil.
+
+The causal replay used the actual `extension_007` bird source, its repaired
+FastSAM mask, the original target-background family, the original scale, and
+the original placement. Inverting only the hidden background changed 7,397 of
+55,222 hard-owned pixels under V1, with a maximum 207.59-level difference. V2
+changed 0/55,222: maximum and mean were exactly zero, while 342,000 exterior
+pixels retained foreground spread. The first generated S27 sentinel records
+454,788 hard-owned pixels, minimum far coverage `1.0`, zero nonopaque owned
+pixels, and a nonempty 98,437-pixel outer veil. The complete test suite passes
+65/65.
+
+S25/S26 remain frozen V1 development evidence and can still be reproduced by a
+private legacy operator; they cannot certify final opaque formation. S27 is
+versioned as the first V2 cohort and saves `hard_ownership.png` plus per-scene
+coverage invariants. Do not resume inverse tuning until a compact S27
+counterfactual/visual carpet confirms that this mathematical correction also
+matches the intended scenes. The liked solver and inspector remain preserved.
+
 ## F68 — An opaque benchmark cannot inherit semantic holes as apertures
 
 The completed 36-scene S26 audit found two different classes of dissent. Six

@@ -1,0 +1,58 @@
+{
+  "version": 4,
+  "split": "s27",
+  "seed": 36001,
+  "renderer": "one_sided_opaque_v2",
+  "material_model": "one_sided_opaque_occluder",
+  "cohort_role": "primary_one_sided_opaque_post_freeze",
+  "source_mask_contract": "solid_opaque_no_ambiguous_holes_v1",
+  "source_mask_max_enclosed_hole_fraction": 0.005,
+  "stratum_schedule": [
+    "primary",
+    "primary",
+    "boundary",
+    "primary",
+    "boundary",
+    "all_veil"
+  ],
+  "coc_fraction": 0.035,
+  "defocus_distance": 0.7,
+  "scenes": [
+    {
+      "id": "s27_000",
+      "stratum": "primary",
+      "optical_regime": "substantial_coverage_core",
+      "material_model": "one_sided_opaque_occluder",
+      "material_opacity": 1.0,
+      "material_transmittance": 0.0,
+      "formation_model": "one_sided_opaque_v2",
+      "hard_ownership_pixels": 454788,
+      "hard_ownership_min_far_coverage": 1.0,
+      "hard_ownership_nonopaque_pixels": 0,
+      "source": "08_rough_texture",
+      "source_mask_index": 0,
+      "source_mask_contract": "solid_opaque_no_ambiguous_holes_v1",
+      "source_mask_enclosed_hole_pixels": 0,
+      "source_mask_enclosed_hole_fraction": 0.0,
+      "source_mask_small_holes_filled": false,
+      "source_mask_rejected_ambiguous_holes": false,
+      "background": "05_foliage",
+      "scale": 0.8455623078683612,
+      "placement_xy": [
+        42,
+        568
+      ],
+      "max_radius": 53.760000000000005,
+      "defocus_radius": 37.632,
+      "alpha_area_fraction": 0.2569907859519676,
+      "sharp_pixels": 451788,
+      "core_pixels": 451788,
+      "inner_veil_pixels": 0,
+      "outer_veil_pixels": 98437,
+      "core_fraction": 1.0,
+      "inner_veil_fraction": 0.0,
+      "aperture_core_fraction": 0.8075712502324099,
+      "aperture_inner_fraction": 0.19229594411538156
+    }
+  ]
+}

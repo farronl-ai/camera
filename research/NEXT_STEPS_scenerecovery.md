@@ -139,7 +139,7 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       hypotheses. S23 rerun: 7/7 SSIM/MAE/MSE and all-partition positive,
       far background exact for every fire, 65 refusals identity. S23 is
       development evidence; do not spend another large split until S15 freezes.
-- [ ] **S18: one-sided opaque ownership.** 🔶 ACTIVE DEV / F68. The S25+
+- [ ] **S18: one-sided opaque ownership.** 🔶 ACTIVE DEV / F69. The S25+
       primary generator and paired forward/adjoint model now guarantee zero
       rear throughput throughout latent opaque foreground support while
       retaining foreground-only outward spread. Raw focal-frame masks are
@@ -166,11 +166,17 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       through it. S27 therefore adds the
       `solid_opaque_no_ambiguous_holes_v1` source contract: tiny enclosed
       speckles are filled and masks with substantial internal topology are
-      excluded for later aperture/transmission research. Preserve the F67
-      solver; infer an edge-respecting discrete ownership matte and prove both
-      hard front choice and rear exclusion before freezing. Only then generate
-      S27. Regenerate the inspector once, at the end; the solid S23 inspector
-      is still preserved.
+      excluded for later aperture/transmission research. F69 additionally
+      proved that V1's `max(alpha, spread)` still leaked rear content across the
+      antialiased portion of source ownership while its `alpha==1` test passed.
+      V2 now saves pre-antialias `hard_ownership` and uses
+      `max(hard_ownership, alpha, spread)`: the actual diagnosed bird replay
+      falls from 7,397 rear-dependent owned pixels to exactly zero without
+      removing outward veil. One S27 formation sentinel passes; generate only a
+      compact visual/counterfactual carpet next. Then preserve the F67 solver,
+      infer an edge-respecting discrete ownership matte, and prove both hard
+      front choice and rear exclusion before freezing. Regenerate the inspector
+      once, at the end; the solid S23 inspector is still preserved.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

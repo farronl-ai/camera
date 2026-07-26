@@ -9,6 +9,7 @@ RESEARCH = Path(__file__).resolve().parents[1] / "research"
 sys.path.insert(0, str(RESEARCH))
 
 from objocc_v2_gen import (  # noqa: E402
+    _prepare_opaque_object,
     _solid_opaque_source_mask,
     coverage_stats,
     exact_disk_blur,
@@ -128,6 +129,54 @@ def test_opaque_far_focus_never_admits_rear_detail_inside_foreground():
     assert np.any(
         rendered_a["geometry_coverage"][1][~owned] > 0.0
     ), "foreground defocus must still spread outward"
+
+
+def test_opaque_far_focus_protects_full_pre_antialias_ownership():
+    source_mask = np.zeros((93, 107), np.uint8)
+    source_mask[13:80, 18:89] = 1
+    source_mask[42:67, 61:89] = 0
+    source_radiance = np.full((93, 107, 3), (35, 90, 180), np.float32)
+    foreground, alpha, hard_ownership = _prepare_opaque_object(
+        source_radiance,
+        source_mask,
+        scale=0.73,
+    )
+    height, width = alpha.shape
+    yy, xx = np.mgrid[:height, :width]
+    checker = (((xx // 3 + yy // 3) % 2) * 255).astype(np.float32)
+    background_a = np.repeat(checker[..., None], 3, axis=2)
+    background_b = 255.0 - background_a
+
+    rendered_a = render_one_sided_opaque_focal_pair(
+        background_a,
+        foreground,
+        alpha,
+        max_radius=18.0,
+        hard_ownership=hard_ownership,
+    )
+    rendered_b = render_one_sided_opaque_focal_pair(
+        background_b,
+        foreground,
+        alpha,
+        max_radius=18.0,
+        hard_ownership=hard_ownership,
+    )
+
+    assert np.any(
+        hard_ownership & (alpha < 1.0)
+    ), "the counterfactual must include the old soft-boundary loophole"
+    np.testing.assert_array_equal(
+        rendered_a["frames"][1][hard_ownership],
+        rendered_b["frames"][1][hard_ownership],
+    )
+    np.testing.assert_array_equal(
+        rendered_a["geometry_coverage"][1][hard_ownership],
+        np.ones(int(hard_ownership.sum()), np.float32),
+    )
+    assert np.any(
+        (~hard_ownership)
+        & (rendered_a["geometry_coverage"][1] > 0.0)
+    ), "foreground radiance must still spread outward"
 
 
 def test_one_sided_coverage_is_never_smaller_than_sharp_support():

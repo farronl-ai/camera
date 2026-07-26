@@ -11,16 +11,19 @@ frozen evidence. New primary opaque splits use the user's one-sided ownership
 contract:
 
     near-focus = alpha*N + (1-alpha)*disk(B, r_far)
+    S          = pre-antialias binary foreground ownership
     C          = disk(alpha, r_near)
     N_spread   = disk(alpha*N, r_near) / C
-    W          = max(alpha, C)
+    W          = max(S, alpha, C)
     far-focus  = W*N_spread + (1-W)*B
 
 ``W`` is a one-sided dilation: foreground blur may extend outward, but it never
-opens the latent opaque support and admits rear detail inward. The normalized
-foreground spread avoids dimming an opaque interior merely because its PSF
-extends beyond the support. True transmission remains a separate renderer and
-is not part of the current opaque goal.
+opens the latent opaque support and admits rear detail inward. ``S`` is kept
+separate because resize antialiasing and a display matte can otherwise turn a
+real owned boundary into a partially transparent one before defocus is even
+applied. The normalized foreground spread avoids dimming an opaque interior
+merely because its PSF extends beyond the support. True transmission remains a
+separate renderer and is not part of the current opaque goal.
 
 Foreground RGB is copied from a real segmented object, but the unreliable
 source-photo boundary ring is replaced by nearest eroded-interior radiance before
@@ -87,6 +90,7 @@ PRIMARY_OPAQUE_SCHEDULE = (
 TRANSMISSIVE_SCHEDULE = ("primary", "primary", "boundary")
 TRANSMISSIVE_OPACITIES = (0.35, 0.55, 0.75)
 ONE_SIDED_OPAQUE_SPLITS = {"s25", "s26", "s27"}
+HARD_OWNERSHIP_OPAQUE_SPLITS = {"s27"}
 # A primary solid-opaque cohort must not turn a segmenter's internal omission
 # into an optical aperture. Tiny enclosed speckles are repaired; a mask with a
 # substantial enclosed region is topologically ambiguous and belongs in a
@@ -179,6 +183,8 @@ def render_focal_pair(
     foreground: np.ndarray,
     alpha: np.ndarray,
     max_radius: float,
+    *,
+    hard_ownership: np.ndarray | None = None,
 ) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """Render the primary one-sided opaque near/far focal pair."""
     rendered = render_one_sided_opaque_focal_pair(
@@ -186,6 +192,7 @@ def render_focal_pair(
         foreground,
         alpha,
         max_radius,
+        hard_ownership=hard_ownership,
     )
     return rendered["frames"], rendered["geometry_coverage"]
 
@@ -195,14 +202,69 @@ def render_one_sided_opaque_focal_pair(
     foreground: np.ndarray,
     geometry_alpha: np.ndarray,
     max_radius: float,
+    *,
+    hard_ownership: np.ndarray | None = None,
 ) -> dict:
     """Render opaque defocus without admitting rear detail inside its support.
 
     The blurred premultiplied foreground is normalized by its blurred geometry
     so defocus changes foreground radiance spatially without making an opaque
-    object transparent. ``maximum(alpha, blurred_alpha)`` preserves the sharp
-    owned support and adds only the outward PSF veil.
+    object transparent. The pre-antialias binary ownership support remains
+    distinct from the soft display matte: both the full owned support and the
+    soft matte are preserved, and the PSF adds only an outward veil.
     """
+    bg = np.asarray(background, np.float32)
+    fg = np.asarray(foreground, np.float32)
+    a = np.clip(np.asarray(geometry_alpha, np.float32), 0.0, 1.0)
+    if hard_ownership is None:
+        owned = a >= 0.5
+    else:
+        owned = np.asarray(hard_ownership, bool)
+        if owned.shape != a.shape:
+            raise ValueError(
+                "hard ownership must match geometry alpha shape"
+            )
+    radius = DEFOCUS_DISTANCE * max_radius
+
+    far_blurred = exact_disk_blur(bg, radius)
+    near_frame = a[..., None] * fg + (1.0 - a[..., None]) * far_blurred
+    near_coverage = a
+
+    aperture_spread = np.clip(exact_disk_blur(a, radius), 0.0, 1.0)
+    blurred_premult = exact_disk_blur(a[..., None] * fg, radius)
+    conditional_foreground = np.zeros_like(blurred_premult)
+    np.divide(
+        blurred_premult,
+        aperture_spread[..., None],
+        out=conditional_foreground,
+        where=aperture_spread[..., None] > 1e-6,
+    )
+    far_coverage = np.maximum.reduce(
+        [a, aperture_spread, owned.astype(np.float32)]
+    )
+    far_frame = (
+        far_coverage[..., None] * conditional_foreground
+        + (1.0 - far_coverage[..., None]) * bg
+    )
+    gt = a[..., None] * fg + (1.0 - a[..., None]) * bg
+    return {
+        "frames": [near_frame, far_frame],
+        "geometry_coverage": [near_coverage, far_coverage],
+        "extinction": [near_coverage, far_coverage],
+        "aperture_spread": [near_coverage, aperture_spread],
+        "hard_ownership": owned,
+        "gt": gt,
+        "formation_model": "one_sided_opaque_v2",
+    }
+
+
+def _render_one_sided_opaque_focal_pair_v1(
+    background: np.ndarray,
+    foreground: np.ndarray,
+    geometry_alpha: np.ndarray,
+    max_radius: float,
+) -> dict:
+    """Retain the pre-F69 operator solely for frozen S25/S26 reproduction."""
     bg = np.asarray(background, np.float32)
     fg = np.asarray(foreground, np.float32)
     a = np.clip(np.asarray(geometry_alpha, np.float32), 0.0, 1.0)
@@ -210,8 +272,6 @@ def render_one_sided_opaque_focal_pair(
 
     far_blurred = exact_disk_blur(bg, radius)
     near_frame = a[..., None] * fg + (1.0 - a[..., None]) * far_blurred
-    near_coverage = a
-
     aperture_spread = np.clip(exact_disk_blur(a, radius), 0.0, 1.0)
     blurred_premult = exact_disk_blur(a[..., None] * fg, radius)
     conditional_foreground = np.zeros_like(blurred_premult)
@@ -229,9 +289,9 @@ def render_one_sided_opaque_focal_pair(
     gt = a[..., None] * fg + (1.0 - a[..., None]) * bg
     return {
         "frames": [near_frame, far_frame],
-        "geometry_coverage": [near_coverage, far_coverage],
-        "extinction": [near_coverage, far_coverage],
-        "aperture_spread": [near_coverage, aperture_spread],
+        "geometry_coverage": [a, far_coverage],
+        "extinction": [a, far_coverage],
+        "aperture_spread": [a, aperture_spread],
         "gt": gt,
         "formation_model": "one_sided_opaque_v1",
     }
@@ -393,6 +453,21 @@ def _prepare_object(
     mask: np.ndarray,
     scale: float,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Compatibility wrapper returning radiance and the soft display matte."""
+    radiance, matte, _ = _prepare_opaque_object(
+        clean_radiance,
+        mask,
+        scale,
+    )
+    return radiance, matte
+
+
+def _prepare_opaque_object(
+    clean_radiance: np.ndarray,
+    mask: np.ndarray,
+    scale: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Resize radiance while preserving binary ownership before antialiasing."""
     radiance = cv2.resize(
         clean_radiance,
         None,
@@ -406,7 +481,12 @@ def _prepare_object(
         interpolation=cv2.INTER_AREA,
     )
     matte = np.clip(cv2.GaussianBlur(matte, (0, 0), 0.5), 0.0, 1.0)
-    return radiance, matte
+    hard_ownership = cv2.resize(
+        (np.asarray(mask) > 0).astype(np.uint8),
+        (radiance.shape[1], radiance.shape[0]),
+        interpolation=cv2.INTER_NEAREST,
+    ) > 0
+    return radiance, matte, hard_ownership
 
 
 def generate(count: int, split: str) -> None:
@@ -476,11 +556,15 @@ def generate(count: int, split: str) -> None:
         cohort_role = "legacy_equal_optical_regime_cycle"
     rng = np.random.default_rng(seed)
     manifest = {
-        "version": 3,
+        "version": (
+            4 if split in HARD_OWNERSHIP_OPAQUE_SPLITS else 3
+        ),
         "split": split,
         "seed": seed,
         "renderer": (
-            "one_sided_opaque_v1"
+            "one_sided_opaque_v2"
+            if split in HARD_OWNERSHIP_OPAQUE_SPLITS
+            else "one_sided_opaque_v1"
             if is_one_sided_opaque
             else "exact_disk_two_layer_extinction"
         ),
@@ -549,10 +633,12 @@ def generate(count: int, split: str) -> None:
             "all_veil": (0.18, 0.48),
         }[stratum]
         scale = float(rng.uniform(*scale_range))
-        foreground_crop, alpha_crop = _prepare_object(
+        foreground_crop, alpha_crop, hard_ownership_crop = (
+            _prepare_opaque_object(
             source_radiance,
             source_mask,
             scale,
+            )
         )
         oh, ow = alpha_crop.shape
         if oh >= 0.82 * h or ow >= 0.82 * w:
@@ -566,8 +652,10 @@ def generate(count: int, split: str) -> None:
         py = int(rng.integers(margin, h - oh - margin))
         px = int(rng.integers(margin, w - ow - margin))
         alpha = np.zeros((h, w), np.float32)
+        hard_ownership = np.zeros((h, w), bool)
         foreground = np.zeros((h, w, 3), np.float32)
         alpha[py:py + oh, px:px + ow] = alpha_crop
+        hard_ownership[py:py + oh, px:px + ow] = hard_ownership_crop
         foreground[py:py + oh, px:px + ow] = foreground_crop
         area_fraction = float((alpha >= 0.5).mean())
         min_area_fraction = (
@@ -594,8 +682,16 @@ def generate(count: int, split: str) -> None:
         stats = coverage_stats(alpha, far_coverage)
         if not _stratum_matches(stratum, stats):
             continue
-        if is_one_sided_opaque:
+        if split in HARD_OWNERSHIP_OPAQUE_SPLITS:
             rendered = render_one_sided_opaque_focal_pair(
+                background,
+                foreground,
+                alpha,
+                max_radius,
+                hard_ownership=hard_ownership,
+            )
+        elif is_one_sided_opaque:
+            rendered = _render_one_sided_opaque_focal_pair_v1(
                 background,
                 foreground,
                 alpha,
@@ -635,6 +731,11 @@ def generate(count: int, split: str) -> None:
             os.path.join(scene_dir, "alpha.png"),
             np.round(alpha * 255).astype(np.uint8),
         )
+        if split in HARD_OWNERSHIP_OPAQUE_SPLITS:
+            cv2.imwrite(
+                os.path.join(scene_dir, "hard_ownership.png"),
+                hard_ownership.astype(np.uint8) * 255,
+            )
         cv2.imwrite(
             os.path.join(scene_dir, "foreground_layer.png"),
             np.clip(foreground, 0, 255).astype(np.uint8),
@@ -710,6 +811,19 @@ def generate(count: int, split: str) -> None:
             "material_opacity": float(material_opacity),
             "material_transmittance": float(1.0 - material_opacity),
             "formation_model": rendered["formation_model"],
+            **(
+                {
+                    "hard_ownership_pixels": int(hard_ownership.sum()),
+                    "hard_ownership_min_far_coverage": float(
+                        coverages[1][hard_ownership].min(initial=1.0)
+                    ),
+                    "hard_ownership_nonopaque_pixels": int(
+                        (coverages[1][hard_ownership] < 1.0).sum()
+                    ),
+                }
+                if split in HARD_OWNERSHIP_OPAQUE_SPLITS
+                else {}
+            ),
             "source": os.path.basename(os.path.dirname(source_path)),
             "source_mask_index": int(mask_index),
             **source_mask_report,
@@ -800,6 +914,21 @@ def scenes(split: str):
                     np.float32
                 )
                 / 255.0
+            ),
+            "hard_ownership": (
+                cv2.imread(
+                    os.path.join(scene_dir, "hard_ownership.png"),
+                    0,
+                )
+                > 0
+                if os.path.exists(
+                    os.path.join(scene_dir, "hard_ownership.png")
+                )
+                else cv2.imread(
+                    os.path.join(scene_dir, "alpha.png"),
+                    0,
+                )
+                >= 128
             ),
             "coverage": [
                 cv2.imread(
@@ -898,7 +1027,7 @@ def main() -> None:
     if len(sys.argv) != 3:
         raise SystemExit(
             "usage: objocc_v2_gen.py COUNT "
-            "{dev|holdout|extension|s12|s16|s19|s23|t24|s25|s26}"
+            "{dev|holdout|extension|s12|s16|s19|s23|t24|s25|s26|s27}"
         )
     generate(int(sys.argv[1]), sys.argv[2])
 

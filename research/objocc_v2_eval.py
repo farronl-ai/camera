@@ -31,6 +31,9 @@ from focusstack.fusion import fuse_perband, guided_filter  # noqa: E402
 from focusstack.io import to_gray_float  # noqa: E402
 from focusstack.veil_layers import (  # noqa: E402
     MODEL_SIDE,
+    ONE_SIDED_FRONT_LOW_TEXTURE_MEAN_GRADIENT,
+    ONE_SIDED_FRONT_PRESERVE_EDGE_GRADIENT,
+    ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT,
     RADIUS_FRACTION,
     REAR_EVIDENCE_DENSITY,
     VISIBILITY_COVERAGE_FLOOR,
@@ -794,7 +797,7 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
     )
     resume_enabled = os.environ.get("OBJ_OCC_RESUME") == "1"
     resume_key = (
-        f"f70_discrete_graph_ownership:{split}:"
+        f"f72_discrete_opaque_ownership:{split}:"
         f"{'oracle' if oracle_alpha else 'semantic'}"
     )
     resume_path = os.path.join(
@@ -938,12 +941,21 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
             else "objocc_v2_exact_disk"
         ),
         "split": split,
-        "pipeline": "f70_discrete_graph_ownership",
+        "pipeline": "f72_discrete_opaque_ownership",
         "oracle_fields": ["alpha", "owner"] if oracle_alpha else [],
         "owner_support": not oracle_alpha,
         "rear_evidence_density": REAR_EVIDENCE_DENSITY,
         "visibility_coverage_floor": VISIBILITY_COVERAGE_FLOOR,
         "visibility_coverage_ramp": VISIBILITY_COVERAGE_RAMP,
+        "rear_min_application_weight": (
+            ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT
+        ),
+        "front_low_texture_mean_gradient": (
+            ONE_SIDED_FRONT_LOW_TEXTURE_MEAN_GRADIENT
+        ),
+        "front_preserve_edge_gradient": (
+            ONE_SIDED_FRONT_PRESERVE_EDGE_GRADIENT
+        ),
         "thresholds_retuned": False,
         "scene_count": len(rows),
         "fired_count": len(fired),

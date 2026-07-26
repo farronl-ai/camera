@@ -12,6 +12,7 @@ from focusstack.veil_layers import (
     _fringe_mask,
     _focused_rear_opening_seeds,
     _expand_focused_rear_opening,
+    _focused_owner_observation,
     _one_sided_rear_application_mask,
     _owner_geometry_consensus,
     _owner_front_reconstruction_support,
@@ -272,6 +273,40 @@ def test_rear_focal_evidence_carves_exterior_connected_opening():
     assert int(expanded.sum()) > int(seeds.sum())
 
 
+def test_focused_owner_observation_routes_smooth_noise_and_preserves_edges():
+    size = 64
+    support = np.ones((size, size), bool)
+    smooth = np.full((size, size, 3), 110, np.uint8)
+    _, smooth_report = _focused_owner_observation(
+        smooth,
+        support,
+    )
+    assert smooth_report["front_observation_denoise_h"] == 3.0
+
+    edged = smooth.copy()
+    for x0 in range(0, size, 8):
+        edged[:, x0 + 4 : x0 + 8] = 220
+    observation, edge_report = _focused_owner_observation(
+        edged,
+        support,
+    )
+    gray = cv2.cvtColor(edged, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    gradient = np.hypot(
+        cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3),
+        cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3),
+    )
+    preserved = (
+        gradient
+        >= edge_report["front_observation_preserve_edge_gradient"]
+    )
+    assert edge_report["front_observation_denoise_h"] == 2.0
+    assert np.any(preserved)
+    np.testing.assert_array_equal(
+        observation[preserved],
+        edged[preserved],
+    )
+
+
 def test_one_sided_recovery_hard_selects_confident_foreground_interior():
     frames, _, candidate, _ = _physical_giant_stack()
     true_mask = candidate["alpha"] > 0
@@ -301,19 +336,15 @@ def test_one_sided_recovery_hard_selects_confident_foreground_interior():
     assert report["fired"] is True
     assert report["one_sided_geometry_fired"] is True
     assert report["owner_front_reconstruction_pixels"] > 0
-    expected_front = cv2.fastNlMeansDenoisingColored(
+    expected_front, _ = _focused_owner_observation(
         frames[0],
-        None,
-        2.0,
-        2.0,
-        3,
-        7,
+        true_mask,
     )
     hard_front = np.all(output == expected_front, axis=2) & true_mask
     assert int(hard_front.sum()) >= report["owner_front_reconstruction_pixels"]
     assert (
         report["front_observation_source"]
-        == "focused_owner_nlm_foreground_only"
+        == "focused_owner_edge_preserving_nlm_foreground_only"
     )
     assert report["rear_mask_front_veto_removed_pixels"] >= 0
 
@@ -351,14 +382,6 @@ def test_one_sided_owned_core_is_one_observation_not_a_blend():
     )
 
     owner = int(selected[0]["owner"])
-    denoised_owner = cv2.fastNlMeansDenoisingColored(
-        frames[owner],
-        None,
-        2.0,
-        2.0,
-        3,
-        7,
-    )
     alpha = np.asarray(selected[0]["alpha"], np.float32)
     front_consensus, _, _ = _owner_geometry_consensus(
         alpha,
@@ -378,6 +401,10 @@ def test_one_sided_owned_core_is_one_observation_not_a_blend():
             np.zeros(alpha.shape, bool),
         ),
         bool,
+    )
+    denoised_owner, _ = _focused_owner_observation(
+        frames[owner],
+        hard_front,
     )
     assert np.array_equal(
         output[hard_front],

@@ -5,6 +5,35 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F73 — Focused-owner radiance stays a single observation
+
+The first complete S28 run exposed two source-attribution regressions without
+any rear-mask overlap.  `s28_009` used a fixed weak NLM setting on a smooth,
+noisy focused foreground and regressed hard/core MAE by `0.143`; `s28_010`
+slightly displaced a high-gradient antialiased contour.  Neither failure
+justifies changing the preserved inverse or importing the rear frame.  The
+front source now remains one focused-owner observation throughout: smooth
+support selects NLM `h=3`, textured support selects `h=2`, and pixels at or
+above Sobel magnitude `30` are restored byte-for-byte from that same owner.
+The rear frame is never an ingredient in either route.
+
+The complete twelve-scene S28 rerun has ten licensed fires and two exact
+refusals.  All ten improve MAE and MSE and improve or preserve all six physical
+partitions: hard foreground, opaque core, hard soft edge, ordinary boundary,
+outer veil, and far background.  Rear application is exactly zero in every
+hard/core/soft-edge/boundary/far region, and far background is byte-identical.
+Mean partition MAE changes are `-1.587/-1.621/-0.711/-0.436/-0.891/0.000`
+respectively.  Four fires improve global SSIM.  The SSIM dissents and the
+finest-band quiet-fringe diagnostic do not overturn the causal result: a
+GT-side montage shows the changes concentrated on the true occluder and its
+outward veil, overwhelmingly closer to GT, without rear texture entering
+foreground support.  The quiet-fringe increase remains an explicit diagnostic
+for post-rule validation rather than being hidden or optimized in isolation.
+
+S28 shaped the adaptive source rule and is now development evidence.  Preserve
+S27/S25, freeze a genuinely new V2 split, and validate that split before the
+shipping bridge and one-time inspector rebuild.  68/68 focused tests pass.
+
 ## F72 — Rear openings are negative geometry; opaque fragments are hard choices
 
 S28's failures separated into three causal evidence classes, so the repair does

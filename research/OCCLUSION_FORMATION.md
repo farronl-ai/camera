@@ -3,6 +3,20 @@
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
 `NEXT_STEPS_scenerecovery.md`, and F60–F67 in `FINDINGS.md`.
 
+## 2026-07-26 focused-owner source checkpoint
+
+Foreground radiance remains a discrete focused-owner observation after
+ownership is selected.  Low-texture support may use stronger NLM (`h=3`) and
+textured support uses `h=2`, but both operate on that same owner frame; observed
+high-gradient contours are copied byte-exact from it.  No edge correction,
+denoising route, or hard-copy route blends the rear frame into opaque support.
+
+The complete S28 rerun licenses ten scenes and exactly refuses two.  All ten
+improve MAE/MSE and all physical partitions, rear application is zero in every
+protected foreground/boundary/far region, and far background remains exact.
+Because S28 exposed and shaped this routing rule, it is development evidence;
+preservation and a new post-rule V2 split remain before promotion.
+
 ## 2026-07-26 inverse checkpoint after fresh failures
 
 F72 closes the four S28 geometry failure classes without changing the preserved

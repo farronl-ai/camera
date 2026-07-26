@@ -193,6 +193,13 @@ ONE_SIDED_SATELLITE_MAX_DISTANCE_COC = 2.0
 # causal mirror admitted h={2,3,4,5,7}; the rail then distinguished h=2 from
 # h=3 by flipping its SSIM dissent while further improving direct error.
 ONE_SIDED_FRONT_DENOISE_H = 2.0
+# Smooth focused foregrounds expose sensor noise rather than coherent detail,
+# so one additional NLM step is safe there.  Strong observed contours remain
+# byte-exact from the focused owner: denoising must not shift antialiased object
+# edges.  Both routes use only the same foreground observation.
+ONE_SIDED_FRONT_SMOOTH_DENOISE_H = 3.0
+ONE_SIDED_FRONT_LOW_TEXTURE_MEAN_GRADIENT = 16.0
+ONE_SIDED_FRONT_PRESERVE_EDGE_GRADIENT = 30.0
 # A rear-focused observation is positive only when decisive rear focus evidence
 # occupies a material fraction of the local neighborhood.  Absence of owner
 # evidence is not rear evidence.  This is the V1/V2 ordered-visibility split:
@@ -3314,6 +3321,59 @@ def _one_sided_rear_application_mask(
     }
 
 
+def _focused_owner_observation(
+    image: np.ndarray,
+    support: np.ndarray,
+) -> tuple[np.ndarray, dict]:
+    """Denoise smooth front interiors without moving observed contours."""
+    support_mask = np.asarray(support, bool)
+    if support_mask.shape != image.shape[:2]:
+        raise ValueError(
+            "focused owner support and image dimensions do not match"
+        )
+    gray = to_gray_float(image)
+    gradient = np.hypot(
+        cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3),
+        cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3),
+    )
+    mean_gradient = (
+        float(gradient[support_mask].mean())
+        if np.any(support_mask)
+        else float("inf")
+    )
+    denoise_h = (
+        ONE_SIDED_FRONT_SMOOTH_DENOISE_H
+        if mean_gradient
+        < ONE_SIDED_FRONT_LOW_TEXTURE_MEAN_GRADIENT
+        else ONE_SIDED_FRONT_DENOISE_H
+    )
+    observation = cv2.fastNlMeansDenoisingColored(
+        image,
+        None,
+        denoise_h,
+        denoise_h,
+        3,
+        7,
+    )
+    preserve_edges = (
+        gradient >= ONE_SIDED_FRONT_PRESERVE_EDGE_GRADIENT
+    )
+    observation[preserve_edges] = image[preserve_edges]
+    return observation, {
+        "front_observation_denoise_h": float(denoise_h),
+        "front_observation_mean_gradient": mean_gradient,
+        "front_observation_low_texture_threshold": (
+            ONE_SIDED_FRONT_LOW_TEXTURE_MEAN_GRADIENT
+        ),
+        "front_observation_preserve_edge_gradient": (
+            ONE_SIDED_FRONT_PRESERVE_EDGE_GRADIENT
+        ),
+        "front_observation_preserved_edge_pixels": int(
+            (preserve_edges & support_mask).sum()
+        ),
+    }
+
+
 def recover_giant_veil(
     images: list[np.ndarray],
     base: np.ndarray,
@@ -3595,23 +3655,16 @@ def recover_giant_veil(
     hard_choice_support = owner_copy_support
     mask[hard_choice_support] = 0.0
     if one_sided_geometry and np.any(hard_choice_support):
-        owner_front_observation = cv2.fastNlMeansDenoisingColored(
+        (
+            owner_front_observation,
+            front_observation_report,
+        ) = _focused_owner_observation(
             images[owner],
-            None,
-            ONE_SIDED_FRONT_DENOISE_H,
-            ONE_SIDED_FRONT_DENOISE_H,
-            3,
-            7,
+            hard_choice_support,
         )
-        report.update(
-            {
-                "front_observation_source": (
-                    "focused_owner_nlm_foreground_only"
-                ),
-                "front_observation_denoise_h": (
-                    ONE_SIDED_FRONT_DENOISE_H
-                ),
-            }
+        report.update(front_observation_report)
+        report["front_observation_source"] = (
+            "focused_owner_edge_preserving_nlm_foreground_only"
         )
     else:
         owner_front_observation = images[owner]

@@ -172,7 +172,7 @@
     touch-action: pan-y;
   }
   .compare img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
-  .compare .after { clip-path: inset(0 50% 0 0); }
+  .compare .after { clip-path: inset(0 0 0 50%); }
   .compare .divider {
     position: absolute;
     top: 0; bottom: 0; left: 50%;
@@ -200,6 +200,18 @@
   }
   .compare-label.left { left: .65rem; }
   .compare-label.right { right: .65rem; }
+  .compare-label.left { color: var(--gold); }
+  .compare-label.right { color: var(--cyan); }
+  .compare-help {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0 0 .65rem;
+    color: var(--dim);
+    font-size: .82rem;
+  }
+  .compare-help .base-side { color: var(--gold); }
+  .compare-help .output-side { color: var(--cyan); text-align: right; }
   .source-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .diagnostic-grid { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
   .tile { overflow: hidden; }
@@ -208,12 +220,6 @@
   .tile .caption { padding: .65rem .75rem .8rem; }
   .tile .caption strong { display: block; font-size: .85rem; }
   .tile .caption span { color: var(--dim); font-size: .75rem; }
-  .probe-img { cursor: crosshair; }
-  .probe-readout {
-    margin: .7rem 0 0;
-    color: var(--cyan);
-    font: .78rem var(--mono);
-  }
   .crop {
     display: block;
     width: 100%;
@@ -251,6 +257,84 @@
   }
   button:hover { background: #142331; }
   .copy-status { margin-left: .7rem; color: var(--green); font-size: .78rem; }
+  .region-control {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .55rem;
+    margin-top: .8rem;
+  }
+  .region-control button { margin-top: 0; }
+  .region-readout { color: var(--dim); font: .76rem var(--mono); }
+  .clear-region[hidden] { display: none; }
+  dialog.region-picker {
+    width: min(96vw, 1480px);
+    height: min(92vh, 1050px);
+    max-width: none;
+    max-height: none;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(120,201,226,.42);
+    border-radius: 14px;
+    color: var(--ink);
+    background: #080c12;
+  }
+  dialog.region-picker::backdrop { background: rgba(0,0,0,.82); backdrop-filter: blur(3px); }
+  .picker-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .7rem;
+    padding: .7rem 1rem;
+    border-bottom: 1px solid var(--line);
+    background: #111722;
+  }
+  .picker-head strong { color: var(--cyan); }
+  .picker-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }
+  .picker-controls button { min-height: 2.2rem; margin: 0; padding: .35rem .65rem; font-size: .78rem; }
+  .picker-stage {
+    height: calc(100% - 8.5rem);
+    overflow: auto;
+    background: #030405;
+  }
+  .picker-image-box {
+    position: relative;
+    width: 100%;
+    line-height: 0;
+  }
+  .picker-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: none;
+    cursor: crosshair;
+    user-select: none;
+  }
+  .picker-marker {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: rgba(215,109,227,.48);
+    box-shadow: 0 0 0 2px rgba(0,0,0,.75);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .picker-marker[hidden] { display: none; }
+  .picker-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .7rem;
+    padding: .7rem 1rem;
+    border-top: 1px solid var(--line);
+    background: #111722;
+  }
+  .picker-readout { color: var(--cyan); font: .76rem var(--mono); }
+  .picker-actions { display: flex; gap: .5rem; }
+  .picker-actions button { margin: 0; }
   .definition-list {
     display: grid;
     grid-template-columns: max-content 1fr;
@@ -301,7 +385,8 @@
     and focus/forward-model evidence. Ground truth unlocks diagnostics after the fact;
     it never helps choose the output. Click any image to open its native-size,
     high-quality browser rendition; exact metrics are computed from the lossless arrays.
-    Click an output image to record a native-resolution coordinate for a feedback note.</p>
+    Feedback coordinates are optional and can only be chosen from an explicit large-view
+    region picker.</p>
     <div class="legend-grid">
       <div class="legend"><strong>Base → output slider</strong><p>Drag horizontally. This is
       the unamplified result, which is the only honest severity view.</p></div>
@@ -464,23 +549,28 @@
         </div>
 
         <h4>Unamplified result</h4>
+        <p class="compare-help">
+          <span class="base-side"><strong>BASE</strong> is always left of the divider</span>
+          <span class="output-side"><strong>OUTPUT</strong> is always right of the divider</span>
+        </p>
         <div class="compare" style="aspect-ratio:${c.native_width}/${c.native_height}">
           <img src="${a.base}" alt="${c.sid} base fusion">
           <img class="after" src="${a.output}" alt="${c.sid} shipped output">
-          <span class="compare-label left">base</span><span class="compare-label right">output</span>
+          <span class="compare-label left">← BASE</span><span class="compare-label right">OUTPUT →</span>
           <div class="divider"></div>
-          <input type="range" min="0" max="100" value="50" aria-label="Compare base and output">
+          <input type="range" min="0" max="100" value="50"
+            aria-label="Move divider: base remains left and output remains right">
         </div>
+        <p class="crop-key">Drag left to reveal more output. Drag right to reveal more base.</p>
 
         <h4>Every image input and the GT audit target</h4>
         <div class="source-grid">
           ${tile(a.frame0, "Input frame 0" + (c.owner === 0 ? " · selected owner" : ""), "Original captured formation input.")}
           ${tile(a.frame1, "Input frame 1" + (c.owner === 1 ? " · selected owner" : ""), "Original captured formation input.")}
           ${tile(a.base, "Base perband fusion", "Generalist result before specialist recovery.")}
-          ${tile(a.output, "Shipped recovery output", "Click to record a native coordinate.", "probe-img")}
+          ${tile(a.output, "Shipped recovery output", "Opens as a normal full-size image.")}
           ${tile(a.gt, "Physical ground truth · audit only", "Never visible to routing, fitting, or output.")}
         </div>
-        <div class="probe-readout">coordinate probe: click the output image</div>
 
         <h4>What licensed the edit, and what the edit did</h4>
         <div class="diagnostic-grid">
@@ -534,8 +624,37 @@
               <textarea class="note" placeholder="What do you see? What region or physical assumption should we test next?"></textarea>
             </label>
           </div>
+          <div class="region-control">
+            <button class="select-region" type="button">Select region on large image (optional)</button>
+            <button class="clear-region" type="button" hidden>Clear region</button>
+            <span class="region-readout">No region selected</span>
+          </div>
           <button class="copy-note" type="button">Copy diagnostic note</button><span class="copy-status"></span>
         </div>
+        <dialog class="region-picker">
+          <div class="picker-head">
+            <div><strong>${c.sid} output</strong> · region selection is active only in this window</div>
+            <div class="picker-controls">
+              <button type="button" data-zoom="fit">Fit</button>
+              <button type="button" data-zoom="1">1× pixels</button>
+              <button type="button" data-zoom="2">2×</button>
+              <button type="button" data-zoom="4">4×</button>
+            </div>
+          </div>
+          <div class="picker-stage">
+            <div class="picker-image-box">
+              <img class="picker-image" src="${a.output}" alt="${c.sid} large output region picker">
+              <span class="picker-marker" hidden></span>
+            </div>
+          </div>
+          <div class="picker-foot">
+            <span class="picker-readout">Click the large image to place a point.</span>
+            <div class="picker-actions">
+              <button class="cancel-region" type="button">Cancel</button>
+              <button class="use-region" type="button" disabled>Use selected point</button>
+            </div>
+          </div>
+        </dialog>
       </div>
     </details>`;
   }
@@ -553,7 +672,7 @@
       const divider = compare.querySelector(".divider");
       const update = () => {
         const v = Number(range.value);
-        after.style.clipPath = `inset(0 ${100-v}% 0 0)`;
+        after.style.clipPath = `inset(0 0 0 ${v}%)`;
         divider.style.left = v + "%";
       };
       range.addEventListener("input", update);
@@ -561,17 +680,67 @@
     });
     document.querySelectorAll(".case-body").forEach(body => {
       const c = byId[body.dataset.case];
-      const probe = body.querySelector(".probe-img");
-      const readout = body.querySelector(".probe-readout");
-      probe.addEventListener("click", event => {
-        event.preventDefault();
-        const rect = probe.getBoundingClientRect();
+      const dialog = body.querySelector(".region-picker");
+      const pickerImage = dialog.querySelector(".picker-image");
+      const pickerBox = dialog.querySelector(".picker-image-box");
+      const marker = dialog.querySelector(".picker-marker");
+      const pickerReadout = dialog.querySelector(".picker-readout");
+      const regionReadout = body.querySelector(".region-readout");
+      const clearRegion = body.querySelector(".clear-region");
+      const useRegion = dialog.querySelector(".use-region");
+
+      body.querySelector(".select-region").addEventListener("click", () => {
+        dialog.dataset.x = body.dataset.x;
+        dialog.dataset.y = body.dataset.y;
+        setPickerZoom("fit");
+        updatePickerMarker();
+        if (typeof dialog.showModal === "function") dialog.showModal();
+        else dialog.setAttribute("open", "");
+      });
+      dialog.querySelector(".cancel-region").addEventListener("click", () => dialog.close());
+      dialog.querySelectorAll("[data-zoom]").forEach(button => {
+        button.addEventListener("click", () => setPickerZoom(button.dataset.zoom));
+      });
+      pickerImage.addEventListener("click", event => {
+        const rect = pickerImage.getBoundingClientRect();
         const x = Math.max(0, Math.min(c.native_width - 1, Math.round((event.clientX - rect.left) / rect.width * c.native_width)));
         const y = Math.max(0, Math.min(c.native_height - 1, Math.round((event.clientY - rect.top) / rect.height * c.native_height)));
-        body.dataset.x = x;
-        body.dataset.y = y;
-        readout.textContent = `native coordinate: x=${x}, y=${y} · ${c.native_width}×${c.native_height}`;
+        dialog.dataset.x = x;
+        dialog.dataset.y = y;
+        updatePickerMarker();
       });
+      useRegion.addEventListener("click", () => {
+        if (!dialog.dataset.x) return;
+        body.dataset.x = dialog.dataset.x;
+        body.dataset.y = dialog.dataset.y;
+        regionReadout.textContent = `Selected: x=${body.dataset.x}, y=${body.dataset.y} · ${c.native_width}×${c.native_height}`;
+        clearRegion.hidden = false;
+        dialog.close();
+      });
+      clearRegion.addEventListener("click", () => {
+        body.dataset.x = "";
+        body.dataset.y = "";
+        regionReadout.textContent = "No region selected";
+        clearRegion.hidden = true;
+      });
+      function setPickerZoom(zoom) {
+        pickerBox.style.width = zoom === "fit" ? "100%" : `${c.native_width * Number(zoom)}px`;
+        dialog.dataset.zoom = zoom;
+      }
+      function updatePickerMarker() {
+        const hasPoint = dialog.dataset.x !== "";
+        marker.hidden = !hasPoint;
+        useRegion.disabled = !hasPoint;
+        if (!hasPoint) {
+          pickerReadout.textContent = "Click the large image to place a point.";
+          return;
+        }
+        const x = Number(dialog.dataset.x);
+        const y = Number(dialog.dataset.y);
+        marker.style.left = `${100 * x / c.native_width}%`;
+        marker.style.top = `${100 * y / c.native_height}%`;
+        pickerReadout.textContent = `Pending point: x=${x}, y=${y} · choose “Use selected point” to keep it.`;
+      }
       body.querySelector(".copy-note").addEventListener("click", async () => {
         const issue = body.querySelector(".issue").value;
         const note = body.querySelector(".note").value.trim() || "[add observation]";

@@ -48,5 +48,12 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
     assert "GT-only" in html
     assert "Every image input" in html
     assert "Copy diagnostic note" in html
+    assert "BASE</strong> is always left of the divider" in html
+    assert "OUTPUT</strong> is always right of the divider" in html
+    assert ".compare .after { clip-path: inset(0 0 0 50%);" in html
+    assert "after.style.clipPath = `inset(0 0 0 ${v}%)`" in html
+    assert "Select region on large image (optional)" in html
+    assert "probe-img" not in html
+    assert "Click to record a native coordinate" not in html
     for scene_id in expected_cases:
         assert f'"sid":"{scene_id}"' in html

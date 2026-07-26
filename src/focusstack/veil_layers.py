@@ -3253,6 +3253,10 @@ def _one_sided_rear_application_mask(
     )
     before_corroboration = int((mask > 1e-4).sum())
     after_corroboration = int((mask > 1e-4).sum())
+    outer_feather = cv2.GaussianBlur(
+        mask, (0, 0), 0.75 * spatial_scale, borderType=cv2.BORDER_REFLECT
+    )
+    mask = np.maximum(mask, outer_feather)
 
     front_veto = np.asarray(front_extent, bool)
     veto_removed = int(((mask > 1e-4) & front_veto).sum())

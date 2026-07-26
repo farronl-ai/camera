@@ -3235,10 +3235,7 @@ def _one_sided_rear_application_mask(
         alpha,
         spatial_scale,
     )
-    mask = (
-        _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
-        * fringe_consensus.astype(np.float32)
-    )
+    mask = _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
     _, rear_support_evidence = (
         _ordered_visibility_gate(
             images,
@@ -3255,7 +3252,6 @@ def _one_sided_rear_application_mask(
         )
     )
     before_corroboration = int((mask > 1e-4).sum())
-    mask *= (rear_support_mask > 1e-4).astype(np.float32)
     after_corroboration = int((mask > 1e-4).sum())
 
     front_veto = np.asarray(front_extent, bool)

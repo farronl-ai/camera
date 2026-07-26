@@ -102,10 +102,14 @@ Required evidence is a lattice:
       0/10, scores identical. A real 14-frame MobileDepth sweep refuses before
       the bridge and remains byte-identical. The built wheel includes the solver
       and semantic bridge scripts.
-- [ ] **S6 — checkpoint close.** Distribute findings to SYNTHESIS, PLAYBOOK,
-      DEVSTYLE, and FRONTIER; refresh outward-facing docs if a capability ships;
-      run the F49/F50 drift sweep; clean-tree/origin/test audit; commit and push
-      logical checkpoints without author trailers.
+- [x] **S6 — checkpoint close.** Findings distributed to MISSION, SYNTHESIS,
+      PLAYBOOK, DEVSTYLE, FRONTIER, plan, and durable project memory; showcase +
+      market faces refreshed; local live-status report rebuilt; F49/F50 drift
+      sweep fixed library defaults and superseded wording. Full suite 39 passed,
+      wheel built, history linear, origin synchronized, logical commits pushed
+      without author trailers. The historical Claude artifact URL cannot be
+      republished from this Codex environment; `research/report.html` is current
+      locally and `report.py` is the committed source.
 
 ## Blind-radius result: point estimation is the wrong abstraction
 

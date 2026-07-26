@@ -3723,8 +3723,8 @@ def recover_giant_veil(
         low_mask = mask + (1.0 - mask) * low_feather
         low_mask[np.asarray(selected["front_extent"], bool)] = 0.0
         applied_correction = (
-            detail_correction * mask[..., None]
-            + low_correction * low_mask[..., None]
+            detail_correction * low_mask[..., None]
+            + low_correction * mask[..., None]
         )
     composed = repaired_base.astype(np.float32) + applied_correction
     if one_sided_geometry:

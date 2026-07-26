@@ -3,6 +3,27 @@
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
 `NEXT_STEPS_scenerecovery.md`, and F60–F67 in `FINDINGS.md`.
 
+## 2026-07-26 fresh split checkpoint
+
+S28 is the first frozen split generated after F70.  Its twelve-scene direct
+formation audit passes the full pre-antialias ownership invariant: changing
+only the hidden rear layer changes zero V2 hard-owned pixels, every hard-owned
+coverage value is exactly one, and every scene retains an exterior veil.  V1
+changes 39,850 hard-owned pixels under the same counterfactual.
+
+The inverse is not promoted.  Before any solve bank, the GT-attributed geometry
+audit found one broad semantic rear opening (`s28_002`), two narrow
+hard-ownership rear-mask leaks (`s28_005`, `s28_006`), and one far-background
+leak (`s28_011`).  The broad case begins in the source proposal rather than the
+generator or solver: its focused semantic mask contains 38,503 true rear
+pixels, and later completion expands them.  A decisively rear-focused connected
+component supplies independent evidence for the opening, while owner-proposal
+consensus already protects focused-owner hard copy.  The remaining task is to
+keep that rear region out of the layer model (or refuse the hypothesis), then
+close the narrow rear-mask leaks without consuming legitimate exterior veil.
+
+Do not regenerate the inspector yet.
+
 ## 2026-07-26 pause — restart from the hidden-background invariant
 
 The current inspector's recovery result is a strong checkpoint and must be

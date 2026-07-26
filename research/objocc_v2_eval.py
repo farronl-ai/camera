@@ -932,7 +932,7 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
     payload = {
         "factory": (
             "one_sided_opaque_v2"
-            if split == "s27"
+            if split in {"s27", "s28"}
             else "one_sided_opaque_v1"
             if split in {"s25", "s26"}
             else "objocc_v2_exact_disk"
@@ -1049,6 +1049,7 @@ def main() -> None:
         "s25",
         "s26",
         "s27",
+        "s28",
     }
     if (
         len(sys.argv) != 3

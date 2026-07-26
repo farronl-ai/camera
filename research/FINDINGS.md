@@ -5,6 +5,48 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F71 — Fresh formation passes; fresh ownership does not
+
+F70 was frozen before generating S28.  The twelve-scene S28 cohort uses the
+same `one_sided_opaque_v2` contract and a new seed (`39001`), and its direct
+hidden-background counterfactual closes the formation question at this scale:
+
+- V1 changes 39,850 pixels inside pre-antialias hard ownership when only the
+  hidden rear image is inverted;
+- V2 changes zero hard-owned pixels in every scene;
+- hard-owned coverage is exactly one in every scene; and
+- all twelve scenes retain a nonempty exterior veil.
+
+This proves the repaired generator property; it does not promote the inverse.
+A geometry-only audit, deliberately run before the expensive solve bank,
+exposed new failures:
+
+- `s28_002` selects a semantic foreground proposal that already contains
+  38,503 true rear pixels.  First GrabCut completion raises that to 42,109 and
+  graph refinement to 49,983.  The proposal's forward residual is best because
+  blur's null space can explain the attached rear concavity, so a global
+  re-degradation score is not local ownership evidence.
+- `s28_005` and `s28_006` leave 14 and 165 hard-owned pixels, respectively,
+  inside the rear application mask.
+- `s28_011` permits 34 rear-correction pixels in GT far background.
+- `s28_003` and `s28_008` correctly refuse cross-frame-uncorroborated geometry.
+
+The `s28_002` stage attribution also explains what must not be changed.
+Owner-proposal consensus has 99.34% foreground precision and already prevents
+the broad false semantic region from becoming focused-owner hard copy, but the
+false region still enters the paired layer model through `front_extent`.
+The next change must therefore distinguish local rear openings from opaque
+ownership before model construction.  A large connected, decisively
+rear-focused component inside the false region is 4,144/4,240 true rear pixels;
+this is independent focal-order evidence, not a GT threshold.  Use it to test
+an edge-respecting rear-opening carve or refuse the hypothesis.  Do not dilate
+the front globally, replace the six-solve consensus, or weaken the valid
+exterior veil.
+
+S28 remains validation evidence and must not be tuned case-by-case.  Mechanism
+development returns to compact causal sentinels, followed by a new frozen
+split.  The inspector remains frozen until final promotion.
+
 ## F70 — Ownership is inferred as regions, then radiance is chosen discretely
 
 F69 fixed the generator but left the inverse paired with V1's soft-alpha

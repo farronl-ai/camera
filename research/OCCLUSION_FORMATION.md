@@ -3,6 +3,18 @@
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
 `NEXT_STEPS_scenerecovery.md`, and F60–F67 in `FINDINGS.md`.
 
+## 2026-07-26 narrow shipping checkpoint
+
+Full post-rule S29 licenses 11 scenes and exactly refuses one.  All 11 improve
+MAE/MSE and every physical partition, rear application is zero in all protected
+regions, and far background is exact.  GT-side worst-tile inspection finds no
+invented fine texture behind the remaining diagnostic dissent.  The real
+composed bridge reproduces the validated ownership path.
+
+Exactly two-frame, validated-size one-sided opaque recovery is therefore live
+in `--enhance auto`; failed gates remain byte-identical.  This does not promote
+transmission, N-frame layer inversion, or arbitrary CoC regimes.
+
 ## 2026-07-26 post-rule S29 checkpoint
 
 S29 separates resolved small ownership from source-mask speckle.  A connected

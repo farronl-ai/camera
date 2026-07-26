@@ -14,7 +14,7 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 2 | **Real N-frame optical data** (BBBC006 microscopy z-stacks) | Real optical defocus. | ✅ F25: got 4 real 3-plane stacks; perband visibly sharpest, pyramid softens/halos nuclei. Microscopy domain covered; macro/photographic real still open (2b). |
 | 2b | **Real photographic/macro deep stacks** | Microscopy ≠ everyday photography content; the photographic real-optical gap persists (MFFW/UHD blocked). | 🔶 DATA IN: `research/REAL_DATA.md`. `mobiledepth` in-tree (13 real phone sweeps, N=12–41, no AiF GT); `iphone12`/Learn2Refocus (N=9, 4K, +pseudo-GT) documented; `araujo` scripted. Photographic gap NARROWED; true macro/product still open. |
 | 3 | **Occlusion-boundary physics (α-matte)** | Real depth edges mix fg/bg semi-transparently. | ✅ F25: built layered α-matte defocus generator; re-ranked — perband crown WIDENS (blend worst under honest occlusion). Synthetic conclusions not artifacts. Fusion itself is still occlusion-UNAWARE (3b). |
-| 3b | **Occlusion-AWARE scene recovery** | Joint layer inversion (de-veiling beyond camera-mix). | 🔶 F75 / SAFETY-DISABLED: S28 formation passes 12/12 and its ten fires improve MAE/MSE and every physical partition. S29 is now frozen post-rule: formation passes 12/12; a strict native graph continuation restores real tiny foreground while the generator removes only sub-eight-pixel segmentation speckle. Blind S29 geometry licenses 11/refuses one with mean IoU 0.96566 and zero rear application in every protected region. Full S29 solve, shipping path, and the one-time inspector rebuild remain. |
+| 3b | **Occlusion-AWARE scene recovery** | Joint layer inversion (de-veiling beyond camera-mix). | ✅ F76 NARROW SHIP: exactly two-frame, validated-size one-sided opaque recovery is enabled in `--enhance auto`. Frozen post-rule S29 formation passes 12/12; blind geometry licenses 11/refuses one with mean IoU 0.96566 and zero protected-region rear application. All 11 fires improve MAE/MSE and every physical partition with exact far identity; GT-side artifact inspection clears the finest-band diagnostic dissent. N-frame/general-CoC/transmission remain separate frontier rows. |
 | 3c | **Transmissive-layer recovery** | A transparent foreground and rear scene transform differently across focus, preserving separability beyond ordinary fusion. | 🔶 F63 design: add distinct geometric-coverage and extinction fields, save both latent layers, establish an oracle scalar-transmission ceiling, then attempt blind formation routing and opacity/layer estimation. Do not weaken opaque complete-core ownership to approximate transmission. |
 | 4 | **Per-band Q_ABF metric** | Fix Q_ABF's high-res collapse structurally. | ✅ F26: q_abf_ms (mean-pool) recovers +0.11→+0.78 at high-res; new composite best at BOTH regimes (+0.785/+0.869). Adopted. |
 | 5 | **Depth map byproduct** | Free feature from the fusion decision. | ✅ F26: --depth-out shipped; r=0.59 on textured pixels (texture-only observability — documented limitation). |
@@ -49,10 +49,10 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
 - **16e semantic matte: 🔶 resolved by regime-matching** (F46) — mask mattes serve the
   veil specialist; C3 serves reconstruction; SAM-quality matting for GENERAL scenes
   remains the recall-growth lever.
-- **16f: ✅ SHIPPED, RESCOPED (F48/F54)** — `--enhance auto` retains gated contour
-  reconstruction. F54 removed the old veil half; F56 adds a separately validated
-  joint-layer giant-veil specialist whose bridge call occurs only on two-frame auto
-  enhancement and whose nonlicensed paths remain identity.
+- **16f: ✅ SHIPPED, RESCOPED (F48/F54/F76)** — `--enhance auto` retains gated
+  contour reconstruction. F54 removed the old correction-after-fusion veil
+  path; F76 promotes the separately validated one-sided joint-layer specialist
+  only for two-frame auto enhancement, with identity on every nonlicensed path.
 - **17a (Farron, 2026-07-22): the pseudo-GT ceiling** — external "GT" benchmarks
   (iphone12 = Helicon output) inherit the toolmaker's ceiling: selection-made
   references CONTAIN the veil, so they score veil removal as ERROR. Consequence:

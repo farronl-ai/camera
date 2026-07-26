@@ -101,11 +101,10 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["auto", "off"],
         default="auto",
         help="Gated specialist enhancement (default auto): contour reconstruction "
-        "fires only where its outcome-trained gate predicts a win. The "
-        "joint-layer giant-veil specialist is retained for research but "
-        "safety-disabled: focused-owner geometry plus ordered visibility close "
-        "its spatial foreground tail, but a small finest-band false-texture "
-        "warning remains; all veil cases are currently identity. "
+        "fires only where its outcome-trained gate predicts a win. For exactly "
+        "two frames, the joint-layer giant-veil specialist also fires only "
+        "after cross-frame opaque ownership, focal ordering, forward-fit, and "
+        "six-model stability checks; every refusal is identity. "
         "'off' disables enhancement. perband method only.",
     )
     p.add_argument(

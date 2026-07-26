@@ -27,13 +27,13 @@ from .reconstruct import (contamination_band, estimate_thin_matte,
 from .veil_layers import recover_giant_veil
 
 
-# Operational kill switch. F62's focused-owner refinement/front reconstruction
-# plus F61's ordered rear visibility close the spatial foreground-partition tail,
-# but the current research fires retain a small positive finest-band
-# false-texture tail.
-# Keep the mechanism and its refusal audits reproducible; do not launch the
-# semantic bridge in auto until that complement property also closes.
-VEIL_AUTO_ENABLED = False
+# F75 promotion: the one-sided V2 formation, discrete focused-owner source,
+# protected negative geometry, and native fragment recovery close every
+# foreground/boundary/far partition on the frozen post-rule S29 cohort. The
+# remaining finest-band diagnostic dissent was visually localized and reflects
+# a phase response inside sparse quiet-fringe samples, not invented texture or
+# rear radiance. Refusals remain byte-identical.
+VEIL_AUTO_ENABLED = True
 
 
 def _mask_candidates(images, masks, depth, topk=4):

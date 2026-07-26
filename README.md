@@ -93,11 +93,11 @@ focusstack images/*.png -o out.png --harden 0.5
 # weights are smooth, so this is near-lossless; thin structures stay full-res).
 focusstack big/*.png -o out.png --fast --harden 0.5
 
-# Default auto enhancement can re-render licensed thin contours. The joint-layer
-# giant-veil mechanism remains in research: focused-owner matte refinement and
-# front-first reconstruction now close its spatial foreground tail before
-# ordered rear recovery, but auto stays safety-disabled until a small finest-band
-# false-texture warning is causally resolved.
+# Default auto enhancement can re-render licensed thin contours. For exactly
+# two frames it can also recover a licensed giant occlusion veil: opaque
+# ownership is selected as discrete focused-owner regions, rear recovery is
+# forbidden inside foreground/boundary support, and every failed gate returns
+# the ordinary fusion byte-for-byte.
 focusstack bracket/*.png -o out.png --enhance auto
 ```
 

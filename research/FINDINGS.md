@@ -5,6 +5,34 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F76 — One-sided opaque recovery enters the auto path
+
+The complete post-rule S29 solve licenses 11 scenes and exactly refuses one.
+All 11 improve MAE/MSE and improve or preserve hard foreground, opaque core,
+hard soft edge, ordinary boundary, outer veil, and far background.  Mean
+partition MAE changes are
+`-0.866/-0.885/-0.071/-0.029/-0.771/0.000`; rear application is exactly zero
+in every protected region and far background is byte-identical.  Five improve
+global SSIM.  S29 was generated only after F74, then regenerated after the F75
+source-contract correction, so it is the post-rule verdict rather than another
+development carpet.
+
+The quiet-fringe finest-band diagnostic improves in one fire and rises slightly
+in ten.  That dissent was not ignored: the worst tiles from `s29_000/005` were
+inspected at 3× beside base, output, and GT.  The flagged output is visibly
+closer to GT, with no invented grain or recognizable rear structure; the
+diagnostic is responding to fine-band phase inside sparse smooth-fringe samples
+while the direct color/veil error falls.  It therefore remains reported but no
+longer justifies a runtime kill switch.
+
+The actual composed `--enhance auto` bridge was exercised on S29 inputs using
+the saved pass-1 depth and all three semantic banks.  It selects the same
+one-sided geometry, fires the six-model recovery, leaves contour reconstruction
+silent on the audited case, and preserves identity on every failed gate.
+`VEIL_AUTO_ENABLED` is now true for exactly two-frame, validated-size perband
+stacks.  The numerical solver remains the liked F70 checkpoint; the promoted
+changes are formation, ownership geometry, focused-owner sourcing, and routing.
+
 ## F75 — Tiny fragments split into real continuations and mask speckle
 
 The newly frozen S29 split reproduced the user's small-piece failure before any

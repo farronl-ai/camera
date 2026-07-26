@@ -79,6 +79,12 @@ def test_enhance_auto_identity_when_silent(tmp_path, monkeypatch):
     assert np.array_equal(a, b)
 
 
+def test_joint_layer_auto_is_enabled_after_post_rule_validation():
+    import focusstack.enhance as enhance_module
+
+    assert enhance_module.VEIL_AUTO_ENABLED is True
+
+
 def test_enhance_auto_refuses_cleanly_when_veil_bridge_is_absent(monkeypatch):
     import focusstack.enhance as enhance_module
 

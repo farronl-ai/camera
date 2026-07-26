@@ -3722,10 +3722,9 @@ def recover_giant_veil(
         )
         low_mask = mask + (1.0 - mask) * low_feather
         low_mask[np.asarray(selected["front_extent"], bool)] = 0.0
-        applied_correction = (
-            detail_correction * low_mask[..., None]
-            + low_correction * mask[..., None]
-        )
+        applied_detail = detail_correction * low_mask[..., None]
+        applied_low = low_correction * mask[..., None]
+        applied_correction = applied_detail + applied_low
     composed = repaired_base.astype(np.float32) + applied_correction
     if one_sided_geometry:
         front_extent = np.asarray(selected["front_extent"], bool)
@@ -3815,6 +3814,29 @@ def recover_giant_veil(
             )
             applied_correction -= seam_strength[..., None] * (
                 applied_correction - normal_low
+            )
+            low_step = 2.0 * spatial_scale
+            low_minus = cv2.remap(
+                applied_low,
+                grid_x - low_step * normal_x,
+                grid_y - low_step * normal_y,
+                cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_REFLECT,
+            )
+            low_plus = cv2.remap(
+                applied_low,
+                grid_x + low_step * normal_x,
+                grid_y + low_step * normal_y,
+                cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_REFLECT,
+            )
+            low_normal = (
+                0.25 * low_minus
+                + 0.50 * applied_low
+                + 0.25 * low_plus
+            )
+            applied_correction += 1.5 * seam_strength[..., None] * (
+                low_normal - applied_low
             )
             composed = (
                 repaired_base.astype(np.float32) + applied_correction

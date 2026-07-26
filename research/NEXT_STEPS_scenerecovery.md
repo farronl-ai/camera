@@ -172,11 +172,13 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       V2 now saves pre-antialias `hard_ownership` and uses
       `max(hard_ownership, alpha, spread)`: the actual diagnosed bird replay
       falls from 7,397 rear-dependent owned pixels to exactly zero without
-      removing outward veil. One S27 formation sentinel passes; generate only a
-      compact visual/counterfactual carpet next. Then preserve the F67 solver,
-      infer an edge-respecting discrete ownership matte, and prove both hard
-      front choice and rear exclusion before freezing. Regenerate the inspector
-      once, at the end; the solid S23 inspector is still preserved.
+      removing outward veil. The compact six-scene S27 carpet also passes:
+      V1 changes 15,208 hard-owned pixels under hidden-background inversion,
+      V2 changes zero, and all six retain exterior veil. Preserve the F67
+      solver, pair its forward model with the discrete ownership field, then
+      infer an edge-respecting ownership matte and prove both hard front choice
+      and rear exclusion before freezing. Regenerate the inspector once, at the
+      end; the solid S23 inspector is still preserved.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

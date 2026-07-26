@@ -36,17 +36,19 @@ FastSAM mask, the original target-background family, the original scale, and
 the original placement. Inverting only the hidden background changed 7,397 of
 55,222 hard-owned pixels under V1, with a maximum 207.59-level difference. V2
 changed 0/55,222: maximum and mean were exactly zero, while 342,000 exterior
-pixels retained foreground spread. The first generated S27 sentinel records
-454,788 hard-owned pixels, minimum far coverage `1.0`, zero nonopaque owned
-pixels, and a nonempty 98,437-pixel outer veil. The complete test suite passes
-65/65.
+pixels retained foreground spread. The compact six-scene S27 carpet then
+covered three ordinary primary cases, two boundary cases, and one all-veil
+stress. V1 changed 15,208 hard-owned pixels under hidden-background inversion;
+V2 changed exactly zero. Every scene has minimum owned coverage `1.0`, zero
+nonopaque owned pixels, and a nonempty exterior veil. The complete test suite
+passes 65/65.
 
 S25/S26 remain frozen V1 development evidence and can still be reproduced by a
 private legacy operator; they cannot certify final opaque formation. S27 is
 versioned as the first V2 cohort and saves `hard_ownership.png` plus per-scene
-coverage invariants. Do not resume inverse tuning until a compact S27
-counterfactual/visual carpet confirms that this mathematical correction also
-matches the intended scenes. The liked solver and inspector remain preserved.
+coverage invariants. The compact formation gate is now closed; next pair the
+preserved inverse solver with V2's discrete ownership field before grading its
+output. The liked inspector remains preserved.
 
 ## F68 — An opaque benchmark cannot inherit semantic holes as apertures
 

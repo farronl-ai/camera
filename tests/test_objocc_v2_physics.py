@@ -9,12 +9,41 @@ RESEARCH = Path(__file__).resolve().parents[1] / "research"
 sys.path.insert(0, str(RESEARCH))
 
 from objocc_v2_gen import (  # noqa: E402
+    _solid_opaque_source_mask,
     coverage_stats,
     exact_disk_blur,
     render_focal_pair,
     render_layered_focal_pair,
     render_one_sided_opaque_focal_pair,
 )
+
+
+def test_solid_opaque_source_mask_fills_only_small_enclosed_holes():
+    mask = np.zeros((80, 90), np.uint8)
+    mask[10:70, 15:75] = 1
+    mask[31:33, 40:42] = 0
+
+    repaired, report = _solid_opaque_source_mask(mask)
+
+    assert repaired is not None
+    assert np.all(repaired[31:33, 40:42])
+    assert report["source_mask_small_holes_filled"]
+    assert not report["source_mask_rejected_ambiguous_holes"]
+
+
+def test_solid_opaque_source_mask_rejects_large_internal_aperture():
+    mask = np.zeros((80, 90), np.uint8)
+    mask[10:70, 15:75] = 1
+    mask[25:50, 35:55] = 0
+
+    repaired, report = _solid_opaque_source_mask(mask)
+
+    assert repaired is None
+    assert report["source_mask_rejected_ambiguous_holes"]
+    assert (
+        report["source_mask_enclosed_hole_fraction"]
+        > 0.005
+    )
 
 
 def test_complete_coverage_core_never_reveals_background():

@@ -38,6 +38,7 @@ Run:
     python research/objocc_v2_gen.py 36 t24
     python research/objocc_v2_gen.py 12 s25
     python research/objocc_v2_gen.py 36 s26
+    python research/objocc_v2_gen.py 36 s27
 """
 from __future__ import annotations
 
@@ -85,7 +86,13 @@ PRIMARY_OPAQUE_SCHEDULE = (
 # all-veil opaque stress.
 TRANSMISSIVE_SCHEDULE = ("primary", "primary", "boundary")
 TRANSMISSIVE_OPACITIES = (0.35, 0.55, 0.75)
-ONE_SIDED_OPAQUE_SPLITS = {"s25", "s26"}
+ONE_SIDED_OPAQUE_SPLITS = {"s25", "s26", "s27"}
+# A primary solid-opaque cohort must not turn a segmenter's internal omission
+# into an optical aperture. Tiny enclosed speckles are repaired; a mask with a
+# substantial enclosed region is topologically ambiguous and belongs in a
+# later explicit aperture/transmission cohort instead.
+SOLID_OPAQUE_MASK_SPLITS = {"s27"}
+SOLID_OPAQUE_MAX_ENCLOSED_HOLE_FRACTION = 0.005
 
 
 def exact_disk_blur(image: np.ndarray, radius: float) -> np.ndarray:
@@ -135,6 +142,36 @@ def _nearest_safe_radiance(
     filled = image[safe_y[nearest], safe_x[nearest]].copy()
     filled[safe] = image[safe]
     return filled.astype(np.float32)
+
+
+def _solid_opaque_source_mask(
+    mask: np.ndarray,
+) -> tuple[np.ndarray | None, dict]:
+    """Repair tiny segmentation holes or reject ambiguous opaque topology."""
+    binary = np.asarray(mask) > 0
+    contours, _ = cv2.findContours(
+        binary.astype(np.uint8),
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE,
+    )
+    filled = np.zeros(binary.shape, np.uint8)
+    cv2.drawContours(filled, contours, -1, 1, cv2.FILLED)
+    enclosed_holes = (filled > 0) & ~binary
+    hole_pixels = int(enclosed_holes.sum())
+    foreground_pixels = int(binary.sum())
+    hole_fraction = hole_pixels / max(foreground_pixels, 1)
+    report = {
+        "source_mask_contract": "solid_opaque_no_ambiguous_holes_v1",
+        "source_mask_enclosed_hole_pixels": hole_pixels,
+        "source_mask_enclosed_hole_fraction": float(hole_fraction),
+        "source_mask_small_holes_filled": False,
+        "source_mask_rejected_ambiguous_holes": False,
+    }
+    if hole_fraction > SOLID_OPAQUE_MAX_ENCLOSED_HOLE_FRACTION:
+        report["source_mask_rejected_ambiguous_holes"] = True
+        return None, report
+    report["source_mask_small_holes_filled"] = hole_pixels > 0
+    return filled > 0, report
 
 
 def render_focal_pair(
@@ -319,7 +356,7 @@ def _stratum_matches(stratum: str, stats: dict) -> bool:
     raise ValueError(stratum)
 
 
-def _source_assets():
+def _source_assets(*, solid_opaque: bool = False):
     assets = []
     for path in sorted(glob.glob(os.path.join(SRC, "*", "gt.png"))):
         mask_path = path + ".masks.npy"
@@ -329,12 +366,25 @@ def _source_assets():
         for index, mask in enumerate(
             good_object_masks(np.load(mask_path), *image.shape[:2])
         ):
+            if solid_opaque:
+                prepared_mask, mask_report = _solid_opaque_source_mask(mask)
+                if prepared_mask is None:
+                    continue
+                mask = prepared_mask
+            else:
+                mask_report = {
+                    "source_mask_contract": "legacy_semantic_mask",
+                    "source_mask_enclosed_hole_pixels": None,
+                    "source_mask_enclosed_hole_fraction": None,
+                    "source_mask_small_holes_filled": False,
+                    "source_mask_rejected_ambiguous_holes": False,
+                }
             ys, xs = np.where(mask > 0)
             y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
             crop = image[y0:y1 + 1, x0:x1 + 1]
             binary = mask[y0:y1 + 1, x0:x1 + 1]
             radiance = _nearest_safe_radiance(crop, binary)
-            assets.append((path, index, radiance, binary))
+            assets.append((path, index, radiance, binary, mask_report))
     return assets
 
 
@@ -371,6 +421,7 @@ def generate(count: int, split: str) -> None:
         "t24",
         "s25",
         "s26",
+        "s27",
     }
     if split not in supported_splits:
         raise ValueError(
@@ -378,7 +429,10 @@ def generate(count: int, split: str) -> None:
         )
     split_dir = os.path.join(OUT, split)
     os.makedirs(split_dir, exist_ok=True)
-    assets = _source_assets()
+    is_transmissive = split == "t24"
+    is_one_sided_opaque = split in ONE_SIDED_OPAQUE_SPLITS
+    solid_opaque_sources = split in SOLID_OPAQUE_MASK_SPLITS
+    assets = _source_assets(solid_opaque=solid_opaque_sources)
     if not assets:
         raise RuntimeError("no source objects with cached masks")
     photos = sorted(glob.glob(os.path.join(SRC, "*", "gt.png")))
@@ -394,9 +448,8 @@ def generate(count: int, split: str) -> None:
         "t24": 27001,
         "s25": 30001,
         "s26": 33001,
+        "s27": 36001,
     }[split]
-    is_transmissive = split == "t24"
-    is_one_sided_opaque = split in ONE_SIDED_OPAQUE_SPLITS
     if is_transmissive:
         stratum_schedule = TRANSMISSIVE_SCHEDULE
         material_model = "scalar_transmissive_occluder"
@@ -413,7 +466,7 @@ def generate(count: int, split: str) -> None:
             if split == "s25"
             else (
                 "primary_one_sided_opaque_post_freeze"
-                if split == "s26"
+                if split in {"s26", "s27"}
                 else "primary_opaque_post_audit"
             )
         )
@@ -433,6 +486,16 @@ def generate(count: int, split: str) -> None:
         ),
         "material_model": material_model,
         "cohort_role": cohort_role,
+        "source_mask_contract": (
+            "solid_opaque_no_ambiguous_holes_v1"
+            if solid_opaque_sources
+            else "legacy_semantic_mask"
+        ),
+        "source_mask_max_enclosed_hole_fraction": (
+            SOLID_OPAQUE_MAX_ENCLOSED_HOLE_FRACTION
+            if solid_opaque_sources
+            else None
+        ),
         "stratum_schedule": list(stratum_schedule),
         "coc_fraction": COC_FRACTION,
         "defocus_distance": DEFOCUS_DISTANCE,
@@ -451,9 +514,13 @@ def generate(count: int, split: str) -> None:
             if is_transmissive
             else 1.0
         )
-        source_path, mask_index, source_radiance, source_mask = assets[
-            int(rng.integers(len(assets)))
-        ]
+        (
+            source_path,
+            mask_index,
+            source_radiance,
+            source_mask,
+            source_mask_report,
+        ) = assets[int(rng.integers(len(assets)))]
         background_path = photos[int(rng.integers(len(photos)))]
         if os.path.dirname(background_path) == os.path.dirname(source_path):
             continue
@@ -645,6 +712,7 @@ def generate(count: int, split: str) -> None:
             "formation_model": rendered["formation_model"],
             "source": os.path.basename(os.path.dirname(source_path)),
             "source_mask_index": int(mask_index),
+            **source_mask_report,
             "background": os.path.basename(os.path.dirname(background_path)),
             "scale": scale,
             "placement_xy": [px, py],

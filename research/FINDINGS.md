@@ -5,6 +5,54 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F68 — An opaque benchmark cannot inherit semantic holes as apertures
+
+The completed 36-scene S26 audit found two different classes of dissent. Six
+scenes still allowed a small rear correction through underestimated opaque
+geometry, confirming that F67's solver must remain fixed while boundary
+ownership is improved. `s26_020`, however, was not a veil-operator failure.
+GT-attributed outer-veil damage was concentrated on the printed label lying on
+top of a black foreground table. The source FastSAM mask had cut a 17,299-pixel
+enclosed hole through that label. The generator consequently rendered the
+unrelated target butterfly through a visibly solid tabletop and called it GT.
+The focused-RGB completion correctly filled the surface; direct metrics punished
+the physically sensible result.
+
+This is a factory contract failure, not a threshold exception. New primary
+opaque sources now pass a topology gate before scaling or rendering:
+
+- tiny enclosed segmentation speckles, at most `0.5%` of foreground area, are
+  filled as part of the same opaque ownership layer;
+- masks with a larger enclosed region are rejected as ambiguous topology and
+  reserved for a future explicit aperture/transmission regime;
+- historical splits remain byte-stable, while S27 is the first split using
+  `solid_opaque_no_ambiguous_holes_v1` and records the repair diagnostics in its
+  manifest.
+
+This complements, rather than replaces, F65's one-sided radiance law. F65
+prevents hidden rear radiance from entering a valid opaque support; F68 prevents
+the semantic source mask from falsely declaring an interior surface to be no
+support at all.
+
+The literature agrees with the structural direction while not defining this
+project's stricter opaque contract. Ma et al.'s alpha-matte boundary model
+separates foreground-focused from foreground-defocused boundary formation and
+states that a focused foreground blocks defocused rear influence. Liu et al.
+recover an explicit occlusion matte and depth from a focal stack rather than
+asking ordinary fusion weights to represent mutual occlusion. Ahn et al. show
+that composing and then blurring layers gives the wrong boundary interaction;
+the physical ordering is layered composition during image formation. These
+results support a separate ownership/matte state and a dedicated boundary
+inference step. They do not justify source-similarity scoring or symmetric
+composite blur.
+
+The current boundary experiment is intentionally not frozen: focused-frame
+semantic fragments plus focal transformation can close the known S26 core
+leaks, but blanket tolerance consumes valid exterior veil. The next mechanism
+must make the discrete ownership choice on edge-respecting regions, then grade
+both hard foreground selection and rear permission against GT. The inspector
+remains untouched.
+
 ## F67 — Focal transformation is evidence, not permission to erase the veil
 
 The first 15 scenes of the genuinely new S26 cohort invalidated promotion of

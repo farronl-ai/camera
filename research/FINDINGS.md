@@ -5,6 +5,26 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F55 (P0) — Joint two-layer inversion escapes F54's model-class failure
+The replacement solves both captured-frame equations simultaneously for sharp
+foreground/background layers, estimates corrections around observed owner/far
+frames, and renders the all-focus composite. It has no texture generator or
+external image prior. On an 18-scene realistic-object oracle-alpha/radius rung
+at max-side 512, all regularization settings have positive mean GT-SSIM
+(+0.00405 to +0.00497) and 17/18 scenes improve. At the selected
+`smooth=8, anchor=0.05`, true-fringe error drops 8.10 gray levels on average and
+smooth-region false-texture error drops 0.0268; the sole SSIM loss is
+`scene_31` at −0.00015, versus the retired hybrid's −0.0304 failure.
+
+The observed far frame is the correct conservative background anchor. Replacing
+it with the already-fused result worsens both recovery and false-texture tails:
+fusion is an output to beat, not independent evidence. A 0.5 px low-pass on the
+*correction only* reduces the remaining P0 loss to −0.000067 and the positive
+false-texture tail to +0.044 gray, but stronger filtering introduces boundary
+frequency error. This is the first positive realistic-object ceiling after F54,
+not a promotion: full-factory tails, blind inputs, native resolution, refusal,
+and real identity tests remain open.
+
 ## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
 
 **The mission (2026-07-22).** The goal has graduated: produce the image TRUE TO THE

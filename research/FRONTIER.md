@@ -115,11 +115,14 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   - **19e (from F53, user-caught): chromatic veil model + false-texture instrument** —
     per-channel D and pm-residual removal fix real terms but do not cure the
     model-class error. The false-texture index permanently joins the bench.
-  - **19f (F54 replacement): joint two-layer inversion** — solve all focal-frame
+  - **19f (F54 replacement, 🔶 F55 P0): joint two-layer inversion** — solve all focal-frame
     formation equations simultaneously for foreground premultiplication and sharp
-    background, then render the all-focus scene. First rung is oracle alpha/radii on
-    realistic objects with Tikhonov/TV + quantization-bin projection. No blind work
-    until the oracle worst case and false texture are nonnegative.
+    background, then render the all-focus scene. The 18-scene oracle-alpha/radius
+    rung is the first positive realistic-object ceiling (mean +0.00442 GT-SSIM,
+    17/18 positive; a 0.5px correction limit leaves worst −0.000067). It proves the
+    model class is materially better than correction-after-fusion, not that it is
+    safe. Next: all-100 oracle tails, then uncertainty/refusal. No blind work until
+    the oracle worst case and false-texture complement clear.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

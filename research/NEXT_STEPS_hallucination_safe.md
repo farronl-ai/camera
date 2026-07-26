@@ -148,6 +148,31 @@ scene and reduce false texture before any blind radius/matte work resumes.
 Failure at this rung retires wide-veil inversion entirely; success earns the
 model-bank/refusal work above.
 
+### F55 P0 checkpoint — a positive oracle ceiling appears
+
+The first 18-scene, max-side-512 cross-regime rung is qualitatively different
+from F54. Solving both observed frames jointly with the observed far frame as
+the background anchor gives mean GT-SSIM deltas from +0.00405 to +0.00497 over
+the untouched fused baseline across the regularization sweep; 17/18 scenes
+improve. At `smooth=8, anchor=0.05`, true-fringe absolute error falls by 8.10
+gray levels on average and smooth-region false-texture error falls by 0.0268 on
+average. The remaining scene (`scene_31`) loses only −0.00015 GT-SSIM, compared
+with −0.0304 for the retired hybrid under its semantic-matte audit.
+
+Two controls constrain the interpretation:
+
+- anchoring the background to the fused result is worse, particularly in the
+  false-texture tail, because it preserves the very mixed-frequency artifact
+  the inversion is meant to remove;
+- Gaussian-limiting only the recovered correction at 0.5 px improves the P0
+  worst case to −0.000067 and the false-texture mean/tail, while stronger
+  filtering creates its own boundary-frequency error.
+
+This is promising mechanism evidence, not a shipping result. P1 must run the
+chosen far-anchor model over all 100 oracle scenes and expose every tail. Only
+then may a measurable refusal rule be designed. Blind mattes/radii, native
+resolution, real-stack identity, and package integration remain untouched.
+
 ## Doctrine
 
 The binding rule is that recovery must stay rooted in observed remnants. A

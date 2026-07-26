@@ -2890,7 +2890,7 @@ def _fringe_mask(
     # also makes small model errors near either visibility limit decay to
     # identity instead of becoming a binary far-background edit.
     coverages = [
-        np.clip(blur_fn(alpha, 0.7 * max_radius), 0.0, 1.0)
+        np.clip(blur_fn(alpha, max_radius), 0.0, 1.0)
         for blur_fn in (_box_disk_blur, _disk_blur)
     ]
     near_visibility = np.minimum.reduce(coverages)

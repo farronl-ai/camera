@@ -514,6 +514,15 @@ def test_one_sided_rear_mask_never_crosses_true_foreground():
     )
 
     assert not np.any((rear_mask > 1e-4) & true_mask)
+    assert report["one_sided_front_veto_pixels"] == int(
+        selected["front_extent"].sum()
+    )
+    assert report["one_sided_front_veto_model_pixels"] == 0.0
+    assert (
+        report["one_sided_front_veto_role"]
+        == "exact_completed_foreground_only"
+    )
+    assert report["rear_mask_directional_front_removed_pixels"] == 0
     assert np.all(
         rear_mask[rear_mask > 0]
         >= ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT

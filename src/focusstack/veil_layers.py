@@ -3225,13 +3225,13 @@ def _one_sided_rear_application_mask(
         ONE_SIDED_FRONT_VETO_MODEL_PIXELS
     ),
 ) -> tuple[np.ndarray, dict]:
-    """Build a rear mask that cannot cross plausible opaque ownership.
+    """Build a rear mask that cannot cross completed opaque ownership.
 
     Completed geometry owns the layer model. The conservative cross-frame
-    matte independently certifies the rear footprint. Finally, a discrete
-    dilation around every plausible front pixel vetoes the rear mask. These
-    are intentionally separate claims: uncertainty about hard foreground
-    copying must resolve to identity, never to permission for rear synthesis.
+    matte independently certifies the rear footprint. Only the completed
+    foreground support is vetoed: expanding that veto outside the object
+    suppresses the very exterior veil this operator is meant to recover and
+    leaves an uncorrected seam around the silhouette.
     """
     ownership, ownership_evidence = _ordered_visibility_gate(
         images,
@@ -3264,25 +3264,7 @@ def _one_sided_rear_application_mask(
     mask *= (rear_support_mask > 1e-4).astype(np.float32)
     after_corroboration = int((mask > 1e-4).sum())
 
-    veto_radius = max(
-        1,
-        int(
-            round(
-                front_veto_model_pixels * spatial_scale
-            )
-        ),
-    )
-    veto_kernel = cv2.getStructuringElement(
-        cv2.MORPH_ELLIPSE,
-        (2 * veto_radius + 1, 2 * veto_radius + 1),
-    )
-    front_veto = (
-        cv2.dilate(
-            np.asarray(front_extent, np.uint8),
-            veto_kernel,
-        )
-        > 0
-    )
+    front_veto = np.asarray(front_extent, bool)
     veto_removed = int(((mask > 1e-4) & front_veto).sum())
     mask[front_veto] = 0.0
 
@@ -3297,32 +3279,11 @@ def _one_sided_rear_application_mask(
         max_radius,
         spatial_scale,
     )
-    directional_front = (
-        direction_score >= ONE_SIDED_DIRECTIONAL_REAR_VETO_MARGIN
-    )
-    # The same front-directed signal is expected throughout the exterior veil,
-    # so it cannot be a global rear veto.  Use it only to close a narrow
-    # boundary-quantization/segmentation undershoot immediately beyond the
-    # discrete front veto.
-    distance_to_front = cv2.distanceTransform(
-        (~np.asarray(front_extent, bool)).astype(np.uint8),
-        cv2.DIST_L2,
-        5,
-    )
-    directional_boundary_limit = (
-        (
-            front_veto_model_pixels
-            + ONE_SIDED_DIRECTIONAL_BOUNDARY_EXTENSION_MODEL_PIXELS
-        )
-        * spatial_scale
-    )
-    directional_front &= (
-        distance_to_front <= directional_boundary_limit
-    )
-    directional_removed = int(
-        ((mask > 1e-4) & directional_front).sum()
-    )
-    mask[directional_front] = 0.0
+    # Front-directed blur immediately outside an opaque silhouette is the
+    # expected foreground veil, not evidence that the exterior pixel belongs
+    # to the foreground. Do not turn that signal into an exterior veto.
+    directional_boundary_limit = 0.0
+    directional_removed = 0
 
     # Rear focus alone is not proof that foreground veil is present.  A pure
     # rear pixel is accurately mapped back to the owner frame by the reverse
@@ -3374,9 +3335,8 @@ def _one_sided_rear_application_mask(
             after_corroboration
         ),
         "one_sided_front_veto_pixels": int(front_veto.sum()),
-        "one_sided_front_veto_model_pixels": float(
-            front_veto_model_pixels
-        ),
+        "one_sided_front_veto_model_pixels": 0.0,
+        "one_sided_front_veto_role": "exact_completed_foreground_only",
         "rear_mask_front_veto_removed_pixels": veto_removed,
         "rear_mask_directional_front_removed_pixels": (
             directional_removed
@@ -3703,7 +3663,7 @@ def recover_giant_veil(
         # mask. It owns the foreground model and hard front selection. Rear
         # synthesis is more irreversible, so its footprint must independently
         # be classified as veil by the original cross-frame intersection.
-        front_veto_extent = np.asarray(
+        front_extent = np.asarray(
             selected.get(
                 "front_veto_extent",
                 selected.get("front_extent", alpha >= 0.5),
@@ -3715,16 +3675,11 @@ def recover_giant_veil(
             owner,
             alpha,
             rear_support_alpha,
-            front_veto_extent,
+            front_extent,
             fringe_consensus,
             max_radius,
             spatial_scale,
-            float(
-                selected.get(
-                    "front_veto_model_pixels",
-                    ONE_SIDED_FRONT_VETO_MODEL_PIXELS,
-                )
-            ),
+            0.0,
         )
         report.update(rear_mask_report)
     else:

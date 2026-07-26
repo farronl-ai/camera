@@ -416,7 +416,7 @@ def _inspection_ledger():
     return ledger, [source[1] for source in sources]
 
 
-def _v2_visibility_cases():
+def _v2_visibility_cases(selected_sids=None):
     """Build post-rule S29 cases with all physical partitions exposed."""
     from objocc_v2_eval import _score, candidates_with_features
     from objocc_v2_gen import scenes
@@ -480,6 +480,10 @@ def _v2_visibility_cases():
             "removed without deleting its real small opaque object.",
         ),
     )
+    if selected_sids is not None:
+        selections = tuple(
+            row for row in selections if row[1] in selected_sids
+        )
     diagnostic_points = {}
     loaded = {
         split: {scene["sid"]: scene for scene in scenes(split)}

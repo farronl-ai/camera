@@ -1,0 +1,147 @@
+{
+  "source_bank": "veillayers_p4_candidate_bank.json",
+  "configs": [
+    [
+      2.0,
+      0.02
+    ],
+    [
+      8.0,
+      0.05
+    ],
+    [
+      32.0,
+      0.1
+    ]
+  ],
+  "fired": [
+    {
+      "index": 56,
+      "sid": "scene_56",
+      "rank": 0,
+      "regime": 0.03502604166666667,
+      "alpha_error": 0.0031366350594908,
+      "forward_ratio": 0.617374081328349,
+      "dg": 0.0048272013664245605,
+      "de_fringe": -4.995168685913086,
+      "d_false_texture": 0.0431060791015625,
+      "false_texture_pixels": 440,
+      "stable_fraction": 0.9509147135416667,
+      "ensemble_spread_rms": 0.32986530661582947,
+      "retained_rms": 3.9513919353485107
+    },
+    {
+      "index": 65,
+      "sid": "scene_65",
+      "rank": 1,
+      "regime": 0.03502604166666667,
+      "alpha_error": 0.011888989247381687,
+      "forward_ratio": 0.7570673687417393,
+      "dg": 0.0030614733695983887,
+      "de_fringe": -4.302802085876465,
+      "d_false_texture": -0.01191866397857666,
+      "false_texture_pixels": 3021,
+      "stable_fraction": 0.9463587487781037,
+      "ensemble_spread_rms": 0.3971397578716278,
+      "retained_rms": 4.39579963684082
+    },
+    {
+      "index": 72,
+      "sid": "scene_72",
+      "rank": 0,
+      "regime": 0.03502604166666667,
+      "alpha_error": 0.026990994811058044,
+      "forward_ratio": 0.6230389093233336,
+      "dg": 0.004224717617034912,
+      "de_fringe": -8.349817276000977,
+      "d_false_texture": 0.060069143772125244,
+      "false_texture_pixels": 448,
+      "stable_fraction": 0.9470248752170138,
+      "ensemble_spread_rms": 0.6432915329933167,
+      "retained_rms": 5.406773090362549
+    },
+    {
+      "index": 75,
+      "sid": "scene_75",
+      "rank": 0,
+      "regime": 0.03502604166666667,
+      "alpha_error": 0.01831236481666565,
+      "forward_ratio": 0.6466349717458165,
+      "dg": 0.0010412335395812988,
+      "de_fringe": -2.687519073486328,
+      "d_false_texture": 0.01844477653503418,
+      "false_texture_pixels": 2261,
+      "stable_fraction": 0.9501370815004888,
+      "ensemble_spread_rms": 0.5953301191329956,
+      "retained_rms": 4.426994800567627
+    },
+    {
+      "index": 87,
+      "sid": "scene_87",
+      "rank": 1,
+      "regime": 0.03502604166666667,
+      "alpha_error": 0.007074345368891954,
+      "forward_ratio": 0.709611302319244,
+      "dg": 0.0036982297897338867,
+      "de_fringe": -4.001348495483398,
+      "d_false_texture": 0.009191811084747314,
+      "false_texture_pixels": 3118,
+      "stable_fraction": 0.9575658296676441,
+      "ensemble_spread_rms": 0.27440375089645386,
+      "retained_rms": 3.309954881668091
+    },
+    {
+      "index": 91,
+      "sid": "scene_91",
+      "rank": 0,
+      "regime": 0.03502604166666667,
+      "alpha_error": 0.0033436655066907406,
+      "forward_ratio": 0.6211703031358713,
+      "dg": 0.0035842061042785645,
+      "de_fringe": -3.136960983276367,
+      "d_false_texture": 0.022112131118774414,
+      "false_texture_pixels": 208,
+      "stable_fraction": 0.9494954427083333,
+      "ensemble_spread_rms": 0.28683966398239136,
+      "retained_rms": 3.3661000728607178
+    },
+    {
+      "index": 99,
+      "sid": "scene_99",
+      "rank": 0,
+      "regime": 0.03502604166666667,
+      "alpha_error": 0.012565739452838898,
+      "forward_ratio": 0.7978417040712523,
+      "dg": 0.0005816817283630371,
+      "de_fringe": -3.1508636474609375,
+      "d_false_texture": 0.004109442234039307,
+      "false_texture_pixels": 1997,
+      "stable_fraction": 0.9644453260633681,
+      "ensemble_spread_rms": 0.30843067169189453,
+      "retained_rms": 3.8998024463653564
+    }
+  ],
+  "aggregate": {
+    "dg": {
+      "n": 7,
+      "mean": 0.0030026776450020926,
+      "median": 0.0035842061042785645,
+      "worst": 0.0005816817283630371,
+      "best": 0.0048272013664245605
+    },
+    "de_fringe": {
+      "n": 7,
+      "mean": -4.374925749642508,
+      "median": -4.001348495483398,
+      "worst": -8.349817276000977,
+      "best": -2.687519073486328
+    },
+    "d_false_texture": {
+      "n": 7,
+      "mean": 0.020730674266815186,
+      "median": 0.01844477653503418,
+      "worst": -0.01191866397857666,
+      "best": 0.060069143772125244
+    }
+  }
+}

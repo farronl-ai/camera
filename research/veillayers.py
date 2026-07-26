@@ -21,6 +21,8 @@ Run:
     ../.venv/bin/python veillayers.py p2
     ../.venv/bin/python veillayers.py p3
     ../.venv/bin/python veillayers.py p4
+    ../.venv/bin/python veillayers.py p4h
+    ../.venv/bin/python veillayers.py p5
 """
 from __future__ import annotations
 
@@ -633,13 +635,15 @@ def cmd_p3() -> None:
     )
 
 
-def cmd_p4() -> None:
+def run_candidate_bank(start_index: int, filename: str) -> None:
     """Measure whether physical evidence can rerank the top-4 matte bank."""
     smooth_lambda = 8.0
     anchor_lambda = 0.05
     correction_sigma = 0.5
     scenes_out = []
     for index, original in enumerate(scenes()):
+        if index < start_index:
+            continue
         sc = resize_oracle(original)
         h, w = sc["gt"].shape[:2]
         base = fuse_perband(sc["frames"], harden=0.5)
@@ -695,7 +699,7 @@ def cmd_p4() -> None:
                 "candidates": candidate_rows,
             }
         )
-    path = os.path.join(HERE, "veillayers_p4_candidate_bank.json")
+    path = os.path.join(HERE, filename)
     with open(path, "w") as handle:
         json.dump(
             {
@@ -716,6 +720,119 @@ def cmd_p4() -> None:
     )
 
 
+def cmd_p4() -> None:
+    run_candidate_bank(0, "veillayers_p4_candidate_bank.json")
+
+
+def cmd_p4h() -> None:
+    run_candidate_bank(100, "veillayers_p4_fresh_holdout.json")
+
+
+def candidate_is_licensed(row: dict) -> bool:
+    """Predeclared P5 high-precision license; all features are order-invariant."""
+    score, purity, _, area_fit, *_ = row["semantic_features"]
+    forward_ratio = row["forward_after"] / max(row["forward_before"], 1e-6)
+    return (
+        score > 0.5
+        and purity > 0.85
+        and area_fit > 0.9
+        and forward_ratio < 0.85
+    )
+
+
+def run_licensed_consensus(bank_filename: str, output_filename: str) -> None:
+    bank = json.load(open(os.path.join(HERE, bank_filename)))
+    originals = {index: sc for index, sc in enumerate(scenes())}
+    configs = ((2.0, 0.02), (8.0, 0.05), (32.0, 0.10))
+    fired = []
+    for scene_row in bank["scenes"]:
+        if not scene_row["candidates"]:
+            continue
+        chosen = min(
+            scene_row["candidates"], key=lambda row: row["forward_after"]
+        )
+        if not candidate_is_licensed(chosen):
+            continue
+        index = int(scene_row["index"])
+        original = originals[index]
+        candidates = candidates_with_features(original, topk=4)
+        candidate = candidates[int(chosen["rank"])]
+        sc = resize_oracle(original)
+        h, w = sc["gt"].shape[:2]
+        alpha_est = cv2.resize(
+            candidate["alpha"], (w, h), interpolation=cv2.INTER_AREA
+        ).astype(np.float32)
+        owner = int(candidate["owner"])
+        ordered = [sc["frames"][owner], sc["frames"][1 - owner]]
+        base = fuse_perband(sc["frames"], harden=0.5)
+        solved = []
+        for smooth_lambda, anchor_lambda in configs:
+            image, _ = solve_layers(
+                ordered,
+                alpha_est,
+                sc["max_r"],
+                smooth_lambda=smooth_lambda,
+                anchor_lambda=anchor_lambda,
+            )
+            solved.append(image)
+        correction, uncertainty = stable_correction(base, solved)
+        output = apply_correction_to_fringe(
+            base, correction, dict(sc, alpha=alpha_est)
+        )
+        outcome = score(output, base, sc)
+        row = {
+            "index": index,
+            "sid": sc["sid"],
+            "rank": int(chosen["rank"]),
+            "regime": sc["regime"],
+            "alpha_error": float(np.abs(alpha_est - sc["alpha"]).mean()),
+            "forward_ratio": float(
+                chosen["forward_after"] / max(chosen["forward_before"], 1e-6)
+            ),
+            **outcome,
+            **uncertainty,
+        }
+        fired.append(row)
+        print(
+            f"{sc['sid']} dg={outcome['dg']:+.5f} "
+            f"dfr={outcome['de_fringe']:+.2f} "
+            f"dft={outcome['d_false_texture']:+.3f}",
+            flush=True,
+        )
+    path = os.path.join(HERE, output_filename)
+    with open(path, "w") as handle:
+        json.dump(
+            {
+                "source_bank": bank_filename,
+                "configs": configs,
+                "fired": fired,
+                "aggregate": {
+                    key: summarize(fired, key)
+                    for key in ("dg", "de_fringe", "d_false_texture")
+                },
+            },
+            handle,
+            indent=2,
+        )
+    print(f"fired={len(fired)} -> {path}", flush=True)
+
+
+def cmd_p5() -> None:
+    run_licensed_consensus(
+        "veillayers_p4_candidate_bank.json",
+        "veillayers_p5_licensed_dev.json",
+    )
+    run_licensed_consensus(
+        "veillayers_p4_fresh_holdout.json",
+        "veillayers_p5_licensed_holdout.json",
+    )
+    print(
+        "DOCTRINE: a license calibrated on inspected data counts only after "
+        "the unchanged rule survives a fresh scene-disjoint holdout.",
+        flush=True,
+    )
+
+
 def main() -> None:
     commands = {
         "p0": cmd_p0,
@@ -723,9 +840,11 @@ def main() -> None:
         "p2": cmd_p2,
         "p3": cmd_p3,
         "p4": cmd_p4,
+        "p4h": cmd_p4h,
+        "p5": cmd_p5,
     }
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
-        raise SystemExit("usage: veillayers.py {p0|p1|p2|p3|p4}")
+        raise SystemExit("usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5}")
     commands[sys.argv[1]]()
 
 

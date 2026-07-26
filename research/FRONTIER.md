@@ -129,7 +129,10 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     consensus is also negative. P4 physical reranking finds 53/98 good-alpha
     candidates versus 28/98 semantic top-1, but only 24 outcomes are positive.
     A four-feature development license isolates 7 all-positive cases; thresholds
-    require a fresh scene-disjoint holdout before they count as a gate.
+    survive a fresh 25-scene holdout (2/2 fires positive after consensus:
+    +0.00303/+0.00075 GT-SSIM). Broad radius consensus is not safe; next test is
+    whether a fixed giant-CoC hypothesis plus the unchanged gate refuses all
+    moderate scenes. Blind radius remains the blocker.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

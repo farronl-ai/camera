@@ -232,6 +232,23 @@ the thresholds were derived after examining these outcomes. Generate a fresh,
 scene-disjoint object-occluder set before treating the rule as a gate. No owner
 index may enter the rule.
 
+A fresh 25-scene holdout was generated after freezing that rule: 12 moderate
+(`CoC=0.02`) and 13 giant (`CoC=0.035`) scenes, with new placements and full
+FastSAM/DA-V2 bridge outputs. The unchanged rule fires 2/25, both giant, and
+both improve global/fringe fidelity. After regularization consensus:
+`scene_114` is +0.00303 GT-SSIM / −7.61 gray fringe; `scene_122` is
++0.00075 / −2.13. This is a valid high-precision true-radius holdout result.
+False-texture deltas remain small positive (+0.029/+0.017), localized to
+boundary-frequency mismatch; do not call the false-texture tail closed.
+
+Blind radius remains open. A deliberately broad 1.2–4.5% CoC consensus is too
+conservative and not uniformly safe: it reduces the nine licensed gains by
+roughly an order of magnitude and makes dev `scene_99` / held `scene_122`
+negative. The next blind test is a fixed 3.5% giant-veil hypothesis with the
+same forward-ratio license. This is justified only if it refuses every fresh
+moderate scene and preserves the giant fires; otherwise radius remains a hard
+blocker.
+
 ## Doctrine
 
 The binding rule is that recovery must stay rooted in observed remnants. A

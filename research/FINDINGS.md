@@ -68,6 +68,15 @@ cases. Because those thresholds were chosen after inspecting the full set, this
 is a calibration lead—not held-out evidence. A fresh factory extension is
 required before any gate claim.
 
+The fresh 25-scene mixed-regime holdout validates that narrow claim. The frozen
+four-feature rule fires 2/25, both giant-CoC; after regularization consensus,
+the outcomes are +0.00303/−7.61 gray fringe and +0.00075/−2.13. Thus a
+high-precision semantic subset exists under true radius. Smooth-region
+false-texture still rises +0.029/+0.017 gray at the boundary-frequency tail, so
+this is not a zero-tail promotion. Broad radius consensus (1.2–4.5% image CoC)
+is a conditional negative: it erases most recovery and flips one development
+and one holdout fire negative. Blind radius remains the admission blocker.
+
 ## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
 
 **The mission (2026-07-22).** The goal has graduated: produce the image TRUE TO THE

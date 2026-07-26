@@ -5,6 +5,64 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F70 — Ownership is inferred as regions, then radiance is chosen discretely
+
+F69 fixed the generator but left the inverse paired with V1's soft-alpha
+forward model. That was not a cosmetic mismatch: a solver allowed to explain
+the antialiased part of an opaque object with rear radiance can reproduce the
+same error as the bad input. The forward/adjoint pair now accepts a distinct
+hard-ownership field and uses `W=max(S, alpha, H(alpha))`; conjugate gradients,
+regularizers, the six-model consensus, and focused-owner NLM source remain
+unchanged.
+
+The six-scene S27 carpet then exposed two different geometry omissions:
+
+1. `s27_000`'s semantic mask split a differently textured left end from the
+   same focused foreground object. Adaptive graph regions are admitted only
+   when every model pixel chooses the foreground owner, at least 80% carry
+   decisive focus dominance, the focal transformation points frontward,
+   reverse reblur proves foreground presence, the other frame makes no
+   semantic claim, and the region is graph-connected to accepted ownership.
+   Those observed seeds are passed back through the existing GrabCut rather
+   than becoming a morphological expansion. Silhouette IoU rises
+   `0.91185 -> 0.98194`.
+2. `s27_002` contains detached black pieces below a cross-frame-proven white
+   satellite. They disappear at 512 px and local focus votes point the wrong
+   way—the exact small-fragment failure described by the user. A bounded
+   native-resolution graph stage now distinguishes the ordinary immediate
+   contour ring from detached 3–5-model-pixel fragments. It requires semantic
+   observation in both frames and a large reverse-reblur presence residual.
+   Resolved regions are hard foreground; the remaining narrow uncertainty
+   annulus may veto rear synthesis but cannot source radiance.
+
+This is foreground-biased by design, but not a dilation. Every hard pixel comes
+from the focused-owner observation; the model never invents texture, and rear
+uncertainty never silently becomes foreground texture. OpenCV's Felzenszwalb
+graph segmentation is therefore now an explicit runtime dependency via
+`opencv-contrib-python-headless`.
+
+The compact S27 development result is strong:
+
+- 6/6 improve MAE and MSE;
+- 6/6 improve or preserve hard-owned foreground, opaque core, hard soft-edge,
+  ordinary boundary, and outer-veil MAE;
+- rear correction overlaps zero hard foreground, core, soft edge, boundary,
+  and far background in 6/6;
+- far background is exact identity in 6/6;
+- mean silhouette IoU is `0.97766`;
+- only 1/6 improves SSIM, while all direct and physical-region instruments
+  agree. SSIM remains a diagnostic, not a scene-recovery veto.
+
+The frozen V1 S25 carpet was rerun only as a preservation check. It retains 6/6
+MAE/MSE/core/hard-edge/outer-veil wins, 5/6 SSIM wins, zero rear overlap in all
+protected regions, and exact far identity. Its historical `+0.01177`
+antialiased-boundary dissent remains while that scene improves globally and in
+every ownership-specific partition. The new mechanism therefore extends the
+liked solver rather than replacing it.
+
+S27 shaped this rule and is development evidence. Freeze F70 now and generate a
+genuinely unseen V2 split before any promotion or inspector rebuild.
+
 ## F69 — Soft display alpha cannot define opaque ownership
 
 The user's repeated visual objection exposed a deeper defect in F65's purported

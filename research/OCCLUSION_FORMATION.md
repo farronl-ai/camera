@@ -36,6 +36,14 @@ when only the hidden background was inverted. `one_sided_opaque_v2` now keeps
 that pre-antialias binary ownership as a separate field and changes 0/55,222,
 exactly, while retaining outward foreground spread.
 
+F70 also pairs the inverse forward/adjoint with this same hard support. Its
+compact S27 development carpet has zero rear correction in GT hard ownership,
+core, soft edge, ordinary boundary, and far background for 6/6 scenes while
+improving or preserving every corresponding direct-error partition. Discrete
+graph completion always sources radiance from the focused owner; ambiguous
+support may deny rear synthesis but cannot fabricate foreground texture. S27
+shaped the mechanism, so unseen V2 validation remains required.
+
 The inspection page seen at this pause mixed the new input example at the top
 with stale historical input frames in lower scene panels.  It is therefore not
 evidence that every displayed input used the repaired formation.  Leave the

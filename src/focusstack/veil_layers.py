@@ -4,8 +4,9 @@ This is the package form of F55's narrow, held-out specialist.  It does not
 repair an already-fused image by amplifying its texture.  Instead it fits the
 two captured focal frames to a two-layer image-formation model:
 
+    S   = discrete opaque foreground ownership
     C_i = H_near,i(alpha)
-    W_i = max(alpha, C_i)
+    W_i = max(S, alpha, C_i)
     O_i = (W_i/C_i) * H_near,i(alpha*N) + (1-W_i) * H_far,i(S)
 
 Only corrections to observed near/far anchors are solved.  A candidate matte
@@ -102,6 +103,38 @@ ONE_SIDED_UNCERTAIN_BOUNDARY_COC_FRACTION = 0.75
 # only the rear veto, never the hard-copy support.
 ONE_SIDED_FOCUS_VETO_EXTENSION_MODEL_PIXELS = 4.0
 ONE_SIDED_FOCUS_VETO_MIN_CONFIDENCE = 0.05
+# A semantic proposal may split one opaque object by appearance. Adaptive graph
+# regions from the focused observation can become new completion seeds only
+# under unanimous owner-focus evidence, the correct focal transformation,
+# measured foreground presence, no other-frame semantic claim, and graph
+# connectivity to already accepted ownership. They seed the existing GrabCut;
+# they do not bypass its edge localization or source any unobserved texture.
+ONE_SIDED_HARD_GRAPH_SIGMA = 0.5
+ONE_SIDED_HARD_GRAPH_K = 100.0
+ONE_SIDED_HARD_GRAPH_MIN_SIZE = 20
+ONE_SIDED_HARD_GRAPH_MIN_AREA_MODEL_PIXELS = 40
+ONE_SIDED_HARD_GRAPH_MIN_OWNER_FRACTION = 1.0
+ONE_SIDED_HARD_GRAPH_MIN_DOMINANT_FRACTION = 0.80
+ONE_SIDED_HARD_GRAPH_MIN_DIRECTION_SCORE = 0.50
+ONE_SIDED_HARD_GRAPH_MAX_OTHER_SEMANTIC_FRACTION = 0.0
+# A cross-frame-proven satellite can have tiny detached dark fragments that
+# disappear at 512 px. Inspect only a bounded native-resolution annulus outside
+# its ordinary contour/veil ring. A fragment is hard foreground when both
+# frames semantically observe its graph region and reverse reblur leaves a
+# large foreground-presence residual. The foreground bias is deliberate:
+# within this narrow, object-linked ambiguity, an opaque fragment must not be
+# averaged with the rear.
+ONE_SIDED_SATELLITE_FRAGMENT_GRAPH_MIN_SIZE = 10
+ONE_SIDED_SATELLITE_FRAGMENT_MIN_AREA_MODEL_PIXELS = 2.0
+ONE_SIDED_SATELLITE_FRAGMENT_MAX_AREA_MODEL_PIXELS = 20.0
+ONE_SIDED_SATELLITE_FRAGMENT_MIN_DISTANCE_MODEL_PIXELS = 3.0
+ONE_SIDED_SATELLITE_FRAGMENT_MAX_DISTANCE_MODEL_PIXELS = 5.0
+ONE_SIDED_SATELLITE_FRAGMENT_MIN_SEMANTIC_FRACTION = 0.80
+ONE_SIDED_SATELLITE_FRAGMENT_PRESENCE_MULTIPLIER = 2.5
+# Once a satellite is independently established as opaque foreground, a narrow
+# uncertainty annulus may deny rear synthesis around fragments too small for a
+# hard source decision. This is rear-veto-only; it never expands copy support.
+ONE_SIDED_SATELLITE_REAR_VETO_EXTENSION_MODEL_PIXELS = 4.0
 # Focal ordering supplies more than a local sharpness vote.  Reblurring the
 # owner observation toward the other focal plane should explain foreground,
 # while reblurring the other observation toward the owner plane should explain
@@ -203,17 +236,38 @@ def _prepare_model(
     alpha: np.ndarray,
     max_radius: float,
     blur_fn: BlurFunction,
+    *,
+    hard_ownership: np.ndarray | None = None,
 ) -> dict:
     near_radii, far_radii = _radii_for(max_radius)
     alpha3 = np.repeat(alpha[..., None], 3, axis=2)
+    if hard_ownership is None:
+        hard3 = None
+    else:
+        hard = np.asarray(hard_ownership, bool)
+        if hard.shape != alpha.shape:
+            raise ValueError(
+                "hard ownership and alpha dimensions do not match"
+            )
+        hard3 = np.repeat(
+            hard.astype(np.float32)[..., None],
+            3,
+            axis=2,
+        )
     aperture_spread = [
         np.clip(_blur_channels(alpha3, radii, blur_fn), 0.0, 1.0)
         for radii in near_radii
     ]
-    coverage = [
-        np.maximum(alpha3, spread)
-        for spread in aperture_spread
-    ]
+    if hard3 is None:
+        coverage = [
+            np.maximum(alpha3, spread)
+            for spread in aperture_spread
+        ]
+    else:
+        coverage = [
+            np.maximum.reduce([alpha3, spread, hard3])
+            for spread in aperture_spread
+        ]
     foreground_scale = []
     for spread, owned_coverage in zip(aperture_spread, coverage):
         scale = np.zeros_like(spread)
@@ -234,7 +288,16 @@ def _prepare_model(
         "foreground_scale": foreground_scale,
         "transmission": transmission,
         "blur_fn": blur_fn,
-        "formation_model": "one_sided_opaque_v1",
+        "formation_model": (
+            "one_sided_opaque_v2"
+            if hard3 is not None
+            else "one_sided_opaque_v1"
+        ),
+        "hard_ownership": (
+            None
+            if hard_ownership is None
+            else np.asarray(hard_ownership, bool)
+        ),
     }
 
 
@@ -327,6 +390,7 @@ def solve_layers(
     blur_fn: BlurFunction = _box_disk_blur,
     iterations: int = 18,
     evidence_mask: np.ndarray | None = None,
+    hard_ownership: np.ndarray | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Fit corrections to the observed layers with conjugate gradients.
 
@@ -340,7 +404,12 @@ def solve_layers(
         raise ValueError("alpha and frame dimensions do not match")
 
     observed = [image.astype(np.float32) for image in images]
-    model = _prepare_model(alpha, max_radius, blur_fn)
+    model = _prepare_model(
+        alpha,
+        max_radius,
+        blur_fn,
+        hard_ownership=hard_ownership,
+    )
     near0 = observed[0].copy()
     far0 = observed[1].copy()
     predicted0 = _forward_layers(near0, far0, model)
@@ -456,6 +525,7 @@ def solve_layers(
         + (1.0 - model["alpha"][..., None]) * far
     )
     report = {
+        "formation_model": model["formation_model"],
         "forward_before": before,
         "forward_after": after,
         "cg_history": history,
@@ -592,6 +662,7 @@ def _one_sided_anchor_residual(
         alpha,
         RADIUS_FRACTION * max(alpha.shape),
         _box_disk_blur,
+        hard_ownership=alpha >= 0.5,
     )
     predicted = _forward_layers(ordered[0], ordered[1], model)
     return float(
@@ -802,6 +873,346 @@ def _cross_frame_satellite_support(
         "one_sided_satellite_max_distance_coc": (
             ONE_SIDED_SATELLITE_MAX_DISTANCE_COC
         ),
+    }
+
+
+def _focused_graph_ownership_seeds(
+    images: list[np.ndarray],
+    owner_masks_by_frame: list[np.ndarray],
+    owner: int,
+    completed: np.ndarray,
+    trusted_satellite: np.ndarray,
+    max_radius: float,
+    spatial_scale: float,
+) -> tuple[np.ndarray, np.ndarray, dict]:
+    """Find observed, connected foreground regions omitted by semantics."""
+    empty = np.zeros(np.asarray(completed).shape, bool)
+    if not (
+        hasattr(cv2, "ximgproc")
+        and hasattr(cv2.ximgproc, "segmentation")
+    ):
+        return empty, empty, {
+            "one_sided_focused_graph_seed_reason": (
+                "opencv_ximgproc_unavailable"
+            ),
+            "one_sided_focused_graph_seed_regions": 0,
+            "one_sided_focused_graph_seed_pixels": 0,
+        }
+
+    completed = np.asarray(completed, bool)
+    (
+        direction_score,
+        _,
+        reverse_reblur_residual,
+        _,
+    ) = _directional_defocus_evidence(
+        images,
+        owner,
+        max_radius,
+        spatial_scale,
+    )
+    rear_reference = reverse_reblur_residual[
+        direction_score <= -ONE_SIDED_DIRECTIONAL_REAR_VETO_MARGIN
+    ]
+    minimum_reference_pixels = max(
+        32,
+        int(round(0.0001 * completed.size)),
+    )
+    if rear_reference.size < minimum_reference_pixels:
+        return empty, empty, {
+            "one_sided_focused_graph_seed_reason": (
+                "rear_noise_reference_unavailable"
+            ),
+            "one_sided_focused_graph_seed_regions": 0,
+            "one_sided_focused_graph_seed_pixels": 0,
+        }
+    noise_floor = float(
+        np.percentile(
+            rear_reference,
+            ONE_SIDED_REAR_PRESENCE_NOISE_QUANTILE,
+        )
+    )
+    presence_threshold = (
+        ONE_SIDED_REAR_PRESENCE_NOISE_MULTIPLIER * noise_floor
+    )
+
+    resized_images = [_resize_for_model(image) for image in images]
+    model_height, model_width = resized_images[0].shape[:2]
+    model_size = (model_width, model_height)
+    completed_small = (
+        cv2.resize(
+            completed.astype(np.uint8),
+            model_size,
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    )
+    satellite_small = (
+        cv2.resize(
+            np.asarray(trusted_satellite, np.uint8),
+            model_size,
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    )
+    energies = np.stack(
+        content_aware_energies(
+            [to_gray_float(image) for image in resized_images]
+        ),
+        axis=0,
+    )
+    winner = np.argmax(energies, axis=0)
+    ordered = np.sort(energies, axis=0)
+    dominance = np.clip(
+        (ordered[-1] - ordered[-2]) / (ordered[-1] + 1e-6),
+        0.0,
+        1.0,
+    )
+    direction_small = cv2.resize(
+        direction_score,
+        model_size,
+        interpolation=cv2.INTER_AREA,
+    )
+    reverse_small = cv2.resize(
+        reverse_reblur_residual,
+        model_size,
+        interpolation=cv2.INTER_AREA,
+    )
+    semantics_native = []
+    semantics_small = []
+    for frame_index in range(2):
+        semantic_union = np.zeros(completed.shape, bool)
+        for raw_mask in np.asarray(owner_masks_by_frame[frame_index]):
+            semantic_union |= np.asarray(raw_mask) > 0
+        semantics_native.append(semantic_union)
+        semantics_small.append(
+            cv2.resize(
+                semantic_union.astype(np.uint8),
+                model_size,
+                interpolation=cv2.INTER_NEAREST,
+            )
+            > 0
+        )
+    other_semantics_small = semantics_small[1 - owner]
+
+    graph = cv2.ximgproc.segmentation.createGraphSegmentation(
+        sigma=ONE_SIDED_HARD_GRAPH_SIGMA,
+        k=ONE_SIDED_HARD_GRAPH_K,
+        min_size=ONE_SIDED_HARD_GRAPH_MIN_SIZE,
+    )
+    labels = graph.processImage(resized_images[owner])
+    qualified = {}
+    satellite_continuations = {}
+    for label in range(int(labels.max()) + 1):
+        region = labels == label
+        area = int(region.sum())
+        if area < ONE_SIDED_HARD_GRAPH_MIN_SIZE:
+            continue
+        owner_fraction = float((winner[region] == owner).mean())
+        dominant_fraction = float(
+            (
+                (winner[region] == owner)
+                & (dominance[region] >= 0.15)
+            ).mean()
+        )
+        reverse_present = (
+            float(np.median(reverse_small[region]))
+            >= presence_threshold
+        )
+        if (
+            area >= ONE_SIDED_HARD_GRAPH_MIN_AREA_MODEL_PIXELS
+            and float(completed_small[region].mean()) <= 0.5
+            and owner_fraction
+            >= ONE_SIDED_HARD_GRAPH_MIN_OWNER_FRACTION
+            and dominant_fraction
+            >= ONE_SIDED_HARD_GRAPH_MIN_DOMINANT_FRACTION
+            and float(direction_small[region].mean())
+            >= ONE_SIDED_HARD_GRAPH_MIN_DIRECTION_SCORE
+            and reverse_present
+            and float(other_semantics_small[region].mean())
+            <= ONE_SIDED_HARD_GRAPH_MAX_OTHER_SEMANTIC_FRACTION
+        ):
+            qualified[int(label)] = region
+
+        satellite_fraction = float(satellite_small[region].mean())
+        if (
+            0.5 <= satellite_fraction < 1.0
+            and owner_fraction
+            >= ONE_SIDED_HARD_GRAPH_MIN_OWNER_FRACTION
+            and dominant_fraction
+            >= ONE_SIDED_HARD_GRAPH_MIN_DOMINANT_FRACTION
+            and reverse_present
+            and float(semantics_small[owner][region].mean()) >= 1.0
+            and float(other_semantics_small[region].mean()) >= 1.0
+        ):
+            satellite_continuations[int(label)] = region
+
+    # Connectivity is stronger than a global distance allowance. Iteration may
+    # cross several radiance regions of one object, but it cannot jump across
+    # even a one-pixel model-space gap into an unrelated owner-focused object.
+    accepted_labels: set[int] = set()
+    connected = completed_small.copy()
+    adjacency_kernel = np.ones((3, 3), np.uint8)
+    while True:
+        neighborhood = (
+            cv2.dilate(
+                connected.astype(np.uint8),
+                adjacency_kernel,
+            )
+            > 0
+        )
+        additions = [
+            label
+            for label, region in qualified.items()
+            if label not in accepted_labels
+            and np.any(region & neighborhood)
+        ]
+        if not additions:
+            break
+        for label in additions:
+            connected |= qualified[label]
+            accepted_labels.add(label)
+
+    satellite_continuation_small = np.zeros(completed_small.shape, bool)
+    for region in satellite_continuations.values():
+        satellite_continuation_small |= region
+    connected |= satellite_continuation_small
+    seeds_small = connected & ~completed_small
+    seeds = (
+        cv2.resize(
+            seeds_small.astype(np.uint8),
+            (completed.shape[1], completed.shape[0]),
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    ) & ~completed
+    satellite_extension = (
+        cv2.resize(
+            satellite_continuation_small.astype(np.uint8),
+            (completed.shape[1], completed.shape[0]),
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    ) & ~completed
+    native_fragment_extension = np.zeros(completed.shape, bool)
+    native_fragment_regions = 0
+    if np.any(trusted_satellite):
+        satellite_y, satellite_x = np.where(trusted_satellite)
+        maximum_distance = max(
+            1,
+            int(
+                round(
+                    ONE_SIDED_SATELLITE_FRAGMENT_MAX_DISTANCE_MODEL_PIXELS
+                    * spatial_scale
+                )
+            ),
+        )
+        y0 = max(0, int(satellite_y.min()) - maximum_distance - 2)
+        y1 = min(
+            completed.shape[0],
+            int(satellite_y.max()) + maximum_distance + 3,
+        )
+        x0 = max(0, int(satellite_x.min()) - maximum_distance - 2)
+        x1 = min(
+            completed.shape[1],
+            int(satellite_x.max()) + maximum_distance + 3,
+        )
+        crop = np.s_[y0:y1, x0:x1]
+        satellite_crop = np.asarray(trusted_satellite[crop], bool)
+        distance_to_satellite = cv2.distanceTransform(
+            (~satellite_crop).astype(np.uint8),
+            cv2.DIST_L2,
+            5,
+        )
+        native_graph = cv2.ximgproc.segmentation.createGraphSegmentation(
+            sigma=ONE_SIDED_HARD_GRAPH_SIGMA,
+            k=ONE_SIDED_HARD_GRAPH_K,
+            min_size=ONE_SIDED_SATELLITE_FRAGMENT_GRAPH_MIN_SIZE,
+        )
+        native_labels = native_graph.processImage(images[owner][crop])
+        minimum_area = max(
+            2,
+            int(
+                round(
+                    ONE_SIDED_SATELLITE_FRAGMENT_MIN_AREA_MODEL_PIXELS
+                    * spatial_scale
+                    * spatial_scale
+                )
+            ),
+        )
+        maximum_area = max(
+            minimum_area,
+            int(
+                round(
+                    ONE_SIDED_SATELLITE_FRAGMENT_MAX_AREA_MODEL_PIXELS
+                    * spatial_scale
+                    * spatial_scale
+                )
+            ),
+        )
+        minimum_distance = (
+            ONE_SIDED_SATELLITE_FRAGMENT_MIN_DISTANCE_MODEL_PIXELS
+            * spatial_scale
+        )
+        maximum_distance_float = (
+            ONE_SIDED_SATELLITE_FRAGMENT_MAX_DISTANCE_MODEL_PIXELS
+            * spatial_scale
+        )
+        fragment_crop = np.zeros(satellite_crop.shape, bool)
+        for label in range(int(native_labels.max()) + 1):
+            region = native_labels == label
+            area = int(region.sum())
+            nearest = float(distance_to_satellite[region].min())
+            if (
+                not minimum_area <= area <= maximum_area
+                or not minimum_distance
+                <= nearest
+                <= maximum_distance_float
+                or float(completed[crop][region].mean()) > 0.5
+                or float(semantics_native[owner][crop][region].mean())
+                < ONE_SIDED_SATELLITE_FRAGMENT_MIN_SEMANTIC_FRACTION
+                or float(
+                    semantics_native[1 - owner][crop][region].mean()
+                )
+                < ONE_SIDED_SATELLITE_FRAGMENT_MIN_SEMANTIC_FRACTION
+                or float(
+                    np.median(reverse_reblur_residual[crop][region])
+                )
+                < (
+                    ONE_SIDED_SATELLITE_FRAGMENT_PRESENCE_MULTIPLIER
+                    * presence_threshold
+                )
+            ):
+                continue
+            fragment_crop |= region
+            native_fragment_regions += 1
+        native_fragment_extension[crop] = fragment_crop
+        native_fragment_extension &= ~completed
+    satellite_extension |= native_fragment_extension
+    seeds |= native_fragment_extension
+    return seeds, satellite_extension, {
+        "one_sided_focused_graph_seed_reason": (
+            "connected_focal_regions"
+            if np.any(seeds)
+            else "no_connected_qualified_region"
+        ),
+        "one_sided_focused_graph_qualified_regions": len(qualified),
+        "one_sided_focused_graph_seed_regions": len(accepted_labels),
+        "one_sided_focused_graph_seed_pixels": int(seeds.sum()),
+        "one_sided_focused_graph_satellite_regions": len(
+            satellite_continuations
+        ),
+        "one_sided_focused_graph_satellite_pixels": int(
+            satellite_extension.sum()
+        ),
+        "one_sided_native_satellite_fragment_regions": (
+            native_fragment_regions
+        ),
+        "one_sided_native_satellite_fragment_pixels": int(
+            native_fragment_extension.sum()
+        ),
+        "one_sided_focused_graph_noise_floor": noise_floor,
+        "one_sided_focused_graph_presence_threshold": presence_threshold,
     }
 
 
@@ -1268,6 +1679,7 @@ def select_one_sided_owner_geometry(
         corroborated,
     )
     report.update(completion_report)
+    boundary_completion_report = completion_report
     satellite_support, satellite_report = _cross_frame_satellite_support(
         owner_masks_by_frame,
         owner,
@@ -1277,9 +1689,113 @@ def select_one_sided_owner_geometry(
     completed |= satellite_support
     possible_front |= satellite_support
     corroborated |= satellite_support
+    if np.any(satellite_support):
+        satellite_veto_radius = max(
+            1,
+            int(
+                round(
+                    ONE_SIDED_SATELLITE_REAR_VETO_EXTENSION_MODEL_PIXELS
+                    * max(1.0, max(shape) / MODEL_SIDE)
+                )
+            ),
+        )
+        satellite_veto_kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE,
+            (
+                2 * satellite_veto_radius + 1,
+                2 * satellite_veto_radius + 1,
+            ),
+        )
+        satellite_veto = (
+            cv2.dilate(
+                satellite_support.astype(np.uint8),
+                satellite_veto_kernel,
+            )
+            > 0
+        )
+        possible_front |= satellite_veto
+    else:
+        satellite_veto_radius = 0
+        satellite_veto = np.zeros(completed.shape, bool)
+    report.update(
+        {
+            "one_sided_satellite_rear_veto_pixels": int(
+                satellite_veto.sum()
+            ),
+            "one_sided_satellite_rear_veto_radius_pixels": int(
+                satellite_veto_radius
+            ),
+            "one_sided_satellite_rear_veto_role": "rear_veto_only",
+        }
+    )
     report.update(satellite_report)
+    (
+        graph_seeds,
+        satellite_graph_extension,
+        graph_seed_report,
+    ) = _focused_graph_ownership_seeds(
+        images,
+        owner_masks_by_frame,
+        owner,
+        completed,
+        satellite_support,
+        RADIUS_FRACTION * max(shape),
+        max(1.0, max(shape) / MODEL_SIDE),
+    )
+    report.update(graph_seed_report)
+    satellite_support |= satellite_graph_extension
+    if np.any(graph_seeds):
+        seeded_front = completed | graph_seeds
+        (
+            graph_refined,
+            graph_possible_front,
+            graph_refinement_report,
+        ) = _complete_one_sided_front_silhouette(
+            images,
+            owner,
+            seeded_front,
+            seeded_front,
+        )
+        graph_refined |= graph_seeds | satellite_support
+        graph_possible_front |= graph_refined
+        completed = graph_refined
+        possible_front |= graph_possible_front
+        boundary_completion_report = graph_refinement_report
+        report.update(
+            {
+                "one_sided_focused_graph_refinement_fired": bool(
+                    graph_refinement_report.get(
+                        "one_sided_front_completion_fired",
+                        False,
+                    )
+                ),
+                "one_sided_focused_graph_refinement_reason": (
+                    graph_refinement_report.get(
+                        "one_sided_front_completion_reason",
+                    )
+                ),
+                "one_sided_focused_graph_refined_pixels": int(
+                    completed.sum()
+                ),
+            }
+        )
+    else:
+        report.update(
+            {
+                "one_sided_focused_graph_refinement_fired": False,
+                "one_sided_focused_graph_refinement_reason": (
+                    "no_graph_seeds"
+                ),
+                "one_sided_focused_graph_refined_pixels": int(
+                    completed.sum()
+                ),
+            }
+        )
+    completed |= satellite_support
+    possible_front |= satellite_support
+    corroborated |= satellite_support
     boundary_disagreement_p95 = float(
-        completion_report.get(
+        boundary_completion_report.get(
             "one_sided_front_completion_boundary_disagreement_p95_model_px",
             0.0,
         )
@@ -1376,6 +1892,18 @@ def _candidate_evidence(
         (width, height),
         interpolation=cv2.INTER_AREA,
     ).astype(np.float32)
+    hard_ownership = candidate.get("front_extent")
+    if hard_ownership is not None:
+        hard_ownership = np.asarray(hard_ownership, bool)
+        if hard_ownership.shape != alpha.shape:
+            return None
+        hard_ownership_small = cv2.resize(
+            hard_ownership.astype(np.uint8),
+            (width, height),
+            interpolation=cv2.INTER_NEAREST,
+        ) > 0
+    else:
+        hard_ownership_small = None
     evidence_mask = None
     if evidence_support is not None:
         support = np.asarray(evidence_support) > 0
@@ -1408,6 +1936,7 @@ def _candidate_evidence(
         regularizer_sigma=1.0,
         blur_fn=_box_disk_blur,
         evidence_mask=evidence_mask,
+        hard_ownership=hard_ownership_small,
     )
     return {**candidate, **evidence}
 
@@ -2547,6 +3076,10 @@ def recover_giant_veil(
                     anchor_lambda=anchor_lambda,
                     regularizer_sigma=spatial_scale,
                     blur_fn=blur_fn,
+                    hard_ownership=np.asarray(
+                        selected.get("front_extent", alpha >= 0.5),
+                        bool,
+                    ),
                 )
                 yield scene
 

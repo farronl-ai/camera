@@ -81,6 +81,10 @@ def _mae(image: np.ndarray, gt: np.ndarray, support: np.ndarray) -> float | None
 
 def _partitions(scene: dict, base: np.ndarray, output: np.ndarray) -> dict:
     alpha = scene["alpha"]
+    hard_ownership = np.asarray(
+        scene.get("hard_ownership", alpha >= 0.5),
+        bool,
+    )
     coverage = scene["coverage"][1]
     changed = np.any(output != base, axis=2)
     base_error = np.abs(
@@ -90,7 +94,9 @@ def _partitions(scene: dict, base: np.ndarray, output: np.ndarray) -> dict:
         output.astype(np.float32) - scene["gt"].astype(np.float32)
     ).mean(axis=2)
     partitions = {
+        "hard_owned_foreground": hard_ownership,
         "owned_foreground_core": alpha >= 0.95,
+        "hard_owned_soft_edge": hard_ownership & (alpha < 0.95),
         "foreground_boundary": (alpha > 0.05) & (alpha < 0.95),
         "outer_veil": (alpha < 0.05) & (coverage > 0.05),
         "far_background": coverage <= 0.05,
@@ -188,7 +194,10 @@ def _one_sided_geometry_audit(
         selected.get("front_veto_extent", predicted_front),
         bool,
     )
-    true_front = scene["alpha"] >= 0.5
+    true_front = np.asarray(
+        scene.get("hard_ownership", scene["alpha"] >= 0.5),
+        bool,
+    )
     intersection = int((predicted_front & true_front).sum())
     union = int((predicted_front | true_front).sum())
     false_front = predicted_front & ~true_front
@@ -238,7 +247,9 @@ def _one_sided_geometry_audit(
     alpha_gt = scene["alpha"]
     coverage = scene["coverage"][1]
     gt_regions = {
+        "hard_owned_foreground": true_front,
         "owned_foreground_core": alpha_gt >= 0.95,
+        "hard_owned_soft_edge": true_front & (alpha_gt < 0.95),
         "foreground_boundary": (
             (alpha_gt > 0.05) & (alpha_gt < 0.95)
         ),
@@ -783,7 +794,7 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
     )
     resume_enabled = os.environ.get("OBJ_OCC_RESUME") == "1"
     resume_key = (
-        f"f69_directional_boundary_veto:{split}:"
+        f"f70_discrete_graph_ownership:{split}:"
         f"{'oracle' if oracle_alpha else 'semantic'}"
     )
     resume_path = os.path.join(
@@ -883,7 +894,9 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
 
     fired = [row for row in rows if row["report"]["fired"]]
     partition_names = (
+        "hard_owned_foreground",
         "owned_foreground_core",
+        "hard_owned_soft_edge",
         "foreground_boundary",
         "outer_veil",
         "far_background",
@@ -925,7 +938,7 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
             else "objocc_v2_exact_disk"
         ),
         "split": split,
-        "pipeline": "f66_discrete_front_rear_ownership",
+        "pipeline": "f70_discrete_graph_ownership",
         "oracle_fields": ["alpha", "owner"] if oracle_alpha else [],
         "owner_support": not oracle_alpha,
         "rear_evidence_density": REAR_EVIDENCE_DENSITY,
@@ -954,6 +967,14 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
                 all_partitions_nonregressing
             ),
             "partition_summary": partition_summary,
+            "rear_zero_hard_owned_foreground": sum(
+                row.get("geometry_audit", {})
+                .get("rear_overlap_by_gt_region", {})
+                .get("hard_owned_foreground")
+                == 0
+                for row in fired
+                if row.get("geometry_audit", {}).get("evaluated")
+            ),
             "rear_zero_owned_core": sum(
                 row.get("geometry_audit", {})
                 .get("rear_overlap_by_gt_region", {})
@@ -966,6 +987,14 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
                 row.get("geometry_audit", {})
                 .get("rear_overlap_by_gt_region", {})
                 .get("foreground_boundary")
+                == 0
+                for row in fired
+                if row.get("geometry_audit", {}).get("evaluated")
+            ),
+            "rear_zero_hard_owned_soft_edge": sum(
+                row.get("geometry_audit", {})
+                .get("rear_overlap_by_gt_region", {})
+                .get("hard_owned_soft_edge")
                 == 0
                 for row in fired
                 if row.get("geometry_audit", {}).get("evaluated")
@@ -1019,6 +1048,7 @@ def main() -> None:
         "t24",
         "s25",
         "s26",
+        "s27",
     }
     if (
         len(sys.argv) != 3

@@ -139,7 +139,7 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       hypotheses. S23 rerun: 7/7 SSIM/MAE/MSE and all-partition positive,
       far background exact for every fire, 65 refusals identity. S23 is
       development evidence; do not spend another large split until S15 freezes.
-- [ ] **S18: one-sided opaque ownership.** 🔶 ACTIVE DEV / F69. The S25+
+- [ ] **S18: one-sided opaque ownership.** 🔶 ACTIVE DEV / F70. The S25+
       primary generator and paired forward/adjoint model now guarantee zero
       rear throughput throughout latent opaque foreground support while
       retaining foreground-only outward spread. Raw focal-frame masks are
@@ -174,11 +174,14 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       falls from 7,397 rear-dependent owned pixels to exactly zero without
       removing outward veil. The compact six-scene S27 carpet also passes:
       V1 changes 15,208 hard-owned pixels under hidden-background inversion,
-      V2 changes zero, and all six retain exterior veil. Preserve the F67
-      solver, pair its forward model with the discrete ownership field, then
-      infer an edge-respecting ownership matte and prove both hard front choice
-      and rear exclusion before freezing. Regenerate the inspector once, at the
-      end; the solid S23 inspector is still preserved.
+      V2 changes zero, and all six retain exterior veil. F70 pairs the preserved
+      solver with discrete ownership, repairs split objects using unanimously
+      front-directed connected graph regions, and resolves tiny cross-frame
+      satellites with a bounded native graph stage. Compact S27 improves direct
+      and every physical partition 6/6; rear overlap is zero in all protected
+      regions and far background is exact. S25 preservation remains intact.
+      Freeze F70 and generate a genuinely unseen V2 split next; only after that
+      validation may the one-time final inspector be rebuilt.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

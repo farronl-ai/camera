@@ -105,6 +105,41 @@ def test_runtime_forward_model_never_admits_rear_inside_owned_support():
     assert model["formation_model"] == "one_sided_opaque_v1"
 
 
+def test_runtime_v2_protects_full_hard_support_after_alpha_antialiasing():
+    size = 96
+    yy, xx = np.mgrid[:size, :size]
+    hard_ownership = np.zeros((size, size), bool)
+    hard_ownership[25:71, 43:53] = True
+    alpha = cv2.GaussianBlur(
+        hard_ownership.astype(np.float32),
+        (0, 0),
+        0.5,
+    )
+    foreground = np.full((size, size, 3), (190, 80, 35), np.float32)
+    checker = ((xx + yy) % 2).astype(np.float32) * 220.0
+    rear_a = np.repeat(checker[..., None], 3, axis=2)
+    rear_b = 255.0 - rear_a
+    model = _prepare_model(
+        alpha,
+        RADIUS_FRACTION * size,
+        _box_disk_blur,
+        hard_ownership=hard_ownership,
+    )
+
+    frames_a = _forward_layers(foreground, rear_a, model)
+    frames_b = _forward_layers(foreground, rear_b, model)
+
+    assert np.any(
+        hard_ownership & (alpha < 1.0)
+    ), "the test must cover the old soft-alpha ownership loophole"
+    for frame_a, frame_b in zip(frames_a, frames_b):
+        np.testing.assert_array_equal(
+            frame_a[hard_ownership],
+            frame_b[hard_ownership],
+        )
+    assert model["formation_model"] == "one_sided_opaque_v2"
+
+
 def test_one_sided_forward_and_adjoint_are_consistent():
     rng = np.random.default_rng(31)
     size = 72
@@ -114,6 +149,7 @@ def test_one_sided_forward_and_adjoint_are_consistent():
         alpha,
         RADIUS_FRACTION * size,
         _box_disk_blur,
+        hard_ownership=alpha >= 0.5,
     )
     near = np.zeros((size, size, 3), np.float32)
     far = np.zeros_like(near)

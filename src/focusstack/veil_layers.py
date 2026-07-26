@@ -3767,59 +3767,54 @@ def recover_giant_veil(
                 1.0 - phase * phase * (3.0 - 2.0 * phase)
             )
             seam_strength[front_extent] = 0.0
-            local_low = cv2.GaussianBlur(
-                composed,
-                (0, 0),
-                0.5 * spatial_scale,
-                borderType=cv2.BORDER_REFLECT,
-            )
-            composed -= seam_strength[..., None] * (
-                composed - local_low
-            )
-            absolute_blend = cv2.GaussianBlur(
-                composed,
-                (0, 0),
-                0.75 * spatial_scale,
-                borderType=cv2.BORDER_REFLECT,
-            )
             signed_edge_distance = np.where(
                 veil_support,
                 -edge_distance,
                 edge_distance,
+            ).astype(np.float32)
+            normal_x = cv2.Sobel(
+                signed_edge_distance, cv2.CV_32F, 1, 0, ksize=3
             )
-            absolute_offset = 1.5 * spatial_scale
-            absolute_width = np.where(
-                signed_edge_distance < absolute_offset,
-                3.0 * spatial_scale,
-                4.0 * spatial_scale,
+            normal_y = cv2.Sobel(
+                signed_edge_distance, cv2.CV_32F, 0, 1, ksize=3
             )
-            absolute_phase = np.clip(
-                np.abs(signed_edge_distance - absolute_offset)
-                / np.maximum(absolute_width, 1e-6),
-                0.0,
-                1.0,
+            normal_length = np.maximum(
+                np.hypot(normal_x, normal_y),
+                1e-6,
             )
-            absolute_strength = 0.04 * (
-                1.0
-                - absolute_phase
-                * absolute_phase
-                * (3.0 - 2.0 * absolute_phase)
+            normal_x /= normal_length
+            normal_y /= normal_length
+            height, width = mask.shape
+            grid_x = np.broadcast_to(
+                np.arange(width, dtype=np.float32),
+                (height, width),
             )
-            absolute_strength[front_extent] = 0.0
-            composed = (
-                composed * (1.0 - absolute_strength[..., None])
-                + absolute_blend * absolute_strength[..., None]
+            grid_y = np.broadcast_to(
+                np.arange(height, dtype=np.float32)[:, None],
+                (height, width),
             )
-            low_frequency_absolute = cv2.GaussianBlur(
+            normal_step = 0.5 * spatial_scale
+            normal_minus = cv2.remap(
                 composed,
-                (0, 0),
-                1.75 * spatial_scale,
-                borderType=cv2.BORDER_REFLECT,
+                grid_x - normal_step * normal_x,
+                grid_y - normal_step * normal_y,
+                cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_REFLECT,
             )
-            composed = (
-                composed * (1.0 - absolute_strength[..., None])
-                + low_frequency_absolute
-                * absolute_strength[..., None]
+            normal_plus = cv2.remap(
+                composed,
+                grid_x + normal_step * normal_x,
+                grid_y + normal_step * normal_y,
+                cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_REFLECT,
+            )
+            normal_low = (
+                0.25 * normal_minus
+                + 0.50 * composed
+                + 0.25 * normal_plus
+            )
+            composed -= seam_strength[..., None] * (
+                composed - normal_low
             )
     output = np.rint(np.clip(composed, 0, 255)).astype(np.uint8)
     report.update(

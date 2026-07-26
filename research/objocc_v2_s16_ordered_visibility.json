@@ -1,0 +1,2054 @@
+{
+  "factory": "objocc_v2_exact_disk",
+  "split": "s16",
+  "pipeline": "f62_front_first_ordered_visibility",
+  "oracle_fields": [],
+  "owner_support": true,
+  "rear_evidence_density": 0.2,
+  "visibility_coverage_floor": 0.1,
+  "visibility_coverage_ramp": 0.1,
+  "thresholds_retuned": false,
+  "scene_count": 36,
+  "fired_count": 1,
+  "rows": [
+    {
+      "sid": "s16_000",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.9935970306396484,
+        "forward_after": 1.8089203834533691,
+        "forward_ratio": 0.9073651072167651
+      },
+      "metrics": {
+        "ssim_base": 0.9665722250938416,
+        "ssim_output": 0.9665722250938416,
+        "d_ssim": 0.0,
+        "mae_base": 2.737401008605957,
+        "mae_output": 2.737401008605957,
+        "d_mae": 0.0,
+        "mse_base": 19.63913345336914,
+        "mse_output": 19.63913345336914,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6433985233306885,
+        "false_texture_output": 1.6433985233306885,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 37120,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 198605,
+            "mae_base": 2.6939823627471924,
+            "mae_output": 2.6939823627471924
+          },
+          "inner_partial_occlusion": {
+            "pixels": 64693,
+            "mae_base": 4.809700965881348,
+            "mae_output": 4.809700965881348
+          },
+          "outer_veil": {
+            "pixels": 73947,
+            "mae_base": 9.057844161987305,
+            "mae_output": 9.057844161987305
+          },
+          "far_background": {
+            "pixels": 1427736,
+            "mae_base": 2.3013200759887695,
+            "mae_output": 2.3013200759887695
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_001",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 3,
+        "forward_before": 1.3112523555755615,
+        "forward_after": 1.3495241403579712,
+        "forward_ratio": 1.0291872000226918
+      },
+      "metrics": {
+        "ssim_base": 0.9684198498725891,
+        "ssim_output": 0.9684198498725891,
+        "d_ssim": 0.0,
+        "mae_base": 2.3618829250335693,
+        "mae_output": 2.3618829250335693,
+        "d_mae": 0.0,
+        "mse_base": 9.696905136108398,
+        "mse_output": 9.696905136108398,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.59598708152771,
+        "false_texture_output": 1.59598708152771,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 38119,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 35468,
+            "mae_base": 2.749332904815674,
+            "mae_output": 2.749332904815674
+          },
+          "inner_partial_occlusion": {
+            "pixels": 33904,
+            "mae_base": 3.7666351795196533,
+            "mae_output": 3.7666351795196533
+          },
+          "outer_veil": {
+            "pixels": 41367,
+            "mae_base": 5.395548343658447,
+            "mae_output": 5.395548343658447
+          },
+          "far_background": {
+            "pixels": 1460012,
+            "mae_base": 2.2306180000305176,
+            "mae_output": 2.2306180000305176
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_002",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 0.9608314037322998,
+        "forward_after": 0.9631394147872925,
+        "forward_ratio": 1.0024020978561143
+      },
+      "metrics": {
+        "ssim_base": 0.9633657932281494,
+        "ssim_output": 0.9633657932281494,
+        "d_ssim": 0.0,
+        "mae_base": 2.4254777431488037,
+        "mae_output": 2.4254777431488037,
+        "d_mae": 0.0,
+        "mse_base": 13.065221786499023,
+        "mse_output": 13.065221786499023,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.8045649528503418,
+        "false_texture_output": 1.8045649528503418,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 4247,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 18938,
+            "mae_base": 10.944802284240723,
+            "mae_output": 10.944802284240723
+          },
+          "outer_veil": {
+            "pixels": 29944,
+            "mae_base": 11.33416748046875,
+            "mae_output": 11.33416748046875
+          },
+          "far_background": {
+            "pixels": 2308616,
+            "mae_base": 2.232375383377075,
+            "mae_output": 2.232375383377075
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_003",
+      "stratum": "solid",
+      "candidate_count": 1,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 2.680894613265991,
+        "forward_after": 3.0631110668182373,
+        "forward_ratio": 1.1425704880978562
+      },
+      "metrics": {
+        "ssim_base": 0.9861949682235718,
+        "ssim_output": 0.9861949682235718,
+        "d_ssim": 0.0,
+        "mae_base": 3.034358501434326,
+        "mae_output": 3.034358501434326,
+        "d_mae": 0.0,
+        "mse_base": 29.450119018554688,
+        "mse_output": 29.450119018554688,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.161527156829834,
+        "false_texture_output": 2.161527156829834,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 1764,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 56835,
+            "mae_base": 2.6617929935455322,
+            "mae_output": 2.6617929935455322
+          },
+          "inner_partial_occlusion": {
+            "pixels": 39829,
+            "mae_base": 7.277168273925781,
+            "mae_output": 7.277168273925781
+          },
+          "outer_veil": {
+            "pixels": 44960,
+            "mae_base": 16.975296020507812,
+            "mae_output": 16.975296020507812
+          },
+          "far_background": {
+            "pixels": 1624741,
+            "mae_base": 2.5268359184265137,
+            "mae_output": 2.5268359184265137
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_004",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 3,
+        "forward_before": 6.485282897949219,
+        "forward_after": 6.52051305770874,
+        "forward_ratio": 1.0054323242815917
+      },
+      "metrics": {
+        "ssim_base": 0.9642239809036255,
+        "ssim_output": 0.9642239809036255,
+        "d_ssim": 0.0,
+        "mae_base": 2.5838358402252197,
+        "mae_output": 2.5838358402252197,
+        "d_mae": 0.0,
+        "mse_base": 18.352872848510742,
+        "mse_output": 18.352872848510742,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.63703191280365,
+        "false_texture_output": 1.63703191280365,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 23236,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 17935,
+            "mae_base": 2.6531362533569336,
+            "mae_output": 2.6531362533569336
+          },
+          "inner_partial_occlusion": {
+            "pixels": 38326,
+            "mae_base": 5.5635600090026855,
+            "mae_output": 5.5635600090026855
+          },
+          "outer_veil": {
+            "pixels": 49284,
+            "mae_base": 10.039763450622559,
+            "mae_output": 10.039763450622559
+          },
+          "far_background": {
+            "pixels": 1661092,
+            "mae_base": 2.2765464782714844,
+            "mae_output": 2.2765464782714844
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_005",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.1665058135986328,
+        "forward_after": 1.2179638147354126,
+        "forward_ratio": 1.0441129401473221
+      },
+      "metrics": {
+        "ssim_base": 0.961061954498291,
+        "ssim_output": 0.961061954498291,
+        "d_ssim": 0.0,
+        "mae_base": 2.310607671737671,
+        "mae_output": 2.310607671737671,
+        "d_mae": 0.0,
+        "mse_base": 10.424205780029297,
+        "mse_output": 10.424205780029297,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6539853811264038,
+        "false_texture_output": 1.6539853811264038,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 9642,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 1087,
+            "mae_base": 2.6939587593078613,
+            "mae_output": 2.6939587593078613
+          },
+          "inner_partial_occlusion": {
+            "pixels": 16567,
+            "mae_base": 3.9233415126800537,
+            "mae_output": 3.9233415126800537
+          },
+          "outer_veil": {
+            "pixels": 20128,
+            "mae_base": 8.878478050231934,
+            "mae_output": 8.878478050231934
+          },
+          "far_background": {
+            "pixels": 1533664,
+            "mae_base": 2.200411796569824,
+            "mae_output": 2.200411796569824
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_006",
+      "stratum": "solid",
+      "candidate_count": 3,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 3,
+        "candidate_rank": 2,
+        "forward_before": 3.8172667026519775,
+        "forward_after": 4.304335117340088,
+        "forward_ratio": 1.1275961185394063
+      },
+      "metrics": {
+        "ssim_base": 0.9738489985466003,
+        "ssim_output": 0.9738489985466003,
+        "d_ssim": 0.0,
+        "mae_base": 3.7983999252319336,
+        "mae_output": 3.7983999252319336,
+        "d_mae": 0.0,
+        "mse_base": 56.400943756103516,
+        "mse_output": 56.400943756103516,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.18098521232605,
+        "false_texture_output": 2.18098521232605,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 2682,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 115583,
+            "mae_base": 2.5539164543151855,
+            "mae_output": 2.5539164543151855
+          },
+          "inner_partial_occlusion": {
+            "pixels": 70046,
+            "mae_base": 9.434223175048828,
+            "mae_output": 9.434223175048828
+          },
+          "outer_veil": {
+            "pixels": 86776,
+            "mae_base": 19.808364868164062,
+            "mae_output": 19.808364868164062
+          },
+          "far_background": {
+            "pixels": 1490261,
+            "mae_base": 2.6271610260009766,
+            "mae_output": 2.6271610260009766
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_007",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.7928279638290405,
+        "forward_after": 1.61951744556427,
+        "forward_ratio": 0.9033312053574724
+      },
+      "metrics": {
+        "ssim_base": 0.9678682684898376,
+        "ssim_output": 0.9678682684898376,
+        "d_ssim": 0.0,
+        "mae_base": 2.4027011394500732,
+        "mae_output": 2.4027011394500732,
+        "d_mae": 0.0,
+        "mse_base": 11.875992774963379,
+        "mse_output": 11.875992774963379,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6318639516830444,
+        "false_texture_output": 1.6318639516830444,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 16007,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 22739,
+            "mae_base": 2.9190962314605713,
+            "mae_output": 2.9190962314605713
+          },
+          "inner_partial_occlusion": {
+            "pixels": 20771,
+            "mae_base": 4.2525315284729,
+            "mae_output": 4.2525315284729
+          },
+          "outer_veil": {
+            "pixels": 25813,
+            "mae_base": 9.123852729797363,
+            "mae_output": 9.123852729797363
+          },
+          "far_background": {
+            "pixels": 1698414,
+            "mae_base": 2.2642457485198975,
+            "mae_output": 2.2642457485198975
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_008",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 1,
+        "forward_before": 1.7975146770477295,
+        "forward_after": 1.4586951732635498,
+        "forward_ratio": 0.81150668302711
+      },
+      "metrics": {
+        "ssim_base": 0.9676880240440369,
+        "ssim_output": 0.9676880240440369,
+        "d_ssim": 0.0,
+        "mae_base": 2.4924869537353516,
+        "mae_output": 2.4924869537353516,
+        "d_mae": 0.0,
+        "mse_base": 13.765923500061035,
+        "mse_output": 13.765923500061035,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7474128007888794,
+        "false_texture_output": 1.7474128007888794,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 6957,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 24791,
+            "mae_base": 7.395627498626709,
+            "mae_output": 7.395627498626709
+          },
+          "outer_veil": {
+            "pixels": 33478,
+            "mae_base": 8.855646133422852,
+            "mae_output": 8.855646133422852
+          },
+          "far_background": {
+            "pixels": 1512158,
+            "mae_base": 2.262089967727661,
+            "mae_output": 2.262089967727661
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_009",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 3,
+        "forward_before": 2.984829902648926,
+        "forward_after": 2.921492099761963,
+        "forward_ratio": 0.9787800963697285
+      },
+      "metrics": {
+        "ssim_base": 0.9617196917533875,
+        "ssim_output": 0.9617196917533875,
+        "d_ssim": 0.0,
+        "mae_base": 3.4788475036621094,
+        "mae_output": 3.4788475036621094,
+        "d_mae": 0.0,
+        "mse_base": 48.06926727294922,
+        "mse_output": 48.06926727294922,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7347257137298584,
+        "false_texture_output": 1.7347257137298584,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 22874,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 274880,
+            "mae_base": 2.1808135509490967,
+            "mae_output": 2.1808135509490967
+          },
+          "inner_partial_occlusion": {
+            "pixels": 71134,
+            "mae_base": 7.144211292266846,
+            "mae_output": 7.144211292266846
+          },
+          "outer_veil": {
+            "pixels": 76132,
+            "mae_base": 16.91847801208496,
+            "mae_output": 16.91847801208496
+          },
+          "far_background": {
+            "pixels": 1070790,
+            "mae_base": 2.5870308876037598,
+            "mae_output": 2.5870308876037598
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_010",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 1,
+        "forward_before": 12.479514122009277,
+        "forward_after": 13.22077751159668,
+        "forward_ratio": 1.0593984174656357
+      },
+      "metrics": {
+        "ssim_base": 0.9745001792907715,
+        "ssim_output": 0.9745001792907715,
+        "d_ssim": 0.0,
+        "mae_base": 2.8041093349456787,
+        "mae_output": 2.8041093349456787,
+        "d_mae": 0.0,
+        "mse_base": 16.65904426574707,
+        "mse_output": 16.65904426574707,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.767490267753601,
+        "false_texture_output": 1.767490267753601,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 11537,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 22919,
+            "mae_base": 3.2224645614624023,
+            "mae_output": 3.2224645614624023
+          },
+          "inner_partial_occlusion": {
+            "pixels": 29530,
+            "mae_base": 6.994818687438965,
+            "mae_output": 6.994818687438965
+          },
+          "outer_veil": {
+            "pixels": 37729,
+            "mae_base": 10.13541316986084,
+            "mae_output": 10.13541316986084
+          },
+          "far_background": {
+            "pixels": 1403846,
+            "mae_base": 2.503450632095337,
+            "mae_output": 2.503450632095337
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_011",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 2,
+        "forward_before": 12.557296752929688,
+        "forward_after": 14.02928352355957,
+        "forward_ratio": 1.1172216281570682
+      },
+      "metrics": {
+        "ssim_base": 0.9725712537765503,
+        "ssim_output": 0.9725712537765503,
+        "d_ssim": 0.0,
+        "mae_base": 2.571864366531372,
+        "mae_output": 2.571864366531372,
+        "d_mae": 0.0,
+        "mse_base": 12.350099563598633,
+        "mse_output": 12.350099563598633,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.9019930362701416,
+        "false_texture_output": 1.9019930362701416,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 7289,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 13533,
+            "mae_base": 4.183550834655762,
+            "mae_output": 4.183550834655762
+          },
+          "outer_veil": {
+            "pixels": 25566,
+            "mae_base": 9.668231010437012,
+            "mae_output": 9.668231010437012
+          },
+          "far_background": {
+            "pixels": 1728848,
+            "mae_base": 2.450213670730591,
+            "mae_output": 2.450213670730591
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_012",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.945885419845581,
+        "forward_after": 1.7828603982925415,
+        "forward_ratio": 0.9162206469659572
+      },
+      "metrics": {
+        "ssim_base": 0.9615791440010071,
+        "ssim_output": 0.9615791440010071,
+        "d_ssim": 0.0,
+        "mae_base": 2.672663927078247,
+        "mae_output": 2.672663927078247,
+        "d_mae": 0.0,
+        "mse_base": 17.37727165222168,
+        "mse_output": 17.37727165222168,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6220961809158325,
+        "false_texture_output": 1.6220961809158325,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 39860,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 129059,
+            "mae_base": 2.5994646549224854,
+            "mae_output": 2.5994646549224854
+          },
+          "inner_partial_occlusion": {
+            "pixels": 60844,
+            "mae_base": 6.5367326736450195,
+            "mae_output": 6.5367326736450195
+          },
+          "outer_veil": {
+            "pixels": 72542,
+            "mae_base": 7.601858139038086,
+            "mae_output": 7.601858139038086
+          },
+          "far_background": {
+            "pixels": 1503593,
+            "mae_base": 2.276707172393799,
+            "mae_output": 2.276707172393799
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_013",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 3,
+        "forward_before": 1.3592525720596313,
+        "forward_after": 1.2353342771530151,
+        "forward_ratio": 0.9088335034607683
+      },
+      "metrics": {
+        "ssim_base": 0.9624589085578918,
+        "ssim_output": 0.9624589085578918,
+        "d_ssim": 0.0,
+        "mae_base": 2.251380205154419,
+        "mae_output": 2.251380205154419,
+        "d_mae": 0.0,
+        "mse_base": 8.255979537963867,
+        "mse_output": 8.255979537963867,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.607365369796753,
+        "false_texture_output": 1.607365369796753,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 36416,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 24913,
+            "mae_base": 2.737111806869507,
+            "mae_output": 2.737111806869507
+          },
+          "inner_partial_occlusion": {
+            "pixels": 30574,
+            "mae_base": 2.844235897064209,
+            "mae_output": 2.844235897064209
+          },
+          "outer_veil": {
+            "pixels": 39030,
+            "mae_base": 3.0829105377197266,
+            "mae_output": 3.0829105377197266
+          },
+          "far_background": {
+            "pixels": 1476267,
+            "mae_base": 2.2080490589141846,
+            "mae_output": 2.2080490589141846
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_014",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 3,
+        "forward_before": 1.3370623588562012,
+        "forward_after": 1.2258784770965576,
+        "forward_ratio": 0.9168446549832152
+      },
+      "metrics": {
+        "ssim_base": 0.9624209403991699,
+        "ssim_output": 0.9624209403991699,
+        "d_ssim": 0.0,
+        "mae_base": 2.278965711593628,
+        "mae_output": 2.278965711593628,
+        "d_mae": 0.0,
+        "mse_base": 8.833484649658203,
+        "mse_output": 8.833484649658203,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.600206732749939,
+        "false_texture_output": 1.600206732749939,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 35197,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 28498,
+            "mae_base": 2.084707736968994,
+            "mae_output": 2.084707736968994
+          },
+          "outer_veil": {
+            "pixels": 39377,
+            "mae_base": 4.781793117523193,
+            "mae_output": 4.781793117523193
+          },
+          "far_background": {
+            "pixels": 1502400,
+            "mae_base": 2.215069532394409,
+            "mae_output": 2.215069532394409
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_015",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 2,
+        "forward_before": 5.902804374694824,
+        "forward_after": 6.494750022888184,
+        "forward_ratio": 1.1002821050162217
+      },
+      "metrics": {
+        "ssim_base": 0.9615492224693298,
+        "ssim_output": 0.9615492224693298,
+        "d_ssim": 0.0,
+        "mae_base": 2.6526601314544678,
+        "mae_output": 2.6526601314544678,
+        "d_mae": 0.0,
+        "mse_base": 18.014699935913086,
+        "mse_output": 18.014699935913086,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.5927140712738037,
+        "false_texture_output": 1.5927140712738037,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 70388,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 287068,
+            "mae_base": 2.5764567852020264,
+            "mae_output": 2.5764567852020264
+          },
+          "inner_partial_occlusion": {
+            "pixels": 77325,
+            "mae_base": 3.2668778896331787,
+            "mae_output": 3.2668778896331787
+          },
+          "outer_veil": {
+            "pixels": 88000,
+            "mae_base": 7.614605903625488,
+            "mae_output": 7.614605903625488
+          },
+          "far_background": {
+            "pixels": 1115181,
+            "mae_base": 2.2209177017211914,
+            "mae_output": 2.2209177017211914
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_016",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 1,
+        "forward_before": 6.241629600524902,
+        "forward_after": 6.009833335876465,
+        "forward_ratio": 0.9628628612263463
+      },
+      "metrics": {
+        "ssim_base": 0.957585871219635,
+        "ssim_output": 0.957585871219635,
+        "d_ssim": 0.0,
+        "mae_base": 3.080942153930664,
+        "mae_output": 3.080942153930664,
+        "d_mae": 0.0,
+        "mse_base": 29.988155364990234,
+        "mse_output": 29.988155364990234,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7230565547943115,
+        "false_texture_output": 1.7230565547943115,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 18500,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 45095,
+            "mae_base": 3.7748825550079346,
+            "mae_output": 3.7748825550079346
+          },
+          "inner_partial_occlusion": {
+            "pixels": 66090,
+            "mae_base": 9.583805084228516,
+            "mae_output": 9.583805084228516
+          },
+          "outer_veil": {
+            "pixels": 72596,
+            "mae_base": 13.804671287536621,
+            "mae_output": 13.804671287536621
+          },
+          "far_background": {
+            "pixels": 1580402,
+            "mae_base": 2.2592175006866455,
+            "mae_output": 2.2592175006866455
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_017",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 1,
+        "forward_before": 6.27116584777832,
+        "forward_after": 5.97828483581543,
+        "forward_ratio": 0.953297198786945
+      },
+      "metrics": {
+        "ssim_base": 0.9660179615020752,
+        "ssim_output": 0.9660179615020752,
+        "d_ssim": 0.0,
+        "mae_base": 2.365450620651245,
+        "mae_output": 2.365450620651245,
+        "d_mae": 0.0,
+        "mse_base": 11.758420944213867,
+        "mse_output": 11.758420944213867,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.1826324462890625,
+        "false_texture_output": 2.1826324462890625,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 922,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 792,
+            "mae_base": 7.622474670410156,
+            "mae_output": 7.622474670410156
+          },
+          "inner_partial_occlusion": {
+            "pixels": 15118,
+            "mae_base": 7.868015766143799,
+            "mae_output": 7.868015766143799
+          },
+          "outer_veil": {
+            "pixels": 19129,
+            "mae_base": 9.135623931884766,
+            "mae_output": 9.135623931884766
+          },
+          "far_background": {
+            "pixels": 1733082,
+            "mae_base": 2.232360363006592,
+            "mae_output": 2.232360363006592
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_018",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 3,
+        "forward_before": 3.3699123859405518,
+        "forward_after": 3.4393985271453857,
+        "forward_ratio": 1.0206195690709152
+      },
+      "metrics": {
+        "ssim_base": 0.9726029634475708,
+        "ssim_output": 0.9726029634475708,
+        "d_ssim": 0.0,
+        "mae_base": 3.176643133163452,
+        "mae_output": 3.176643133163452,
+        "d_mae": 0.0,
+        "mse_base": 26.124404907226562,
+        "mse_output": 26.124404907226562,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.8129879236221313,
+        "false_texture_output": 1.8129879236221313,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 14902,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 123413,
+            "mae_base": 2.8118081092834473,
+            "mae_output": 2.8118081092834473
+          },
+          "inner_partial_occlusion": {
+            "pixels": 52894,
+            "mae_base": 4.6314263343811035,
+            "mae_output": 4.6314263343811035
+          },
+          "outer_veil": {
+            "pixels": 72839,
+            "mae_base": 11.89981460571289,
+            "mae_output": 11.89981460571289
+          },
+          "far_background": {
+            "pixels": 1241412,
+            "mae_base": 2.608024835586548,
+            "mae_output": 2.608024835586548
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_019",
+      "stratum": "mixed",
+      "candidate_count": 1,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 2.8679163455963135,
+        "forward_after": 3.317809820175171,
+        "forward_ratio": 1.156871198586273
+      },
+      "metrics": {
+        "ssim_base": 0.9751946926116943,
+        "ssim_output": 0.9751946926116943,
+        "d_ssim": 0.0,
+        "mae_base": 3.4131994247436523,
+        "mae_output": 3.4131994247436523,
+        "d_mae": 0.0,
+        "mse_base": 35.30421447753906,
+        "mse_output": 35.30421447753906,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.106752395629883,
+        "false_texture_output": 2.106752395629883,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 2529,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 73971,
+            "mae_base": 2.453371524810791,
+            "mae_output": 2.453371524810791
+          },
+          "inner_partial_occlusion": {
+            "pixels": 64999,
+            "mae_base": 10.242414474487305,
+            "mae_output": 10.242414474487305
+          },
+          "outer_veil": {
+            "pixels": 71135,
+            "mae_base": 14.272552490234375,
+            "mae_output": 14.272552490234375
+          },
+          "far_background": {
+            "pixels": 1555810,
+            "mae_base": 2.639737844467163,
+            "mae_output": 2.639737844467163
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_020",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 2,
+        "forward_before": 6.156680107116699,
+        "forward_after": 6.474449634552002,
+        "forward_ratio": 1.0516137791645181
+      },
+      "metrics": {
+        "ssim_base": 0.9650581479072571,
+        "ssim_output": 0.9650581479072571,
+        "d_ssim": 0.0,
+        "mae_base": 2.6693484783172607,
+        "mae_output": 2.6693484783172607,
+        "d_mae": 0.0,
+        "mse_base": 22.413089752197266,
+        "mse_output": 22.413089752197266,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6455618143081665,
+        "false_texture_output": 1.6455618143081665,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 18096,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 628,
+            "mae_base": 6.579087734222412,
+            "mae_output": 6.579087734222412
+          },
+          "inner_partial_occlusion": {
+            "pixels": 34473,
+            "mae_base": 9.985678672790527,
+            "mae_output": 9.985678672790527
+          },
+          "outer_veil": {
+            "pixels": 40224,
+            "mae_base": 12.684077262878418,
+            "mae_output": 12.684077262878418
+          },
+          "far_background": {
+            "pixels": 1495060,
+            "mae_base": 2.2135918140411377,
+            "mae_output": 2.2135918140411377
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_021",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 1,
+        "forward_before": 1.740719199180603,
+        "forward_after": 1.3299638032913208,
+        "forward_ratio": 0.764031214177086
+      },
+      "metrics": {
+        "ssim_base": 0.9639537334442139,
+        "ssim_output": 0.9639537334442139,
+        "d_ssim": 0.0,
+        "mae_base": 2.7214527130126953,
+        "mae_output": 2.7214527130126953,
+        "d_mae": 0.0,
+        "mse_base": 20.000944137573242,
+        "mse_output": 20.000944137573242,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.645184874534607,
+        "false_texture_output": 1.645184874534607,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 47020,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 176764,
+            "mae_base": 2.656994581222534,
+            "mae_output": 2.656994581222534
+          },
+          "inner_partial_occlusion": {
+            "pixels": 61117,
+            "mae_base": 3.803126096725464,
+            "mae_output": 3.803126096725464
+          },
+          "outer_veil": {
+            "pixels": 69870,
+            "mae_base": 9.229879379272461,
+            "mae_output": 9.229879379272461
+          },
+          "far_background": {
+            "pixels": 1260866,
+            "mae_base": 2.3037233352661133,
+            "mae_output": 2.3037233352661133
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_022",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 3,
+        "forward_before": 7.181164741516113,
+        "forward_after": 7.765422821044922,
+        "forward_ratio": 1.0813597933704355
+      },
+      "metrics": {
+        "ssim_base": 0.957751452922821,
+        "ssim_output": 0.957751452922821,
+        "d_ssim": 0.0,
+        "mae_base": 2.467956781387329,
+        "mae_output": 2.467956781387329,
+        "d_mae": 0.0,
+        "mse_base": 15.60243034362793,
+        "mse_output": 15.60243034362793,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6772429943084717,
+        "false_texture_output": 1.6772429943084717,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 20874,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 32944,
+            "mae_base": 2.7775516510009766,
+            "mae_output": 2.7775516510009766
+          },
+          "inner_partial_occlusion": {
+            "pixels": 27494,
+            "mae_base": 6.352658748626709,
+            "mae_output": 6.352658748626709
+          },
+          "outer_veil": {
+            "pixels": 40604,
+            "mae_base": 10.271754264831543,
+            "mae_output": 10.271754264831543
+          },
+          "far_background": {
+            "pixels": 1468624,
+            "mae_base": 2.1526167392730713,
+            "mae_output": 2.1526167392730713
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_023",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 5.878196716308594,
+        "forward_after": 5.874259948730469,
+        "forward_ratio": 0.9993302763129375
+      },
+      "metrics": {
+        "ssim_base": 0.9577915668487549,
+        "ssim_output": 0.9577915668487549,
+        "d_ssim": 0.0,
+        "mae_base": 2.4422476291656494,
+        "mae_output": 2.4422476291656494,
+        "d_mae": 0.0,
+        "mse_base": 11.440492630004883,
+        "mse_output": 11.440492630004883,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7643898725509644,
+        "false_texture_output": 1.7643898725509644,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 8580,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 12510,
+            "mae_base": 11.428083419799805,
+            "mae_output": 11.428083419799805
+          },
+          "outer_veil": {
+            "pixels": 18669,
+            "mae_base": 7.972379207611084,
+            "mae_output": 7.972379207611084
+          },
+          "far_background": {
+            "pixels": 1736922,
+            "mae_base": 2.313516139984131,
+            "mae_output": 2.313516139984131
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_024",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 1,
+        "forward_before": 3.6431033611297607,
+        "forward_after": 2.8046226501464844,
+        "forward_ratio": 0.7698443805000208
+      },
+      "metrics": {
+        "ssim_base": 0.9646837711334229,
+        "ssim_output": 0.9646837711334229,
+        "d_ssim": 0.0,
+        "mae_base": 3.0028934478759766,
+        "mae_output": 3.0028934478759766,
+        "d_mae": 0.0,
+        "mse_base": 24.660900115966797,
+        "mse_output": 24.660900115966797,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6180707216262817,
+        "false_texture_output": 1.6180707216262817,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 68916,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 222479,
+            "mae_base": 2.591158628463745,
+            "mae_output": 2.591158628463745
+          },
+          "inner_partial_occlusion": {
+            "pixels": 107506,
+            "mae_base": 4.0854339599609375,
+            "mae_output": 4.0854339599609375
+          },
+          "outer_veil": {
+            "pixels": 111965,
+            "mae_base": 8.843061447143555,
+            "mae_output": 8.843061447143555
+          },
+          "far_background": {
+            "pixels": 1122220,
+            "mae_base": 2.3651962280273438,
+            "mae_output": 2.3651962280273438
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_025",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.3885905742645264,
+        "forward_after": 1.2540454864501953,
+        "forward_ratio": 0.9031067254034952
+      },
+      "metrics": {
+        "ssim_base": 0.9609041810035706,
+        "ssim_output": 0.9609041810035706,
+        "d_ssim": 0.0,
+        "mae_base": 2.4791014194488525,
+        "mae_output": 2.4791014194488525,
+        "d_mae": 0.0,
+        "mse_base": 14.093501091003418,
+        "mse_output": 14.093501091003418,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6240094900131226,
+        "false_texture_output": 1.6240094900131226,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 21374,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 17804,
+            "mae_base": 3.859076499938965,
+            "mae_output": 3.859076499938965
+          },
+          "inner_partial_occlusion": {
+            "pixels": 29545,
+            "mae_base": 5.736559867858887,
+            "mae_output": 5.736559867858887
+          },
+          "outer_veil": {
+            "pixels": 37341,
+            "mae_base": 9.598599433898926,
+            "mae_output": 9.598599433898926
+          },
+          "far_background": {
+            "pixels": 1485474,
+            "mae_base": 2.2079918384552,
+            "mae_output": 2.2079918384552
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_026",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 2,
+        "forward_before": 12.452675819396973,
+        "forward_after": 13.925857543945312,
+        "forward_ratio": 1.1183024231831067
+      },
+      "metrics": {
+        "ssim_base": 0.9686106443405151,
+        "ssim_output": 0.9686106443405151,
+        "d_ssim": 0.0,
+        "mae_base": 2.926992416381836,
+        "mae_output": 2.926992416381836,
+        "d_mae": 0.0,
+        "mse_base": 23.636722564697266,
+        "mse_output": 23.636722564697266,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.9372321367263794,
+        "false_texture_output": 1.9372321367263794,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 4485,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 21489,
+            "mae_base": 6.090387344360352,
+            "mae_output": 6.090387344360352
+          },
+          "outer_veil": {
+            "pixels": 34231,
+            "mae_base": 18.42680549621582,
+            "mae_output": 18.42680549621582
+          },
+          "far_background": {
+            "pixels": 1711539,
+            "mae_base": 2.564987897872925,
+            "mae_output": 2.564987897872925
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_027",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 2,
+        "forward_before": 2.6537301540374756,
+        "forward_after": 2.1866958141326904,
+        "forward_ratio": 0.8240083532252805
+      },
+      "metrics": {
+        "ssim_base": 0.9712211489677429,
+        "ssim_output": 0.9712211489677429,
+        "d_ssim": 0.0,
+        "mae_base": 3.2547857761383057,
+        "mae_output": 3.2547857761383057,
+        "d_mae": 0.0,
+        "mse_base": 34.457969665527344,
+        "mse_output": 34.457969665527344,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.8271476030349731,
+        "false_texture_output": 1.8271476030349731,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 12909,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 116009,
+            "mae_base": 2.785151958465576,
+            "mae_output": 2.785151958465576
+          },
+          "inner_partial_occlusion": {
+            "pixels": 43683,
+            "mae_base": 7.026577949523926,
+            "mae_output": 7.026577949523926
+          },
+          "outer_veil": {
+            "pixels": 50253,
+            "mae_base": 17.3160457611084,
+            "mae_output": 17.3160457611084
+          },
+          "far_background": {
+            "pixels": 1282769,
+            "mae_base": 2.5848827362060547,
+            "mae_output": 2.5848827362060547
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_028",
+      "stratum": "mixed",
+      "candidate_count": 1,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 10.069229125976562,
+        "forward_after": 8.452284812927246,
+        "forward_ratio": 0.8394172689071173
+      },
+      "metrics": {
+        "ssim_base": 0.9748519062995911,
+        "ssim_output": 0.9748519062995911,
+        "d_ssim": 0.0,
+        "mae_base": 2.912783145904541,
+        "mae_output": 2.912783145904541,
+        "d_mae": 0.0,
+        "mse_base": 18.40511131286621,
+        "mse_output": 18.40511131286621,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.0989439487457275,
+        "false_texture_output": 2.0989439487457275,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 3242,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 12470,
+            "mae_base": 2.23098087310791,
+            "mae_output": 2.23098087310791
+          },
+          "inner_partial_occlusion": {
+            "pixels": 30531,
+            "mae_base": 3.8047447204589844,
+            "mae_output": 3.8047447204589844
+          },
+          "outer_veil": {
+            "pixels": 40043,
+            "mae_base": 9.223101615905762,
+            "mae_output": 9.223101615905762
+          },
+          "far_background": {
+            "pixels": 836645,
+            "mae_base": 2.572808027267456,
+            "mae_output": 2.572808027267456
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_029",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.0753397941589355,
+        "forward_after": 0.9748491644859314,
+        "forward_ratio": 0.9065498829124967
+      },
+      "metrics": {
+        "ssim_base": 0.9638087153434753,
+        "ssim_output": 0.9638087153434753,
+        "d_ssim": 0.0,
+        "mae_base": 2.3643388748168945,
+        "mae_output": 2.3643388748168945,
+        "d_mae": 0.0,
+        "mse_base": 10.012652397155762,
+        "mse_output": 10.012652397155762,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.74832022190094,
+        "false_texture_output": 1.74832022190094,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 10395,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 19318,
+            "mae_base": 4.167288303375244,
+            "mae_output": 4.167288303375244
+          },
+          "outer_veil": {
+            "pixels": 30156,
+            "mae_base": 8.233452796936035,
+            "mae_output": 8.233452796936035
+          },
+          "far_background": {
+            "pixels": 2308018,
+            "mae_base": 2.269120931625366,
+            "mae_output": 2.269120931625366
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_030",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 2,
+        "forward_before": 2.699028730392456,
+        "forward_after": 2.23511004447937,
+        "forward_ratio": 0.8281164328896828
+      },
+      "metrics": {
+        "ssim_base": 0.976077675819397,
+        "ssim_output": 0.976077675819397,
+        "d_ssim": 0.0,
+        "mae_base": 3.015428066253662,
+        "mae_output": 3.015428066253662,
+        "d_mae": 0.0,
+        "mse_base": 21.29576873779297,
+        "mse_output": 21.29576873779297,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.9432793855667114,
+        "false_texture_output": 1.9432793855667114,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 6275,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 69481,
+            "mae_base": 2.642991065979004,
+            "mae_output": 2.642991065979004
+          },
+          "inner_partial_occlusion": {
+            "pixels": 39365,
+            "mae_base": 4.1092424392700195,
+            "mae_output": 4.1092424392700195
+          },
+          "outer_veil": {
+            "pixels": 55929,
+            "mae_base": 8.367746353149414,
+            "mae_output": 8.367746353149414
+          },
+          "far_background": {
+            "pixels": 752540,
+            "mae_base": 2.5555531978607178,
+            "mae_output": 2.5555531978607178
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_031",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 2,
+        "forward_before": 2.9293720722198486,
+        "forward_after": 2.8378803730010986,
+        "forward_ratio": 0.9687674706513405
+      },
+      "metrics": {
+        "ssim_base": 0.9674713015556335,
+        "ssim_output": 0.9674713015556335,
+        "d_ssim": 0.0,
+        "mae_base": 3.1571452617645264,
+        "mae_output": 3.1571452617645264,
+        "d_mae": 0.0,
+        "mse_base": 25.050479888916016,
+        "mse_output": 25.050479888916016,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.8944437503814697,
+        "false_texture_output": 1.8944437503814697,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 21647,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 54459,
+            "mae_base": 2.640187978744507,
+            "mae_output": 2.640187978744507
+          },
+          "inner_partial_occlusion": {
+            "pixels": 60904,
+            "mae_base": 3.8281774520874023,
+            "mae_output": 3.8281774520874023
+          },
+          "outer_veil": {
+            "pixels": 90407,
+            "mae_base": 12.121914863586426,
+            "mae_output": 12.121914863586426
+          },
+          "far_background": {
+            "pixels": 1557879,
+            "mae_base": 2.605497360229492,
+            "mae_output": 2.605497360229492
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_032",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 3,
+        "forward_before": 6.36211633682251,
+        "forward_after": 6.164663791656494,
+        "forward_ratio": 0.968964329680172
+      },
+      "metrics": {
+        "ssim_base": 0.9630031585693359,
+        "ssim_output": 0.9630031585693359,
+        "d_ssim": 0.0,
+        "mae_base": 2.540619373321533,
+        "mae_output": 2.540619373321533,
+        "d_mae": 0.0,
+        "mse_base": 15.307134628295898,
+        "mse_output": 15.307134628295898,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.655944585800171,
+        "false_texture_output": 1.655944585800171,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 21395,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 594,
+            "mae_base": 3.869248390197754,
+            "mae_output": 3.869248390197754
+          },
+          "inner_partial_occlusion": {
+            "pixels": 37764,
+            "mae_base": 4.865992546081543,
+            "mae_output": 4.865992546081543
+          },
+          "outer_veil": {
+            "pixels": 47551,
+            "mae_base": 9.384113311767578,
+            "mae_output": 9.384113311767578
+          },
+          "far_background": {
+            "pixels": 1680480,
+            "mae_base": 2.2810018062591553,
+            "mae_output": 2.2810018062591553
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_033",
+      "stratum": "solid",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 3,
+        "forward_before": 1.5646355152130127,
+        "forward_after": 1.420797348022461,
+        "forward_ratio": 0.9080692175321297
+      },
+      "metrics": {
+        "ssim_base": 0.9550667405128479,
+        "ssim_output": 0.9550667405128479,
+        "d_ssim": 0.0,
+        "mae_base": 2.5651161670684814,
+        "mae_output": 2.5651161670684814,
+        "d_mae": 0.0,
+        "mse_base": 19.948076248168945,
+        "mse_output": 19.948076248168945,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7348726987838745,
+        "false_texture_output": 1.7348726987838745,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 13336,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 29325,
+            "mae_base": 3.270599365234375,
+            "mae_output": 3.270599365234375
+          },
+          "inner_partial_occlusion": {
+            "pixels": 23269,
+            "mae_base": 6.578981876373291,
+            "mae_output": 6.578981876373291
+          },
+          "outer_veil": {
+            "pixels": 28743,
+            "mae_base": 18.021013259887695,
+            "mae_output": 18.021013259887695
+          },
+          "far_background": {
+            "pixels": 1489311,
+            "mae_base": 2.1728529930114746,
+            "mae_output": 2.1728529930114746
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_034",
+      "stratum": "mixed",
+      "candidate_count": 4,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.8717384338378906,
+        "forward_after": 1.500789999961853,
+        "forward_ratio": 0.801816093974504,
+        "owner_refinement_fired": true,
+        "owner_refinement_reason": "focused_owner_forward_win",
+        "owner_refinement_mask_index": 2,
+        "owner_refinement_iou": 0.7715034879351751,
+        "owner_refinement_seed_containment": 0.7912819825405071,
+        "owner_refinement_area_ratio": 0.8169182822003652,
+        "owner_refinement_forward_before": 1.500789999961853,
+        "owner_refinement_forward_after": 1.408267855644226,
+        "owner_refinement_forward_improvement": 0.09252214431762695,
+        "owner_support_candidate_count": 1,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "no_forward_licensed_fragment",
+        "owner_front_reconstruction_pixels": 40262,
+        "model_count": 6,
+        "stable_fraction": 0.7660399542914497,
+        "ensemble_spread_rms": 0.6832072734832764,
+        "retained_rms": 2.6853063106536865,
+        "owner_veto_mean": 0.05730252340435982,
+        "owner_veto_confident_fraction": 0.05896886189778646,
+        "rear_evidence_mean": 0.06822632998228073,
+        "rear_evidence_confident_fraction": 0.06749471028645833,
+        "rear_visibility_mean": 0.15931366384029388,
+        "ordered_visibility_fraction": 0.14942169189453125,
+        "owner": 0,
+        "changed_pixels": 77134
+      },
+      "metrics": {
+        "ssim_base": 0.9569106101989746,
+        "ssim_output": 0.9574928283691406,
+        "d_ssim": 0.0005822181701660156,
+        "mae_base": 2.660330057144165,
+        "mae_output": 2.530758857727051,
+        "d_mae": -0.12957119941711426,
+        "mse_base": 19.526330947875977,
+        "mse_output": 16.16779327392578,
+        "changed_pixels": 77134,
+        "changed_closer": 64207,
+        "changed_worse": 9601,
+        "false_texture_base": 1.6509829759597778,
+        "false_texture_output": 1.6554701328277588,
+        "d_false_texture": 0.004487156867980957,
+        "false_texture_pixels": 32780,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 41670,
+            "mae_base": 3.038756847381592,
+            "mae_output": 3.038756847381592
+          },
+          "inner_partial_occlusion": {
+            "pixels": 53087,
+            "mae_base": 5.195352077484131,
+            "mae_output": 3.0285253524780273
+          },
+          "outer_veil": {
+            "pixels": 58054,
+            "mae_base": 11.604592323303223,
+            "mae_output": 10.09807014465332
+          },
+          "far_background": {
+            "pixels": 1415387,
+            "mae_base": 2.1636838912963867,
+            "mae_output": 2.1636812686920166
+          }
+        }
+      }
+    },
+    {
+      "sid": "s16_035",
+      "stratum": "thin",
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 2,
+        "forward_before": 1.5461629629135132,
+        "forward_after": 1.7027778625488281,
+        "forward_ratio": 1.101292621406606
+      },
+      "metrics": {
+        "ssim_base": 0.9573288559913635,
+        "ssim_output": 0.9573288559913635,
+        "d_ssim": 0.0,
+        "mae_base": 2.4579248428344727,
+        "mae_output": 2.4579248428344727,
+        "d_mae": 0.0,
+        "mse_base": 15.063539505004883,
+        "mse_output": 15.063539505004883,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.679200530052185,
+        "false_texture_output": 1.679200530052185,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 15032,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 19504,
+            "mae_base": 11.991437911987305,
+            "mae_output": 11.991437911987305
+          },
+          "outer_veil": {
+            "pixels": 29797,
+            "mae_base": 12.06278133392334,
+            "mae_output": 12.06278133392334
+          },
+          "far_background": {
+            "pixels": 1521415,
+            "mae_base": 2.13494610786438,
+            "mae_output": 2.13494610786438
+          }
+        }
+      }
+    }
+  ],
+  "fired_summary": {
+    "ssim_positive": 1,
+    "mae_positive": 1,
+    "mse_positive": 1,
+    "false_texture_nonregressing": 0,
+    "all_partitions_nonregressing": 1,
+    "partition_summary": {
+      "complete_coverage_core": {
+        "evaluated": 1,
+        "nonregressing": 1,
+        "mean_delta_mae": 0.0,
+        "worst_delta_mae": 0.0
+      },
+      "inner_partial_occlusion": {
+        "evaluated": 1,
+        "nonregressing": 1,
+        "mean_delta_mae": -2.1668267250061035,
+        "worst_delta_mae": -2.1668267250061035
+      },
+      "outer_veil": {
+        "evaluated": 1,
+        "nonregressing": 1,
+        "mean_delta_mae": -1.5065221786499023,
+        "worst_delta_mae": -1.5065221786499023
+      },
+      "far_background": {
+        "evaluated": 1,
+        "nonregressing": 1,
+        "mean_delta_mae": -2.6226043701171875e-06,
+        "worst_delta_mae": -2.6226043701171875e-06
+      }
+    }
+  }
+}

@@ -74,7 +74,8 @@ def main() -> None:
         f.write(inspection)
     print(
         f"wrote {os.path.relpath(INSPECTION_OUT, REPO)} "
-        f"({len(manifest['cases'])} deep cases, {len(manifest['ledger'])} ledger rows)"
+        f"({len(manifest['cases'])} physical deep cases, "
+        f"{len(manifest.get('normal_cases', []))} ordinary-photo cases)"
     )
 
 

@@ -209,12 +209,14 @@ live; the second remains an explicitly disabled research path:
   fragment or the novel tail of a high-overlap parent silhouette. Both must
   independently improve captured-frame fit—the broader parent has stronger
   containment, IoU, and relative-gain requirements—before observed foreground
-  pixels can override mixed fusion. F61 now separates a focused-front veto from
-  positive rear-focus observation and measures a small fragment's relative fit in
-  its own PSF neighborhood. That closes the foreground-partition tail on both
-  diagnosed fires and one fresh post-rule fire, with opaque core and far background
-  unchanged. Auto enhancement still refuses every veil case because all three
-  retain a small positive finest-band error on otherwise-smooth veil pixels.
+  pixels can override mixed fusion. F62 now lets a forward-winning focused-owner
+  silhouette replace mixed-base geometry, directly reconstructs its optically
+  partial front interior, and only then invokes F61's positive rear-observation
+  rule. That closes the foreground-partition tail on both diagnosed fires and the
+  S16 counterexample. A genuinely post-final 72-scene S19 split then yields three
+  all-partition-positive fires and 69 exact refusals. Auto enhancement still
+  refuses every veil case because all seven current fires retain a small positive
+  finest-band error on otherwise-smooth veil pixels.
 
 Here is contour reconstruction on a factory thin-occluder scene — one where the
 shipped gate actually fires (predicted gain +0.0044 ≥ margin +0.0040; the actual
@@ -265,18 +267,17 @@ GT-SSIM +0.00116. The smooth-region false-texture index changes +0.013 gray at t
 contour, disclosed rather than rounded to zero.*
 
 For inspection rather than presentation, open the
-**[Owner Inspection Lab](INSPECTION.html)**. It includes every original frame for
-five deliberately diagnostic fires (the weakest licensed win, the worst
-false-texture tail, the user-reported scene-114 support failure, ownership stress,
-and a second untouched holdout), a base/output slider, every input frame, runtime
-veil/support/protection masks, GT-only error maps, exact regional metrics,
-automatically selected regression crops, exact crops at the reported scene-114
-`(187,252)` and scene-122 `(804,521)` coordinates, and a structured
-coordinate-tagged feedback tool. Its ledger includes all ten established licensed
-package fires. At the new scene-122 point, error falls 6.33→2.33; its 669-pixel
-region improves MAE 8.06→4.39. Those five cases are now labeled legacy V1
-diagnostics. A new V2 section shows near-focus, far-focus, GT, and explicit
-complete-core/inner-veil/outer-veil coverage for solid, mixed, and thin scenes.
+**[Owner Inspection Lab](INSPECTION.html)**. Its physical-stress section now shows
+all seven current F62 fires and no legacy V1 deep cases: every input, the
+unamplified base/output slider, runtime alpha/visibility/support/front-reconstruction
+maps, GT-only error maps, all four optical partitions, automatically selected
+regression crops, and the exact reported `extension_007` `(1048,216)` crop.
+A separate normal-photo section runs the actual default pipeline on four classic
+real two-frame photographs and two real phone sweeps. Every original frame is
+shown beside the aligned/normalized stack, final output, focus-winner map, and
+post-fusion specialist edit. Five normal cases refuse post-fusion edits exactly;
+the gated contour specialist fires on the golfer pair (71,170 pixels), exposed
+for direct inspection without pretending that no-GT data certifies a win.
 
 The contour specialist sits behind an **outcome-trained gate**: candidates are
 scored by a model trained on factory scenes where the ground truth is known,
@@ -297,7 +298,10 @@ current evidence and shipping status are therefore:
 | Detached owner support, post-threshold 25-scene extension | 2/2 accepted support cases improve against the same support-disabled package; 4/6 licensed fires refuse support |
 | Legacy V1 parent silhouettes | Mechanism retained for reproduction; V1 promotion scores demoted after the >12 px “disk” proved to be a box shortcut |
 | Exact-disk V2 oracle ceiling | 9/9 development fires positive; untouched holdout 7/8 SSIM+MAE positive and 8/8 MSE/core-safe |
-| Exact-disk V2 frozen 36-scene extension | 2 fires improve global SSIM/MAE/MSE; parent support survives one, but the other worsens inner-partial foreground |
+| Exact-disk V2 diagnosed extension | 2/2 fires improve global errors and all four optical partitions after front-first refinement |
+| Exact-disk V2 first fresh split (S12) | 1/36 fires; all-partition positive, 35 exact refusals |
+| Exact-disk V2 S16 counterexample | sole fire flips from harmful to ΔSSIM +0.000582 / ΔMAE −0.1296; inner −2.167, outer −1.507, core/far identity |
+| Exact-disk V2 genuinely post-final S19 | 3/72 fires; 3/3 improve SSIM/MAE/MSE and every physical partition, 69 exact refusals |
 | Giant-veil auto path | **Safety-disabled**; current runtime behavior is identity for every veil case |
 | Fixed giant hypothesis, all audited moderate scenes | 0/66 fire |
 | Bridge absent / N≠2 / >1600 px / candidate unlicensed | byte-identical refusal |
@@ -331,7 +335,7 @@ discipline is that **a verdict in one regime is a hypothesis in every other**.
 | Real optical defocus (microscopy z-stacks) | perband sharpest — eye-confirmed | no GT exists; no-ref metric ordering confirmed visually |
 | Deep stacks (N = 2 → 8) | quality **rises** with N for every method | broad soft weights act as multi-frame denoising |
 | Exposure drift (±12% + WB tilt) | −0.025 SSIM broken → **−0.002** with default-on fix | clipped highlights slightly weaken the mean invariant |
-| Joint giant-veil recovery | **Research retained, runtime disabled**; ordered visibility is all-partition-safe on 2 diagnosed + 1 fresh fire | small positive smooth-veil finest-band tail remains; no shipping claim |
+| Joint giant-veil recovery | **Research retained, runtime disabled**; front-first ordering is all-partition-safe on 2 diagnosed fires, the repaired S16 counterexample, and 3/3 genuinely post-final S19 fires | small positive smooth-veil finest-band tail remains; no shipping claim |
 
 The metric itself got the same treatment as the engine: the standard gradient-transfer
 metric (Q<sup>AB/F</sup>) collapses at high resolution for the same fixed-window reason —

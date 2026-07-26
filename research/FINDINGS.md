@@ -5,7 +5,96 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F62 — Front geometry must be repaired before rear recovery
+
+The user's second `extension_007` inspection at native `(1048,216)` exposed the
+remaining cascade-order error. The far-focus input was not itself nonphysical at
+that point: true alpha is 1.0, far-frame foreground coverage is 0.545, and a
+finite aperture therefore records sharp rear texture plus a defocused foreground
+contribution. The failure was downstream. The mixed-base alpha was only 0.718
+and placed the point one pixel inside its boundary, so ordered visibility
+correctly blocked the rear solver but left the mixed base untouched. The
+forward-licensed focused-owner silhouette placed the same point 12.6 pixels
+inside the bird. Protection without front reconstruction was only half the rule.
+
+The first hypothesis—reuse an accepted parent-tail license to copy its eroded
+interior—fixed all three current cases, but was not promoted. A new 36-scene S16
+split produced one fire, `s16_034`, that lost globally (ΔSSIM −0.000486,
+ΔMAE +0.0013), worsened inner partial by +0.0338 and far background by +0.0375,
+and had **zero** parent-interior copy pixels. The new copy rule was exonerated;
+the counterexample instead showed the older mixed-base matte overextending into
+clean rear background. Its alpha IoU was 0.748. A sharp-owner mask in the
+already-computed bank had 0.952 true IoU and reduced captured-frame forward
+residual from 1.501 to 1.408, but the additive parent rule rejected it because
+it contained only 79.1% of the overextended seed. An additive support mechanism
+cannot remove a bad foundation.
+
+F62 makes the cascade front-first:
+
+1. physically rerank the mixed-base candidate as before;
+2. search the selected owner's sharp-frame masks for the same object (IoU≥0.70,
+   seed containment≥0.75, area ratio 0.5–1.5);
+3. let that focused-owner silhouette *replace* the mixed-base alpha only when it
+   remains licensed and improves whole-frame forward residual by >0.01;
+4. inside the refined silhouette, hard-select the focused owner only where the
+   point is at least one model-scale pixel inside the boundary and both PSF
+   families predict partial far-frame coverage (>10% front and >10% rear);
+5. run ordered rear recovery on the remaining outer veil.
+
+The owner copy is therefore neither blanket foreground replacement nor a
+learned score patch. It uses a directly observed front layer, excludes the
+uncertain semantic edge and complete optical core, and precedes the inverse
+solver that otherwise has to reinterpret a mixed pixel.
+
+Frozen reruns:
+
+- `extension_007`: the reported pixel changes from base RGB `[65,63,60]` to
+  focused-owner `[65,65,68]` versus GT `[69,69,66]`; its 21×21 neighborhood MAE
+  falls 7.786→2.887. Globally ΔSSIM +0.001083, ΔMAE −0.0657, inner partial
+  −0.507, outer veil −0.968, core/far identity.
+- `extension_034`: ΔSSIM +0.001797, ΔMAE −0.1246, inner partial −2.015,
+  outer veil −3.497, core/far identity.
+- `s12_025`: ΔSSIM +0.001343, ΔMAE −0.0851, inner partial −0.694,
+  outer veil −1.059, core/far identity.
+- repaired fresh-split counterexample `s16_034`: the exact prior loss flips to
+  ΔSSIM +0.000582,
+  ΔMAE −0.1296 and MSE 19.53→16.17; 64,207/9,601 changed pixels move
+  closer/worse. Inner partial improves −2.167, outer veil −1.507, complete core
+  is byte-identical, and far background is effectively identity (−0.0000026).
+  The other 35 S16 scenes refuse exactly. S16 exposed the failure and therefore
+  remains development evidence, not a post-final holdout.
+- genuinely post-final S19: 72 scenes were generated with seed 21001 only after
+  the final F62 code and thresholds were frozen. Three fire (`s19_000`,
+  `s19_012`, `s19_013`); all three improve SSIM, MAE, and MSE and every
+  core/inner/outer/far partition. Mean partition ΔMAE is −0.0022 complete core,
+  −0.5915 inner partial occlusion, −1.5991 outer veil, and exactly 0.0 far
+  background. The other 69 scenes refuse byte-identically. Disagreement-guided
+  visual crops confirm that all three edits remove mixed/ghosted foreground
+  boundary content toward the sharp GT silhouette; residual magenta is sparse
+  rather than a coherent displaced region.
+
+The fine-band complement remains open, but improves rather than being hidden:
+all seven current fire deltas remain positive, ranging +0.00138 to +0.00963.
+Auto remains off. The inspector now contains all seven current V2 fires, adds
+focused-owner refinement/front-reconstruction maps, includes the exact
+`(1048,216)` crop, and removes the already-reviewed legacy V1 deep cases. A
+separate ordinary-photo cohort runs the actual default pipeline on four real
+two-frame photographs plus two real phone sweeps, with every original and
+aligned/normalized frame visible. Five are exact post-fusion refusals; the gated
+contour specialist fires broadly on the golfer pair (71,170 pixels, 26.3%).
+With no all-in-focus GT this is exposed for direct inspection, not counted as a
+win.
+
+**Shipping action:** `VEIL_AUTO_ENABLED=False`. S13's hierarchical owner-mask
+gap is closed for the narrow licensed regime; S15's finest-band tail still
+blocks runtime activation.
+
 ## F61 — Rear recovery requires positive visibility; absence of foreground is not evidence
+
+> **F62 scope correction:** ordered visibility closed the first spatial tail,
+> but a second fresh split exposed overextended mixed-base geometry. Focused-
+> owner matte replacement plus front reconstruction now precede this rule. F61
+> remains the rear-stage invariant, not the complete cascade.
 
 The user's scene-114/122 diagnosis exposed the invariant that F60's corrected
 factory made measurable but the runtime still did not encode. Focused foreground
@@ -511,13 +600,13 @@ recall first). No-ref source-similarity metrics CANNOT audit synthesis correctio
 signal exists. F54 strengthened the rule: a gate inherits the blind spots of its
 labels and factory, so the historical veil gate/operator remains retired. F56's
 replacement is independently licensed by semantic boundary evidence plus
-observation-domain improvement; it also projects the correction away from pixels
-whose captured focus evidence assigns them to the foreground. F61 further requires
-positive rear observation instead of treating absence of foreground as permission.
+observation-domain improvement. F62 first replaces mixed-base geometry with a
+forward-winning focused-owner silhouette, directly reconstructs its optically
+mixed front interior, and only then invokes F61's positive rear-observation gate.
 Contour reconstruction is the only live enhancement specialist; the narrow
 giant-veil solver remains a validated but runtime-disabled research mechanism.
 
-**Scene recovery (F51–F61, FRONTIER 19).** The first multiplicative veil result was
+**Scene recovery (F51–F62, FRONTIER 19).** The first multiplicative veil result was
 a NARROW ORACLE-FACTORY win, not a general mechanism. F54's realistic-object audit
 overturned the promotion thesis: even true matte + true radius can lose badly on
 natural object/background combinations, while semantic-matte + true-radius hybrid
@@ -532,7 +621,8 @@ microscopic and fail the expanded worst-case/fringe/false-texture property. Thei
 successor does not repair fusion: it jointly solves both
 captured formation equations for observed foreground/background layer corrections.
 Regularizer + cross-PSF component consensus, a frozen physical candidate license,
-fixed giant-CoC refusal, and ordered front/rear visibility yield spatially safe
+fixed giant-CoC refusal, focused-owner geometry refinement/front reconstruction,
+and ordered rear visibility yield spatially safe
 exact-disk V2 fires across development, holdout diagnosis, and a fresh post-rule
 extension (F61). The giant-veil branch remains safety-disabled because its
 fine-band complement metric still detects a small positive tail. The key

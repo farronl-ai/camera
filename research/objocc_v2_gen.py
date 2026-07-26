@@ -28,6 +28,8 @@ Run:
     python research/objocc_v2_gen.py 12 holdout
     python research/objocc_v2_gen.py 12 extension
     python research/objocc_v2_gen.py 36 s12
+    python research/objocc_v2_gen.py 36 s16
+    python research/objocc_v2_gen.py 72 s19
 """
 from __future__ import annotations
 
@@ -209,9 +211,9 @@ def _prepare_object(
 
 
 def generate(count: int, split: str) -> None:
-    if split not in {"dev", "holdout", "extension", "s12"}:
+    if split not in {"dev", "holdout", "extension", "s12", "s16", "s19"}:
         raise ValueError(
-            "split must be 'dev', 'holdout', 'extension', or 's12'"
+            "split must be dev, holdout, extension, s12, s16, or s19"
         )
     split_dir = os.path.join(OUT, split)
     os.makedirs(split_dir, exist_ok=True)
@@ -225,6 +227,8 @@ def generate(count: int, split: str) -> None:
         "holdout": 9001,
         "extension": 12001,
         "s12": 15001,
+        "s16": 18001,
+        "s19": 21001,
     }[split]
     rng = np.random.default_rng(seed)
     manifest = {
@@ -438,7 +442,8 @@ def scenes(split: str):
 def main() -> None:
     if len(sys.argv) != 3:
         raise SystemExit(
-            "usage: objocc_v2_gen.py COUNT {dev|holdout|extension}"
+            "usage: objocc_v2_gen.py COUNT "
+            "{dev|holdout|extension|s12|s16|s19}"
         )
     generate(int(sys.argv[1]), sys.argv[2])
 

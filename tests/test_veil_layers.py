@@ -7,12 +7,14 @@ from focusstack.veil_layers import (
     _box_disk_blur,
     _forward_layers,
     _fringe_mask,
+    _owner_front_reconstruction_support,
     _ordered_visibility_gate,
     _ownership_gate,
     _prepare_model,
     candidate_is_licensed,
     complete_owner_support,
     recover_giant_veil,
+    refine_owner_candidate,
     select_licensed_candidate,
     stable_correction,
 )
@@ -301,6 +303,35 @@ def test_owner_frame_parent_silhouette_completes_opaque_foreground():
         > 0.05
     )
     assert np.mean(support[satellite > 0]) > 0.95
+
+    refined, refinement_evidence = refine_owner_candidate(
+        frames,
+        selected,
+        parent,
+    )
+    assert refinement_evidence["owner_refinement_fired"] is True
+    front = _owner_front_reconstruction_support(
+        refined["alpha"],
+        parent,
+        {**support_evidence, **refinement_evidence},
+        RADIUS_FRACTION * candidate["alpha"].shape[0],
+        1.0,
+    )
+    assert np.any(front)
+    assert np.all(refined["alpha"][front] >= 0.5)
+
+    base = fuse_perband(frames, harden=0.5)
+    output, report = recover_giant_veil(
+        frames,
+        base,
+        [candidate],
+        owner_masks_by_frame=[
+            parent,
+            np.zeros((0, *satellite.shape), np.uint8),
+        ],
+    )
+    assert report["owner_front_reconstruction_pixels"] == int(front.sum())
+    assert np.array_equal(output[front], frames[0][front])
 
 
 def test_owner_frame_fragment_without_physical_support_is_refused():

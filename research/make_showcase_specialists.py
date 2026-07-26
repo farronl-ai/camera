@@ -15,13 +15,14 @@ Figures use the same conventions as make_showcase.py (docs/img/*.jpg, JPEG q85):
       artifact: [base | former output | amplified difference] at the wire edge.
 
 Crops are disagreement-guided (eyetool discipline), never hand-picked.
-  inspection/ — an audit workbench with complete inputs, shipped output,
+  inspection/ — an audit workbench with complete inputs, current research output,
       GT-only diagnostics, edit/error maps, and two automatically selected crops
-      for five representative joint-layer cases.
+      for every current V2 fire selected across successive validation splits.
 
 Run:  python research/make_showcase_specialists.py [recon|veil|fence|inspection|all]
 """
 from __future__ import annotations
+import glob
 import json
 import os
 import sys
@@ -160,6 +161,214 @@ def _crop_strip(images, center, half=120, zoom=2):
     return hstack(*crop_at(images, center, half, zoom))
 
 
+def _contact_sheet(images, *, columns=4, cell_width=320):
+    """Label every source frame in a compact, click-through audit sheet."""
+    cells = []
+    for index, image in enumerate(images):
+        height, width = image.shape[:2]
+        scale = cell_width / width
+        resized = cv2.resize(
+            image,
+            (cell_width, max(1, round(height * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+        header = np.full((34, cell_width, 3), (20, 20, 20), np.uint8)
+        cv2.putText(
+            header,
+            f"frame {index:02d}",
+            (10, 23),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.58,
+            (235, 235, 235),
+            1,
+            cv2.LINE_AA,
+        )
+        cells.append(np.vstack([header, resized]))
+
+    rows = []
+    for start in range(0, len(cells), columns):
+        row = cells[start : start + columns]
+        target_height = max(cell.shape[0] for cell in row)
+        row = [
+            np.pad(
+                cell,
+                ((0, target_height - cell.shape[0]), (0, 0), (0, 0)),
+                constant_values=20,
+            )
+            for cell in row
+        ]
+        while len(row) < columns:
+            row.append(np.full_like(row[0], 20))
+        rows.append(np.hstack(row))
+    return np.vstack(rows)
+
+
+def _normal_photo_cases():
+    """Run the actual default pipeline on ordinary real photographic stacks."""
+    from focusstack.align import align_stack
+    from focusstack.enhance import enhance
+    from focusstack.focus import content_aware_energies
+    from focusstack.io import normalize_exposure, to_gray_float
+
+    selections = (
+        (
+            "standard_c01",
+            sorted(glob.glob(os.path.join(HERE, "data", "standard", "c_01_*.tif"))),
+            "classic real pair · golfer",
+            "A conventional two-frame photographic stack with a person, fine clothing edges, and a distant background.",
+        ),
+        (
+            "standard_c05",
+            sorted(glob.glob(os.path.join(HERE, "data", "standard", "c_05_*.tif"))),
+            "classic real pair · fence",
+            "The familiar fence/foliage scene, now shown through the current default path rather than the retired subtraction specialist.",
+        ),
+        (
+            "standard_c10",
+            sorted(glob.glob(os.path.join(HERE, "data", "standard", "c_10_*.tif"))),
+            "classic real pair · trees and person",
+            "A typical deep scene with two near trunks, a person, and cluttered foliage at several depths.",
+        ),
+        (
+            "standard_c20",
+            sorted(glob.glob(os.path.join(HERE, "data", "standard", "c_20_*.tif"))),
+            "classic real pair · toy portrait",
+            "A clean subject/background portrait with curved silhouette boundaries and reflective detail.",
+        ),
+        (
+            "mobile_kitchen",
+            sorted(glob.glob(os.path.join(HERE, "data", "mobiledepth", "Figure3", "kitchen", "*.jpg"))),
+            "real phone sweep · kitchen · 12 frames",
+            "A real handheld phone focal sweep over ordinary indoor objects; no synthetic blur and no all-in-focus GT.",
+        ),
+        (
+            "mobile_smallmotion",
+            sorted(glob.glob(os.path.join(HERE, "data", "mobiledepth", "Figure6", "smallmotion", "*.jpg"))),
+            "real phone sweep · small motion · 14 frames",
+            "A normal phone sweep with mild camera/scene motion, included to expose registration and fusion behavior outside ideal alignment.",
+        ),
+    )
+    cases = []
+    for sid, paths, role, why in selections:
+        if len(paths) < 2:
+            raise RuntimeError(f"{sid} is missing its input stack")
+        raw = [cv2.imread(path) for path in paths]
+        if any(image is None for image in raw):
+            raise RuntimeError(f"{sid} contains an unreadable frame")
+        print(f"  normal inspection {sid}: {len(raw)} real frames")
+        aligned = normalize_exposure(align_stack(raw, motion="affine"))
+        base = fuse_perband(aligned, harden=0.5)
+        output, report = enhance(aligned, base, harden=0.5)
+
+        energies = np.stack(
+            content_aware_energies(
+                [to_gray_float(image) for image in aligned]
+            ),
+            axis=0,
+        )
+        winner = np.argmax(energies, axis=0)
+        winner_counts = np.bincount(
+            winner.ravel(),
+            minlength=len(aligned),
+        )
+        winner_shares = winner_counts / winner.size
+        selection_map = cv2.applyColorMap(
+            np.uint8(
+                np.round(
+                    winner.astype(np.float32)
+                    / max(len(aligned) - 1, 1)
+                    * 255.0
+                )
+            ),
+            cv2.COLORMAP_TURBO,
+        )
+        edit_map = _amplify_diff(output, base, gain=8.0)
+        changed = np.any(output != base, axis=2)
+        source_mae = [
+            float(
+                np.abs(
+                    output.astype(np.float32)
+                    - image.astype(np.float32)
+                ).mean()
+            )
+            for image in aligned
+        ]
+
+        def edge_energy(image):
+            gray = to_gray_float(image)
+            return float(
+                np.mean(np.abs(cv2.Laplacian(gray, cv2.CV_32F)))
+            )
+
+        source_edge = [edge_energy(image) for image in aligned]
+        case_dir = os.path.join(INSPECTION_IMG, "normal", sid)
+        assets = {
+            "inputs": "inputs.jpg",
+            "aligned": "aligned.jpg",
+            "first": "frame_first.jpg",
+            "middle": "frame_middle.jpg",
+            "last": "frame_last.jpg",
+            "base": "base.jpg",
+            "output": "output.jpg",
+            "selection": "selection.png",
+            "edit_x8": "edit_x8.jpg",
+        }
+        middle = len(raw) // 2
+        images = {
+            "inputs": _contact_sheet(raw),
+            "aligned": _contact_sheet(aligned),
+            "first": raw[0],
+            "middle": raw[middle],
+            "last": raw[-1],
+            "base": base,
+            "output": output,
+            "selection": selection_map,
+            "edit_x8": edit_map,
+        }
+        for key, filename in assets.items():
+            _write_image(
+                os.path.join(case_dir, filename),
+                images[key],
+                max_side=3600 if key in {"inputs", "aligned"} else 1800,
+                quality=93 if key in {"base", "output"} else 90,
+            )
+            assets[key] = f"img/inspection/normal/{sid}/{filename}"
+
+        cases.append(
+            {
+                "sid": sid,
+                "role": role,
+                "why": why,
+                "frame_count": len(raw),
+                "native_width": int(raw[0].shape[1]),
+                "native_height": int(raw[0].shape[0]),
+                "assets": assets,
+                "metrics": {
+                    "changed_pixels_after_base": int(changed.sum()),
+                    "changed_fraction_after_base": float(changed.mean()),
+                    "active_winner_frames": int(
+                        (winner_shares >= 0.005).sum()
+                    ),
+                    "winner_shares": [
+                        float(value) for value in winner_shares
+                    ],
+                    "closest_source_mae": min(source_mae),
+                    "output_edge_energy": edge_energy(output),
+                    "median_source_edge_energy": float(
+                        np.median(source_edge)
+                    ),
+                },
+                "report": {
+                    key: value
+                    for key, value in report.items()
+                    if isinstance(value, (str, bool, int, float))
+                },
+                "ground_truth": False,
+            }
+        )
+    return cases
+
+
 def _rgb_pixel(image, x, y):
     """JSON-friendly RGB value from OpenCV's BGR storage."""
     return [int(value) for value in image[y, x, ::-1]]
@@ -208,7 +417,7 @@ def _inspection_ledger():
 
 
 def _v2_visibility_cases():
-    """Build current S12 cases with the four optical partitions exposed."""
+    """Build current front-first cases with all optical partitions exposed."""
     from objocc_v2_eval import _score
     from objocc_v2_gen import scenes
     from t2_candidates import candidates_with_features
@@ -216,9 +425,11 @@ def _v2_visibility_cases():
         MODEL_SIDE,
         RADIUS_FRACTION,
         _fringe_mask,
+        _owner_front_reconstruction_support,
         _ordered_visibility_gate,
         complete_owner_support,
         recover_giant_veil,
+        refine_owner_candidate,
         select_licensed_candidate,
     )
 
@@ -239,10 +450,41 @@ def _v2_visibility_cases():
         (
             "s12",
             "s12_025",
-            "new post-freeze validation fire",
-            "The only fire in a new 36-scene split generated after the final S12 rule was frozen.",
+            "first post-S12 validation fire",
+            "The only fire in the first 36-scene split generated after ordered visibility was frozen.",
+        ),
+        (
+            "s16",
+            "s16_034",
+            "fresh-split counterexample · repaired",
+            "This fresh-split counterexample exposed the need for focused-owner matte replacement; the final front-first rule is all-partition-positive on it.",
+        ),
+        (
+            "s19",
+            "s19_000",
+            "post-final holdout · solid foreground",
+            "A clean fire in the 72-scene split generated only after F62 was frozen: foreground core, inner partial occlusion, and outer veil all improve while far background is unchanged.",
+        ),
+        (
+            "s19",
+            "s19_012",
+            "post-final holdout · broad solid foreground",
+            "A second independent solid-stratum fire with a large reconstructed front region and nonregression in every optical partition.",
+        ),
+        (
+            "s19",
+            "s19_013",
+            "post-final holdout · mixed foreground",
+            "The independent mixed-stratum fire: complete core and far background are byte-stable while both partial-coverage partitions improve.",
         ),
     )
+    diagnostic_points = {
+        "extension_007": (
+            1048,
+            216,
+            "User-reported mixed foreground · focused-owner reconstruction",
+        ),
+    }
     loaded = {
         split: {scene["sid"]: scene for scene in scenes(split)}
         for split in {selection[0] for selection in selections}
@@ -276,6 +518,11 @@ def _v2_visibility_cases():
         if selected is None:
             raise RuntimeError(f"{sid} lost candidate: {selection_report}")
         owner = int(selected["owner"])
+        selected, refinement_report = refine_owner_candidate(
+            scene["frames"],
+            selected,
+            owner_masks[owner],
+        )
         estimated_alpha = np.clip(
             selected["alpha"].astype(np.float32),
             0.0,
@@ -286,13 +533,22 @@ def _v2_visibility_cases():
             selected,
             owner_masks[owner],
         )
+        spatial_scale = max(1.0, max(base.shape[:2]) / MODEL_SIDE)
+        front_reconstruction = _owner_front_reconstruction_support(
+            estimated_alpha,
+            owner_masks[owner],
+            {**support_report, **refinement_report},
+            RADIUS_FRACTION * max(base.shape[:2]),
+            spatial_scale,
+        )
         if (
             int(owner_support.sum()) != report["owner_support_pixels"]
             or support_report["owner_support_accepted_count"]
             != report["owner_support_accepted_count"]
+            or int(front_reconstruction.sum())
+            != report["owner_front_reconstruction_pixels"]
         ):
-            raise RuntimeError(f"{sid} owner-support audit mismatch")
-        spatial_scale = max(base.shape[:2]) / MODEL_SIDE
+            raise RuntimeError(f"{sid} owner/front audit mismatch")
         ordered_visibility, _ = _ordered_visibility_gate(
             scene["frames"],
             owner,
@@ -307,7 +563,8 @@ def _v2_visibility_cases():
             )
             * ordered_visibility
         )
-        application_mask[owner_support] = 0.0
+        owner_copy_support = owner_support | front_reconstruction
+        application_mask[owner_copy_support] = 0.0
 
         score = _score(scene, base, output)
         gt = scene["gt"]
@@ -336,6 +593,10 @@ def _v2_visibility_cases():
         support_true_foreground = int(
             (owner_support & true_foreground).sum()
         )
+        front_pixels = int(front_reconstruction.sum())
+        front_true_foreground = int(
+            (front_reconstruction & true_foreground).sum()
+        )
 
         case_dir = os.path.join(INSPECTION_IMG, "s12", sid)
         assets = {
@@ -350,6 +611,7 @@ def _v2_visibility_cases():
             "ordered_visibility": "ordered_visibility.png",
             "application_mask": "application_mask.png",
             "owner_support": "owner_support.png",
+            "front_reconstruction": "front_reconstruction.png",
             "protected": "protected.png",
             "edit_x8": "edit_x8.jpg",
             "error_delta": "error_delta.jpg",
@@ -371,10 +633,13 @@ def _v2_visibility_cases():
             "ordered_visibility": _mask_image(ordered_visibility),
             "application_mask": _mask_image(application_mask),
             "owner_support": _mask_image(owner_support.astype(np.float32)),
+            "front_reconstruction": _mask_image(
+                front_reconstruction.astype(np.float32)
+            ),
             "protected": _mask_image(
                 np.maximum(
                     1.0 - ordered_visibility,
-                    owner_support.astype(np.float32),
+                    owner_copy_support.astype(np.float32),
                 )
             ),
             "edit_x8": edit_map,
@@ -389,6 +654,16 @@ def _v2_visibility_cases():
                 worse_center,
             ),
         }
+        point_spec = diagnostic_points.get(sid)
+        if point_spec is not None:
+            point_x, point_y, _ = point_spec
+            assets["crop_reported"] = "crop_reported.jpg"
+            images["crop_reported"] = _crop_strip(
+                [*scene["frames"], base, output, gt, error_map],
+                (point_y, point_x),
+                half=80,
+                zoom=3,
+            )
         for key, filename in assets.items():
             max_side = 3200 if key.startswith("crop_") else 1600
             quality = (
@@ -403,6 +678,71 @@ def _v2_visibility_cases():
                 quality=quality,
             )
             assets[key] = f"img/inspection/s12/{sid}/{filename}"
+
+        diagnostic_point = None
+        if point_spec is not None:
+            point_x, point_y, point_label = point_spec
+            half = 10
+            point_region = np.zeros(base.shape[:2], bool)
+            point_region[
+                max(0, point_y - half) : min(
+                    base.shape[0], point_y + half + 1
+                ),
+                max(0, point_x - half) : min(
+                    base.shape[1], point_x + half + 1
+                ),
+            ] = True
+            diagnostic_point = {
+                "x": point_x,
+                "y": point_y,
+                "label": point_label,
+                "region_half_width": half,
+                "region_pixels": int(point_region.sum()),
+                "rgb": {
+                    "frame0": _rgb_pixel(
+                        scene["frames"][0], point_x, point_y
+                    ),
+                    "frame1": _rgb_pixel(
+                        scene["frames"][1], point_x, point_y
+                    ),
+                    "base": _rgb_pixel(base, point_x, point_y),
+                    "output": _rgb_pixel(output, point_x, point_y),
+                    "gt": _rgb_pixel(gt, point_x, point_y),
+                },
+                "estimated_alpha": float(
+                    estimated_alpha[point_y, point_x]
+                ),
+                "true_alpha": float(scene["alpha"][point_y, point_x]),
+                "owner_support": bool(owner_support[point_y, point_x]),
+                "front_reconstruction": bool(
+                    front_reconstruction[point_y, point_x]
+                ),
+                "application_mask": float(
+                    application_mask[point_y, point_x]
+                ),
+                "base_error": float(base_error[point_y, point_x]),
+                "output_error": float(output_error[point_y, point_x]),
+                "region_mae_base": _region_mae(
+                    base, gt, point_region
+                ),
+                "region_mae_output": _region_mae(
+                    output, gt, point_region
+                ),
+                "region_changed_closer": int(
+                    (
+                        point_region
+                        & changed
+                        & (output_error < base_error)
+                    ).sum()
+                ),
+                "region_changed_worse": int(
+                    (
+                        point_region
+                        & changed
+                        & (output_error > base_error)
+                    ).sum()
+                ),
+            }
 
         base_mse = score["mse_base"]
         output_mse = score["mse_output"]
@@ -464,6 +804,23 @@ def _v2_visibility_cases():
                 if support_pixels
                 else None
             ),
+            "front_reconstruction_pixels": front_pixels,
+            "front_reconstruction_true_foreground": front_true_foreground,
+            "front_reconstruction_precision": (
+                front_true_foreground / front_pixels
+                if front_pixels
+                else None
+            ),
+            "front_reconstruction_mae_base": (
+                _region_mae(base, gt, front_reconstruction)
+                if front_pixels
+                else None
+            ),
+            "front_reconstruction_mae_output": (
+                _region_mae(output, gt, front_reconstruction)
+                if front_pixels
+                else None
+            ),
             "error_map_scale_gray": error_scale,
             "estimated_alpha": _alpha_scores(
                 estimated_alpha,
@@ -496,7 +853,7 @@ def _v2_visibility_cases():
                     for key, value in report.items()
                     if isinstance(value, (str, bool, int, float, list))
                 },
-                "diagnostic_point": None,
+                "diagnostic_point": diagnostic_point,
             }
         )
         print(
@@ -507,8 +864,8 @@ def _v2_visibility_cases():
     return cases
 
 
-def fig_inspection():
-    """Build the owner-facing inspection dataset from the shipped veil operator."""
+def _fig_inspection_legacy():
+    """Retired V1 inspection builder retained only for artifact reproduction."""
     from t2_candidates import candidates_with_features
     from t2_confidence import scenes
     from veilband import fringe_mask as true_fringe_mask
@@ -517,9 +874,11 @@ def fig_inspection():
         MODEL_SIDE,
         RADIUS_FRACTION,
         _fringe_mask,
+        _owner_front_reconstruction_support,
         _ordered_visibility_gate,
         complete_owner_support,
         recover_giant_veil,
+        refine_owner_candidate,
         select_licensed_candidate,
     )
 
@@ -587,19 +946,33 @@ def fig_inspection():
         if selected is None:
             raise RuntimeError(f"{sc['sid']} lost licensed candidate: {selection_report}")
         owner = int(selected["owner"])
+        selected, refinement_report = refine_owner_candidate(
+            sc["frames"],
+            selected,
+            owner_masks[owner],
+        )
         estimated_alpha = np.clip(selected["alpha"].astype(np.float32), 0.0, 1.0)
         owner_support, support_report = complete_owner_support(
             sc["frames"],
             selected,
             owner_masks[owner],
         )
+        spatial_scale = max(1.0, max(base.shape[:2]) / MODEL_SIDE)
+        front_reconstruction = _owner_front_reconstruction_support(
+            estimated_alpha,
+            owner_masks[owner],
+            {**support_report, **refinement_report},
+            RADIUS_FRACTION * max(base.shape[:2]),
+            spatial_scale,
+        )
         if (
             int(owner_support.sum()) != report["owner_support_pixels"]
             or support_report["owner_support_accepted_count"]
             != report["owner_support_accepted_count"]
+            or int(front_reconstruction.sum())
+            != report["owner_front_reconstruction_pixels"]
         ):
-            raise RuntimeError(f"{sc['sid']} owner-support audit mismatch")
-        spatial_scale = max(base.shape[:2]) / MODEL_SIDE
+            raise RuntimeError(f"{sc['sid']} owner/front audit mismatch")
         ownership, _ = _ordered_visibility_gate(
             sc["frames"],
             owner,
@@ -612,7 +985,8 @@ def fig_inspection():
             2.0 * spatial_scale,
         )
         application_mask = estimated_fringe * ownership
-        application_mask[owner_support] = 0.0
+        owner_copy_support = owner_support | front_reconstruction
+        application_mask[owner_copy_support] = 0.0
         changed = np.any(output != base, axis=2)
         true_fringe = true_fringe_mask(sc["alpha"], sc["max_r"])
         true_foreground = sc["alpha"] >= 0.5
@@ -639,6 +1013,7 @@ def fig_inspection():
             "true_alpha": "true_alpha.png",
             "application_mask": "application_mask.png",
             "owner_support": "owner_support.png",
+            "front_reconstruction": "front_reconstruction.png",
             "protected": "protected.png",
             "edit_x8": "edit_x8.jpg",
             "error_delta": "error_delta.jpg",
@@ -656,8 +1031,14 @@ def fig_inspection():
             "true_alpha": _mask_image(sc["alpha"]),
             "application_mask": _mask_image(application_mask),
             "owner_support": _mask_image(owner_support.astype(np.float32)),
+            "front_reconstruction": _mask_image(
+                front_reconstruction.astype(np.float32)
+            ),
             "protected": _mask_image(
-                np.maximum(1.0 - ownership, owner_support.astype(np.float32))
+                np.maximum(
+                    1.0 - ownership,
+                    owner_copy_support.astype(np.float32),
+                )
             ),
             "edit_x8": edit_map,
             "error_delta": error_map,
@@ -710,12 +1091,16 @@ def fig_inspection():
         support_true_foreground = int(
             (owner_support & true_foreground).sum()
         )
+        front_pixels = int(front_reconstruction.sum())
+        front_true_foreground = int(
+            (front_reconstruction & true_foreground).sum()
+        )
         diagnostic_point = None
         if point_spec is not None:
             point_x, point_y, point_label = point_spec
             half = 32
             component_count, component_labels = cv2.connectedComponents(
-                owner_support.astype(np.uint8),
+                owner_copy_support.astype(np.uint8),
             )
             point_component = int(component_labels[point_y, point_x])
             if component_count <= 1 or point_component == 0:
@@ -741,6 +1126,9 @@ def fig_inspection():
                 ),
                 "true_alpha": float(sc["alpha"][point_y, point_x]),
                 "owner_support": bool(owner_support[point_y, point_x]),
+                "front_reconstruction": bool(
+                    front_reconstruction[point_y, point_x]
+                ),
                 "application_mask": float(
                     application_mask[point_y, point_x]
                 ),
@@ -824,6 +1212,23 @@ def fig_inspection():
                 if support_pixels
                 else None
             ),
+            "front_reconstruction_pixels": front_pixels,
+            "front_reconstruction_true_foreground": front_true_foreground,
+            "front_reconstruction_precision": (
+                front_true_foreground / front_pixels
+                if front_pixels
+                else None
+            ),
+            "front_reconstruction_mae_base": (
+                _region_mae(base, sc["gt"], front_reconstruction)
+                if front_pixels
+                else None
+            ),
+            "front_reconstruction_mae_output": (
+                _region_mae(output, sc["gt"], front_reconstruction)
+                if front_pixels
+                else None
+            ),
             "error_map_scale_gray": error_scale,
             "estimated_alpha": alpha_scores,
         }
@@ -890,25 +1295,30 @@ def fig_inspection():
         encoding="utf-8",
     ) as handle:
         extension_audit = json.load(handle)
+    with open(
+        os.path.join(HERE, "objocc_v2_s16_ordered_visibility.json"),
+        encoding="utf-8",
+    ) as handle:
+        s16_audit = json.load(handle)
     manifest = {
-        "schema": 4,
+        "schema": 5,
         "title": "focusstack owner inspection lab",
         "generated_from": (
-            "S12 ordered-visibility audit, physically audited V2 factory, "
+            "S16 front-first refinement audit, physically audited V2 factory, "
             "and legacy V1 failure reproductions"
         ),
         "oracle_warning": (
             "Ground truth, true alpha, error maps, and GT metrics are audit-only. "
             "They are never inputs to runtime recovery. The giant-veil auto path "
-            "remains safety-disabled. The first three deep cases show the current "
-            "S12 research rule on exact-disk V2; the following five and ten-row "
+            "remains safety-disabled. The first four deep cases show the current "
+            "front-first research rule on exact-disk V2; the following five and ten-row "
             "ledger use the superseded V1 factory only for reproducible diagnostics."
         ),
         "case_selection": (
-            "Current S12 cases come first: the diagnosed failure, the prior "
-            "good reference, and the only fire from a new post-freeze 36-scene "
-            "split. Five legacy V1 cases remain below for exact coordinate "
-            "reproduction."
+            "Current cases come first: the user-reported failure, the prior "
+            "good reference, the first post-visibility fire, and the only fire "
+            "from a second post-refinement 36-scene split. Five legacy V1 cases "
+            "remain below for exact coordinate reproduction."
         ),
         "audit_sources": sources,
         "s12_summary": {
@@ -926,6 +1336,11 @@ def fig_inspection():
                 ]
             ),
             "current_case_count": len(current_cases),
+            "post_refinement_scene_count": s16_audit["scene_count"],
+            "post_refinement_fired_count": s16_audit["fired_count"],
+            "post_refinement_all_partitions_nonregressing": s16_audit[
+                "fired_summary"
+            ]["all_partitions_nonregressing"],
             "false_texture_warning_count": sum(
                 case["metrics"]["d_false_texture"] > 0
                 for case in current_cases
@@ -954,6 +1369,129 @@ def fig_inspection():
         f"  wrote {os.path.relpath(INSPECTION_MANIFEST, REPO)} "
         f"({len(current_cases) + len(cases)} deep cases, "
         f"{len(ledger)} ledger rows)"
+    )
+
+
+def fig_inspection():
+    """Build the current-only owner workbench and ordinary-photo cohort."""
+    from objocc_v2_gen import scenes as v2_scenes
+
+    v2_cases = []
+    for scene in list(v2_scenes("dev"))[:3]:
+        source = os.path.join(scene["dir"], "vis.png")
+        asset_dir = os.path.join(INSPECTION_IMG, "factory_v2")
+        filename = f"{scene['sid']}.jpg"
+        _write_image(
+            os.path.join(asset_dir, filename),
+            cv2.imread(source),
+            max_side=3200,
+            quality=94,
+        )
+        v2_cases.append(
+            {
+                "sid": scene["sid"],
+                "stratum": scene["stratum"],
+                "asset": f"img/inspection/factory_v2/{filename}",
+                "core_fraction": scene["factory"]["core_fraction"],
+                "inner_veil_fraction": scene["factory"][
+                    "inner_veil_fraction"
+                ],
+                "defocus_radius": scene["factory"]["defocus_radius"],
+            }
+        )
+
+    audit_files = {
+        "extension": "objocc_v2_extension_ordered_visibility.json",
+        "s12": "objocc_v2_s12_ordered_visibility.json",
+        "s16": "objocc_v2_s16_ordered_visibility.json",
+        "s19": "objocc_v2_s19_ordered_visibility.json",
+    }
+    audits = {}
+    for split, filename in audit_files.items():
+        with open(os.path.join(HERE, filename), encoding="utf-8") as handle:
+            audits[split] = json.load(handle)
+
+    current_cases = _v2_visibility_cases()
+    normal_cases = _normal_photo_cases()
+    manifest = {
+        "schema": 6,
+        "title": "focusstack owner inspection lab",
+        "generated_from": (
+            "F62 front-first exact-disk audits plus current default-pipeline "
+            "runs on ordinary real photographic stacks"
+        ),
+        "oracle_warning": (
+            "Ground truth, true alpha, error maps, and GT metrics exist only for "
+            "the exact-disk physical-stress cases and are audit-only; they never "
+            "enter runtime recovery. The normal-photo cohort is real optical input "
+            "without all-in-focus GT, so its numbers are descriptive rather than "
+            "quality verdicts. The giant-veil auto path remains safety-disabled."
+        ),
+        "case_selection": (
+            "All seven current F62 fires are shown: two diagnosed extension cases, "
+            "the S12 validation fire, the repaired S16 counterexample, and all three "
+            "fires from the genuinely post-final 72-scene S19 split. Legacy V1 deep "
+            "cases are no longer included."
+        ),
+        "normal_selection": (
+            "Six ordinary real-photo stacks show the actual default pipeline: four "
+            "classic two-frame photographs and two real phone focal sweeps. Every "
+            "original frame is visible in a labeled contact sheet; aligned/normalized "
+            "inputs are shown separately so registration artifacts cannot hide."
+        ),
+        "audit_sources": list(audit_files.values()),
+        "s12_summary": {
+            "post_freeze_scene_count": audits["s12"]["scene_count"],
+            "post_freeze_fired_count": audits["s12"]["fired_count"],
+            "post_freeze_all_partitions_nonregressing": audits["s12"][
+                "fired_summary"
+            ]["all_partitions_nonregressing"],
+            "diagnostic_extension_fired_count": audits["extension"][
+                "fired_count"
+            ],
+            "diagnostic_extension_all_partitions_nonregressing": audits[
+                "extension"
+            ]["fired_summary"]["all_partitions_nonregressing"],
+            "current_case_count": len(current_cases),
+            "post_refinement_scene_count": audits["s16"]["scene_count"],
+            "post_refinement_fired_count": audits["s16"]["fired_count"],
+            "post_refinement_all_partitions_nonregressing": audits["s16"][
+                "fired_summary"
+            ]["all_partitions_nonregressing"],
+            "post_final_scene_count": audits["s19"]["scene_count"],
+            "post_final_fired_count": audits["s19"]["fired_count"],
+            "post_final_all_partitions_nonregressing": audits["s19"][
+                "fired_summary"
+            ]["all_partitions_nonregressing"],
+            "false_texture_warning_count": sum(
+                case["metrics"]["d_false_texture"] > 0
+                for case in current_cases
+            ),
+            "normal_case_count": len(normal_cases),
+        },
+        "factory_v2": {
+            "status": (
+                "Current validation foundation: exact circular aperture, explicit "
+                "frame-specific coverage, cleaned foreground radiance, and separate "
+                "solid/mixed/thin strata."
+            ),
+            "panel_order": (
+                "near-focus frame · far-focus frame · all-in-focus GT · optical "
+                "coverage classes (green complete core, yellow inner partial "
+                "occlusion, magenta outer veil)"
+            ),
+            "cases": v2_cases,
+        },
+        "normal_cases": normal_cases,
+        "cases": current_cases,
+    }
+    with open(INSPECTION_MANIFEST, "w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=2)
+        handle.write("\n")
+    print(
+        f"  wrote {os.path.relpath(INSPECTION_MANIFEST, REPO)} "
+        f"({len(current_cases)} physical deep cases, "
+        f"{len(normal_cases)} ordinary-photo cases)"
     )
 
 

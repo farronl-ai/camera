@@ -94,16 +94,21 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       returns far background to identity. Both diagnosed extension fires and the
       single fire on a fresh 36-scene post-rule split improve all four optical
       partitions; 35/36 fresh scenes refuse.
-- [ ] **S13: owner-frame candidate bank.** The unchanged feature/license recipe
-      yields one dev and one holdout global win, but the holdout exposes a
-      hierarchical child-mask support gap. Develop without that holdout, freeze,
-      then require an independent extension fire before integration.
+- [x] **S13/S16: owner-frame geometry replacement + front reconstruction.**
+      ✅ CLOSED (F62). A same-object focused-owner silhouette may replace the
+      mixed-base matte only after an absolute forward-fit win. Its eroded,
+      cross-PSF partial-coverage interior is copied from the focused owner before
+      rear recovery. The only fire on the S16 development split flips from
+      globally/partition harmful to all-partition positive; 35/36 refuse. A
+      genuinely post-final S19 split then produces 3/72 fires, all positive on
+      SSIM/MAE/MSE and all four physical partitions; 69/72 refuse exactly.
 - [ ] **S14: real aperture calibration.** Compare V2 disk coverage/PSF against a
       controlled first-party macro occluder capture; exact synthetic optics are
       still not real optics.
-- [ ] **S15: fine-band causal localization.** The three current runtime fires
+- [ ] **S15: fine-band causal localization.** The seven current research fires
       improve global/direct and every physical-partition MAE but raise the
-      GT-credited smooth-veil fine-band error by +0.0096…+0.0100. Map those
+      GT-credited smooth-veil fine-band error. F62's front-first ordering reduces
+      the seven current tails to +0.0014…+0.0096 but does not close them. Map those
       pixels against coverage slope, support boundary, quantization, channel,
       and solver disagreement. Prefer local identity or analytic shrinkage over
       thresholding the aggregate metric. Require a new post-rule fire with a

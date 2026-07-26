@@ -294,6 +294,20 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    for a local hypothesis. Close spatial ownership and false-texture tails as
    separate properties; a clean partition lattice does not waive a fine-band
    complement warning.
+6k. **Repair front geometry before asking a rear specialist to invert a mixed
+   pixel** (F62). A matte segmented from the fused base can overextend or erode
+   because the failure is already baked into its input. Let a strongly
+   overlapping sharp-owner silhouette replace that matte only when the captured
+   formation model improves by an absolute margin. Then hard-select the observed
+   front layer only in its eroded interior where independent PSFs agree the
+   other focal frame is partially covered; run rear recovery afterward. Do not
+   reuse a license for a mask's novel tail as permission for its overlapping
+   interior—the hypotheses have different support and need different evidence.
+   Always generate another post-rule split: S16's fresh-split fire falsified the
+   older rear stage even though the new front mask had zero pixels there, which
+   prevented a wrong causal conclusion. Because that counterexample then shaped
+   F62, it became development evidence; S19 was generated only after the final
+   rule froze and supplied the actual post-final validation.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

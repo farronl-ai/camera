@@ -678,7 +678,7 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
     payload = {
         "factory": "objocc_v2_exact_disk",
         "split": split,
-        "pipeline": "s12_asymmetric_ordered_visibility",
+        "pipeline": "f62_front_first_ordered_visibility",
         "oracle_fields": ["alpha", "owner"] if oracle_alpha else [],
         "owner_support": not oracle_alpha,
         "rear_evidence_density": REAR_EVIDENCE_DENSITY,
@@ -733,11 +733,13 @@ def main() -> None:
         raise SystemExit(
             "usage: objocc_v2_eval.py "
             "{prep|audit|owner|composed|oracle|ordered|ordered-oracle} "
-            "{dev|holdout|extension|s12}"
+            "{dev|holdout|extension|s12|s16|s19}"
         )
     command, split = sys.argv[1:]
-    if split not in {"dev", "holdout", "extension", "s12"}:
-        raise SystemExit("split must be dev, holdout, extension, or s12")
+    if split not in {"dev", "holdout", "extension", "s12", "s16", "s19"}:
+        raise SystemExit(
+            "split must be dev, holdout, extension, s12, s16, or s19"
+        )
     {
         "prep": prepare,
         "audit": audit,

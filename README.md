@@ -11,9 +11,10 @@ whole scene in focus.
 > idea, the evidence across every validated regime, and the road ahead.
 >
 > 🔬 **[Owner Inspection Lab](docs/INSPECTION.html)** — the engineering view:
-> every input frame, base/output slider, veil/support/protection masks, GT-only
-> error maps, exact regional metrics, adversarial crops, and fixed native-coordinate
-> diagnostics for reported failures (without click-to-create side effects).
+> all current physical-stress fires plus ordinary real-photo stacks, every input
+> frame, aligned/normalized inputs, base/output slider, visibility/support/front
+> reconstruction maps, GT-only error maps where truth exists, exact regional
+> metrics, adversarial crops, and explicit optional coordinate feedback.
 
 ## How it works
 
@@ -93,9 +94,10 @@ focusstack images/*.png -o out.png --harden 0.5
 focusstack big/*.png -o out.png --fast --harden 0.5
 
 # Default auto enhancement can re-render licensed thin contours. The joint-layer
-# giant-veil mechanism remains in research: ordered front/rear visibility closes
-# its foreground-partition tail, but auto stays safety-disabled until a small
-# finest-band false-texture warning is causally resolved.
+# giant-veil mechanism remains in research: focused-owner matte refinement and
+# front-first reconstruction now close its spatial foreground tail before
+# ordered rear recovery, but auto stays safety-disabled until a small finest-band
+# false-texture warning is causally resolved.
 focusstack bracket/*.png -o out.png --enhance auto
 ```
 

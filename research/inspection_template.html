@@ -360,7 +360,7 @@
   <div class="links">
     <a href="#read">How to read</a>
     <a href="#factory">V2 physics</a>
-    <a href="#ledger">All cases</a>
+    <a href="#normal">Normal photos</a>
     <a href="#cases">Deep inspection</a>
     <a href="#definitions">Definitions</a>
     <a href="SHOWCASE.html">Showcase</a>
@@ -370,12 +370,13 @@
 <header id="top">
   <p class="eyebrow">Owner workbench · falsification first</p>
   <h1>See exactly what changed.</h1>
-  <p class="lede">This workbench keeps both the newly corrected optical foundation and
-  the older failure reproductions visible. S12 now carries the front/back asymmetry
-  into the application mask and repairs the diagnosed inner-foreground tail, but the
-  giant-veil auto path remains safety-disabled while the fine-band false-texture
-  warning is still open. Current exact-disk cases appear first; scene-72/75/114/122/147
-  remain legacy V1 diagnostics, not promotion evidence.</p>
+  <p class="lede">This workbench keeps ordinary photographic behavior beside the
+  deliberately hard physical-stress cases. The current cascade refines mixed-base
+  geometry from a forward-licensed focused-owner silhouette, reconstructs the
+  partially covered front layer first, and only then applies ordered rear recovery. It
+  repairs the diagnosed inner-foreground tail, the S16 counterexample, and three
+  genuinely post-final S19 fires. The giant-veil auto path remains safety-disabled
+  while the fine-band false-texture warning is still open.</p>
   <p class="oracle" id="oracle-warning"></p>
   <div class="summary-grid" id="summary"></div>
 </header>
@@ -407,6 +408,10 @@
       must improve absolute physical fit; parent silhouettes require strong containment
       plus a material relative fit gain inside the fragment’s optical influence
       neighborhood. These pixels hard-select observed foreground.</p></div>
+      <div class="legend"><strong>Front reconstruction</strong><p>Bright pixels are safely
+      inside a forward-winning focused-owner silhouette and predicted by both PSFs to
+      be mixed in the far-focus frame. They hard-select the directly observed front
+      layer before any rear recovery.</p></div>
       <div class="legend"><strong>Ordered visibility</strong><p>Bright pixels have positive
       rear-focused structure and no front-focused veto. Merely falling outside an
       estimated matte is no longer permission to edit.</p></div>
@@ -423,19 +428,19 @@
     <div class="tile-grid" id="factory-cases"></div>
   </section>
 
-  <section id="ledger">
-    <p class="eyebrow">Legacy V1 exact-package ledger</p>
-    <h2>All ten historical fires, retained for failure reproduction</h2>
-    <p class="section-intro">These rows no longer promote the veil path. They remain
-    useful for reproducing the reported coordinates and testing ownership mechanisms,
-    but the V1 large-radius renderer used a box shortcut and did not expose
-    frame-specific coverage. Click a scene ID to jump to a deep case.</p>
-    <div class="table-wrap"><table id="ledger-table"></table></div>
+  <section id="normal">
+    <p class="eyebrow">Ordinary real photographs · current default path</p>
+    <h2>What it does on normal two-frame photos and real phone sweeps</h2>
+    <p class="section-intro" id="normal-selection"></p>
+    <p class="oracle">These real stacks have no all-in-focus ground truth. Focus-winner
+    shares, edge energy, and source distance describe what the pipeline did; they do
+    not certify image quality. Inspect the photographs directly.</p>
+    <div id="normal-list"></div>
   </section>
 
   <section id="cases">
-    <p class="eyebrow">Deep inspection · current first</p>
-    <h2>Three S12 cases plus five exact legacy reproductions</h2>
+    <p class="eyebrow">Deep inspection · current physical-stress cases</p>
+    <h2>All seven current F62 fires; no legacy reproductions</h2>
     <p class="section-intro" id="case-selection"></p>
     <div id="case-list"></div>
   </section>
@@ -485,6 +490,7 @@
   const byId = Object.fromEntries(data.cases.map(c => [c.sid, c]));
   document.getElementById("oracle-warning").textContent = data.oracle_warning;
   document.getElementById("case-selection").textContent = data.case_selection;
+  document.getElementById("normal-selection").textContent = data.normal_selection;
   document.getElementById("factory-status").textContent = data.factory_v2.status;
   document.getElementById("factory-order").textContent = data.factory_v2.panel_order;
   document.getElementById("factory-cases").innerHTML = data.factory_v2.cases.map(c =>
@@ -495,53 +501,21 @@
     )
   ).join("");
 
-  const n = data.ledger.length;
-  const minSsim = Math.min(...data.ledger.map(r => r.dg));
-  const closer = data.ledger.reduce((s, r) => s + r.changed_closer, 0);
-  const worse = data.ledger.reduce((s, r) => s + r.changed_worse, 0);
-  const maxFt = Math.max(...data.ledger.map(r => r.d_false_texture));
   const s12 = data.s12_summary;
   const summaries = [
     ["OFF", "giant-veil auto safety switch"],
-    [s12.post_freeze_fired_count + "/" + s12.post_freeze_scene_count, "new post-freeze S12 fires"],
-    [s12.post_freeze_all_partitions_nonregressing + "/" + s12.post_freeze_fired_count, "fresh fires safe on all four partitions"],
+    [s12.post_final_fired_count + "/" + s12.post_final_scene_count, "genuinely post-final S19 fires"],
+    [s12.post_final_all_partitions_nonregressing + "/" + s12.post_final_fired_count, "S19 fires safe on all four partitions"],
     [s12.diagnostic_extension_all_partitions_nonregressing + "/" + s12.diagnostic_extension_fired_count, "diagnosed extension fires repaired"],
     [s12.false_texture_warning_count + "/" + s12.current_case_count, "current fine-band warnings still open"],
-    [n + "/" + n, "legacy V1 fires retained"],
+    [s12.normal_case_count, "ordinary real-photo stacks"],
   ];
   document.getElementById("summary").innerHTML = summaries.map(([v, l]) =>
     `<div class="summary"><div class="value">${v}</div><div class="label">${l}</div></div>`
   ).join("");
 
-  const columns = [
-    ["scene", "sid"], ["split", "split"], ["ΔSSIM", "dg"], ["ΔMAE", "d_global_mae"],
-    ["ΔMSE", "d_global_mse"], ["ΔPSNR", "d_psnr"], ["Δfringe L1", "de_fringe"],
-    ["Δfalse texture", "d_false_texture"], ["closer", "changed_closer"],
-    ["worse", "changed_worse"], ["owner support", "owner_support_pixels"],
-    ["support fit Δ", "owner_support_forward_improvement"],
-    ["forward ratio", "forward_ratio"], ["stable", "stable_fraction"],
-    ["owner veto", "owner_veto_mean"]
-  ];
-  const ledgerHead = `<thead><tr>${columns.map(c => `<th>${c[0]}</th>`).join("")}</tr></thead>`;
-  const ledgerBody = data.ledger.map(row => {
-    const cells = columns.map(([label, key]) => {
-      let value = row[key];
-      let klass = "";
-      if (key === "sid") {
-        value = byId[value] ? `<a href="#${value}">${value}</a>` : value;
-      } else if (typeof value === "number") {
-        if (["changed_closer", "changed_worse", "owner_support_pixels"].includes(key)) value = value.toLocaleString();
-        else if (["forward_ratio", "stable_fraction", "owner_veto_mean", "owner_support_forward_improvement"].includes(key)) value = value.toFixed(3);
-        else value = signed(value, key === "dg" ? 6 : 3);
-        if (["dg", "d_psnr"].includes(key)) klass = row[key] > 0 ? "better" : "worse";
-        if (["d_global_mae", "d_global_mse", "de_fringe"].includes(key)) klass = row[key] < 0 ? "better" : "worse";
-        if (key === "d_false_texture") klass = row[key] <= 0 ? "better" : "warn";
-      }
-      return `<td class="${klass}">${value}</td>`;
-    }).join("");
-    return `<tr>${cells}</tr>`;
-  }).join("");
-  document.getElementById("ledger-table").innerHTML = ledgerHead + `<tbody>${ledgerBody}</tbody>`;
+  document.getElementById("normal-list").innerHTML =
+    data.normal_cases.map(normalCaseHtml).join("");
 
   const list = document.getElementById("case-list");
   data.cases.forEach((c, index) => list.insertAdjacentHTML("beforeend", caseHtml(c, index === 0)));
@@ -563,13 +537,84 @@
   function evidenceRow(name, value, interpretation, klass) {
     return `<tr><td>${name}</td><td class="mono ${klass || ""}">${value}</td><td>${interpretation}</td></tr>`;
   }
+  function normalCaseHtml(c) {
+    const m = c.metrics, r = c.report, a = c.assets;
+    const topShares = m.winner_shares
+      .map((share, index) => [share, index])
+      .sort((left, right) => right[0] - left[0])
+      .slice(0, 5)
+      .map(([share, index]) => `f${index} ${(100 * share).toFixed(1)}%`)
+      .join(" · ");
+    const changed = m.changed_pixels_after_base.toLocaleString();
+    return `
+    <details class="case normal-case" id="${c.sid}">
+      <summary class="case-head">
+        <div><div class="case-id">${c.sid}</div><div class="case-role">${c.role}</div></div>
+        <div class="case-why">${c.why}</div>
+      </summary>
+      <div class="case-body">
+        <div class="metric-grid">
+          ${metric("Frames", c.frame_count, `${c.native_width}×${c.native_height} native`, "")}
+          ${metric("Used by focus map", `${m.active_winner_frames}/${c.frame_count}`, "≥0.5% winner share", "")}
+          ${metric("Specialist edit", changed, `${(100 * m.changed_fraction_after_base).toFixed(3)}% of output pixels`, m.changed_pixels_after_base === 0 ? "better" : "")}
+          ${metric("Output edge energy", m.output_edge_energy.toFixed(3), `median source ${m.median_source_edge_energy.toFixed(3)}`, "")}
+          ${metric("Closest source MAE", m.closest_source_mae.toFixed(3), "descriptive only; lower is not necessarily better", "")}
+          ${metric("Veil path", r.veil_reason, r.veil_disabled_safety ? "safety-disabled" : "evaluated", "")}
+        </div>
+        <p class="case-why"><strong>Top focus-winner shares:</strong> ${topShares}</p>
+        <h3>Every original input frame</h3>
+        <div class="tile-grid">
+          ${tile(a.inputs, "Original inputs · all frames", "Labeled in capture order; no alignment or exposure normalization.")}
+          ${tile(a.aligned, "Aligned + exposure-normalized · all frames", "These are the actual frames handed to fusion. Compare against originals for registration artifacts.")}
+        </div>
+        <h3>Representative originals and final result</h3>
+        <div class="tile-grid">
+          ${tile(a.first, "First original frame", "Capture-order endpoint.")}
+          ${tile(a.middle, "Middle original frame", "The alignment reference frame.")}
+          ${tile(a.last, "Last original frame", "Capture-order endpoint.")}
+          ${tile(a.base, "Normal per-band fusion base", "Result before any gated post-fusion specialist.")}
+          ${tile(a.output, "Current default-pipeline output", "Per-band fusion plus the shipped safety-gated enhancement path.")}
+          ${tile(a.selection, "Focus-winner index map", "Color is source-frame index, not depth truth or confidence.")}
+          ${tile(a.edit_x8, "Specialist edit after base ×8", "Neutral gray means final output is identical to normal fusion; color localizes a gated post-fusion edit.")}
+        </div>
+        <div class="feedback">
+          <h3>Record a normal-photo observation</h3>
+          <p class="section-intro">No image click records anything. Describe the
+          region in words; the original frame order and scene checkpoint are copied
+          with your note.</p>
+          <div class="feedback-grid">
+            <label>Issue
+              <select class="issue">
+                <option>fusion artifact</option>
+                <option>alignment / ghosting</option>
+                <option>foreground damage</option>
+                <option>background damage</option>
+                <option>soft / missing detail</option>
+                <option>unexpected texture</option>
+                <option>looks correct</option>
+                <option>other</option>
+              </select>
+            </label>
+            <label>Observation
+              <textarea class="note" placeholder="Describe what you see and roughly where."></textarea>
+            </label>
+          </div>
+          <div class="feedback-actions">
+            <button class="copy-normal-note" type="button">Copy diagnostic note</button>
+            <span class="copy-status"></span>
+          </div>
+        </div>
+      </div>
+    </details>`;
+  }
   function caseHtml(c, open) {
     const m = c.metrics, r = c.report, a = c.assets;
     const closerRatio = m.changed_closer / Math.max(m.changed_worse, 1);
     const alpha = m.estimated_alpha;
     const p = c.diagnostic_point;
     const hasOwnerSupport = m.owner_support_pixels > 0;
-    const outputName = c.current_v2 ? "Current S12 research output" : "Legacy V1 diagnostic output";
+    const hasFrontReconstruction = (m.front_reconstruction_pixels || 0) > 0;
+    const outputName = "Current front-first research output";
     const supportSub = hasOwnerSupport
       ? `${(r.owner_support_kinds || []).join(" + ")} · GT precision ${m.owner_support_precision.toFixed(3)} · fit Δ ${Number(r.owner_support_forward_improvement).toFixed(3)} · local ${Number(r.owner_support_local_forward_improvement_ratio || 0).toFixed(3)}`
       : "No owner-only fragment passed the runtime physical gate";
@@ -593,12 +638,12 @@
         <p class="crop-key"><strong>${p.label}</strong> at native (${p.x}, ${p.y}).
         This is the exact feedback location, not an automatically selected flattering crop.</p>
         <div class="crop-scroll"><a href="${a.crop_reported}" target="_blank"><img class="crop" loading="lazy" src="${a.crop_reported}" alt="${c.sid} reported diagnostic crop"></a></div>
-        <p class="crop-key">Reported owner-support component (${p.region_pixels.toLocaleString()} px) GT audit:
+        <p class="crop-key">Reported ${p.region_pixels.toLocaleString()}-pixel neighborhood GT audit:
         MAE ${p.region_mae_base.toFixed(3)} → ${p.region_mae_output.toFixed(3)};
         changed closer/worse ${p.region_changed_closer.toLocaleString()} / ${p.region_changed_worse.toLocaleString()}.</p>` : "";
     const reportedEvidence = p ? `
           ${evidenceRow("Reported point RGB", `f0 ${p.rgb.frame0.join(",")} · f1 ${p.rgb.frame1.join(",")} · base ${p.rgb.base.join(",")} · output ${p.rgb.output.join(",")} · GT ${p.rgb.gt.join(",")}`, `Exact native (${p.x}, ${p.y}) values in RGB order.`, "")}
-          ${evidenceRow("Reported point error", `${p.base_error.toFixed(3)} → ${p.output_error.toFixed(3)}`, `Owner support=${p.owner_support}; estimated α=${p.estimated_alpha.toFixed(3)}; true α=${p.true_alpha.toFixed(3)}.`, p.output_error <= p.base_error ? "better" : "worse")}` : "";
+          ${evidenceRow("Reported point error", `${p.base_error.toFixed(3)} → ${p.output_error.toFixed(3)}`, `Owner support=${p.owner_support}; front reconstruction=${p.front_reconstruction || false}; estimated α=${p.estimated_alpha.toFixed(3)}; true α=${p.true_alpha.toFixed(3)}.`, p.output_error <= p.base_error ? "better" : "worse")}` : "";
     return `
     <details class="case" id="${c.sid}" ${open ? "open" : ""}>
       <summary class="case-head">
@@ -615,6 +660,7 @@
           ${metric("false texture Δ", signed(m.d_false_texture, 3), `${m.false_texture_base.toFixed(3)} → ${m.false_texture_output.toFixed(3)} gray`, m.d_false_texture <= 0 ? "better" : "warn")}
           ${metric("estimated α IoU", alpha.iou.toFixed(3), `P ${alpha.precision.toFixed(3)} · R ${alpha.recall.toFixed(3)}`, alpha.iou >= .8 ? "better" : "warn")}
           ${metric("owner support", m.owner_support_pixels.toLocaleString() + " px", supportSub, hasOwnerSupport ? "better" : "")}
+          ${metric("front reconstruction", (m.front_reconstruction_pixels || 0).toLocaleString() + " px", hasFrontReconstruction ? `GT precision ${m.front_reconstruction_precision.toFixed(3)} · focused owner copied before rear solve` : "No focused-owner matte replacement fired", hasFrontReconstruction ? "better" : "")}
           ${metric("changed support", (100*m.changed_fraction).toFixed(2) + "%", `${m.changed_pixels.toLocaleString()} pixels`, "")}
         </div>
 
@@ -650,6 +696,7 @@
           ${orderedTile}
           ${tile(a.application_mask, "Veil-correction mask · runtime", "Cross-PSF partial coverage × ordered visibility, excluding hard owner support.")}
           ${tile(a.owner_support, "Owner-frame support · runtime", "Observed satellites or parent-silhouette tails that passed their physical-fit license.")}
+          ${a.front_reconstruction ? tile(a.front_reconstruction, "Front reconstruction · runtime", "Focused-owner pixels copied where both PSFs predict partial far-frame coverage.") : ""}
           ${tile(a.protected, "Protected from veil correction · runtime", "Estimated foreground, owner support, and focus-owner veto.")}
           ${tile(a.edit_x8, "Signed edit ×8", "Locator only; use the slider for severity.")}
           ${tile(a.error_delta, "Continuous GT error delta", `Green better, magenta worse; saturation ≈ ${m.error_map_scale_gray.toFixed(2)} gray.`)}
@@ -675,6 +722,8 @@
           ${evidenceRow("Owner-support fit Δ", hasOwnerSupport ? Number(r.owner_support_forward_improvement).toFixed(4) : "not active", "Runtime observation-domain acceptance: >0.01 globally.", !hasOwnerSupport || r.owner_support_forward_improvement > .01 ? "better" : "worse")}
           ${evidenceRow("Owner-support local fit ratio", hasOwnerSupport ? Number(r.owner_support_local_forward_improvement_ratio || 0).toFixed(4) : "not active", "Parent silhouettes require >5% improvement in the fragment’s optical influence neighborhood.", !hasOwnerSupport || !((r.owner_support_kinds || []).includes("parent_silhouette")) || r.owner_support_local_forward_improvement_ratio > .05 ? "better" : "worse")}
           ${evidenceRow("Owner-support GT precision", hasOwnerSupport ? m.owner_support_precision.toFixed(4) : "not active", "Audit-only fraction of support that is true foreground; never used by runtime.", !hasOwnerSupport || m.owner_support_precision >= .8 ? "better" : "warn")}
+          ${evidenceRow("Front-reconstruction MAE", hasFrontReconstruction ? `${m.front_reconstruction_mae_base.toFixed(3)} → ${m.front_reconstruction_mae_output.toFixed(3)}` : "not active", "GT-only audit of directly observed front pixels copied before rear recovery.", !hasFrontReconstruction || m.front_reconstruction_mae_output <= m.front_reconstruction_mae_base ? "better" : "worse")}
+          ${evidenceRow("Owner matte refinement", r.owner_refinement_fired ? `mask ${r.owner_refinement_mask_index} · fit Δ ${Number(r.owner_refinement_forward_improvement).toFixed(4)}` : "not active", "Runtime replacement of mixed-base geometry by a same-object focused-owner silhouette.", !r.owner_refinement_fired || r.owner_refinement_forward_improvement > .01 ? "better" : "worse")}
           ${reportedEvidence}
           ${evidenceRow("Changed on true foreground", m.changed_on_true_foreground.toLocaleString(), "A support count, not proof of damage.", m.changed_on_true_foreground === 0 ? "better" : "warn")}
           ${evidenceRow("Changed outside true fringe", m.changed_outside_true_fringe.toLocaleString(), "GT-only support spill diagnostic.", m.changed_outside_true_fringe === 0 ? "better" : "warn")}
@@ -742,12 +791,6 @@
   }
 
   function wireInteractions() {
-    document.querySelectorAll("#ledger-table a[href^='#scene_']").forEach(link => {
-      link.addEventListener("click", () => {
-        const target = document.querySelector(link.getAttribute("href"));
-        if (target) target.open = true;
-      });
-    });
     document.querySelectorAll(".compare").forEach(compare => {
       const range = compare.querySelector("input");
       const after = compare.querySelector(".after");
@@ -760,7 +803,28 @@
       range.addEventListener("input", update);
       update();
     });
-    document.querySelectorAll(".case-body").forEach(body => {
+    document.querySelectorAll(".normal-case").forEach(details => {
+      const c = data.normal_cases.find(row => row.sid === details.id);
+      details.querySelector(".copy-normal-note").addEventListener("click", async () => {
+        const issue = details.querySelector(".issue").value;
+        const note = details.querySelector(".note").value.trim() || "[add observation]";
+        const text = [
+          `focusstack normal inspection: ${c.sid} (${c.role})`,
+          `issue: ${issue}`,
+          `observation: ${note}`,
+          `checkpoint: ${c.frame_count} frames, ${c.metrics.active_winner_frames} focus winners, specialist changed ${c.metrics.changed_pixels_after_base} pixels, veil ${c.report.veil_reason}, contour fired ${c.report.recon_fired}`,
+        ].join("\n");
+        const status = details.querySelector(".copy-status");
+        try {
+          await navigator.clipboard.writeText(text);
+          status.textContent = "copied";
+        } catch (_) {
+          window.prompt("Copy diagnostic note:", text);
+          status.textContent = "ready";
+        }
+      });
+    });
+    document.querySelectorAll("#case-list .case-body").forEach(body => {
       const c = byId[body.dataset.case];
       const dialog = body.querySelector(".region-picker");
       const pickerImage = dialog.querySelector(".picker-image");

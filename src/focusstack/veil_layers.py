@@ -47,6 +47,15 @@ SUPPORT_MAX_AREA_FRACTION = 0.02
 SUPPORT_MAX_OVERLAP_FRACTION = 0.20
 SUPPORT_PARENT_MIN_SEED_CONTAINMENT = 0.90
 SUPPORT_PARENT_MIN_IOU = 0.80
+# A focused-owner mask may replace (not merely extend) the mixed-base matte
+# when the two clearly describe the same object and the captured formation
+# equations prefer the focused observation. The relaxed association thresholds
+# permit a corrected boundary to remove false mixed-base support; the absolute
+# forward margin remains the license.
+OWNER_REFINEMENT_MIN_IOU = 0.70
+OWNER_REFINEMENT_MIN_SEED_CONTAINMENT = 0.75
+OWNER_REFINEMENT_MIN_AREA_RATIO = 0.50
+OWNER_REFINEMENT_MAX_AREA_RATIO = 1.50
 # A rear-focused observation is positive only when decisive rear focus evidence
 # occupies a material fraction of the local neighborhood.  Absence of owner
 # evidence is not rear evidence.  This is the V1/V2 ordered-visibility split:
@@ -801,6 +810,118 @@ def complete_owner_support(
     return support, report
 
 
+def refine_owner_candidate(
+    images: list[np.ndarray],
+    selected: dict,
+    owner_masks: np.ndarray | None,
+) -> tuple[dict, dict]:
+    """Replace a mixed-base matte with a better focused-owner silhouette.
+
+    The fused image can already contain foreground/background mixing, so its
+    semantic boundary is not authoritative. A strongly overlapping mask from
+    the focused owner frame is an independent geometry observation. It replaces
+    the selected alpha only when the captured-frame forward model improves by
+    the same absolute margin used for support admission.
+    """
+    report = {
+        "owner_refinement_fired": False,
+        "owner_refinement_reason": "owner_masks_unavailable",
+    }
+    if owner_masks is None:
+        return selected, report
+    masks = np.asarray(owner_masks)
+    shape = images[0].shape[:2]
+    if masks.ndim != 3 or masks.shape[1:] != shape:
+        report["owner_refinement_reason"] = "owner_masks_invalid"
+        return selected, report
+
+    alpha = np.clip(np.asarray(selected["alpha"], np.float32), 0.0, 1.0)
+    seed = alpha >= 0.5
+    seed_area = int(seed.sum())
+    if seed_area == 0:
+        report["owner_refinement_reason"] = "owner_seed_empty"
+        return selected, report
+    owner = int(selected["owner"])
+    guide = to_gray_float(images[owner]) / 255.0
+    base_after = float(selected["forward_after"])
+    trials = []
+
+    for mask_index, raw_mask in enumerate(masks):
+        mask = np.asarray(raw_mask) > 0
+        area = int(mask.sum())
+        overlap = int((mask & seed).sum())
+        union = int((mask | seed).sum())
+        iou = overlap / max(union, 1)
+        containment = overlap / seed_area
+        area_ratio = area / seed_area
+        if (
+            iou < OWNER_REFINEMENT_MIN_IOU
+            or containment < OWNER_REFINEMENT_MIN_SEED_CONTAINMENT
+            or area_ratio < OWNER_REFINEMENT_MIN_AREA_RATIO
+            or area_ratio > OWNER_REFINEMENT_MAX_AREA_RATIO
+        ):
+            continue
+        refined_alpha = np.clip(
+            guided_filter(
+                guide.astype(np.float32),
+                mask.astype(np.float32),
+                2,
+                1e-4,
+            ),
+            0.0,
+            1.0,
+        )
+        evidence = _candidate_evidence(
+            images,
+            {**selected, "alpha": refined_alpha},
+        )
+        if evidence is None or not candidate_is_licensed(evidence):
+            continue
+        improvement = base_after - float(evidence["forward_after"])
+        if improvement <= SUPPORT_FORWARD_MARGIN:
+            continue
+        trials.append(
+            {
+                "index": int(mask_index),
+                "alpha": refined_alpha,
+                "evidence": evidence,
+                "iou": float(iou),
+                "seed_containment": float(containment),
+                "area_ratio": float(area_ratio),
+                "improvement": float(improvement),
+            }
+        )
+
+    if not trials:
+        report["owner_refinement_reason"] = "no_forward_licensed_replacement"
+        return selected, report
+    best = min(
+        trials,
+        key=lambda trial: float(trial["evidence"]["forward_after"]),
+    )
+    refined = {
+        **selected,
+        **best["evidence"],
+        "alpha": best["alpha"],
+    }
+    report.update(
+        {
+            "owner_refinement_fired": True,
+            "owner_refinement_reason": "focused_owner_forward_win",
+            "owner_refinement_mask_index": best["index"],
+            "owner_refinement_iou": best["iou"],
+            "owner_refinement_seed_containment": best["seed_containment"],
+            "owner_refinement_area_ratio": best["area_ratio"],
+            "owner_refinement_forward_before": base_after,
+            "owner_refinement_forward_after": float(
+                best["evidence"]["forward_after"]
+            ),
+            "owner_refinement_forward_improvement": best["improvement"],
+        }
+    )
+    return refined, report
+
+
 def _fringe_mask(
     alpha: np.ndarray,
     max_radius: float,
@@ -845,6 +966,75 @@ def _fringe_mask(
         * support.astype(np.float32)
         * near_weight
         * rear_weight
+    )
+
+
+def _owner_front_reconstruction_support(
+    alpha: np.ndarray,
+    owner_masks: np.ndarray | None,
+    support_report: dict,
+    max_radius: float,
+    spatial_scale: float,
+) -> np.ndarray:
+    """Find opaque front pixels hidden by a mixed far-focus observation.
+
+    A licensed parent silhouette is stronger geometric evidence than the soft
+    boundary of a mask segmented from the already-mixed base. Where both masks
+    agree on foreground, the point is safely inside the parent boundary, and
+    both PSF models predict partial far-frame coverage, the focused owner frame
+    is the direct front-layer observation. This is front reconstruction, not
+    rear/veil recovery.
+    """
+    alpha = np.asarray(alpha, np.float32)
+    empty = np.zeros(alpha.shape, bool)
+    if owner_masks is None:
+        return empty
+    masks = np.asarray(owner_masks)
+    if masks.ndim != 3 or masks.shape[1:] != alpha.shape:
+        return empty
+
+    indices = list(support_report.get("owner_support_mask_indices", []))
+    kinds = list(support_report.get("owner_support_kinds", []))
+    refinement_index = support_report.get("owner_refinement_mask_index")
+    if support_report.get("owner_refinement_fired") and refinement_index is not None:
+        indices.append(int(refinement_index))
+        kinds.append("parent_silhouette")
+    parent = empty.copy()
+    for mask_index, kind in zip(indices, kinds):
+        if kind != "parent_silhouette":
+            continue
+        if not 0 <= int(mask_index) < len(masks):
+            continue
+        parent |= np.asarray(masks[int(mask_index)]) > 0
+    if not np.any(parent):
+        return empty
+
+    # One model-scale pixel matches the uncertainty ring already admitted by
+    # the semantic bridge: 1 px at MODEL_SIDE, 3 px at a 1536-px native side.
+    inside_distance = cv2.distanceTransform(
+        parent.astype(np.uint8),
+        cv2.DIST_L2,
+        5,
+    )
+    robust_parent = inside_distance > max(1.0, spatial_scale)
+    coverages = [
+        np.clip(
+            blur_fn(parent.astype(np.float32), 0.7 * max_radius),
+            0.0,
+            1.0,
+        )
+        for blur_fn in (_box_disk_blur, _disk_blur)
+    ]
+    near_visibility = np.minimum.reduce(coverages)
+    rear_visibility = 1.0 - np.maximum.reduce(coverages)
+    mixed_far_observation = (
+        (near_visibility > VISIBILITY_COVERAGE_FLOOR)
+        & (rear_visibility > VISIBILITY_COVERAGE_FLOOR)
+    )
+    return (
+        (alpha >= 0.5)
+        & robust_parent
+        & mixed_far_observation
     )
 
 
@@ -1004,25 +1194,45 @@ def recover_giant_veil(
         return base, report
 
     owner = int(selected["owner"])
-    alpha = np.clip(selected["alpha"].astype(np.float32), 0.0, 1.0)
     owner_masks = (
         owner_masks_by_frame[owner]
         if owner_masks_by_frame is not None
         and len(owner_masks_by_frame) == len(images)
         else None
     )
+    selected, owner_refinement_report = refine_owner_candidate(
+        images,
+        selected,
+        owner_masks,
+    )
+    report.update(owner_refinement_report)
+    alpha = np.clip(selected["alpha"].astype(np.float32), 0.0, 1.0)
     owner_support, owner_support_report = complete_owner_support(
         images,
         selected,
         owner_masks,
     )
     report.update(owner_support_report)
+    front_support_report = {
+        **owner_support_report,
+        **owner_refinement_report,
+    }
     ordered = [images[owner], images[1 - owner]]
     # MODEL_SIDE is a downscale ceiling, not a promise to use sub-pixel
     # regularization on smaller inputs. Keep every spatial prior at least one
     # native pixel wide; validated 512-side research cases are unchanged.
     spatial_scale = max(1.0, max(base.shape[:2]) / MODEL_SIDE)
     max_radius = RADIUS_FRACTION * max(base.shape[:2])
+    front_reconstruction = _owner_front_reconstruction_support(
+        alpha,
+        owner_masks,
+        front_support_report,
+        max_radius,
+        spatial_scale,
+    )
+    report["owner_front_reconstruction_pixels"] = int(
+        front_reconstruction.sum()
+    )
     def solve_bank():
         # Yield one scene at a time: stable_correction accumulates its moments,
         # so native memory does not grow by six full-resolution RGB arrays.
@@ -1060,17 +1270,18 @@ def recover_giant_veil(
         _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
         * ownership
     )
-    mask[owner_support] = 0.0
+    owner_copy_support = owner_support | front_reconstruction
+    mask[owner_copy_support] = 0.0
     if not np.any(mask > 1e-4):
-        if not np.any(owner_support):
+        if not np.any(owner_copy_support):
             report["reason"] = "empty_fringe"
             return base, report
         output = base.copy()
-        output[owner_support] = images[owner][owner_support]
+        output[owner_copy_support] = images[owner][owner_copy_support]
         report.update(
             {
                 "fired": True,
-                "reason": "licensed_owner_support_only",
+                "reason": "licensed_owner_observation_only",
                 "owner": owner,
                 "changed_pixels": int(
                     np.any(output != base, axis=2).sum()
@@ -1079,7 +1290,7 @@ def recover_giant_veil(
         )
         return output, report
     repaired_base = base.copy()
-    repaired_base[owner_support] = images[owner][owner_support]
+    repaired_base[owner_copy_support] = images[owner][owner_copy_support]
     output = np.clip(
         repaired_base.astype(np.float32) + correction * mask[..., None],
         0,

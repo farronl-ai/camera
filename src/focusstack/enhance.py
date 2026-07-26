@@ -27,9 +27,10 @@ from .reconstruct import (contamination_band, estimate_thin_matte,
 from .veil_layers import recover_giant_veil
 
 
-# Operational kill switch. F61's ordered visibility closes the spatial
-# foreground-partition tail under the physically audited factory, but the
-# current runtime fires retain a small positive finest-band false-texture tail.
+# Operational kill switch. F62's focused-owner refinement/front reconstruction
+# plus F61's ordered rear visibility close the spatial foreground-partition tail,
+# but the current research fires retain a small positive finest-band
+# false-texture tail.
 # Keep the mechanism and its refusal audits reproducible; do not launch the
 # semantic bridge in auto until that complement property also closes.
 VEIL_AUTO_ENABLED = False

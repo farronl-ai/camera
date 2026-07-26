@@ -5,6 +5,41 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F63 — Aperture partial coverage is not material transparency
+
+The corrected `extension_007` note triggered a forward-foundation audit before
+more inverse tuning. V2's opaque equation is the aperture integral
+`H(alpha*F) + (1-H(alpha))*B`, not a sharp-background alpha overlay. At native
+`(1048,216)`, sharp alpha is 1.0, but the point lies only about 12 px inside the
+silhouette under a 38 px defocus radius; measured far-frame foreground coverage
+is 0.545. Different aperture rays therefore see opaque foreground or focused
+background. The observed mixture is an inner partial-coverage veil, and the
+existing renderer's brute-aperture equivalence test confirms the mechanism.
+
+The audit nevertheless exposed a taxonomy/weighting defect. `solid`, `mixed`,
+and `thin` describe optical core survival but are easily read as material
+classes, are cycled equally, and the factory contains no truly transmissive
+material. A slender opaque object may validly become all veil; it should not
+carry equal authority in an ordinary opaque claim or be mislabeled as
+semi-transparent. Conversely, genuine transmission requires separate geometric
+coverage and extinction fields and should exploit the different focal
+transformations of front and rear layers rather than receive an opaque hard
+veto.
+
+The new formation plan separates four nonpoolable regimes: primary opaque with
+substantial complete-coverage core; named slender/all-veil opaque stress;
+genuinely transmissive material with saved latent layers; and malformed-overlay
+robustness inputs. S15's exploratory attribution remains useful—front copy is
+exonerated, float rear application plus integer quantization make the strict
+tail, and naive rounding/fine-band deletion/noise gating do not close it—but no
+runtime variant is promoted until F62 is regraded by corrected regime.
+
+Full equations, numerical audit, pipeline implications, and durable execution
+checklist live in `OCCLUSION_FORMATION.md`.
+
+**Shipping action:** unchanged. `VEIL_AUTO_ENABLED=False`; pause fine-band
+promotion, repair the judge taxonomy, then resume the inverse.
+
 ## F62 — Front geometry must be repaired before rear recovery
 
 The user's second `extension_007` inspection at native `(1048,216)` exposed the

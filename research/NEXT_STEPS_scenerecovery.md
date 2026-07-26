@@ -113,6 +113,15 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       and solver disagreement. Prefer local identity or analytic shrinkage over
       thresholding the aggregate metric. Require a new post-rule fire with a
       non-positive complement tail before considering auto re-enable.
+- [ ] **S16: formation taxonomy and transmission.** 🔶 ACTIVE; S15 runtime
+      promotion is paused. Preserve V2's brute-aperture-verified opaque renderer,
+      but stop pooling substantial-core, slender/all-veil, truly transmissive,
+      and malformed-overlay inputs. Add explicit material/optical metadata,
+      make substantial-core opaque scenes the primary validation cohort, keep
+      all-veil opaque geometry as a named stress cohort, and add a separate
+      scalar-transmission factory with saved foreground/background/opacity
+      latents. Re-evaluate F62 by regime before further gate tuning. Design and
+      invariants: `OCCLUSION_FORMATION.md`.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

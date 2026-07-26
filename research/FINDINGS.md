@@ -56,6 +56,18 @@ leakage, not physics. Direct semantic integration is rejected. The next
 mechanism test is correction consensus across plausible matte displacements;
 failure there redirects to observation-fitted alpha or better matting.
 
+The displacement consensus does fail: erode/original/dilate stability reduces
+bad magnitudes but cannot rescue wrong region/owner models. P4 finds a more
+specific opportunity in *candidate ranking*. A good (`|alpha error|<0.05`) mask
+exists in 56/98 top-4 banks versus 28/98 top-1; minimum post-solve forward MAE
+selects 53 good masks. Yet its outcomes still average −0.00488 with only 24/98
+positive, proving physical reranking cannot turn an inaccurate boundary into an
+accurate one. A simple order-invariant development rule (semantic
+score/purity/area-fit plus forward-residual ratio) isolates 7/98 all-positive
+cases. Because those thresholds were chosen after inspecting the full set, this
+is a calibration lead—not held-out evidence. A fresh factory extension is
+required before any gate claim.
+
 ## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
 
 **The mission (2026-07-22).** The goal has graduated: produce the image TRUE TO THE

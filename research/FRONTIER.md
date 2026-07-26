@@ -125,9 +125,11 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     +0.35-gray fringe miss remains. It proves the model class is materially
     better than correction-after-fusion, not that it is safe. P3 semantic-matte
     + true-radius is a hard negative (mean −0.00455, worst −0.0430; only 16/98
-    positive): current mattes are too boundary/owner-inaccurate. Next analytic
-    rung is consensus across erode/original/dilate matte hypotheses; otherwise
-    redirect to observation-fitted alpha or a higher-precision matting model.
+    positive): current mattes are too boundary/owner-inaccurate. Matte-displacement
+    consensus is also negative. P4 physical reranking finds 53/98 good-alpha
+    candidates versus 28/98 semantic top-1, but only 24 outcomes are positive.
+    A four-feature development license isolates 7 all-positive cases; thresholds
+    require a fresh scene-disjoint holdout before they count as a gate.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

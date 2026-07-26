@@ -20,6 +20,7 @@ Run:
     ../.venv/bin/python veillayers.py p1
     ../.venv/bin/python veillayers.py p2
     ../.venv/bin/python veillayers.py p3
+    ../.venv/bin/python veillayers.py p4
 """
 from __future__ import annotations
 
@@ -178,12 +179,39 @@ def solve_layers(
     after = float(
         np.mean([np.abs(p - y).mean() for p, y in zip(predicted, observed)])
     )
+    high_n = dn - cv2.GaussianBlur(dn, (0, 0), 1.0)
+    high_f = df - cv2.GaussianBlur(df, (0, 0), 1.0)
+    data0_sum = sum(
+        np.sum((p - y) ** 2, dtype=np.float64)
+        for p, y in zip(predicted0, observed)
+    )
+    data_sum = sum(
+        np.sum((p - y) ** 2, dtype=np.float64)
+        for p, y in zip(predicted, observed)
+    )
+    normalizer = float(sum(y.size for y in observed))
+    objective0 = data0_sum / normalizer
+    objective = (
+        data_sum
+        + smooth_lambda
+        * (
+            np.sum(high_n * high_n, dtype=np.float64)
+            + np.sum(high_f * high_f, dtype=np.float64)
+        )
+        + anchor_lambda
+        * (
+            np.sum(dn * dn, dtype=np.float64)
+            + np.sum(df * df, dtype=np.float64)
+        )
+    ) / normalizer
     return (
         model["alpha"][..., None] * near
         + (1.0 - model["alpha"][..., None]) * far,
         {
             "forward_before": before,
             "forward_after": after,
+            "objective_before": float(objective0),
+            "objective_after": float(objective),
             "cg_history": history,
             "near_correction_rms": float(np.sqrt(np.mean(dn * dn))),
             "far_correction_rms": float(np.sqrt(np.mean(df * df))),
@@ -605,10 +633,99 @@ def cmd_p3() -> None:
     )
 
 
+def cmd_p4() -> None:
+    """Measure whether physical evidence can rerank the top-4 matte bank."""
+    smooth_lambda = 8.0
+    anchor_lambda = 0.05
+    correction_sigma = 0.5
+    scenes_out = []
+    for index, original in enumerate(scenes()):
+        sc = resize_oracle(original)
+        h, w = sc["gt"].shape[:2]
+        base = fuse_perband(sc["frames"], harden=0.5)
+        candidate_rows = []
+        for rank, candidate in enumerate(candidates_with_features(original, topk=4)):
+            alpha_est = cv2.resize(
+                candidate["alpha"], (w, h), interpolation=cv2.INTER_AREA
+            ).astype(np.float32)
+            owner = int(candidate["owner"])
+            ordered = [sc["frames"][owner], sc["frames"][1 - owner]]
+            solved, evidence = solve_layers(
+                ordered,
+                alpha_est,
+                sc["max_r"],
+                smooth_lambda=smooth_lambda,
+                anchor_lambda=anchor_lambda,
+            )
+            correction = solved.astype(np.float32) - base.astype(np.float32)
+            correction = cv2.GaussianBlur(
+                correction,
+                (0, 0),
+                correction_sigma,
+                borderType=cv2.BORDER_REFLECT,
+            )
+            model_sc = dict(sc, alpha=alpha_est)
+            output = apply_correction_to_fringe(base, correction, model_sc)
+            outcome = score(output, base, sc)
+            row = {
+                "rank": rank,
+                "owner": owner,
+                "semantic_features": candidate["feats"].tolist(),
+                "alpha_error": float(np.abs(alpha_est - sc["alpha"]).mean()),
+                **outcome,
+                **{
+                    key: value
+                    for key, value in evidence.items()
+                    if key != "cg_history"
+                },
+            }
+            candidate_rows.append(row)
+            print(
+                f"{sc['sid']} c{rank} dg={outcome['dg']:+.5f} "
+                f"ae={row['alpha_error']:.3f} "
+                f"obj={evidence['objective_before']:.2f}"
+                f"->{evidence['objective_after']:.2f}",
+                flush=True,
+            )
+        scenes_out.append(
+            {
+                "index": index,
+                "sid": sc["sid"],
+                "regime": sc["regime"],
+                "candidates": candidate_rows,
+            }
+        )
+    path = os.path.join(HERE, "veillayers_p4_candidate_bank.json")
+    with open(path, "w") as handle:
+        json.dump(
+            {
+                "max_side": MAX_SIDE,
+                "smooth_lambda": smooth_lambda,
+                "anchor_lambda": anchor_lambda,
+                "correction_sigma": correction_sigma,
+                "scenes": scenes_out,
+            },
+            handle,
+            indent=2,
+        )
+    print(f"-> {path}", flush=True)
+    print(
+        "DOCTRINE: reranking is licensed only by order-invariant observed "
+        "evidence; oracle alpha error is analysis, never a selector.",
+        flush=True,
+    )
+
+
 def main() -> None:
-    commands = {"p0": cmd_p0, "p1": cmd_p1, "p2": cmd_p2, "p3": cmd_p3}
+    commands = {
+        "p0": cmd_p0,
+        "p1": cmd_p1,
+        "p2": cmd_p2,
+        "p3": cmd_p3,
+        "p4": cmd_p4,
+    }
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
-        raise SystemExit("usage: veillayers.py {p0|p1|p2|p3}")
+        raise SystemExit("usage: veillayers.py {p0|p1|p2|p3|p4}")
     commands[sys.argv[1]]()
 
 

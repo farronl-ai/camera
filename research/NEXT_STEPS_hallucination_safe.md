@@ -215,6 +215,23 @@ observation-fitted alpha or a higher-precision matting model. Blind radius,
 native resolution, real-stack identity, and package integration remain
 untouched.
 
+That matte-displacement probe is negative: it attenuates severe errors but does
+not change their sign and can worsen the fine-detail tail. P4 instead audits all
+top-4 candidates. The best-of-four bank contains an alpha-error `<0.05` candidate
+in 56/98 scenes versus 28/98 for semantic top-1. Selecting the minimum
+post-solve forward residual recovers 53 such candidates, so the observations
+substantially fix *ranking*. They cannot fix a missing/inaccurate matte:
+physically reranked single-solve outcomes still average −0.00488 and only 24/98
+are positive.
+
+A transparent development-only license identifies a high-precision subset:
+semantic score `>0.5`, purity `>0.85`, area-fit `>0.9`, and forward MAE ratio
+`<0.85` after physical candidate selection. It fires 7/98 and all seven improve
+both global and fringe scores in the inspected set. This is not yet a holdout:
+the thresholds were derived after examining these outcomes. Generate a fresh,
+scene-disjoint object-occluder set before treating the rule as a gate. No owner
+index may enter the rule.
+
 ## Doctrine
 
 The binding rule is that recovery must stay rooted in observed remnants. A

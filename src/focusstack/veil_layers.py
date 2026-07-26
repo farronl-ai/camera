@@ -642,6 +642,7 @@ def stable_correction(
     solved_images: Iterable[np.ndarray],
     *,
     correction_sigma: float,
+    return_spread_map: bool = False,
 ) -> tuple[np.ndarray, dict]:
     """Project onto components whose sign survives every admitted model."""
     minimum = None
@@ -681,12 +682,17 @@ def stable_correction(
     same_sign = (minimum > 0) | (maximum < 0)
     retained = np.sign(mean) * minimum_abs * same_sign
     variance = np.maximum(total_square / count - mean * mean, 0)
-    return retained, {
+    report = {
         "model_count": count,
         "stable_fraction": float(same_sign.mean()),
         "ensemble_spread_rms": float(np.sqrt(np.mean(variance))),
         "retained_rms": float(np.sqrt(np.mean(retained * retained))),
     }
+    if return_spread_map:
+        report["_ensemble_spread_map"] = np.sqrt(
+            np.mean(variance, axis=2)
+        )
+    return retained, report
 
 
 def _resize_for_model(image: np.ndarray) -> np.ndarray:
@@ -3619,6 +3625,11 @@ def recover_giant_veil(
         base,
         solve_bank(),
         correction_sigma=0.5 * spatial_scale,
+        return_spread_map=one_sided_geometry,
+    )
+    correction_spread = uncertainty.pop(
+        "_ensemble_spread_map",
+        None,
     )
     report.update(uncertainty)
     if not np.all(np.isfinite(correction)):
@@ -3783,6 +3794,7 @@ def recover_giant_veil(
                 * (3.0 - 2.0 * low_seam_phase)
             )
             low_seam_strength[front_extent] = 0.0
+            low_seam_strength[~veil_support] = 0.0
             signed_edge_distance = np.where(
                 veil_support,
                 -edge_distance,
@@ -3832,38 +3844,85 @@ def recover_giant_veil(
             applied_correction -= seam_strength[..., None] * (
                 applied_correction - normal_low
             )
-            inward_anchor = 5.0 * spatial_scale
-            outward_anchor = 4.0 * spatial_scale
-            low_inside = cv2.remap(
-                applied_low,
+            rear_low = cv2.GaussianBlur(
+                images[1 - owner].astype(np.float32),
+                (0, 0),
+                2.0 * spatial_scale,
+                borderType=cv2.BORDER_REFLECT,
+            )
+            near_anchor = 4.0 * spatial_scale
+            far_anchor = 8.0 * spatial_scale
+            rear_near = cv2.remap(
+                rear_low,
                 grid_x
-                + (-inward_anchor - signed_edge_distance) * normal_x,
+                + (near_anchor - signed_edge_distance) * normal_x,
                 grid_y
-                + (-inward_anchor - signed_edge_distance) * normal_y,
+                + (near_anchor - signed_edge_distance) * normal_y,
                 cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_REFLECT,
             )
-            low_outside = cv2.remap(
-                applied_low,
+            rear_far = cv2.remap(
+                rear_low,
                 grid_x
-                + (outward_anchor - signed_edge_distance) * normal_x,
+                + (far_anchor - signed_edge_distance) * normal_x,
                 grid_y
-                + (outward_anchor - signed_edge_distance) * normal_y,
+                + (far_anchor - signed_edge_distance) * normal_y,
                 cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_REFLECT,
             )
-            low_phase = np.clip(
-                (signed_edge_distance + inward_anchor)
-                / (inward_anchor + outward_anchor),
+            extrapolation = (
+                near_anchor - signed_edge_distance
+            ) / max(far_anchor - near_anchor, 1e-6)
+            latent_rear_low = rear_near + extrapolation[..., None] * (
+                rear_near - rear_far
+            )
+            composed_low = cv2.GaussianBlur(
+                repaired_base.astype(np.float32) + applied_correction,
+                (0, 0),
+                integration_sigma,
+                borderType=cv2.BORDER_REFLECT,
+            )
+            latent_delta = latent_rear_low - composed_low
+            proposal_magnitude = np.sqrt(
+                np.mean(latent_delta * latent_delta, axis=2)
+            )
+            if correction_spread is None:
+                spread_floor = np.zeros(mask.shape, np.float32)
+            else:
+                spread_floor = cv2.GaussianBlur(
+                    correction_spread,
+                    (0, 0),
+                    integration_sigma,
+                    borderType=cv2.BORDER_REFLECT,
+                )
+            veil_magnitude = np.sqrt(
+                np.mean(low_correction * low_correction, axis=2)
+            )
+            detection_floor = np.maximum(
+                1.0,
+                spread_floor + 0.08 * np.sqrt(veil_magnitude),
+            )
+            censored_phase = np.clip(
+                (detection_floor - proposal_magnitude)
+                / np.maximum(0.5 * detection_floor, 1e-6),
                 0.0,
                 1.0,
             )
-            low_expected = (
-                low_inside * (1.0 - low_phase[..., None])
-                + low_outside * low_phase[..., None]
+            censored_weight = censored_phase * censored_phase * (
+                3.0 - 2.0 * censored_phase
             )
-            applied_correction += 6.25 * low_seam_strength[..., None] * (
-                low_expected - applied_low
+            applied_correction += (
+                6.25
+                * low_seam_strength[..., None]
+                * censored_weight[..., None]
+                * latent_delta
+            )
+            report["latent_background_censored_fraction"] = float(
+                (
+                    (censored_weight > 0.0)
+                    & (low_seam_strength > 0.0)
+                ).sum()
+                / max((low_seam_strength > 0.0).sum(), 1)
             )
             composed = (
                 repaired_base.astype(np.float32) + applied_correction

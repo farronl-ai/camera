@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """16e T1 — segmentation-mask bridge (runs in .venv312, torch CPU).
 
-Usage:  .venv312/bin/python research/bridge_masks.py IMG [IMG...]
+Usage:  .venv312/bin/python src/focusstack/bridges/masks_bridge.py IMG [IMG...]
 For each IMG writes IMG.masks.npy: uint8 array (K, H, W) of the K largest
 automatic masks (K<=24), plus IMG.masks.png visualization.
 Backend: FastSAM via ultralytics (weights auto-download on first use);

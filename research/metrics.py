@@ -15,8 +15,8 @@ Implemented (numpy + opencv only):
   sharp   — plain no-reference sharpness (mean |Laplacian| energy). A sanity/《more
             is better》signal, but NOT trusted alone (it rewards halos/speckle).
 
-`composite()` combines the trustworthy ones; weights are calibrated in M0 against
-Real-MFF ground truth (see validate_metrics.py).
+`composite()` combines the trustworthy ones; the retained weights were
+calibrated against Real-MFF ground truth in the historical M0 experiment.
 
 For GT-referenced validation only (dev-time, not used at inference):
   ref_ssim, ref_psnr — compare a fused image to a true all-in-focus reference.
@@ -193,8 +193,8 @@ def sharp(_sources, fused: np.ndarray) -> float:
 ALL_METRICS = {"q_abf": q_abf, "q_abf_ms": q_abf_ms, "q_mi": q_mi,
                "q_ssim": q_ssim, "sharp": sharp}
 
-# Composite weights. Calibrated against Real-MFF ground truth by
-# validate_metrics.py (mean per-pair Spearman vs GT-SSIM = +0.723): q_mi was
+# Composite weights. Historically calibrated against Real-MFF ground truth
+# (mean per-pair Spearman vs GT-SSIM = +0.723): q_mi was
 # zeroed (it anti-correlates with true quality), q_ssim dominates, q_abf adds
 # halo/edge sensitivity. Loaded from metric_weights.json if present.
 COMPOSITE_WEIGHTS = {"q_abf_ms": 0.3, "q_ssim": 0.7}

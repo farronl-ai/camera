@@ -1,7 +1,7 @@
 # Occlusion formation audit — geometry, veil, and material transmission
 
-Status: active design note, 2026-07-26. Read with `MISSION.md`,
-`NEXT_STEPS_scenerecovery.md`, and F60–F78 in `FINDINGS.md`.
+Status: active design note, 2026-07-26. Read with `MISSION.md`, `STATE.md`,
+and the load-bearing recovery section in `FINDINGS.md`.
 
 ## 2026-07-26 transmission-boundary integration checkpoint
 

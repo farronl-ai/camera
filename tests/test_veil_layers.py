@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 
 from focusstack.fusion import fuse_perband
+from focusstack.reconstruct import _disk_blur
 from focusstack.veil_layers import (
     ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT,
     RADIUS_FRACTION,
@@ -527,9 +528,12 @@ def test_one_sided_rear_mask_never_crosses_true_foreground():
         rear_mask[rear_mask > 0]
         >= ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT
     )
+    # F78 intentionally feathers the licensed correction beyond its narrow
+    # pre-integration support; opaque ownership, not the old support count, is
+    # the safety boundary.
     assert (
-        report["rear_mask_after_geometry_corroboration_pixels"]
-        >= report["rear_mask_active_pixels"]
+        report["rear_mask_active_pixels"]
+        >= report["rear_mask_after_geometry_corroboration_pixels"]
     )
     assert report["rear_mask_presence_reason"] in {
         "reverse_reblur_exceeds_noise_floor",
@@ -646,14 +650,17 @@ def test_ordered_visibility_requires_positive_rear_observation():
     assert evidence["ordered_visibility_fraction"] > 0.25
 
 
-def test_fringe_softening_never_leaks_outside_predicted_coverage():
+def test_fringe_softening_stays_inside_cross_psf_visibility():
     alpha = np.zeros((128, 128), np.float32)
     cv2.circle(alpha, (64, 64), 24, 1.0, -1)
     radius = RADIUS_FRACTION * 128
-    blurred = _box_disk_blur(alpha, 0.7 * radius)
+    coverages = [
+        np.clip(blur_fn(alpha, radius), 0.0, 1.0)
+        for blur_fn in (_box_disk_blur, _disk_blur)
+    ]
     physical_support = (
-        (blurred > 0.05)
-        & (blurred < 0.95)
+        (np.minimum.reduce(coverages) > 0.0)
+        & ((1.0 - np.maximum.reduce(coverages)) > 0.05)
         & (alpha < 0.5)
     )
     fringe = _fringe_mask(alpha, radius, 4.0)

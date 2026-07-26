@@ -23,12 +23,12 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from objocc_v2_gen import scenes  # noqa: E402
-from t2_candidates import candidates_with_features  # noqa: E402
-from veilship import false_texture_error  # noqa: E402
+from owner_candidates import candidates_with_features  # noqa: E402
 from focusstack.bridge import run_bridge_many  # noqa: E402
 from focusstack.focus import content_aware_energies  # noqa: E402
 from focusstack.fusion import fuse_perband, guided_filter  # noqa: E402
 from focusstack.io import to_gray_float  # noqa: E402
+from focusstack.reconstruct import _disk_blur  # noqa: E402
 from focusstack.veil_layers import (  # noqa: E402
     MODEL_SIDE,
     ONE_SIDED_FRONT_LOW_TEXTURE_MEAN_GRADIENT,
@@ -50,6 +50,39 @@ import metrics as M  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 package_enhance = importlib.import_module("focusstack.enhance")
+
+
+def false_texture_error(
+    output: np.ndarray,
+    gt: np.ndarray,
+    alpha: np.ndarray,
+    max_r: float,
+) -> tuple[float, int]:
+    """GT-credited fine-band error on quiet background-side veil pixels."""
+    blurred_alpha = _disk_blur(alpha, 0.7 * max_r)
+    support = (
+        (blurred_alpha > 0.05)
+        & (blurred_alpha < 0.95)
+        & (alpha < 0.5)
+    )
+    gt_float = gt.astype(np.float32)
+    output_float = output.astype(np.float32)
+    gt_mid = np.abs(
+        gt_float - cv2.GaussianBlur(gt_float, (0, 0), 1.6)
+    ).mean(axis=2)
+    quiet = support & (gt_mid <= 1.0)
+    if quiet.sum() < 32:
+        return float("nan"), int(quiet.sum())
+    gt_fine = gt_float - cv2.GaussianBlur(gt_float, (0, 0), 0.7)
+    output_fine = output_float - cv2.GaussianBlur(
+        output_float,
+        (0, 0),
+        0.7,
+    )
+    error = np.sqrt(
+        np.mean(np.square(output_fine - gt_fine), axis=2)
+    )
+    return float(error[quiet].mean()), int(quiet.sum())
 
 
 def prepare(split: str) -> None:

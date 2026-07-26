@@ -25,13 +25,20 @@ examples/synth/
 # Local inspection data + outputs (not committed)
 analysis/
 
-# Research scaffold: track the CODE + small JSON manifests; exclude datasets,
-# generated images, published HTML, and task logs.
+# Research scaffold: track code and only the current frozen evidence; exclude
+# datasets, generated experiment ledgers/caches, images, and task logs.
 research/data/
 research/**/*.png
 research/**/*.jpg
 research/**/*.jpeg
 research/**/*.tif
+research/*.json
+research/*.npz
+!research/metric_weights.json
+!research/objocc_v2_s29_manifest.json
+!research/objocc_v2_s29_formation_audit.json
+!research/objocc_v2_s29_geometry_audit.json
+!research/objocc_v2_s29_ordered_visibility.json
 research/*.html
 !research/showcase_template.html
 !research/inspection_template.html

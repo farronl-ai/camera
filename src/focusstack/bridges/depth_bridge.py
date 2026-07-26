@@ -2,7 +2,7 @@
 """E3 — semantic monocular-depth bridge (runs in .venv312, torch CPU).
 
 Usage (from the 3.12 env):
-    .venv312/bin/python research/bridge_depth.py IMG [IMG...]
+    .venv312/bin/python src/focusstack/bridges/depth_bridge.py IMG [IMG...]
 For each IMG writes IMG.depth.npy (float32 HxW, higher = nearer per DA-V2
 convention) and IMG.depth.png (TURBO vis). First run downloads
 depth-anything/Depth-Anything-V2-Small-hf (~100MB) from HuggingFace.

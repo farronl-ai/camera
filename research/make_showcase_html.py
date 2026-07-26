@@ -6,8 +6,8 @@ The template is the fully styled page with the LaTeX math left as tokens:
 token to native MathML so the page needs no JavaScript, CDN, or web fonts —
 it opens offline in any modern browser, sitting next to docs/img/.
 
-Companion to make_showcase.py (which regenerates the figures themselves);
-run that first if the images are stale.
+Current inspection assets are regenerated separately by
+make_showcase_specialists.py. Historical showcase figures are frozen artifacts.
 
 Run:  python research/make_showcase_html.py
 Needs: pip install latex2mathml   (or: pip install -e .[docs])

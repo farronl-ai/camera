@@ -40,8 +40,8 @@ from focusstack.io import to_gray_float  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 RMFF = os.path.join(HERE, "data", "realmff", "extracted", "RealMFF")
 
-# Diverse tune presets spanning crisp/fine <-> smooth/robust. Refined from M1's
-# top diverse winners when best_global.json is available.
+# Diverse tune presets spanning crisp/fine <-> smooth/robust. The historical
+# M1 search artifact is optional and lives in Git history.
 PRESETS = [
     {"focus_method": "laplacian", "smooth_ksize": 9, "radius": 8, "eps": 1e-3, "levels": None},
     {"focus_method": "mod_laplacian", "smooth_ksize": 5, "radius": 2, "eps": 1e-3, "levels": 5},

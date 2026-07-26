@@ -13,8 +13,8 @@ idempotent — each updates from current state, never regenerates.
    changes), PLAYBOOK (transferable methods + traps), DEVSTYLE (working-style
    lessons), FRONTIER (statuses + newly-spawned directions; probing must SPAWN).
 2. **Refresh outward faces** as warranted: /showcase-refresh (if capabilities
-   shipped), report.py + regenerate + republish the live-status artifact (same URL),
-   /market-refresh (if our capability cells changed materially).
+   shipped), regenerate the current inspector, and /market-refresh if our
+   capability cells changed materially.
 3. **Memory**: update project memory state snapshot; add durable lessons to the
    playbook memory. Convert relative dates to absolute.
 4. **Drift sweep (F49/F50-class)** — the shipped product must match the evidence:
@@ -31,5 +31,6 @@ idempotent — each updates from current state, never regenerates.
 5. **Audit** (per DEVSTYLE §10, mandatory if subagents ran): clean tree, no stashes,
    no rebase leftovers, local == origin, linear history, no duplicate sections in
    shared files, pytest green ON THE COMPOSED STATE.
-6. **Ship**: commit per logical unit (no trailers), pull --rebase, push. Close/annotate
-   task-list entries with what the next session inherits (needs-doing, clearly marked).
+6. **Compact state**: update `research/STATE.md`; keep only current frozen evidence
+   in Git. Historical ledgers, generated reports, and caches belong in Git history.
+7. **Ship**: commit per logical unit (no trailers), pull --rebase, push.

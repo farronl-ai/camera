@@ -3063,7 +3063,7 @@ def _owner_geometry_consensus(
                     max_radius,
                     2.0 * spatial_scale,
                 )
-                > 0.0
+                > 1e-4
                 for mask in associated
             ],
             axis=0,

@@ -15,6 +15,9 @@ whole scene in focus.
 > frame, aligned/normalized inputs, base/output slider, hard-ownership/focused-owner/
 > rear-application maps, GT-only error maps where truth exists, exact regional
 > metrics, adversarial crops, and explicit optional coordinate feedback.
+>
+> 🧭 **[Current research state](research/STATE.md)** — the compact handoff:
+> shipped recovery checkpoint, physical invariants, live files, and next move.
 
 ## How it works
 
@@ -123,16 +126,18 @@ pytest
 
 ## Roadmap
 
-Validated on the standard MFIF benchmark (real Lytro-style focus pairs): all three
-methods reach the achievable sharpness upper bound globally, but only `decision`
-stays clean at focus boundaries. Planned directions:
+The selection-based stacker is the safe floor. The active research path is
+observation-anchored scene recovery: infer ordered foreground/rear formation,
+preserve opaque ownership, and invert licensed veil regions without blind
+generation. The current narrow two-frame opaque path is enabled under
+`--enhance auto`; broader camera claims await fresh PSF/ISP families and real
+controlled captures.
 
-- **Alignment**: feature-based / multi-scale ECC for large shifts.
-- **Quality**: tune the guided-filter radius/eps per scene; per-frame denoising;
-  small-region cleanup on the decision map before refinement.
-- **Leading edge**: a learning-based fusion backend (e.g. IFCNN / U²Fusion /
-  MFF-GAN) behind the same CLI — that's where current multi-focus fusion research
-  lives.
+Near-term engineering priorities are an explicit upstream formation-state
+handoff, frozen cross-family validation of the F78 boundary result, and
+alignment/focus-breathing robustness on real handheld sweeps. See
+[`research/STATE.md`](research/STATE.md) and
+[`research/FRONTIER.md`](research/FRONTIER.md).
 
 ## Layout
 
@@ -140,4 +145,5 @@ stays clean at focus boundaries. Planned directions:
 src/focusstack/   package (align, focus, fusion, pipeline, cli)
 scripts/          synthetic stack generator
 tests/            pytest suite
+research/         compact current factory/evaluator/inspection tooling and state
 ```

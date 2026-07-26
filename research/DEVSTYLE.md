@@ -5,7 +5,7 @@ THIS file carries the **working style** — the methodology, personality, and ca
 produced this project's results, so any session on ANY model (Opus, Fable, or later)
 starts in the same expert flow and improves from there.
 **Read order for a new session:** MISSION.md (the goal + framework) → DEVSTYLE → PLAYBOOK → FINDINGS.md (SYNTHESIS section)
-→ FRONTIER.md → NEXT_STEPS_*.md (current phase plan).
+→ FRONTIER.md → STATE.md (current checkpoint and next move).
 
 ## 1. The core loop (every investigation runs this shape)
 
@@ -78,7 +78,8 @@ cross-scene validation after the mechanism stabilizes. F78 is the reference exam
 
 ## 5. Cadence & operations
 
-- Plans live in the repo (`NEXT_STEPS_*.md`) — sessions die, plans must not.
+- The active checkpoint lives in `STATE.md`; replace stale steps instead of
+  accumulating phase-plan files.
 - Heavy compute → background jobs; analyze between launches; never idle-poll.
 - FINDINGS.md = dated log (newest first) + a SYNTHESIS section kept current — after a
   convergence, consolidate confused theory arcs into their final clean form, but keep

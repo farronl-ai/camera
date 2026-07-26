@@ -3731,9 +3731,16 @@ def recover_giant_veil(
         veil_support = (
             _fringe_mask(alpha, max_radius, 2.0 * spatial_scale) > 0.0
         )
-        support_edge = veil_support & ~(
+        modeled_veil_coverage = np.minimum(
+            np.clip(_box_disk_blur(alpha, max_radius), 0.0, 1.0),
+            np.clip(_disk_blur(alpha, max_radius), 0.0, 1.0),
+        )
+        integration_support = veil_support & (
+            modeled_veil_coverage >= VISIBILITY_COVERAGE_RAMP
+        )
+        support_edge = integration_support & ~(
             cv2.erode(
-                veil_support.astype(np.uint8),
+                integration_support.astype(np.uint8),
                 np.ones((3, 3), np.uint8),
             )
             > 0
@@ -3753,7 +3760,7 @@ def recover_giant_veil(
                 5,
             )
             transition_width = np.where(
-                veil_support,
+                integration_support,
                 1.5 * spatial_scale,
                 4.0 * spatial_scale,
             )
@@ -3767,7 +3774,7 @@ def recover_giant_veil(
             )
             seam_strength[front_extent] = 0.0
             low_transition_width = np.where(
-                veil_support,
+                integration_support,
                 5.0 * spatial_scale,
                 4.0 * spatial_scale,
             )
@@ -3783,9 +3790,8 @@ def recover_giant_veil(
                 * (3.0 - 2.0 * low_seam_phase)
             )
             low_seam_strength[front_extent] = 0.0
-            low_seam_strength[~veil_support] = 0.0
             signed_edge_distance = np.where(
-                veil_support,
+                integration_support,
                 -edge_distance,
                 edge_distance,
             ).astype(np.float32)
@@ -3872,7 +3878,13 @@ def recover_giant_veil(
                 borderType=cv2.BORDER_REFLECT,
             )
             latent_delta = latent_rear_low - composed_low
+            rear_observed = images[1 - owner].astype(np.float32)
+            owner_observed = images[owner].astype(np.float32)
+            premultiplied_owner = alpha[..., None] * owner_observed
             counterfactual_magnitudes = []
+            direct_rear_candidates = []
+            rear_transmissions = []
+            direct_fit_residuals = []
             for visibility_blur_fn in (_box_disk_blur, _disk_blur):
                 visibility_model = _prepare_model(
                     alpha,
@@ -3895,10 +3907,77 @@ def recover_giant_veil(
                         )
                     )
                 )
+                rear_transmission = visibility_model["transmission"][1]
+                foreground_veil = (
+                    visibility_model["foreground_scale"][1]
+                    * _blur_channels(
+                        premultiplied_owner,
+                        visibility_model["near_radii"][1],
+                        visibility_blur_fn,
+                    )
+                )
+                direct_rear_candidate = np.clip(
+                    (rear_observed - foreground_veil)
+                    / np.maximum(rear_transmission, 0.08),
+                    0.0,
+                    255.0,
+                )
+                direct_rear_candidates.append(direct_rear_candidate)
+                rear_transmissions.append(
+                    np.mean(rear_transmission, axis=2)
+                )
+                direct_prediction = _forward_layers(
+                    owner_observed,
+                    direct_rear_candidate,
+                    visibility_model,
+                )
+                direct_fit_residuals.append(
+                    cv2.GaussianBlur(
+                        0.5
+                        * (
+                            np.mean(
+                                np.abs(
+                                    direct_prediction[0]
+                                    - owner_observed
+                                ),
+                                axis=2,
+                            )
+                            + np.mean(
+                                np.abs(
+                                    direct_prediction[1]
+                                    - rear_observed
+                                ),
+                                axis=2,
+                            )
+                        ),
+                        (0, 0),
+                        integration_sigma,
+                        borderType=cv2.BORDER_REFLECT,
+                    )
+                )
             counterfactual_magnitude = np.minimum.reduce(
                 counterfactual_magnitudes
             )
-            rear_observed = images[1 - owner].astype(np.float32)
+            prefer_first_model = (
+                direct_fit_residuals[0] <= direct_fit_residuals[1]
+            )
+            direct_rear = np.where(
+                prefer_first_model[..., None],
+                direct_rear_candidates[0],
+                direct_rear_candidates[1],
+            )
+            direct_rear_low = cv2.GaussianBlur(
+                direct_rear,
+                (0, 0),
+                integration_sigma,
+                borderType=cv2.BORDER_REFLECT,
+            )
+            direct_delta = direct_rear_low - composed_low
+            rear_transmission = np.where(
+                prefer_first_model,
+                rear_transmissions[0],
+                rear_transmissions[1],
+            )
             rear_detail = rear_observed - cv2.GaussianBlur(
                 rear_observed,
                 (0, 0),
@@ -3917,6 +3996,17 @@ def recover_giant_veil(
                 1.0,
                 observation_noise,
             )
+            transmission_phase = np.clip(
+                (rear_transmission - 0.12) / 0.55,
+                0.0,
+                1.0,
+            )
+            transmission_weight = (
+                transmission_phase
+                * transmission_phase
+                * (3.0 - 2.0 * transmission_phase)
+            )
+            direct_weight = transmission_weight
             censored_phase = np.clip(
                 (detection_floor - counterfactual_magnitude)
                 / np.maximum(0.5 * detection_floor, 1e-6),
@@ -3929,8 +4019,13 @@ def recover_giant_veil(
             applied_correction += (
                 6.25
                 * low_seam_strength[..., None]
-                * censored_weight[..., None]
-                * latent_delta
+                * (
+                    direct_weight[..., None] * direct_delta
+                    + (1.0 - direct_weight[..., None])
+                    * censored_weight[..., None]
+                    * integration_support[..., None]
+                    * latent_delta
+                )
             )
             report["latent_background_counterfactual_fraction"] = float(
                 (

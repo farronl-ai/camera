@@ -1,15 +1,12 @@
 """Composed specialist enhancement — conservative specialist routing.
 
-Contour reconstruction remains live behind its locked outcome-trained gate.
-The veil branch is retained as research machinery but safety-disabled after F54:
-
-- **Veil correction** (wide occluders): disabled in `enhance="auto"` because
-  native-resolution false-texture auditing overturned its never-harm claim.
+- **Giant-veil recovery** (exactly two frames): semantic candidate bank ->
+  observation-domain reranking -> frozen high-precision license -> joint
+  two-layer inversion -> regularizer/PSF component consensus.
 - **Contour reconstruction** (thin occluders): classical C3 difference matte
-  -> gated -> strong-veil ribbon re-rendered post-fusion
-  (reconstruct.reconstruct_band). No bridge needed.
+  -> gated -> strong-veil ribbon re-rendered post-fusion.
 
-Identity by construction when the contour gate stays silent.
+Every refusal path is byte-identical to the incoming generalist fusion.
 """
 
 from __future__ import annotations
@@ -22,17 +19,17 @@ import numpy as np
 
 from .bridge import run_bridge
 from .focus import content_aware_energies
-from .fusion import fuse_perband, guided_filter
-from .gates import RECON_GATE, VEIL_GATE, predict_gain
+from .fusion import guided_filter
+from .gates import RECON_GATE, predict_gain
 from .io import to_gray_float
 from .reconstruct import (contamination_band, estimate_thin_matte,
                           reconstruct_band, thin_matte_features, _disk_blur)
+from .veil_layers import recover_giant_veil
 
 
-# F54 safety hold. The model and gate remain in-tree for reproducible research,
-# but auto enhancement must not call them until a replacement passes the
-# expanded native-resolution hallucination audit.
-VEIL_AUTO_ENABLED = False
+# Operational kill switch. F54's correction-after-fusion implementation remains
+# retired; this enables only F55's separately validated joint-layer specialist.
+VEIL_AUTO_ENABLED = True
 
 
 def _mask_candidates(images, masks, depth, topk=4):
@@ -92,15 +89,29 @@ def _mask_candidates(images, masks, depth, topk=4):
 
 
 def _build_veil_D(images, alpha, radius, owner, far_idx):
-    """Forward-modeled haze field, fringe-clamped (F40/F41 + F44 hygiene)."""
+    """Retired F40/F41 haze field, retained only for research reproduction.
+
+    The auto path must never call this correction-after-fusion model; F54
+    demonstrated that it can extend foreground texture into the background.
+    """
     near_pm = images[owner].astype(np.float32) * alpha[..., None]
     far_f = images[far_idx].astype(np.float32)
     ab = _disk_blur(alpha, 0.7 * radius)
-    pm_b = np.stack([_disk_blur(near_pm[..., c], 0.7 * radius) for c in range(3)], 2)
-    D = (pm_b - near_pm) + far_f * (alpha - ab)[..., None]
-    band = ((ab > 0.02) & (ab < 0.98) & (alpha < 0.5)).astype(np.float32)
+    pm_b = np.stack(
+        [
+            _disk_blur(near_pm[..., channel], 0.7 * radius)
+            for channel in range(3)
+        ],
+        axis=2,
+    )
+    haze = (pm_b - near_pm) + far_f * (alpha - ab)[..., None]
+    band = (
+        (ab > 0.02)
+        & (ab < 0.98)
+        & (alpha < 0.5)
+    ).astype(np.float32)
     band = cv2.GaussianBlur(band, (0, 0), 2.0)
-    return D * band[..., None]
+    return haze * band[..., None]
 
 
 def enhance(images, fused_pass1, radius=None, harden=0.5,
@@ -120,30 +131,52 @@ def enhance(images, fused_pass1, radius=None, harden=0.5,
         "bridge": False,
         "veil_fired": 0,
         "veil_disabled_safety": not VEIL_AUTO_ENABLED,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": (
+            "kill_switch_disabled" if not VEIL_AUTO_ENABLED
+            else "not_evaluated"
+        ),
         "recon_fired": 0,
     }
     out = fused_pass1
 
-    # --- veil branch (needs the bridge) ---
-    D_by_far = {}
-    if VEIL_AUTO_ENABLED:
+    # --- giant-veil branch (bridge + exactly two focal frames) ---
+    if VEIL_AUTO_ENABLED and len(images) == 2:
         with tempfile.TemporaryDirectory() as td:
             p1 = os.path.join(td, "pass1.png")
             cv2.imwrite(p1, fused_pass1)
             dp = run_bridge("depth", p1, python=bridge_python)
             mp = run_bridge("masks", p1, python=bridge_python)
             if dp and mp:
-                report["bridge"] = True
-                masks, depth = np.load(mp), np.load(dp)
-                for c in _mask_candidates(images, masks, depth):
-                    if predict_gain(VEIL_GATE, c["feats"]) >= VEIL_GATE["margin"]:
-                        f = 1 - c["owner"] if len(images) == 2 else len(images) - 1
-                        D = _build_veil_D(images, c["alpha"], radius, c["owner"], f)
-                        D_by_far[f] = D_by_far.get(f, 0) + D
-                        report["veil_fired"] += 1
-    if D_by_far:
-        say(f"veil correction firing on {report['veil_fired']} region(s); refusing ...")
-        out = fuse_perband(images, harden=harden, veil_D=D_by_far)
+                try:
+                    masks, depth = np.load(mp), np.load(dp)
+                    candidates = _mask_candidates(images, masks, depth)
+                    report["bridge"] = True
+                    recovered, veil_report = recover_giant_veil(
+                        images,
+                        fused_pass1,
+                        candidates,
+                    )
+                except (ValueError, OSError, cv2.error) as error:
+                    report["veil_reason"] = (
+                        f"invalid_bridge_or_model:{type(error).__name__}"
+                    )
+                else:
+                    report["veil_reason"] = veil_report["reason"]
+                    report["veil_evidence"] = veil_report
+                    if veil_report["fired"]:
+                        say(
+                            "joint two-layer giant-veil recovery firing "
+                            f"(candidate {veil_report['candidate_rank']}, "
+                            f"forward ratio={veil_report['forward_ratio']:.3f}, "
+                            f"stable={veil_report['stable_fraction']:.3f}) ..."
+                        )
+                        out = recovered
+                        report["veil_fired"] = 1
+            else:
+                report["veil_reason"] = "bridge_unavailable"
+    elif VEIL_AUTO_ENABLED:
+        report["veil_reason"] = "requires_two_frames"
 
     # --- reconstruction branch (classical) ---
     alpha, owner = estimate_thin_matte(images, radius)

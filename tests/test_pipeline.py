@@ -79,13 +79,13 @@ def test_enhance_auto_identity_when_silent(tmp_path, monkeypatch):
     assert np.array_equal(a, b)
 
 
-def test_enhance_auto_does_not_call_safety_disabled_veil_bridge(monkeypatch):
+def test_enhance_auto_refuses_cleanly_when_veil_bridge_is_absent(monkeypatch):
     import focusstack.enhance as enhance_module
 
-    def unsafe_bridge_call(*_args, **_kwargs):
-        raise AssertionError("safety-disabled veil branch called its bridge")
+    def absent_bridge(*_args, **_kwargs):
+        return None
 
-    monkeypatch.setattr(enhance_module, "run_bridge", unsafe_bridge_call)
+    monkeypatch.setattr(enhance_module, "run_bridge", absent_bridge)
     rng = np.random.default_rng(14)
     image = rng.integers(0, 255, (96, 96, 3), dtype=np.uint8)
     stack = [image, cv2.GaussianBlur(image, (9, 9), 3)]
@@ -93,8 +93,110 @@ def test_enhance_auto_does_not_call_safety_disabled_veil_bridge(monkeypatch):
 
     assert output.shape == image.shape
     assert report["veil_fired"] == 0
-    assert report["veil_disabled_safety"] is True
+    assert report["veil_disabled_safety"] is False
+    assert report["veil_reason"] == "bridge_unavailable"
     assert report["bridge"] is False
+
+
+def test_enhance_auto_does_not_bridge_an_unlicensed_frame_count(monkeypatch):
+    import focusstack.enhance as enhance_module
+
+    def unexpected_bridge(*_args, **_kwargs):
+        raise AssertionError("three-frame veil refusal launched the bridge")
+
+    monkeypatch.setattr(enhance_module, "run_bridge", unexpected_bridge)
+    rng = np.random.default_rng(15)
+    image = rng.integers(0, 255, (96, 96, 3), dtype=np.uint8)
+    stack = [
+        image,
+        cv2.GaussianBlur(image, (9, 9), 3),
+        cv2.GaussianBlur(image, (15, 15), 5),
+    ]
+    output, report = enhance_module.enhance(stack, image.copy())
+
+    assert output.shape == image.shape
+    assert report["veil_fired"] == 0
+    assert report["veil_reason"] == "requires_two_frames"
+    assert report["bridge"] is False
+
+
+def test_enhance_auto_wires_licensed_joint_layer_recovery(tmp_path, monkeypatch):
+    import focusstack.enhance as enhance_module
+
+    masks_path = tmp_path / "masks.npy"
+    depth_path = tmp_path / "depth.npy"
+    np.save(masks_path, np.zeros((1, 96, 96), np.uint8))
+    np.save(depth_path, np.zeros((96, 96), np.float32))
+
+    def bridge(kind, *_args, **_kwargs):
+        return str(depth_path if kind == "depth" else masks_path)
+
+    candidate = {
+        "feats": np.ones(7, np.float32),
+        "alpha": np.zeros((96, 96), np.float32),
+        "owner": 0,
+    }
+
+    def recover(_images, base, candidates):
+        assert candidates == [candidate]
+        return np.clip(base.astype(np.int16) + 1, 0, 255).astype(np.uint8), {
+            "fired": True,
+            "reason": "licensed_consensus",
+            "candidate_rank": 0,
+            "forward_ratio": 0.5,
+            "stable_fraction": 0.9,
+        }
+
+    monkeypatch.setattr(enhance_module, "run_bridge", bridge)
+    monkeypatch.setattr(
+        enhance_module,
+        "_mask_candidates",
+        lambda *_args, **_kwargs: [candidate],
+    )
+    monkeypatch.setattr(enhance_module, "recover_giant_veil", recover)
+    monkeypatch.setattr(
+        enhance_module,
+        "estimate_thin_matte",
+        lambda images, radius: (
+            np.zeros(images[0].shape[:2], np.float32),
+            0,
+        ),
+    )
+    image = np.full((96, 96, 3), 100, np.uint8)
+    output, report = enhance_module.enhance([image, image], image.copy())
+
+    assert np.all(output == 101)
+    assert report["veil_fired"] == 1
+    assert report["veil_reason"] == "licensed_consensus"
+    assert report["bridge"] is True
+
+
+def test_enhance_veil_kill_switch_is_identity(monkeypatch):
+    import focusstack.enhance as enhance_module
+
+    monkeypatch.setattr(enhance_module, "VEIL_AUTO_ENABLED", False)
+    monkeypatch.setattr(
+        enhance_module,
+        "run_bridge",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("kill switch launched bridge")
+        ),
+    )
+    monkeypatch.setattr(
+        enhance_module,
+        "estimate_thin_matte",
+        lambda images, radius: (
+            np.zeros(images[0].shape[:2], np.float32),
+            0,
+        ),
+    )
+    image = np.full((96, 96, 3), 100, np.uint8)
+    output, report = enhance_module.enhance([image, image], image.copy())
+
+    assert np.array_equal(output, image)
+    assert report["veil_fired"] == 0
+    assert report["veil_disabled_safety"] is True
+    assert report["veil_reason"] == "kill_switch_disabled"
 
 
 def test_gates_predict_gain_shapes():

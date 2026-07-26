@@ -72,7 +72,14 @@ def main():
             continue
         mm = masks[int(rng.integers(len(masks)))]
         # background = a DIFFERENT photo
-        bg_path = photos[(i + 3 + 2 * (i // len(photos)) + start) % len(photos)]
+        bg_index = (i + 3 + 2 * (i // len(photos)) + start) % len(photos)
+        bg_path = photos[bg_index]
+        # Large appended holdouts can wrap the pairing schedule back onto the
+        # source photo.  That leaks the object's original surround into the
+        # "different scene" background and invalidates the factory claim.
+        while bg_path == src:
+            bg_index = (bg_index + 1) % len(photos)
+            bg_path = photos[bg_index]
         bg = cv2.imread(bg_path)
         bh, bw = bg.shape[:2]
         s = LONG / max(bh, bw)

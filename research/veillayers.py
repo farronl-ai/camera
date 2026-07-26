@@ -49,6 +49,7 @@ from veilband import fringe_mask  # noqa: E402
 from veilship import false_texture_error  # noqa: E402
 from focusstack.fusion import fuse_perband  # noqa: E402
 from focusstack.reconstruct import _disk_blur as production_disk_blur  # noqa: E402
+from focusstack.veil_layers import recover_giant_veil  # noqa: E402
 
 
 MAX_SIDE = 512
@@ -995,6 +996,101 @@ def cmd_p8() -> None:
     )
 
 
+def run_package_audit(
+    bank_filename: str,
+    output_filename: str,
+) -> None:
+    """Audit the exact package entry point on every bank-licensed scene."""
+    bank = json.load(open(os.path.join(HERE, bank_filename)))
+    licensed_indices = set()
+    for scene_row in bank["scenes"]:
+        if not scene_row["candidates"]:
+            continue
+        selected = min(
+            scene_row["candidates"],
+            key=lambda row: row["forward_after"],
+        )
+        if candidate_is_licensed(selected):
+            licensed_indices.add(int(scene_row["index"]))
+
+    rows = []
+    for index, sc in enumerate(scenes()):
+        if index not in licensed_indices:
+            continue
+        base = fuse_perband(sc["frames"], harden=0.5)
+        started = time.perf_counter()
+        output, report = recover_giant_veil(
+            sc["frames"],
+            base,
+            candidates_with_features(sc, topk=4),
+        )
+        outcome = score(output, base, sc)
+        row = {
+            "index": index,
+            "sid": sc["sid"],
+            "regime": float(sc["max_r"] / max(sc["gt"].shape[:2])),
+            "elapsed_seconds": time.perf_counter() - started,
+            **outcome,
+            "report": report,
+        }
+        rows.append(row)
+        print(
+            f"{sc['sid']} fired={report['fired']} "
+            f"dg={outcome['dg']:+.5f} "
+            f"dMAE={outcome['d_global_mae']:+.3f} "
+            f"dMSE={outcome['d_global_mse']:+.3f} "
+            f"dfr={outcome['de_fringe']:+.2f} "
+            f"dft={outcome['d_false_texture']:+.3f}",
+            flush=True,
+        )
+
+    aggregate_keys = (
+        "dg",
+        "de_fringe",
+        "d_global_mae",
+        "d_global_mse",
+        "d_psnr",
+        "d_false_texture",
+    )
+    payload = {
+        "source_bank": bank_filename,
+        "package_model": "joint_two_layer_giant_owner_safe",
+        "bank_scenes": len(bank["scenes"]),
+        "licensed_scenes": len(licensed_indices),
+        "rows": rows,
+        "aggregate": {
+            key: summarize(rows, key)
+            for key in aggregate_keys
+        },
+    }
+    path = os.path.join(HERE, output_filename)
+    with open(path, "w") as handle:
+        json.dump(payload, handle, indent=2)
+    print(f"licensed={len(licensed_indices)} -> {path}", flush=True)
+
+
+def cmd_p9() -> None:
+    """Exact package audit after observation-derived ownership projection."""
+    run_package_audit(
+        "veillayers_p6_fixed_giant_dev.json",
+        "veillayers_p9_package_owner_safe_dev.json",
+    )
+    run_package_audit(
+        "veillayers_p6_fixed_giant_holdout.json",
+        "veillayers_p9_package_owner_safe_holdout.json",
+    )
+    run_package_audit(
+        "veillayers_p9_second_holdout_bank.json",
+        "veillayers_p9_package_owner_safe_second_holdout.json",
+    )
+    print(
+        "DOCTRINE: observation fit is necessary but not sufficient in blur's "
+        "null space; package application is additionally vetoed where the "
+        "captured focus evidence assigns ownership to the foreground.",
+        flush=True,
+    )
+
+
 def main() -> None:
     commands = {
         "p0": cmd_p0,
@@ -1008,10 +1104,11 @@ def main() -> None:
         "p6h": cmd_p6h,
         "p7": cmd_p7,
         "p8": cmd_p8,
+        "p9": cmd_p9,
     }
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
         raise SystemExit(
-            "usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7|p8}"
+            "usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7|p8|p9}"
         )
     commands[sys.argv[1]]()
 

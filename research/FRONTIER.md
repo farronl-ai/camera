@@ -795,3 +795,150 @@ portable result is metric insufficiency and measurement-conditioned detection.
 *First experiment:* evaluate the unsupported-texture feature and bank
 disagreement against GT `false_texture` on a scene-disjoint split; report
 AUC/false-negative rate beside restoration gain.
+
+## Literature scan (2026-07-26) — asymmetric visibility at occlusion boundaries
+
+Focused follow-up for F60/S12. Every source below was read at the paper or
+publisher page, then filtered against F25, F55–F60, the earlier scans, and the
+measured forward-fit/null-space failures. The non-redundant conclusion is that
+our remaining application mask collapses two physically different visibility
+terms: a focused front surface must block the rear layer, while a defocused
+front surface can partially reveal it through the finite aperture.
+
+### V1 — Dr.Bokeh separates on-focal occlusion from non-focal visibility
+
+**What:** Sheng et al., “Dr.Bokeh: DiffeRentiable Occlusion-aware Bokeh
+Rendering,” CVPR 2024 (arXiv:2308.08843), derives a layered renderer with two
+separate terms. `O_l(y,x)` excludes rear radiance intercepted by a layer on the
+focal plane; `V_l(x)` integrates alpha over the projected CoC and determines
+how much a defocused layer and every layer behind it contribute.
+
+**Why here:** this is the exact missing invariant behind the user’s
+scene-114/122 reports. F58/F59 established discrete front ownership, while F60
+made frame coverage visible; V1 says the application rule itself must also be
+asymmetric. A foreground-focused observation is a hard ordering constraint.
+Rear recovery belongs only to non-focal visibility for which the rear-focused
+frame contains positive rear evidence—not to every pixel outside an estimated
+matte.
+
+**Redundancy:** F60’s V2 renderer already implements the two-layer special case
+of non-focal coverage. New here is the explicit split between *on-focal
+occlusion* and *non-focal visibility* as two runtime gates rather than one alpha
+threshold.
+
+**First experiment:** replace `_fringe_mask * (1-owner_veto)` with
+`predicted_nonfocal_coverage * positive_rear_observation *
+on_focal_foreground_exclusion`. Grade complete core, inner partial occlusion,
+outer veil, and far background independently on V2 dev, untouched holdout, and
+a post-freeze extension.
+
+### V2 — ordered attenuation, not symmetric blending, is the multilayer law
+
+**What:** Liu, Narasimhan, and Dubrawski, “Matting and Depth Recovery of Thin
+Structures Using a Focal Stack,” CVPR 2017, models each layer with an occlusion
+index. A layer’s radiance is attenuated only by layers with smaller (nearer)
+indices; in the two-layer case the rear coefficient is the product of
+`1 - blurred_near_matte`.
+
+**Why here:** a soft pixelwise competition between near and rear is not merely
+suboptimal—it discards the causal direction. The foreground-focused frame
+observes foreground radiance directly; the background-focused frame can reveal
+rear radiance through aperture coverage but cannot revoke the already observed
+front surface. This supports a front-first ownership projection before any
+rear-layer correction.
+
+**Redundancy:** `solve_layers` already uses the two-layer formation equation.
+The missing piece is carrying its ordered attenuation into *support completion
+and application*, where the code still treats uncertain ownership
+symmetrically.
+
+**First experiment:** build two explicit observation masks from the stack:
+sharp-owner silhouette support (front, copy/veto) and decisive rear-focus
+structure (rear, correction license). Identity wins wherever neither
+observation is positive; no “absence of foreground estimate” license remains.
+
+### V3 — a finite aperture reveals rear information, but only where it was measured
+
+**What:** Favaro and Soatto, “Seeing Beyond Occlusions (and other marvels of a
+finite lens aperture),” CVPR 2003, reconstructs occluding shape and radiance
+from a defocused sequence. Its central result is that a finite aperture exposes
+portions of the rear surface hidden in a pinhole view, with observability
+depending on aperture, focal length, occluder size, and layer separation.
+
+**Why here:** the work supports scene recovery beyond any one source frame, but
+also bounds it. “The lens can see behind” is not permission to edit the whole
+estimated fringe: rear recovery is licensed only on the spatial support where
+the captured aperture actually conveyed rear information. This is S12’s
+positive-evidence requirement in classical inverse-imaging form.
+
+**Redundancy:** F55 already performs joint layer inversion and forward
+re-rendering. New here is treating local rear observability as a support
+condition, rather than assuming a globally licensed candidate makes every
+predicted fringe pixel observable.
+
+**First experiment:** compute a soft rear-observation density from decisive
+rear-frame focus evidence, propagate it only over a resolution-scaled local
+neighborhood, and multiply the correction by it. Report recovered outer-veil
+credit against rejected inner/far damage and preserve the rejected correction
+as an uncertainty map.
+
+### V4 — occlusion-edge blur carries ordinal front/back information
+
+**What:** Marshall et al., “Occlusion edge blur: a cue to relative visual
+depth,” JOSA A 13(4), 1996, demonstrates that the sharpness of the shared
+boundary between a focused and defocused region resolves the near/far
+ambiguity inherent in depth-from-focus.
+
+**Why here:** focus magnitude alone is symmetric in depth; boundary ownership
+is not. The sharp side’s boundary continuation is positive ordinal evidence
+that it is in front, matching the user’s “quick trick.” It suggests an analytic
+ordering feature based on which frame carries the sharp boundary, not another
+semantic score or global image-quality threshold.
+
+**Redundancy:** F56 uses interior focus dominance and F59 uses semantic
+containment. The boundary *asymmetry* is a third, local ordering channel that
+can cover low-texture interiors where focus energy is weak and semantic masks
+are hierarchical.
+
+**First experiment:** on V2 dev, compare owner-frame versus rear-frame
+transition-shell gradients along each candidate contour, then propagate the
+winning orientation inward/outward separately. Test whether it catches missed
+inner support without suppressing true outer veil; freeze before a new split.
+
+### V5 — exact disks are a controlled rung, not the final camera model
+
+**What:** Lee, Kim, and Cho, “Realistic Compound-Lens Defocus Blur Synthesis,”
+July 2026 (arXiv:2607.05837), combines wave-optics PSFs across 700 compound
+lenses, depth-aware occlusion compositing, radiometrically linear blur, noise,
+and ISP simulation. It reports complex asymmetric off-axis PSFs and evaluation
+bias from imperfect captured references.
+
+**Why here:** F60 corrected a mislabeled box kernel, but a perfect circular
+disk in sRGB is still only the analytic rung. V5 independently identifies the
+next factory axes: lens/field-dependent PSF, linear-light formation, and ISP.
+These belong after S12 closes on exact optics, before any broad camera claim.
+
+**Redundancy:** S14 already asks for real aperture calibration. New here is a
+current, reproducible synthetic bridge between the exact-disk factory and
+first-party capture, plus the warning that off-axis asymmetry and ISP are
+separate axes rather than “noise around a disk.”
+
+**First experiment:** port one on-axis and one off-axis CLDefocus PSF into the
+V2 renderer, move compositing to linear light, and rerun the frozen S12 gate.
+Treat each PSF/field/ISP combination as a distinct family; a disk result does
+not transfer by default.
+
+### Deliberately excluded from this scan
+
+- **Generative bokeh/de-occlusion networks** (MPIB, BokehFlow, MagicBokeh):
+  useful renderers but not remnant-auditable scene recovery; they do not solve
+  F60’s ownership invariant.
+- **Light-field partial-view focal stacks** (Strecke et al., CVPR 2017):
+  compelling visibility selection, but require sub-aperture views unavailable
+  in an ordinary focal bracket. Revisit only for light-field inputs.
+- **RealBokeh/Bokehlicious as latent truth:** valuable for appearance and ISP
+  realism, but aperture-varied photographs do not expose foreground/background
+  layers or occluder-removed scene truth. They cannot certify S12.
+- **Another learned gate on global GT deltas:** F57/F60 already show why this
+  misses coherent partition damage. The next label is local ordered visibility,
+  not another pooled score.

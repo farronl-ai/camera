@@ -88,9 +88,12 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
 - [x] Frozen 36-scene extension: 2 fires improve global direct errors; parent
       support independently survives, but one worsens inner-partial foreground.
 - [x] Safety-disable giant-veil auto; keep contour reconstruction live.
-- [ ] **S12: positive background observation gate.** Edit outer veil only where
-      another captured frame positively reveals rear-layer structure. “Outside
-      estimated alpha” is insufficient. Grade all four V2 optical partitions.
+- [x] **S12: positive background observation gate.** ✅ CLOSED (F61). Focused
+      foreground is a veto; defocused foreground licenses rear recovery only
+      where another frame positively observes rear structure. Cross-PSF coverage
+      returns far background to identity. Both diagnosed extension fires and the
+      single fire on a fresh 36-scene post-rule split improve all four optical
+      partitions; 35/36 fresh scenes refuse.
 - [ ] **S13: owner-frame candidate bank.** The unchanged feature/license recipe
       yields one dev and one holdout global win, but the holdout exposes a
       hierarchical child-mask support gap. Develop without that holdout, freeze,
@@ -98,6 +101,13 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
 - [ ] **S14: real aperture calibration.** Compare V2 disk coverage/PSF against a
       controlled first-party macro occluder capture; exact synthetic optics are
       still not real optics.
+- [ ] **S15: fine-band causal localization.** The three current runtime fires
+      improve global/direct and every physical-partition MAE but raise the
+      GT-credited smooth-veil fine-band error by +0.0096…+0.0100. Map those
+      pixels against coverage slope, support boundary, quantization, channel,
+      and solver disagreement. Prefer local identity or analytic shrinkage over
+      thresholding the aggregate metric. Require a new post-rule fire with a
+      non-positive complement tail before considering auto re-enable.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

@@ -29,7 +29,12 @@ from focusstack.bridge import run_bridge_many  # noqa: E402
 from focusstack.focus import content_aware_energies  # noqa: E402
 from focusstack.fusion import fuse_perband, guided_filter  # noqa: E402
 from focusstack.io import to_gray_float  # noqa: E402
-from focusstack.veil_layers import recover_giant_veil  # noqa: E402
+from focusstack.veil_layers import (  # noqa: E402
+    REAR_EVIDENCE_DENSITY,
+    VISIBILITY_COVERAGE_FLOOR,
+    VISIBILITY_COVERAGE_RAMP,
+    recover_giant_veil,
+)
 
 import metrics as M  # noqa: E402
 
@@ -573,25 +578,180 @@ def oracle(split: str) -> None:
     print(f"{len(rows)} scenes, {len(fired)} oracle fires -> {path}")
 
 
+def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
+    """Grade S12's asymmetric visibility rule without replacing F60 evidence."""
+    rows = []
+    for scene in scenes(split):
+        base = fuse_perband(scene["frames"], harden=0.5)
+        if oracle_alpha:
+            candidates = [
+                {
+                    "alpha": scene["alpha"],
+                    "owner": 0,
+                    "feats": np.ones(7, np.float32),
+                }
+            ]
+            owner_masks = None
+        else:
+            candidates = candidates_with_features(scene, topk=4)
+            owner_masks = [
+                np.load(
+                    os.path.join(
+                        scene["dir"],
+                        f"frame_{frame_index}.png.masks.npy",
+                    )
+                )
+                for frame_index in range(2)
+            ]
+        output, report = recover_giant_veil(
+            scene["frames"],
+            base,
+            candidates,
+            owner_masks_by_frame=owner_masks,
+        )
+        row = {
+            "sid": scene["sid"],
+            "stratum": scene["stratum"],
+            "candidate_count": len(candidates),
+            "report": report,
+            "metrics": _score(scene, base, output),
+        }
+        rows.append(row)
+        metrics = row["metrics"]
+        partition_deltas = {
+            name: (
+                values["mae_output"] - values["mae_base"]
+                if values["mae_base"] is not None
+                else None
+            )
+            for name, values in metrics["partitions"].items()
+        }
+        print(
+            f"{scene['sid']} {scene['stratum']:5s} "
+            f"fired={report['fired']} candidates={len(candidates)} "
+            f"dSSIM={metrics['d_ssim']:+.6f} "
+            f"dMAE={metrics['d_mae']:+.4f} "
+            f"parts={partition_deltas}",
+            flush=True,
+        )
+
+    fired = [row for row in rows if row["report"]["fired"]]
+    partition_names = (
+        "complete_coverage_core",
+        "inner_partial_occlusion",
+        "outer_veil",
+        "far_background",
+    )
+
+    def partition_delta(row: dict, name: str) -> float | None:
+        values = row["metrics"]["partitions"][name]
+        if values["mae_base"] is None:
+            return None
+        return values["mae_output"] - values["mae_base"]
+
+    partition_summary = {}
+    for name in partition_names:
+        deltas = [
+            delta
+            for row in fired
+            if (delta := partition_delta(row, name)) is not None
+        ]
+        partition_summary[name] = {
+            "evaluated": len(deltas),
+            "nonregressing": sum(delta <= 0 for delta in deltas),
+            "mean_delta_mae": float(np.mean(deltas)) if deltas else None,
+            "worst_delta_mae": float(np.max(deltas)) if deltas else None,
+        }
+    all_partitions_nonregressing = sum(
+        all(
+            delta is None or delta <= 0
+            for name in partition_names
+            for delta in [partition_delta(row, name)]
+        )
+        for row in fired
+    )
+    suffix = (
+        "ordered_visibility_oracle"
+        if oracle_alpha
+        else "ordered_visibility"
+    )
+    payload = {
+        "factory": "objocc_v2_exact_disk",
+        "split": split,
+        "pipeline": "s12_asymmetric_ordered_visibility",
+        "oracle_fields": ["alpha", "owner"] if oracle_alpha else [],
+        "owner_support": not oracle_alpha,
+        "rear_evidence_density": REAR_EVIDENCE_DENSITY,
+        "visibility_coverage_floor": VISIBILITY_COVERAGE_FLOOR,
+        "visibility_coverage_ramp": VISIBILITY_COVERAGE_RAMP,
+        "thresholds_retuned": False,
+        "scene_count": len(rows),
+        "fired_count": len(fired),
+        "rows": rows,
+        "fired_summary": {
+            "ssim_positive": sum(
+                row["metrics"]["d_ssim"] > 0 for row in fired
+            ),
+            "mae_positive": sum(
+                row["metrics"]["d_mae"] < 0 for row in fired
+            ),
+            "mse_positive": sum(
+                row["metrics"]["mse_output"]
+                < row["metrics"]["mse_base"]
+                for row in fired
+            ),
+            "false_texture_nonregressing": sum(
+                row["metrics"]["d_false_texture"] <= 0 for row in fired
+            ),
+            "all_partitions_nonregressing": (
+                all_partitions_nonregressing
+            ),
+            "partition_summary": partition_summary,
+        },
+    }
+    path = os.path.join(HERE, f"objocc_v2_{split}_{suffix}.json")
+    with open(path, "w") as handle:
+        json.dump(payload, handle, indent=2)
+    print(json.dumps(payload["fired_summary"], indent=2))
+    print(f"{len(rows)} scenes, {len(fired)} S12 fires -> {path}")
+
+
 def main() -> None:
     if (
         len(sys.argv) != 3
         or sys.argv[1]
-        not in {"prep", "audit", "owner", "composed", "oracle"}
+        not in {
+            "prep",
+            "audit",
+            "owner",
+            "composed",
+            "oracle",
+            "ordered",
+            "ordered-oracle",
+        }
     ):
         raise SystemExit(
             "usage: objocc_v2_eval.py "
-            "{prep|audit|owner|composed|oracle} {dev|holdout|extension}"
+            "{prep|audit|owner|composed|oracle|ordered|ordered-oracle} "
+            "{dev|holdout|extension|s12}"
         )
     command, split = sys.argv[1:]
-    if split not in {"dev", "holdout", "extension"}:
-        raise SystemExit("split must be dev, holdout, or extension")
+    if split not in {"dev", "holdout", "extension", "s12"}:
+        raise SystemExit("split must be dev, holdout, extension, or s12")
     {
         "prep": prepare,
         "audit": audit,
         "owner": owner_audit,
         "composed": composed,
         "oracle": oracle,
+        "ordered": lambda selected_split: ordered_visibility_audit(
+            selected_split,
+            oracle_alpha=False,
+        ),
+        "ordered-oracle": lambda selected_split: ordered_visibility_audit(
+            selected_split,
+            oracle_alpha=True,
+        ),
     }[command](split)
 
 

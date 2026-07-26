@@ -209,10 +209,12 @@ live; the second remains an explicitly disabled research path:
   fragment or the novel tail of a high-overlap parent silhouette. Both must
   independently improve captured-frame fit—the broader parent has stronger
   containment, IoU, and relative-gain requirements—before observed foreground
-  pixels can override mixed fusion. F60's exact-disk optical factory preserved a
-  positive ceiling and parent-support evidence, but one frozen-extension fire
-  worsened inner partial foreground despite improving global metrics. Auto
-  enhancement therefore refuses every veil case until that spatial tail is closed.
+  pixels can override mixed fusion. F61 now separates a focused-front veto from
+  positive rear-focus observation and measures a small fragment's relative fit in
+  its own PSF neighborhood. That closes the foreground-partition tail on both
+  diagnosed fires and one fresh post-rule fire, with opaque core and far background
+  unchanged. Auto enhancement still refuses every veil case because all three
+  retain a small positive finest-band error on otherwise-smooth veil pixels.
 
 Here is contour reconstruction on a factory thin-occluder scene — one where the
 shipped gate actually fires (predicted gain +0.0044 ≥ margin +0.0040; the actual
@@ -329,7 +331,7 @@ discipline is that **a verdict in one regime is a hypothesis in every other**.
 | Real optical defocus (microscopy z-stacks) | perband sharpest — eye-confirmed | no GT exists; no-ref metric ordering confirmed visually |
 | Deep stacks (N = 2 → 8) | quality **rises** with N for every method | broad soft weights act as multi-frame denoising |
 | Exposure drift (±12% + WB tilt) | −0.025 SSIM broken → **−0.002** with default-on fix | clipped highlights slightly weaken the mean invariant |
-| Joint giant-veil recovery | **Research retained, runtime disabled**; V2 oracle ceiling positive, parent support reconfirmed | exact-disk synthetic optics still expose an inner-partial foreground tail; no shipping claim |
+| Joint giant-veil recovery | **Research retained, runtime disabled**; ordered visibility is all-partition-safe on 2 diagnosed + 1 fresh fire | small positive smooth-veil finest-band tail remains; no shipping claim |
 
 The metric itself got the same treatment as the engine: the standard gradient-transfer
 metric (Q<sup>AB/F</sup>) collapses at high resolution for the same fixed-window reason —

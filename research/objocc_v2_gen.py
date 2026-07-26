@@ -27,6 +27,7 @@ Run:
     python research/objocc_v2_gen.py 12 dev
     python research/objocc_v2_gen.py 12 holdout
     python research/objocc_v2_gen.py 12 extension
+    python research/objocc_v2_gen.py 36 s12
 """
 from __future__ import annotations
 
@@ -208,8 +209,10 @@ def _prepare_object(
 
 
 def generate(count: int, split: str) -> None:
-    if split not in {"dev", "holdout", "extension"}:
-        raise ValueError("split must be 'dev', 'holdout', or 'extension'")
+    if split not in {"dev", "holdout", "extension", "s12"}:
+        raise ValueError(
+            "split must be 'dev', 'holdout', 'extension', or 's12'"
+        )
     split_dir = os.path.join(OUT, split)
     os.makedirs(split_dir, exist_ok=True)
     assets = _source_assets()
@@ -217,7 +220,12 @@ def generate(count: int, split: str) -> None:
         raise RuntimeError("no source objects with cached masks")
     photos = sorted(glob.glob(os.path.join(SRC, "*", "gt.png")))
     background_cache = {}
-    seed = {"dev": 6001, "holdout": 9001, "extension": 12001}[split]
+    seed = {
+        "dev": 6001,
+        "holdout": 9001,
+        "extension": 12001,
+        "s12": 15001,
+    }[split]
     rng = np.random.default_rng(seed)
     manifest = {
         "version": 2,

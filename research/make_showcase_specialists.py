@@ -207,6 +207,306 @@ def _inspection_ledger():
     return ledger, [source[1] for source in sources]
 
 
+def _v2_visibility_cases():
+    """Build current S12 cases with the four optical partitions exposed."""
+    from objocc_v2_eval import _score
+    from objocc_v2_gen import scenes
+    from t2_candidates import candidates_with_features
+    from focusstack.veil_layers import (
+        MODEL_SIDE,
+        RADIUS_FRACTION,
+        _fringe_mask,
+        _ordered_visibility_gate,
+        complete_owner_support,
+        recover_giant_veil,
+        select_licensed_candidate,
+    )
+
+    selections = (
+        (
+            "extension",
+            "extension_007",
+            "diagnosed inner-partial failure · repaired",
+            "The F60 counterexample: old global wins hid inner foreground damage. "
+            "S12 now hard-selects the missed parent tail and requires positive rear evidence.",
+        ),
+        (
+            "extension",
+            "extension_034",
+            "post-F60 reference fire",
+            "The prior good extension fire, rerun through the same frozen ordered-visibility rule.",
+        ),
+        (
+            "s12",
+            "s12_025",
+            "new post-freeze validation fire",
+            "The only fire in a new 36-scene split generated after the final S12 rule was frozen.",
+        ),
+    )
+    loaded = {
+        split: {scene["sid"]: scene for scene in scenes(split)}
+        for split in {selection[0] for selection in selections}
+    }
+    cases = []
+    for split, sid, role, why in selections:
+        scene = loaded[split][sid]
+        base = fuse_perband(scene["frames"], harden=0.5)
+        candidates = candidates_with_features(scene, topk=4)
+        owner_masks = [
+            np.load(
+                os.path.join(
+                    scene["dir"],
+                    f"frame_{frame_index}.png.masks.npy",
+                )
+            )
+            for frame_index in range(2)
+        ]
+        output, report = recover_giant_veil(
+            scene["frames"],
+            base,
+            candidates,
+            owner_masks_by_frame=owner_masks,
+        )
+        if not report["fired"]:
+            raise RuntimeError(f"{sid} unexpectedly refused: {report}")
+        selected, selection_report = select_licensed_candidate(
+            scene["frames"],
+            candidates,
+        )
+        if selected is None:
+            raise RuntimeError(f"{sid} lost candidate: {selection_report}")
+        owner = int(selected["owner"])
+        estimated_alpha = np.clip(
+            selected["alpha"].astype(np.float32),
+            0.0,
+            1.0,
+        )
+        owner_support, support_report = complete_owner_support(
+            scene["frames"],
+            selected,
+            owner_masks[owner],
+        )
+        if (
+            int(owner_support.sum()) != report["owner_support_pixels"]
+            or support_report["owner_support_accepted_count"]
+            != report["owner_support_accepted_count"]
+        ):
+            raise RuntimeError(f"{sid} owner-support audit mismatch")
+        spatial_scale = max(base.shape[:2]) / MODEL_SIDE
+        ordered_visibility, _ = _ordered_visibility_gate(
+            scene["frames"],
+            owner,
+            estimated_alpha,
+            spatial_scale,
+        )
+        application_mask = (
+            _fringe_mask(
+                estimated_alpha,
+                RADIUS_FRACTION * max(base.shape[:2]),
+                2.0 * spatial_scale,
+            )
+            * ordered_visibility
+        )
+        application_mask[owner_support] = 0.0
+
+        score = _score(scene, base, output)
+        gt = scene["gt"]
+        changed = np.any(output != base, axis=2)
+        base_error = np.abs(
+            base.astype(np.float32) - gt.astype(np.float32)
+        ).mean(axis=2)
+        output_error = np.abs(
+            output.astype(np.float32) - gt.astype(np.float32)
+        ).mean(axis=2)
+        error_map, error_scale = _error_delta_map(base, output, gt)
+        outcome_map = _outcome_map(base, output, gt)
+        edit_map = _amplify_diff(output, base, gain=8.0)
+        edit_center = _top_regions(_disagreement(base, output), 1, 120)[0]
+        heat_worse = np.maximum(output_error - base_error, 0.0) * changed
+        worse_center = _top_regions(heat_worse, 1, 120)[0]
+
+        sharp = scene["alpha"] >= 0.95
+        coverage = scene["coverage"][1]
+        inner = sharp & (coverage > 0.05) & (coverage < 0.95)
+        outer = (scene["alpha"] < 0.05) & (coverage > 0.05)
+        true_fringe = inner | outer
+        true_foreground = scene["alpha"] >= 0.5
+        true_background = coverage <= 0.05
+        support_pixels = int(owner_support.sum())
+        support_true_foreground = int(
+            (owner_support & true_foreground).sum()
+        )
+
+        case_dir = os.path.join(INSPECTION_IMG, "s12", sid)
+        assets = {
+            "frame0": "frame0.jpg",
+            "frame1": "frame1.jpg",
+            "base": "base.jpg",
+            "output": "output.jpg",
+            "gt": "gt.jpg",
+            "coverage_classes": "coverage_classes.png",
+            "estimated_alpha": "estimated_alpha.png",
+            "true_alpha": "true_alpha.png",
+            "ordered_visibility": "ordered_visibility.png",
+            "application_mask": "application_mask.png",
+            "owner_support": "owner_support.png",
+            "protected": "protected.png",
+            "edit_x8": "edit_x8.jpg",
+            "error_delta": "error_delta.jpg",
+            "outcomes": "outcomes.png",
+            "crop_edit": "crop_edit.jpg",
+            "crop_worse": "crop_worse.jpg",
+        }
+        images = {
+            "frame0": scene["frames"][0],
+            "frame1": scene["frames"][1],
+            "base": base,
+            "output": output,
+            "gt": gt,
+            "coverage_classes": cv2.imread(
+                os.path.join(scene["dir"], "coverage_classes.png")
+            ),
+            "estimated_alpha": _mask_image(estimated_alpha),
+            "true_alpha": _mask_image(scene["alpha"]),
+            "ordered_visibility": _mask_image(ordered_visibility),
+            "application_mask": _mask_image(application_mask),
+            "owner_support": _mask_image(owner_support.astype(np.float32)),
+            "protected": _mask_image(
+                np.maximum(
+                    1.0 - ordered_visibility,
+                    owner_support.astype(np.float32),
+                )
+            ),
+            "edit_x8": edit_map,
+            "error_delta": error_map,
+            "outcomes": outcome_map,
+            "crop_edit": _crop_strip(
+                [*scene["frames"], base, output, gt, error_map],
+                edit_center,
+            ),
+            "crop_worse": _crop_strip(
+                [*scene["frames"], base, output, gt, error_map],
+                worse_center,
+            ),
+        }
+        for key, filename in assets.items():
+            max_side = 3200 if key.startswith("crop_") else 1600
+            quality = (
+                93
+                if key in {"frame0", "frame1", "base", "output", "gt"}
+                else 90
+            )
+            _write_image(
+                os.path.join(case_dir, filename),
+                images[key],
+                max_side=max_side,
+                quality=quality,
+            )
+            assets[key] = f"img/inspection/s12/{sid}/{filename}"
+
+        base_mse = score["mse_base"]
+        output_mse = score["mse_output"]
+        metrics = {
+            **score,
+            "d_mse": output_mse - base_mse,
+            "d_psnr": float(
+                10.0
+                * np.log10(
+                    max(base_mse, 1e-12) / max(output_mse, 1e-12)
+                )
+            ),
+            "fringe_mae_base": _region_mae(base, gt, true_fringe),
+            "fringe_mae_output": _region_mae(output, gt, true_fringe),
+            "foreground_mae_base": _region_mae(
+                base,
+                gt,
+                true_foreground,
+            ),
+            "foreground_mae_output": _region_mae(
+                output,
+                gt,
+                true_foreground,
+            ),
+            "far_background_mae_base": _region_mae(
+                base,
+                gt,
+                true_background,
+            ),
+            "far_background_mae_output": _region_mae(
+                output,
+                gt,
+                true_background,
+            ),
+            "changed_fraction": float(changed.mean()),
+            "changed_on_true_foreground": int(
+                (changed & true_foreground).sum()
+            ),
+            "changed_outside_true_fringe": int(
+                (changed & ~true_fringe).sum()
+            ),
+            "application_coverage": float(
+                (application_mask > 1e-4).mean()
+            ),
+            "owner_support_pixels": support_pixels,
+            "owner_support_true_foreground": support_true_foreground,
+            "owner_support_precision": (
+                support_true_foreground / support_pixels
+                if support_pixels
+                else None
+            ),
+            "owner_support_mae_base": (
+                _region_mae(base, gt, owner_support)
+                if support_pixels
+                else None
+            ),
+            "owner_support_mae_output": (
+                _region_mae(output, gt, owner_support)
+                if support_pixels
+                else None
+            ),
+            "error_map_scale_gray": error_scale,
+            "estimated_alpha": _alpha_scores(
+                estimated_alpha,
+                scene["alpha"],
+            ),
+        }
+        cases.append(
+            {
+                "sid": sid,
+                "index": None,
+                "split": split,
+                "current_v2": True,
+                "role": role,
+                "why": why,
+                "native_width": int(base.shape[1]),
+                "native_height": int(base.shape[0]),
+                "owner": owner,
+                "edit_center": [
+                    int(edit_center[1]),
+                    int(edit_center[0]),
+                ],
+                "worse_center": [
+                    int(worse_center[1]),
+                    int(worse_center[0]),
+                ],
+                "assets": assets,
+                "metrics": metrics,
+                "report": {
+                    key: value
+                    for key, value in report.items()
+                    if isinstance(value, (str, bool, int, float, list))
+                },
+                "diagnostic_point": None,
+            }
+        )
+        print(
+            f"  S12 inspection {sid}: "
+            f"ΔSSIM={metrics['d_ssim']:+.6f} "
+            f"ΔMAE={metrics['d_mae']:+.4f}"
+        )
+    return cases
+
+
 def fig_inspection():
     """Build the owner-facing inspection dataset from the shipped veil operator."""
     from t2_candidates import candidates_with_features
@@ -217,7 +517,7 @@ def fig_inspection():
         MODEL_SIDE,
         RADIUS_FRACTION,
         _fringe_mask,
-        _ownership_gate,
+        _ordered_visibility_gate,
         complete_owner_support,
         recover_giant_veil,
         select_licensed_candidate,
@@ -300,7 +600,7 @@ def fig_inspection():
         ):
             raise RuntimeError(f"{sc['sid']} owner-support audit mismatch")
         spatial_scale = max(base.shape[:2]) / MODEL_SIDE
-        ownership, _ = _ownership_gate(
+        ownership, _ = _ordered_visibility_gate(
             sc["frames"],
             owner,
             estimated_alpha,
@@ -579,24 +879,58 @@ def fig_inspection():
                 "defocus_radius": scene["factory"]["defocus_radius"],
             }
         )
+    current_cases = _v2_visibility_cases()
+    with open(
+        os.path.join(HERE, "objocc_v2_s12_ordered_visibility.json"),
+        encoding="utf-8",
+    ) as handle:
+        s12_audit = json.load(handle)
+    with open(
+        os.path.join(HERE, "objocc_v2_extension_ordered_visibility.json"),
+        encoding="utf-8",
+    ) as handle:
+        extension_audit = json.load(handle)
     manifest = {
-        "schema": 3,
+        "schema": 4,
         "title": "focusstack owner inspection lab",
         "generated_from": (
-            "legacy V1 recovery audit plus physically audited V2 factory"
+            "S12 ordered-visibility audit, physically audited V2 factory, "
+            "and legacy V1 failure reproductions"
         ),
         "oracle_warning": (
             "Ground truth, true alpha, error maps, and GT metrics are audit-only. "
-            "They are never inputs to runtime recovery. The giant-veil auto path is currently "
-            "safety-disabled: the five deep cases and ten-row ledger below use the "
-            "superseded V1 factory and remain only as reproducible diagnostics."
+            "They are never inputs to runtime recovery. The giant-veil auto path "
+            "remains safety-disabled. The first three deep cases show the current "
+            "S12 research rule on exact-disk V2; the following five and ten-row "
+            "ledger use the superseded V1 factory only for reproducible diagnostics."
         ),
         "case_selection": (
-            "Adversarial/diagnostic selection: weakest licensed win, largest "
-            "false-texture tail, the user-reported scene-114 foreground miss, "
-            "ownership stress, and a second scene-disjoint holdout."
+            "Current S12 cases come first: the diagnosed failure, the prior "
+            "good reference, and the only fire from a new post-freeze 36-scene "
+            "split. Five legacy V1 cases remain below for exact coordinate "
+            "reproduction."
         ),
         "audit_sources": sources,
+        "s12_summary": {
+            "post_freeze_scene_count": s12_audit["scene_count"],
+            "post_freeze_fired_count": s12_audit["fired_count"],
+            "post_freeze_all_partitions_nonregressing": s12_audit[
+                "fired_summary"
+            ]["all_partitions_nonregressing"],
+            "diagnostic_extension_fired_count": extension_audit[
+                "fired_count"
+            ],
+            "diagnostic_extension_all_partitions_nonregressing": (
+                extension_audit["fired_summary"][
+                    "all_partitions_nonregressing"
+                ]
+            ),
+            "current_case_count": len(current_cases),
+            "false_texture_warning_count": sum(
+                case["metrics"]["d_false_texture"] > 0
+                for case in current_cases
+            ),
+        },
         "factory_v2": {
             "status": (
                 "Current validation foundation: exact circular aperture, explicit "
@@ -611,14 +945,15 @@ def fig_inspection():
             "cases": v2_cases,
         },
         "ledger": ledger,
-        "cases": cases,
+        "cases": current_cases + cases,
     }
     with open(INSPECTION_MANIFEST, "w", encoding="utf-8") as handle:
         json.dump(manifest, handle, indent=2)
         handle.write("\n")
     print(
         f"  wrote {os.path.relpath(INSPECTION_MANIFEST, REPO)} "
-        f"({len(cases)} deep cases, {len(ledger)} ledger rows)"
+        f"({len(current_cases) + len(cases)} deep cases, "
+        f"{len(ledger)} ledger rows)"
     )
 
 

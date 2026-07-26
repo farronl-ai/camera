@@ -283,6 +283,17 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    valid partial occlusion look like bad transparency, while a box shortcut can
    make invalid inputs look like disk optics. When the judge changes, prior
    promotion scores become provisional even if the mechanism still looks sound.
+6j. **Absence of foreground evidence is not positive rear visibility** (F61).
+   Encode occlusion ordering as two asymmetric observations: a focused front
+   owner vetoes rear recovery; a defocused front permits it only where another
+   frame positively observes focused rear structure. Intersect that gate with
+   conservative cross-PSF coverage and decay to identity near model disagreement.
+   For a small proposed support fragment, keep an absolute whole-frame
+   re-degradation margin but measure relative improvement on its PSF-dilated
+   optical influence neighborhood. A whole-image percentage is the wrong unit
+   for a local hypothesis. Close spatial ownership and false-texture tails as
+   separate properties; a clean partition lattice does not waive a fine-band
+   complement warning.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

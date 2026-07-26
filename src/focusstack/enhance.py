@@ -27,11 +27,11 @@ from .reconstruct import (contamination_band, estimate_thin_matte,
 from .veil_layers import recover_giant_veil
 
 
-# Operational kill switch.  F60's physically audited factory preserves a
-# promising joint-layer ceiling but exposes an unresolved inner-partial-
-# occlusion regression on one post-freeze fire.  Keep the mechanism and its
-# refusal audits reproducible, but do not launch the semantic bridge in auto
-# enhancement until positive background evidence closes that spatial tail.
+# Operational kill switch. F61's ordered visibility closes the spatial
+# foreground-partition tail under the physically audited factory, but the
+# current runtime fires retain a small positive finest-band false-texture tail.
+# Keep the mechanism and its refusal audits reproducible; do not launch the
+# semantic bridge in auto until that complement property also closes.
 VEIL_AUTO_ENABLED = False
 
 

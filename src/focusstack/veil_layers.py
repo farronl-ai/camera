@@ -47,6 +47,16 @@ SUPPORT_MAX_AREA_FRACTION = 0.02
 SUPPORT_MAX_OVERLAP_FRACTION = 0.20
 SUPPORT_PARENT_MIN_SEED_CONTAINMENT = 0.90
 SUPPORT_PARENT_MIN_IOU = 0.80
+# A rear-focused observation is positive only when decisive rear focus evidence
+# occupies a material fraction of the local neighborhood.  Absence of owner
+# evidence is not rear evidence.  This is the V1/V2 ordered-visibility split:
+# on-focal foreground blocks first; non-focal rear visibility licenses second.
+REAR_EVIDENCE_DENSITY = 0.20
+# The V2 judge labels optical presence at 5%.  Runtime admission is deliberately
+# one bin stricter: both layers must contribute at least 10% under both PSF
+# families before the inverse result can move a pixel.
+VISIBILITY_COVERAGE_FLOOR = 0.10
+VISIBILITY_COVERAGE_RAMP = 0.10
 
 BlurFunction = Callable[[np.ndarray, float], np.ndarray]
 
@@ -197,6 +207,7 @@ def solve_layers(
     regularizer_sigma: float = 1.0,
     blur_fn: BlurFunction = _box_disk_blur,
     iterations: int = 18,
+    evidence_mask: np.ndarray | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Fit corrections to the observed layers with conjugate gradients.
 
@@ -325,7 +336,7 @@ def solve_layers(
         model["alpha"][..., None] * near
         + (1.0 - model["alpha"][..., None]) * far
     )
-    return scene, {
+    report = {
         "forward_before": before,
         "forward_after": after,
         "cg_history": history,
@@ -336,6 +347,33 @@ def solve_layers(
             np.sqrt(np.mean(correction_far * correction_far))
         ),
     }
+    if evidence_mask is not None:
+        local = np.asarray(evidence_mask) > 0
+        if local.shape != alpha.shape:
+            raise ValueError("evidence_mask and alpha dimensions do not match")
+        if np.any(local):
+            before_map = np.mean(
+                [
+                    np.abs(prediction - observation).mean(axis=2)
+                    for prediction, observation in zip(predicted0, observed)
+                ],
+                axis=0,
+            )
+            after_map = np.mean(
+                [
+                    np.abs(prediction - observation).mean(axis=2)
+                    for prediction, observation in zip(predicted, observed)
+                ],
+                axis=0,
+            )
+            report.update(
+                {
+                    "forward_local_pixels": int(local.sum()),
+                    "forward_local_before": float(before_map[local].mean()),
+                    "forward_local_after": float(after_map[local].mean()),
+                }
+            )
+    return scene, report
 
 
 def candidate_is_licensed(candidate: dict) -> bool:
@@ -424,6 +462,8 @@ def _resize_for_model(image: np.ndarray) -> np.ndarray:
 def _candidate_evidence(
     images: list[np.ndarray],
     candidate: dict,
+    *,
+    evidence_support: np.ndarray | None = None,
 ) -> dict | None:
     owner = int(candidate.get("owner", -1))
     if owner not in (0, 1):
@@ -439,6 +479,28 @@ def _candidate_evidence(
         (width, height),
         interpolation=cv2.INTER_AREA,
     ).astype(np.float32)
+    evidence_mask = None
+    if evidence_support is not None:
+        support = np.asarray(evidence_support) > 0
+        if support.shape != alpha.shape:
+            return None
+        support_small = cv2.resize(
+            support.astype(np.uint8),
+            (width, height),
+            interpolation=cv2.INTER_NEAREST,
+        )
+        influence_radius = max(
+            1,
+            int(np.ceil(RADIUS_FRACTION * max(height, width))),
+        )
+        influence_kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE,
+            (2 * influence_radius + 1, 2 * influence_radius + 1),
+        )
+        evidence_mask = cv2.dilate(
+            support_small,
+            influence_kernel,
+        ) > 0
     ordered = [resized_images[owner], resized_images[1 - owner]]
     _, evidence = solve_layers(
         ordered,
@@ -448,6 +510,7 @@ def _candidate_evidence(
         anchor_lambda=0.05,
         regularizer_sigma=1.0,
         blur_fn=_box_disk_blur,
+        evidence_mask=evidence_mask,
     )
     return {**candidate, **evidence}
 
@@ -571,10 +634,7 @@ def complete_owner_support(
             and mask_iou >= SUPPORT_PARENT_MIN_IOU
         ):
             support_kind = "parent_silhouette"
-            required_improvement = max(
-                SUPPORT_FORWARD_MARGIN,
-                SUPPORT_PARENT_FORWARD_RATIO_MARGIN * base_after,
-            )
+            required_improvement = SUPPORT_FORWARD_MARGIN
         else:
             continue
         # Novel support must belong to the selected object's immediate optical
@@ -604,11 +664,28 @@ def complete_owner_support(
         evidence = _candidate_evidence(
             images,
             {**selected, "alpha": augmented},
+            evidence_support=novel,
         )
         if evidence is None:
             continue
         improvement = base_after - float(evidence["forward_after"])
-        if improvement > required_improvement:
+        local_before = float(
+            evidence.get("forward_local_before", np.nan)
+        )
+        local_after = float(
+            evidence.get("forward_local_after", np.nan)
+        )
+        local_improvement_ratio = (
+            (local_before - local_after) / max(local_before, 1e-6)
+            if np.isfinite(local_before) and np.isfinite(local_after)
+            else -np.inf
+        )
+        local_licensed = (
+            support_kind != "parent_silhouette"
+            or local_improvement_ratio
+            > SUPPORT_PARENT_FORWARD_RATIO_MARGIN
+        )
+        if improvement > required_improvement and local_licensed:
             trials.append(
                 {
                     "index": int(mask_index),
@@ -618,6 +695,11 @@ def complete_owner_support(
                     "forward_after": float(evidence["forward_after"]),
                     "improvement": float(improvement),
                     "required_improvement": float(required_improvement),
+                    "local_before": local_before,
+                    "local_after": local_after,
+                    "local_improvement_ratio": float(
+                        local_improvement_ratio
+                    ),
                 }
             )
 
@@ -628,22 +710,52 @@ def complete_owner_support(
     combined_alpha = alpha.copy()
     combined_mask = empty.copy()
     for trial in trials:
-        combined_alpha = np.maximum(combined_alpha, trial["alpha"])
-        combined_mask |= trial["support"]
+        trial_support = trial["support"]
+        combined_alpha[trial_support] = np.maximum(
+            combined_alpha[trial_support],
+            trial["alpha"][trial_support],
+        )
+        combined_mask |= trial_support
     combined_evidence = _candidate_evidence(
         images,
         {**selected, "alpha": combined_alpha},
+        evidence_support=combined_mask,
     )
     combined_improvement = (
         base_after - float(combined_evidence["forward_after"])
         if combined_evidence is not None
         else -np.inf
     )
-    combined_required = max(
-        trial["required_improvement"]
+    combined_local_before = float(
+        combined_evidence.get("forward_local_before", np.nan)
+        if combined_evidence is not None
+        else np.nan
+    )
+    combined_local_after = float(
+        combined_evidence.get("forward_local_after", np.nan)
+        if combined_evidence is not None
+        else np.nan
+    )
+    combined_local_ratio = (
+        (combined_local_before - combined_local_after)
+        / max(combined_local_before, 1e-6)
+        if np.isfinite(combined_local_before)
+        and np.isfinite(combined_local_after)
+        else -np.inf
+    )
+    combined_requires_local = any(
+        trial["kind"] == "parent_silhouette"
         for trial in trials
     )
-    if combined_improvement <= combined_required:
+    combined_licensed = (
+        combined_improvement > SUPPORT_FORWARD_MARGIN
+        and (
+            not combined_requires_local
+            or combined_local_ratio
+            > SUPPORT_PARENT_FORWARD_RATIO_MARGIN
+        )
+    )
+    if not combined_licensed:
         # Individually useful fragments can overlap or compete in the joint
         # model.  Retain only the strongest independently licensed fragment.
         best = max(
@@ -656,6 +768,9 @@ def complete_owner_support(
         combined_mask = best["support"].copy()
         combined_improvement = best["improvement"]
         combined_after = best["forward_after"]
+        combined_local_before = best["local_before"]
+        combined_local_after = best["local_after"]
+        combined_local_ratio = best["local_improvement_ratio"]
     else:
         combined_after = float(combined_evidence["forward_after"])
 
@@ -676,6 +791,11 @@ def complete_owner_support(
             "owner_support_forward_before": base_after,
             "owner_support_forward_after": combined_after,
             "owner_support_forward_improvement": float(combined_improvement),
+            "owner_support_local_forward_before": combined_local_before,
+            "owner_support_local_forward_after": combined_local_after,
+            "owner_support_local_forward_improvement_ratio": float(
+                combined_local_ratio
+            ),
         }
     )
     return support, report
@@ -686,17 +806,45 @@ def _fringe_mask(
     max_radius: float,
     mask_sigma: float,
 ) -> np.ndarray:
-    blurred_alpha = _box_disk_blur(alpha, 0.7 * max_radius)
+    # A pixel belongs to the recoverable non-focal band only when every
+    # admitted PSF says that both layers contributed.  A single approximate
+    # kernel crossing a hard 5% boundary is not evidence.  The continuous ramp
+    # also makes small model errors near either visibility limit decay to
+    # identity instead of becoming a binary far-background edit.
+    coverages = [
+        np.clip(blur_fn(alpha, 0.7 * max_radius), 0.0, 1.0)
+        for blur_fn in (_box_disk_blur, _disk_blur)
+    ]
+    near_visibility = np.minimum.reduce(coverages)
+    rear_visibility = 1.0 - np.maximum.reduce(coverages)
     support = (
-        (blurred_alpha > 0.05)
-        & (blurred_alpha < 0.95)
+        (near_visibility > VISIBILITY_COVERAGE_FLOOR)
+        & (rear_visibility > VISIBILITY_COVERAGE_FLOOR)
         & (alpha < 0.5)
     )
-    return cv2.GaussianBlur(
+    softened = cv2.GaussianBlur(
         support.astype(np.float32),
         (0, 0),
         mask_sigma,
         borderType=cv2.BORDER_REFLECT,
+    )
+    near_weight = np.clip(
+        (near_visibility - VISIBILITY_COVERAGE_FLOOR)
+        / VISIBILITY_COVERAGE_RAMP,
+        0.0,
+        1.0,
+    )
+    rear_weight = np.clip(
+        (rear_visibility - VISIBILITY_COVERAGE_FLOOR)
+        / VISIBILITY_COVERAGE_RAMP,
+        0.0,
+        1.0,
+    )
+    return (
+        softened
+        * support.astype(np.float32)
+        * near_weight
+        * rear_weight
     )
 
 
@@ -748,6 +896,81 @@ def _ownership_gate(
     }
 
 
+def _ordered_visibility_gate(
+    images: list[np.ndarray],
+    owner: int,
+    alpha: np.ndarray,
+    spatial_scale: float,
+) -> tuple[np.ndarray, dict]:
+    """Apply the asymmetric front-first visibility invariant.
+
+    A focused foreground observation is an on-focal occlusion: it vetoes rear
+    recovery.  A defocused foreground can reveal a rear layer, but recovery is
+    licensed only where the other focused frame positively observes rear
+    structure.  Pixels with neither observation return to identity.
+    """
+    energies = np.stack(
+        content_aware_energies(
+            [to_gray_float(image) for image in images]
+        ),
+        axis=0,
+    )
+    winner = np.argmax(energies, axis=0)
+    ordered = np.sort(energies, axis=0)
+    dominance = np.clip(
+        (ordered[-1] - ordered[-2]) / (ordered[-1] + 1e-6),
+        0.0,
+        1.0,
+    )
+    informative = ordered[-1] > np.median(ordered[-1])
+    confidence_scale = np.clip((dominance - 0.3) / 0.4, 0.0, 1.0)
+    owner_confidence = (
+        (winner == owner).astype(np.float32)
+        * informative.astype(np.float32)
+        * confidence_scale
+    )
+    rear_confidence = (
+        (winner == 1 - owner).astype(np.float32)
+        * informative.astype(np.float32)
+        * confidence_scale
+    )
+    sigma = 2.0 * spatial_scale
+    owner_veto = cv2.GaussianBlur(
+        owner_confidence,
+        (0, 0),
+        sigma,
+        borderType=cv2.BORDER_REFLECT,
+    )
+    rear_density = cv2.GaussianBlur(
+        rear_confidence,
+        (0, 0),
+        sigma,
+        borderType=cv2.BORDER_REFLECT,
+    )
+    rear_visibility = np.clip(
+        rear_density / REAR_EVIDENCE_DENSITY,
+        0.0,
+        1.0,
+    )
+    gate = (
+        (alpha < 0.5).astype(np.float32)
+        * (1.0 - owner_veto)
+        * rear_visibility
+    )
+    return np.clip(gate, 0.0, 1.0), {
+        "owner_veto_mean": float(owner_veto.mean()),
+        "owner_veto_confident_fraction": float(
+            (owner_confidence > 0.5).mean()
+        ),
+        "rear_evidence_mean": float(rear_density.mean()),
+        "rear_evidence_confident_fraction": float(
+            (rear_confidence > 0.5).mean()
+        ),
+        "rear_visibility_mean": float(rear_visibility.mean()),
+        "ordered_visibility_fraction": float((gate > 0.5).mean()),
+    }
+
+
 def recover_giant_veil(
     images: list[np.ndarray],
     base: np.ndarray,
@@ -795,7 +1018,10 @@ def recover_giant_veil(
     )
     report.update(owner_support_report)
     ordered = [images[owner], images[1 - owner]]
-    spatial_scale = max(base.shape[:2]) / MODEL_SIDE
+    # MODEL_SIDE is a downscale ceiling, not a promise to use sub-pixel
+    # regularization on smaller inputs. Keep every spatial prior at least one
+    # native pixel wide; validated 512-side research cases are unchanged.
+    spatial_scale = max(1.0, max(base.shape[:2]) / MODEL_SIDE)
     max_radius = RADIUS_FRACTION * max(base.shape[:2])
     def solve_bank():
         # Yield one scene at a time: stable_correction accumulates its moments,
@@ -823,7 +1049,7 @@ def recover_giant_veil(
         report["reason"] = "nonfinite_consensus"
         return base, report
 
-    ownership, ownership_evidence = _ownership_gate(
+    ownership, ownership_evidence = _ordered_visibility_gate(
         images,
         owner,
         alpha,

@@ -5,6 +5,63 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F61 — Rear recovery requires positive visibility; absence of foreground is not evidence
+
+The user's scene-114/122 diagnosis exposed the invariant that F60's corrected
+factory made measurable but the runtime still did not encode. Focused foreground
+is an on-focal occlusion and must veto the rear layer. A defocused foreground can
+reveal the rear through aperture coverage, but rear recovery is licensed only
+where another focused frame positively observes rear structure. The previous
+application mask used “outside estimated alpha and not confidently foreground.”
+That is only an absence of veto; it is not evidence that the rear was seen.
+
+S12 now separates the two observations. `_ordered_visibility_gate` builds a
+front-owner veto and an independent rear-focus evidence density. Its product is
+then intersected with a conservative optical band: both exact-disk and box-disk
+approximations must assign at least 10% coverage to each layer, with a continuous
+10% ramp and a hard support clamp. The latter matters: an initial 5% one-kernel
+version leaked tiny far-background tails on two already-seen holdout cases
+(+0.00037/+0.00063 MAE). Cross-PSF consensus returns both to exact identity.
+
+The same audit found a second, simpler scale error. A small parent fragment was
+required to improve whole-image forward error by 5%, even though its optical
+influence covers only a local PSF neighborhood. `extension_007` was therefore
+rejected despite 98.1% seed containment, 0.936 IoU, 0.861 true-foreground
+precision on 2,539 novel pixels, and a 67.6% forward improvement in the affected
+neighborhood. The absolute whole-frame improvement remains mandatory; the
+relative 5% test now uses the proposed support dilated by the model CoC.
+
+Frozen evidence after the rule:
+
+- oracle-alpha development: 9/9 fires improve SSIM/MAE/MSE; complete core,
+  inner partial, and far background are byte-identical while outer veil improves
+  by −1.743 MAE mean (worst −0.128);
+- oracle-alpha holdout: 8/8 fires improve SSIM/MAE/MSE with the same three
+  identity partitions; outer veil improves −1.154 mean (worst −0.054);
+- diagnosed runtime extension: both fires improve every physical partition.
+  `extension_007` flips inner partial from +0.415 MAE under F60 to −0.136 and
+  far background from +0.0002 to exact identity; `extension_034` remains
+  positive and accepts parent plus satellite support;
+- a new 36-scene post-freeze S12 split yields one conservative fire,
+  `s12_025`: ΔSSIM +0.001056, ΔMAE −0.0542, inner partial −0.220,
+  outer veil −0.877, complete core and far background exact identity.
+  The other 35 scenes refuse exactly.
+
+This closes the reported *spatial ownership* tail and validates the ordered
+visibility concept independently of the cases that shaped it. It does not ship
+the giant-veil path. All three deep runtime fires raise the GT-credited
+fine-band false-texture error by about +0.0096 to +0.0100 on otherwise-smooth
+veil pixels. Visual inspection shows sparse boundary pinpoints rather than a
+coherent invented texture field, but the complement metric is deliberately
+strict and must not be waived. The next task is causal localization and an
+identity-or-shrink decision for those pixels.
+
+**Shipping action:** `VEIL_AUTO_ENABLED=False`. The inspection page puts the
+three exact-disk V2 S12 cases first, with both inputs, optical partitions,
+estimated/true alpha, ordered visibility, application/protection/support maps,
+amplified edits, maximum-regression crops, and exact region metrics. The five
+legacy V1 cases remain only for coordinate-note reproduction.
+
 ## F60 — The optical factory, not another threshold, resets the veil verdict
 
 The user correctly challenged the input frames after inspecting them rather than
@@ -455,10 +512,12 @@ signal exists. F54 strengthened the rule: a gate inherits the blind spots of its
 labels and factory, so the historical veil gate/operator remains retired. F56's
 replacement is independently licensed by semantic boundary evidence plus
 observation-domain improvement; it also projects the correction away from pixels
-whose captured focus evidence assigns them to the foreground. Contour reconstruction
-and this narrow giant-veil solver are the two live enhancement specialists.
+whose captured focus evidence assigns them to the foreground. F61 further requires
+positive rear observation instead of treating absence of foreground as permission.
+Contour reconstruction is the only live enhancement specialist; the narrow
+giant-veil solver remains a validated but runtime-disabled research mechanism.
 
-**Scene recovery (F51–F56, FRONTIER 19).** The first multiplicative veil result was
+**Scene recovery (F51–F61, FRONTIER 19).** The first multiplicative veil result was
 a NARROW ORACLE-FACTORY win, not a general mechanism. F54's realistic-object audit
 overturned the promotion thesis: even true matte + true radius can lose badly on
 natural object/background combinations, while semantic-matte + true-radius hybrid
@@ -473,10 +532,12 @@ microscopic and fail the expanded worst-case/fringe/false-texture property. Thei
 successor does not repair fusion: it jointly solves both
 captured formation equations for observed foreground/background layer corrections.
 Regularizer + cross-PSF component consensus, a frozen physical candidate license,
-fixed giant-CoC refusal, and focus-ownership projection yield 10/10 exact-package
-fires positive across development plus two scene-disjoint holdouts, with 0/66
-moderate fires. The key remaining limitation is recall/scope, not permission to
-invent: two frames, <=1600 px, giant CoC, semantic bridge, licensed candidate only.
+fixed giant-CoC refusal, and ordered front/rear visibility yield spatially safe
+exact-disk V2 fires across development, holdout diagnosis, and a fresh post-rule
+extension (F61). The giant-veil branch remains safety-disabled because its
+fine-band complement metric still detects a small positive tail. The key
+limitations are both narrow recall/scope and unresolved finest-band error:
+two frames, <=1600 px, giant CoC, semantic bridge, licensed candidate only.
 The general lessons are joint evidence accounting, analytic uncertainty, and—
 most importantly—null-space/false-texture auditing before any scene-recovery claim.
 Stack gaps (F52): where NO frame is sharp, one Wiener FFT at the known disk scale

@@ -1,0 +1,855 @@
+{
+  "factory": "objocc_v2_exact_disk",
+  "split": "dev",
+  "pipeline": "s12_asymmetric_ordered_visibility",
+  "oracle_fields": [
+    "alpha",
+    "owner"
+  ],
+  "owner_support": false,
+  "rear_evidence_density": 0.2,
+  "visibility_coverage_floor": 0.1,
+  "visibility_coverage_ramp": 0.1,
+  "thresholds_retuned": false,
+  "scene_count": 12,
+  "fired_count": 9,
+  "rows": [
+    {
+      "sid": "dev_000",
+      "stratum": "solid",
+      "candidate_count": 1,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 2.5800044536590576,
+        "forward_after": 2.1441149711608887,
+        "forward_ratio": 0.8310508798231048,
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+        "model_count": 6,
+        "stable_fraction": 0.653488912700135,
+        "ensemble_spread_rms": 1.0379949808120728,
+        "retained_rms": 2.973475933074951,
+        "owner_veto_mean": 0.00019015172438230366,
+        "owner_veto_confident_fraction": 0.0001994945384837963,
+        "rear_evidence_mean": 0.49939635396003723,
+        "rear_evidence_confident_fraction": 0.4994026466652199,
+        "rear_visibility_mean": 0.7039966583251953,
+        "ordered_visibility_fraction": 0.6974080403645834,
+        "owner": 0,
+        "changed_pixels": 26077
+      },
+      "metrics": {
+        "ssim_base": 0.9814864993095398,
+        "ssim_output": 0.9817968010902405,
+        "d_ssim": 0.0003103017807006836,
+        "mae_base": 3.0999913215637207,
+        "mae_output": 3.020911931991577,
+        "d_mae": -0.07907938957214355,
+        "mse_base": 31.350080490112305,
+        "mse_output": 26.915376663208008,
+        "changed_pixels": 26077,
+        "changed_closer": 21583,
+        "changed_worse": 4283,
+        "false_texture_base": 2.204720973968506,
+        "false_texture_output": 2.2173426151275635,
+        "d_false_texture": 0.012621641159057617,
+        "false_texture_pixels": 1088,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 71353,
+            "mae_base": 2.205742359161377,
+            "mae_output": 2.205742359161377
+          },
+          "inner_partial_occlusion": {
+            "pixels": 37739,
+            "mae_base": 8.68290901184082,
+            "mae_output": 8.68290901184082
+          },
+          "outer_veil": {
+            "pixels": 42994,
+            "mae_base": 19.072158813476562,
+            "mae_output": 15.830843925476074
+          },
+          "far_background": {
+            "pixels": 1615624,
+            "mae_base": 2.564462184906006,
+            "mae_output": 2.564462184906006
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_001",
+      "stratum": "mixed",
+      "candidate_count": 1,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 1.5235037803649902,
+        "forward_after": 1.4299592971801758,
+        "forward_ratio": 0.9385991131821125
+      },
+      "metrics": {
+        "ssim_base": 0.9565979838371277,
+        "ssim_output": 0.9565979838371277,
+        "d_ssim": 0.0,
+        "mae_base": 2.5496418476104736,
+        "mae_output": 2.5496418476104736,
+        "d_mae": 0.0,
+        "mse_base": 13.558277130126953,
+        "mse_output": 13.558277130126953,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7252529859542847,
+        "false_texture_output": 1.7252529859542847,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 18428,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 29739,
+            "mae_base": 2.776735305786133,
+            "mae_output": 2.776735305786133
+          },
+          "inner_partial_occlusion": {
+            "pixels": 26873,
+            "mae_base": 3.4616777896881104,
+            "mae_output": 3.4616777896881104
+          },
+          "outer_veil": {
+            "pixels": 32233,
+            "mae_base": 10.929677963256836,
+            "mae_output": 10.929677963256836
+          },
+          "far_background": {
+            "pixels": 1678661,
+            "mae_base": 2.362534999847412,
+            "mae_output": 2.362534999847412
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_002",
+      "stratum": "thin",
+      "candidate_count": 1,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 2.1492996215820312,
+        "forward_after": 1.9270920753479004,
+        "forward_ratio": 0.8966139741509976
+      },
+      "metrics": {
+        "ssim_base": 0.979152500629425,
+        "ssim_output": 0.979152500629425,
+        "d_ssim": 0.0,
+        "mae_base": 2.808070421218872,
+        "mae_output": 2.808070421218872,
+        "d_mae": 0.0,
+        "mse_base": 15.699858665466309,
+        "mse_output": 15.699858665466309,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.077888250350952,
+        "false_texture_output": 2.077888250350952,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 2401,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 25147,
+            "mae_base": 4.363793849945068,
+            "mae_output": 4.363793849945068
+          },
+          "outer_veil": {
+            "pixels": 33678,
+            "mae_base": 7.751321315765381,
+            "mae_output": 7.751321315765381
+          },
+          "far_background": {
+            "pixels": 860326,
+            "mae_base": 2.550523519515991,
+            "mae_output": 2.550523519515991
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_003",
+      "stratum": "solid",
+      "candidate_count": 1,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 1.954610824584961,
+        "forward_after": 1.458181619644165,
+        "forward_ratio": 0.7460214592609724,
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+        "model_count": 6,
+        "stable_fraction": 0.7783687261887539,
+        "ensemble_spread_rms": 0.8148057460784912,
+        "retained_rms": 1.9961316585540771,
+        "owner_veto_mean": 0.1488916277885437,
+        "owner_veto_confident_fraction": 0.14967854817708334,
+        "rear_evidence_mean": 0.0447206012904644,
+        "rear_evidence_confident_fraction": 0.03666121871383102,
+        "rear_visibility_mean": 0.140921488404274,
+        "ordered_visibility_fraction": 0.11038660120081019,
+        "owner": 0,
+        "changed_pixels": 31475
+      },
+      "metrics": {
+        "ssim_base": 0.9602584838867188,
+        "ssim_output": 0.9605476260185242,
+        "d_ssim": 0.0002891421318054199,
+        "mae_base": 2.7005341053009033,
+        "mae_output": 2.672614812850952,
+        "d_mae": -0.027919292449951172,
+        "mse_base": 16.247648239135742,
+        "mse_output": 14.851661682128906,
+        "changed_pixels": 31475,
+        "changed_closer": 24652,
+        "changed_worse": 5846,
+        "false_texture_base": 1.7040084600448608,
+        "false_texture_output": 1.706160306930542,
+        "d_false_texture": 0.0021518468856811523,
+        "false_texture_pixels": 42314,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 199565,
+            "mae_base": 2.6284902095794678,
+            "mae_output": 2.6284902095794678
+          },
+          "inner_partial_occlusion": {
+            "pixels": 64813,
+            "mae_base": 3.651695489883423,
+            "mae_output": 3.651695489883423
+          },
+          "outer_veil": {
+            "pixels": 74070,
+            "mae_base": 7.227797985076904,
+            "mae_output": 6.566360950469971
+          },
+          "far_background": {
+            "pixels": 1426514,
+            "mae_base": 2.4236931800842285,
+            "mae_output": 2.4236931800842285
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_004",
+      "stratum": "mixed",
+      "candidate_count": 1,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 1.668065071105957,
+        "forward_after": 1.4072973728179932,
+        "forward_ratio": 0.8436705481069331,
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+        "model_count": 6,
+        "stable_fraction": 0.7411441802978516,
+        "ensemble_spread_rms": 0.6952702403068542,
+        "retained_rms": 0.9824193716049194,
+        "owner_veto_mean": 0.020141882821917534,
+        "owner_veto_confident_fraction": 0.020250956217447918,
+        "rear_evidence_mean": 0.08816356211900711,
+        "rear_evidence_confident_fraction": 0.0875689188639323,
+        "rear_visibility_mean": 0.2036338597536087,
+        "ordered_visibility_fraction": 0.19502131144205728,
+        "owner": 0,
+        "changed_pixels": 10685
+      },
+      "metrics": {
+        "ssim_base": 0.9600154757499695,
+        "ssim_output": 0.9600529670715332,
+        "d_ssim": 3.74913215637207e-05,
+        "mae_base": 2.2558186054229736,
+        "mae_output": 2.252715826034546,
+        "d_mae": -0.0031027793884277344,
+        "mse_base": 8.712151527404785,
+        "mse_output": 8.673832893371582,
+        "changed_pixels": 10685,
+        "changed_closer": 7941,
+        "changed_worse": 1894,
+        "false_texture_base": 1.6142902374267578,
+        "false_texture_output": 1.616273283958435,
+        "d_false_texture": 0.001983046531677246,
+        "false_texture_pixels": 31874,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 20338,
+            "mae_base": 2.837398052215576,
+            "mae_output": 2.837398052215576
+          },
+          "inner_partial_occlusion": {
+            "pixels": 26650,
+            "mae_base": 3.0082802772521973,
+            "mae_output": 3.0082802772521973
+          },
+          "outer_veil": {
+            "pixels": 37679,
+            "mae_base": 5.122800350189209,
+            "mae_output": 4.994913578033447
+          },
+          "far_background": {
+            "pixels": 1484897,
+            "mae_base": 2.156837224960327,
+            "mae_output": 2.156837224960327
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_005",
+      "stratum": "thin",
+      "candidate_count": 1,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 1.967149257659912,
+        "forward_after": 2.147829294204712,
+        "forward_ratio": 1.0918486667146619
+      },
+      "metrics": {
+        "ssim_base": 0.9780568480491638,
+        "ssim_output": 0.9780568480491638,
+        "d_ssim": 0.0,
+        "mae_base": 2.636760950088501,
+        "mae_output": 2.636760950088501,
+        "d_mae": 0.0,
+        "mse_base": 13.367745399475098,
+        "mse_output": 13.367745399475098,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6949572563171387,
+        "false_texture_output": 1.6949572563171387,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 7752,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 847,
+            "mae_base": 5.075167655944824,
+            "mae_output": 5.075167655944824
+          },
+          "inner_partial_occlusion": {
+            "pixels": 9732,
+            "mae_base": 12.070180892944336,
+            "mae_output": 12.070180892944336
+          },
+          "outer_veil": {
+            "pixels": 15333,
+            "mae_base": 9.565512657165527,
+            "mae_output": 9.565512657165527
+          },
+          "far_background": {
+            "pixels": 1469181,
+            "mae_base": 2.496117115020752,
+            "mae_output": 2.496117115020752
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_006",
+      "stratum": "solid",
+      "candidate_count": 1,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 3.2911758422851562,
+        "forward_after": 2.252798557281494,
+        "forward_ratio": 0.6844965645218496,
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+        "model_count": 6,
+        "stable_fraction": 0.6983233793282214,
+        "ensemble_spread_rms": 1.2713021039962769,
+        "retained_rms": 3.2909038066864014,
+        "owner_veto_mean": 0.061182525008916855,
+        "owner_veto_confident_fraction": 0.06349690755208333,
+        "rear_evidence_mean": 0.19402660429477692,
+        "rear_evidence_confident_fraction": 0.1677280002170139,
+        "rear_visibility_mean": 0.5133569240570068,
+        "ordered_visibility_fraction": 0.4945729573567708,
+        "owner": 0,
+        "changed_pixels": 48571
+      },
+      "metrics": {
+        "ssim_base": 0.9615417122840881,
+        "ssim_output": 0.9625718593597412,
+        "d_ssim": 0.0010301470756530762,
+        "mae_base": 3.2560017108917236,
+        "mae_output": 3.1470890045166016,
+        "d_mae": -0.10891270637512207,
+        "mse_base": 31.507062911987305,
+        "mse_output": 26.120807647705078,
+        "changed_pixels": 48571,
+        "changed_closer": 45020,
+        "changed_worse": 2806,
+        "false_texture_base": 1.9118354320526123,
+        "false_texture_output": 1.9159799814224243,
+        "d_false_texture": 0.004144549369812012,
+        "false_texture_pixels": 15555,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 309243,
+            "mae_base": 2.3877222537994385,
+            "mae_output": 2.3877222537994385
+          },
+          "inner_partial_occlusion": {
+            "pixels": 88809,
+            "mae_base": 2.951866865158081,
+            "mae_output": 2.951866865158081
+          },
+          "outer_veil": {
+            "pixels": 83381,
+            "mae_base": 14.814582824707031,
+            "mae_output": 12.511262893676758
+          },
+          "far_background": {
+            "pixels": 1281713,
+            "mae_base": 2.699281930923462,
+            "mae_output": 2.699281930923462
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_007",
+      "stratum": "mixed",
+      "candidate_count": 1,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 1.2472189664840698,
+        "forward_after": 1.0141440629959106,
+        "forward_ratio": 0.8131243111663055,
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+        "model_count": 6,
+        "stable_fraction": 0.8122288739239728,
+        "ensemble_spread_rms": 0.5399751663208008,
+        "retained_rms": 1.518428087234497,
+        "owner_veto_mean": 0.02624668926000595,
+        "owner_veto_confident_fraction": 0.026895311143663194,
+        "rear_evidence_mean": 0.22499868273735046,
+        "rear_evidence_confident_fraction": 0.2281926472981771,
+        "rear_visibility_mean": 0.3315433859825134,
+        "ordered_visibility_fraction": 0.3256072998046875,
+        "owner": 0,
+        "changed_pixels": 31882
+      },
+      "metrics": {
+        "ssim_base": 0.9636327028274536,
+        "ssim_output": 0.9639989137649536,
+        "d_ssim": 0.0003662109375,
+        "mae_base": 2.4239180088043213,
+        "mae_output": 2.3868722915649414,
+        "d_mae": -0.03704571723937988,
+        "mse_base": 12.173036575317383,
+        "mse_output": 10.774882316589355,
+        "changed_pixels": 31882,
+        "changed_closer": 26157,
+        "changed_worse": 4733,
+        "false_texture_base": 1.9163203239440918,
+        "false_texture_output": 1.9212148189544678,
+        "d_false_texture": 0.0048944950103759766,
+        "false_texture_pixels": 8660,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 22504,
+            "mae_base": 3.082770347595215,
+            "mae_output": 3.082770347595215
+          },
+          "inner_partial_occlusion": {
+            "pixels": 40265,
+            "mae_base": 4.136636257171631,
+            "mae_output": 4.136636257171631
+          },
+          "outer_veil": {
+            "pixels": 46616,
+            "mae_base": 8.49376392364502,
+            "mae_output": 6.638986587524414
+          },
+          "far_background": {
+            "pixels": 2246214,
+            "mae_base": 2.2532172203063965,
+            "mae_output": 2.2532172203063965
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_008",
+      "stratum": "thin",
+      "candidate_count": 1,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 1.6496012210845947,
+        "forward_after": 1.4013514518737793,
+        "forward_ratio": 0.8495092231760146,
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+        "model_count": 6,
+        "stable_fraction": 0.6834952036539713,
+        "ensemble_spread_rms": 0.6228142380714417,
+        "retained_rms": 1.4879364967346191,
+        "owner_veto_mean": 0.012749798595905304,
+        "owner_veto_confident_fraction": 0.012653986612955729,
+        "rear_evidence_mean": 0.2677748501300812,
+        "rear_evidence_confident_fraction": 0.27418263753255206,
+        "rear_visibility_mean": 0.35729408264160156,
+        "ordered_visibility_fraction": 0.3510169982910156,
+        "owner": 0,
+        "changed_pixels": 18918
+      },
+      "metrics": {
+        "ssim_base": 0.9681126475334167,
+        "ssim_output": 0.9682588577270508,
+        "d_ssim": 0.0001462101936340332,
+        "mae_base": 2.4516289234161377,
+        "mae_output": 2.4239749908447266,
+        "d_mae": -0.027653932571411133,
+        "mse_base": 12.073159217834473,
+        "mse_output": 11.000762939453125,
+        "changed_pixels": 18918,
+        "changed_closer": 15618,
+        "changed_worse": 2416,
+        "false_texture_base": 1.608333945274353,
+        "false_texture_output": 1.6109797954559326,
+        "d_false_texture": 0.00264585018157959,
+        "false_texture_pixels": 23009,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 9,
+            "mae_base": 3.8518519401550293,
+            "mae_output": 3.8518519401550293
+          },
+          "inner_partial_occlusion": {
+            "pixels": 29154,
+            "mae_base": 5.4912190437316895,
+            "mae_output": 5.4912190437316895
+          },
+          "outer_veil": {
+            "pixels": 36768,
+            "mae_base": 7.732367515563965,
+            "mae_output": 6.5586652755737305
+          },
+          "far_background": {
+            "pixels": 1504734,
+            "mae_base": 2.257354736328125,
+            "mae_output": 2.257354736328125
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_009",
+      "stratum": "solid",
+      "candidate_count": 1,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 2.913382053375244,
+        "forward_after": 1.5886218547821045,
+        "forward_ratio": 0.5452844239709778,
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+        "model_count": 6,
+        "stable_fraction": 0.7534748595437886,
+        "ensemble_spread_rms": 1.0566484928131104,
+        "retained_rms": 1.9228065013885498,
+        "owner_veto_mean": 0.12199119478464127,
+        "owner_veto_confident_fraction": 0.12175270363136574,
+        "rear_evidence_mean": 0.04995081201195717,
+        "rear_evidence_confident_fraction": 0.041493733723958336,
+        "rear_visibility_mean": 0.15436582267284393,
+        "ordered_visibility_fraction": 0.12018783004195602,
+        "owner": 0,
+        "changed_pixels": 39344
+      },
+      "metrics": {
+        "ssim_base": 0.9597537517547607,
+        "ssim_output": 0.9601880311965942,
+        "d_ssim": 0.0004342794418334961,
+        "mae_base": 2.725794553756714,
+        "mae_output": 2.6925580501556396,
+        "d_mae": -0.03323650360107422,
+        "mse_base": 15.393461227416992,
+        "mse_output": 14.19210433959961,
+        "changed_pixels": 39344,
+        "changed_closer": 31706,
+        "changed_worse": 6416,
+        "false_texture_base": 1.6628813743591309,
+        "false_texture_output": 1.6655768156051636,
+        "d_false_texture": 0.002695441246032715,
+        "false_texture_pixels": 42460,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 140337,
+            "mae_base": 2.7600204944610596,
+            "mae_output": 2.7600204944610596
+          },
+          "inner_partial_occlusion": {
+            "pixels": 63051,
+            "mae_base": 3.718909978866577,
+            "mae_output": 3.718909978866577
+          },
+          "outer_veil": {
+            "pixels": 68082,
+            "mae_base": 7.2339091300964355,
+            "mae_output": 6.372453212738037
+          },
+          "far_background": {
+            "pixels": 1496190,
+            "mae_base": 2.472421884536743,
+            "mae_output": 2.472421884536743
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_010",
+      "stratum": "mixed",
+      "candidate_count": 1,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 1.8966463804244995,
+        "forward_after": 1.395444393157959,
+        "forward_ratio": 0.7357430502388307,
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+        "model_count": 6,
+        "stable_fraction": 0.759407467312283,
+        "ensemble_spread_rms": 0.757767379283905,
+        "retained_rms": 2.6088359355926514,
+        "owner_veto_mean": 0.055025067180395126,
+        "owner_veto_confident_fraction": 0.056645711263020836,
+        "rear_evidence_mean": 0.07899516075849533,
+        "rear_evidence_confident_fraction": 0.07848676045735677,
+        "rear_visibility_mean": 0.18011032044887543,
+        "ordered_visibility_fraction": 0.17051188151041666,
+        "owner": 0,
+        "changed_pixels": 30479
+      },
+      "metrics": {
+        "ssim_base": 0.9575262069702148,
+        "ssim_output": 0.957852840423584,
+        "d_ssim": 0.0003266334533691406,
+        "mae_base": 2.668347120285034,
+        "mae_output": 2.6147661209106445,
+        "d_mae": -0.05358099937438965,
+        "mse_base": 20.00336456298828,
+        "mse_output": 17.963619232177734,
+        "changed_pixels": 30479,
+        "changed_closer": 27093,
+        "changed_worse": 2404,
+        "false_texture_base": 1.6423219442367554,
+        "false_texture_output": 1.6459200382232666,
+        "d_false_texture": 0.0035980939865112305,
+        "false_texture_pixels": 39925,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 37416,
+            "mae_base": 3.098834753036499,
+            "mae_output": 3.098834753036499
+          },
+          "inner_partial_occlusion": {
+            "pixels": 51652,
+            "mae_base": 6.816489219665527,
+            "mae_output": 6.816489219665527
+          },
+          "outer_veil": {
+            "pixels": 56563,
+            "mae_base": 10.53483772277832,
+            "mae_output": 9.05444049835205
+          },
+          "far_background": {
+            "pixels": 1422729,
+            "mae_base": 2.1742138862609863,
+            "mae_output": 2.1742138862609863
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_011",
+      "stratum": "thin",
+      "candidate_count": 1,
+      "report": {
+        "fired": true,
+        "reason": "licensed_consensus",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 2.7132821083068848,
+        "forward_after": 2.2385025024414062,
+        "forward_ratio": 0.8250164977641246,
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+        "model_count": 6,
+        "stable_fraction": 0.6957616786447639,
+        "ensemble_spread_rms": 1.1253122091293335,
+        "retained_rms": 3.1329493522644043,
+        "owner_veto_mean": 0.0032012297306209803,
+        "owner_veto_confident_fraction": 0.0033060082991101985,
+        "rear_evidence_mean": 0.4879285395145416,
+        "rear_evidence_confident_fraction": 0.49328905715263516,
+        "rear_visibility_mean": 0.6846657991409302,
+        "ordered_visibility_fraction": 0.6682621866444216,
+        "owner": 0,
+        "changed_pixels": 23660
+      },
+      "metrics": {
+        "ssim_base": 0.9709519147872925,
+        "ssim_output": 0.9717050194740295,
+        "d_ssim": 0.0007531046867370605,
+        "mae_base": 3.059758186340332,
+        "mae_output": 2.946648359298706,
+        "d_mae": -0.11310982704162598,
+        "mse_base": 28.9177188873291,
+        "mse_output": 21.6661434173584,
+        "changed_pixels": 23660,
+        "changed_closer": 20835,
+        "changed_worse": 2507,
+        "false_texture_base": 1.8267492055892944,
+        "false_texture_output": 1.8363900184631348,
+        "d_false_texture": 0.009640812873840332,
+        "false_texture_pixels": 9228,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 107,
+            "mae_base": 3.0404982566833496,
+            "mae_output": 3.0404982566833496
+          },
+          "inner_partial_occlusion": {
+            "pixels": 32210,
+            "mae_base": 5.882748603820801,
+            "mae_output": 5.882748603820801
+          },
+          "outer_veil": {
+            "pixels": 41815,
+            "mae_base": 16.895004272460938,
+            "mae_output": 12.911243438720703
+          },
+          "far_background": {
+            "pixels": 1419184,
+            "mae_base": 2.5656800270080566,
+            "mae_output": 2.5656800270080566
+          }
+        }
+      }
+    }
+  ],
+  "fired_summary": {
+    "ssim_positive": 9,
+    "mae_positive": 9,
+    "mse_positive": 9,
+    "false_texture_nonregressing": 0,
+    "all_partitions_nonregressing": 9,
+    "partition_summary": {
+      "complete_coverage_core": {
+        "evaluated": 9,
+        "nonregressing": 9,
+        "mean_delta_mae": 0.0,
+        "worst_delta_mae": 0.0
+      },
+      "inner_partial_occlusion": {
+        "evaluated": 9,
+        "nonregressing": 9,
+        "mean_delta_mae": 0.0,
+        "worst_delta_mae": 0.0
+      },
+      "outer_veil": {
+        "evaluated": 9,
+        "nonregressing": 9,
+        "mean_delta_mae": -1.7431169086032443,
+        "worst_delta_mae": -0.12788677215576172
+      },
+      "far_background": {
+        "evaluated": 9,
+        "nonregressing": 9,
+        "mean_delta_mae": 0.0,
+        "worst_delta_mae": 0.0
+      }
+    }
+  }
+}

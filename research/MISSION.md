@@ -61,7 +61,7 @@ The dividing line for every synthesis method admitted into this engine:
 
 | Prior conclusion / area | Status under the new goal |
 |---|---|
-| F27: de-veiling by inversion loses | **CONDITIONALLY REOPENED / RESEARCH, AUTO DISABLED** (F60) — the V1 large-radius judge used a box shortcut and its promotion scores are demoted. Exact-disk V2 preserves a strong oracle ceiling and independently confirms parent support, but one post-freeze fire worsens inner partial foreground despite global wins. The model remains; runtime veil is identity until positive background evidence closes that spatial tail |
+| F27: de-veiling by inversion loses | **CONDITIONALLY REOPENED / RESEARCH, AUTO DISABLED** (F61) — F60 replaced the invalid V1 large-radius judge; F61 adds asymmetric ordered visibility and closes the spatial ownership tail on both diagnosed fires plus a fresh post-rule fire, with core/far identity. The model remains runtime-disabled until its small positive fine-band false-texture tail is causally removed rather than averaged away |
 | F33: selection cannot fix boundary contamination | **STRENGTHENED** — the theorem that motivates the whole framework |
 | F45: no-ref metrics cannot audit synthesis | stands; the constructive path is the observation-domain audit (L1) |
 | Metric composite (q_abf_ms+q_ssim) | **RESCOPED** — valid for the selection floor only; must never steer or veto synthesis work |

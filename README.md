@@ -93,8 +93,9 @@ focusstack images/*.png -o out.png --harden 0.5
 focusstack big/*.png -o out.png --fast --harden 0.5
 
 # Default auto enhancement can re-render licensed thin contours. The joint-layer
-# giant-veil mechanism remains in research but is safety-disabled after the V2
-# optical factory exposed an unresolved foreground-partition tail.
+# giant-veil mechanism remains in research: ordered front/rear visibility closes
+# its foreground-partition tail, but auto stays safety-disabled until a small
+# finest-band false-texture warning is causally resolved.
 focusstack bracket/*.png -o out.png --enhance auto
 ```
 

@@ -29,13 +29,13 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
     assert "never enter" in manifest["oracle_warning"].lower()
 
     current_cases = {
-        "extension_007",
-        "extension_034",
-        "s12_025",
-        "s16_034",
-        "s19_000",
-        "s19_012",
-        "s19_013",
+        "s23_006",
+        "s23_007",
+        "s23_030",
+        "s23_031",
+        "s23_057",
+        "s23_060",
+        "s23_069",
     }
     assert {case["sid"] for case in manifest["cases"]} == current_cases
     assert all(case.get("current_v2") for case in manifest["cases"])
@@ -69,6 +69,14 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
     assert (
         manifest["s12_summary"]["post_final_all_partitions_nonregressing"]
         == 3
+    )
+    assert manifest["s12_summary"]["current_s23_scene_count"] == 72
+    assert manifest["s12_summary"]["current_s23_fired_count"] == 7
+    assert (
+        manifest["s12_summary"][
+            "current_s23_all_partitions_nonregressing"
+        ]
+        == 7
     )
     assert manifest["s12_summary"]["normal_case_count"] == 6
 
@@ -139,28 +147,18 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
         for relative_path in case["assets"].values():
             assert (DOCS / relative_path).is_file(), relative_path
 
-    extension_007 = next(
-        case for case in manifest["cases"]
-        if case["sid"] == "extension_007"
+    s23_007 = next(
+        case for case in manifest["cases"] if case["sid"] == "s23_007"
     )
-    assert extension_007["diagnostic_point"]["x"] == 1048
-    assert extension_007["diagnostic_point"]["y"] == 216
-    assert extension_007["diagnostic_point"]["front_reconstruction"] is True
-    assert extension_007["diagnostic_point"]["output_error"] < (
-        extension_007["diagnostic_point"]["base_error"]
-    )
-    assert "crop_reported" in extension_007["assets"]
-
-    s16_034 = next(
-        case for case in manifest["cases"] if case["sid"] == "s16_034"
-    )
-    assert s16_034["report"]["owner_refinement_fired"] is True
-    assert s16_034["report"]["owner_refinement_forward_improvement"] > 0.01
-    assert s16_034["metrics"]["partitions"]["complete_coverage_core"][
+    assert s23_007["split"] == "s23"
+    assert s23_007["report"]["owner_consensus_active"] is True
+    assert s23_007["report"]["owner_consensus_proposal_count"] == 6
+    assert s23_007["metrics"]["partitions"]["far_background"][
         "mae_output"
-    ] == s16_034["metrics"]["partitions"]["complete_coverage_core"][
+    ] == s23_007["metrics"]["partitions"]["far_background"][
         "mae_base"
     ]
+    assert all(case["split"] == "s23" for case in manifest["cases"])
 
     assert all(
         case["report"]["veil_disabled_safety"] is True
@@ -173,7 +171,7 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
     assert "safety-disabled" in html
     assert "Current optical foundation" in html
     assert "Ordered visibility" in html
-    assert "genuinely post-final S19 fires" in html
+    assert "current S23 development fires" in html
     assert "Every original input frame" in html
     assert "Aligned + exposure-normalized" in html
     assert "no legacy reproductions" in html.lower()

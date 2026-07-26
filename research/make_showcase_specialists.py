@@ -436,56 +436,57 @@ def _v2_visibility_cases():
 
     selections = (
         (
-            "extension",
-            "extension_007",
-            "diagnosed inner-partial failure · repaired",
-            "The F60 counterexample: old global wins hid inner foreground damage. "
-            "S12 now hard-selects the missed parent tail and requires positive rear evidence.",
+            "s23",
+            "s23_006",
+            "current primary opaque · broad front reconstruction",
+            "A current-formation primary opaque case with 81% complete aperture "
+            "coverage and a large consensus-qualified focused-front repair.",
         ),
         (
-            "extension",
-            "extension_034",
-            "post-F60 reference fire",
-            "The prior good extension fire, rerun through the same frozen ordered-visibility rule.",
+            "s23",
+            "s23_007",
+            "current primary opaque · causal consensus case",
+            "The current-formation case that exposed a locally false foreground "
+            "extension. F64 local proposal consensus restores exact far-background identity.",
         ),
         (
-            "s12",
-            "s12_025",
-            "first post-S12 validation fire",
-            "The only fire in the first 36-scene split generated after ordered visibility was frozen.",
+            "s23",
+            "s23_030",
+            "current primary opaque · single-proposal path",
+            "A substantial-core case with one associated owner proposal; the "
+            "independently forward-licensed path is preserved rather than treating "
+            "missing duplicate segmentations as counter-evidence.",
         ),
         (
-            "s16",
-            "s16_034",
-            "fresh-split counterexample · repaired",
-            "This fresh-split counterexample exposed the need for focused-owner matte replacement; the final front-first rule is all-partition-positive on it.",
+            "s23",
+            "s23_031",
+            "current primary opaque · strict local agreement",
+            "A lower-margin primary case where four comparable owner proposals "
+            "constrain hard front selection and its optical footprint.",
         ),
         (
-            "s19",
-            "s19_000",
-            "post-final holdout · solid foreground",
-            "A clean fire in the 72-scene split generated only after F62 was frozen: foreground core, inner partial occlusion, and outer veil all improve while far background is unchanged.",
+            "s23",
+            "s23_057",
+            "current primary opaque · high-consensus support",
+            "Five comparable focused-owner proposals agree on the local opaque "
+            "geometry; complete core and far background remain protected.",
         ),
         (
-            "s19",
-            "s19_012",
-            "post-final holdout · broad solid foreground",
-            "A second independent solid-stratum fire with a large reconstructed front region and nonregression in every optical partition.",
+            "s23",
+            "s23_060",
+            "current primary opaque · strongest direct recovery",
+            "The largest current S23 direct-error and SSIM improvement, shown "
+            "without pooling its remaining fine-texture warning into the verdict.",
         ),
         (
-            "s19",
-            "s19_013",
-            "post-final holdout · mixed foreground",
-            "The independent mixed-stratum fire: complete core and far background are byte-stable while both partial-coverage partitions improve.",
+            "s23",
+            "s23_069",
+            "current primary opaque · independent single proposal",
+            "Another substantial-core one-proposal fire: both partial-coverage "
+            "partitions improve while the far background is exactly unchanged.",
         ),
     )
-    diagnostic_points = {
-        "extension_007": (
-            1048,
-            216,
-            "User-reported mixed foreground · focused-owner reconstruction",
-        ),
-    }
+    diagnostic_points = {}
     loaded = {
         split: {scene["sid"]: scene for scene in scenes(split)}
         for split in {selection[0] for selection in selections}
@@ -623,7 +624,7 @@ def _v2_visibility_cases():
             (front_reconstruction & true_foreground).sum()
         )
 
-        case_dir = os.path.join(INSPECTION_IMG, "s12", sid)
+        case_dir = os.path.join(INSPECTION_IMG, "s23", sid)
         assets = {
             "frame0": "frame0.jpg",
             "frame1": "frame1.jpg",
@@ -702,7 +703,7 @@ def _v2_visibility_cases():
                 max_side=max_side,
                 quality=quality,
             )
-            assets[key] = f"img/inspection/s12/{sid}/{filename}"
+            assets[key] = f"img/inspection/s23/{sid}/{filename}"
 
         diagnostic_point = None
         if point_spec is not None:
@@ -1482,6 +1483,7 @@ def fig_inspection():
         "s12": "objocc_v2_s12_ordered_visibility.json",
         "s16": "objocc_v2_s16_ordered_visibility.json",
         "s19": "objocc_v2_s19_ordered_visibility.json",
+        "s23": "objocc_v2_s23_ordered_visibility.json",
     }
     audits = {}
     for split, filename in audit_files.items():
@@ -1494,8 +1496,9 @@ def fig_inspection():
         "schema": 6,
         "title": "focusstack owner inspection lab",
         "generated_from": (
-            "F64 consensus-qualified front-first exact-disk audits plus current "
-            "default-pipeline runs on ordinary real photographic stacks"
+            "F64 consensus-qualified front-first runs on current S23 primary-"
+            "opaque inputs plus the current default pipeline on ordinary real "
+            "photographic stacks"
         ),
         "oracle_warning": (
             "Ground truth, true alpha, error maps, and GT metrics exist only for "
@@ -1505,11 +1508,11 @@ def fig_inspection():
             "quality verdicts. The giant-veil auto path remains safety-disabled."
         ),
         "case_selection": (
-            "Seven prior physical-stress sentinels are shown after the F64 local-"
-            "consensus change: two diagnosed extension cases, the S12 validation "
-            "fire, the repaired S16 counterexample, and all three fires from the "
-            "genuinely post-final 72-scene S19 split. Legacy V1 deep cases are no "
-            "longer included."
+            "All seven deep cases are current S23 primary-opaque inputs generated "
+            "after the formation reset. These are the seven S23 development fires "
+            "rerun through F64; historical extension/S12/S16/S19 inputs are no "
+            "longer presented as current deep cases. S23 exposed and shaped the "
+            "consensus rule, so this is development evidence, not a fresh holdout."
         ),
         "normal_selection": (
             "Six ordinary real-photo stacks show the actual default pipeline: four "
@@ -1539,6 +1542,11 @@ def fig_inspection():
             "post_final_scene_count": audits["s19"]["scene_count"],
             "post_final_fired_count": audits["s19"]["fired_count"],
             "post_final_all_partitions_nonregressing": audits["s19"][
+                "fired_summary"
+            ]["all_partitions_nonregressing"],
+            "current_s23_scene_count": audits["s23"]["scene_count"],
+            "current_s23_fired_count": audits["s23"]["fired_count"],
+            "current_s23_all_partitions_nonregressing": audits["s23"][
                 "fired_summary"
             ]["all_partitions_nonregressing"],
             "false_texture_warning_count": sum(

@@ -30,6 +30,22 @@ opaque input contract. The user paused the arc here. Runtime F64 code was not
 changed after `ee181b7`; later work was inspector-only plus an isolated cached
 S15 attribution harness.
 
+### Resume progress
+
+- [x] Add `one_sided_opaque_v1` without changing historical split
+      reproducibility. Its far frame uses normalized foreground spread
+      `H(alpha*F)/H(alpha)` and coverage `max(alpha, H(alpha))`.
+- [x] Add direct counterfactual tests: replacing a hidden checkerboard with its
+      inverse cannot change any `alpha=1` far-focus pixel, while the foreground
+      PSF still extends outward.
+- [x] Generate the first compact six-scene S25 development sample. Every scene
+      has saved owned-core fraction `1.0`, owned-inner fraction `0.0`, zero rear
+      throughput on every stored `alpha=255` pixel, and a nonempty outward veil.
+- [ ] Pair the runtime forward/adjoint solver with the one-sided operator before
+      interpreting F64 results on S25.
+- [ ] After the recovery rule freezes, generate a fresh S26 validation split;
+      regenerate the inspector only once at the end.
+
 ## Why this note exists
 
 The inspection at `extension_007` native `(1048,216)` raised the right

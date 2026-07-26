@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""F60 — physically audited objects-as-occluders factory.
+"""Objects-as-occluders factory with explicit formation-model versions.
 
 The first object factory used the correct premultiplied two-layer equation, but
 its large-radius research blur silently changed from a disk to a downscaled box.
 It also exposed only the sharp alpha map, which made a truly partial-occlusion
 pixel look like an opaque interior in diagnostics.
 
-V2 keeps the two layer depths exactly at the two focal planes and disables
-chromatic offsets.  In that regime the aperture integral is exact:
+Historical V2 splits preserve the aperture-average model that produced their
+frozen evidence. New primary opaque splits use the user's one-sided ownership
+contract:
 
     near-focus = alpha*N + (1-alpha)*disk(B, r_far)
-    far-focus  = disk(alpha*N, r_near) + (1-disk(alpha, r_near))*B
+    C          = disk(alpha, r_near)
+    N_spread   = disk(alpha*N, r_near) / C
+    W          = max(alpha, C)
+    far-focus  = W*N_spread + (1-W)*B
 
-The second equation deliberately permits a thin or severely defocused foreground
-to be partially visible through: different aperture rays see foreground or
-background.  It does not permit background inside the *complete-coverage core*.
-Every scene therefore saves frame-specific coverage and an explicit
-core/inner-veil/outer-veil diagnostic.
+``W`` is a one-sided dilation: foreground blur may extend outward, but it never
+opens the latent opaque support and admits rear detail inward. The normalized
+foreground spread avoids dimming an opaque interior merely because its PSF
+extends beyond the support. True transmission remains a separate renderer and
+is not part of the current opaque goal.
 
 Foreground RGB is copied from a real segmented object, but the unreliable
 source-photo boundary ring is replaced by nearest eroded-interior radiance before
@@ -32,6 +36,8 @@ Run:
     python research/objocc_v2_gen.py 72 s19
     python research/objocc_v2_gen.py 72 s23
     python research/objocc_v2_gen.py 36 t24
+    python research/objocc_v2_gen.py 12 s25
+    python research/objocc_v2_gen.py 36 s26
 """
 from __future__ import annotations
 
@@ -79,6 +85,7 @@ PRIMARY_OPAQUE_SCHEDULE = (
 # all-veil opaque stress.
 TRANSMISSIVE_SCHEDULE = ("primary", "primary", "boundary")
 TRANSMISSIVE_OPACITIES = (0.35, 0.55, 0.75)
+ONE_SIDED_OPAQUE_SPLITS = {"s25", "s26"}
 
 
 def exact_disk_blur(image: np.ndarray, radius: float) -> np.ndarray:
@@ -136,20 +143,61 @@ def render_focal_pair(
     alpha: np.ndarray,
     max_radius: float,
 ) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    """Render exact two-layer near/far focal frames and foreground coverage."""
+    """Render the primary one-sided opaque near/far focal pair."""
+    rendered = render_one_sided_opaque_focal_pair(
+        background,
+        foreground,
+        alpha,
+        max_radius,
+    )
+    return rendered["frames"], rendered["geometry_coverage"]
+
+
+def render_one_sided_opaque_focal_pair(
+    background: np.ndarray,
+    foreground: np.ndarray,
+    geometry_alpha: np.ndarray,
+    max_radius: float,
+) -> dict:
+    """Render opaque defocus without admitting rear detail inside its support.
+
+    The blurred premultiplied foreground is normalized by its blurred geometry
+    so defocus changes foreground radiance spatially without making an opaque
+    object transparent. ``maximum(alpha, blurred_alpha)`` preserves the sharp
+    owned support and adds only the outward PSF veil.
+    """
     bg = np.asarray(background, np.float32)
     fg = np.asarray(foreground, np.float32)
-    a = np.clip(np.asarray(alpha, np.float32), 0.0, 1.0)
+    a = np.clip(np.asarray(geometry_alpha, np.float32), 0.0, 1.0)
     radius = DEFOCUS_DISTANCE * max_radius
 
     far_blurred = exact_disk_blur(bg, radius)
     near_frame = a[..., None] * fg + (1.0 - a[..., None]) * far_blurred
     near_coverage = a
 
-    far_coverage = np.clip(exact_disk_blur(a, radius), 0.0, 1.0)
-    premult = exact_disk_blur(a[..., None] * fg, radius)
-    far_frame = premult + (1.0 - far_coverage[..., None]) * bg
-    return [near_frame, far_frame], [near_coverage, far_coverage]
+    aperture_spread = np.clip(exact_disk_blur(a, radius), 0.0, 1.0)
+    blurred_premult = exact_disk_blur(a[..., None] * fg, radius)
+    conditional_foreground = np.zeros_like(blurred_premult)
+    np.divide(
+        blurred_premult,
+        aperture_spread[..., None],
+        out=conditional_foreground,
+        where=aperture_spread[..., None] > 1e-6,
+    )
+    far_coverage = np.maximum(a, aperture_spread)
+    far_frame = (
+        far_coverage[..., None] * conditional_foreground
+        + (1.0 - far_coverage[..., None]) * bg
+    )
+    gt = a[..., None] * fg + (1.0 - a[..., None]) * bg
+    return {
+        "frames": [near_frame, far_frame],
+        "geometry_coverage": [near_coverage, far_coverage],
+        "extinction": [near_coverage, far_coverage],
+        "aperture_spread": [near_coverage, aperture_spread],
+        "gt": gt,
+        "formation_model": "one_sided_opaque_v1",
+    }
 
 
 def render_layered_focal_pair(
@@ -159,7 +207,10 @@ def render_layered_focal_pair(
     max_radius: float,
     material_opacity: float | np.ndarray,
 ) -> dict:
-    """Render opaque or nonrefractive transmissive two-layer observations.
+    """Render the historical aperture-mixed / transmissive observations.
+
+    This function is retained for frozen historical splits and later explicit
+    transmission research. It is not the primary opaque renderer.
 
     Geometry answers whether a ray intersects the front object. Extinction
     answers how much radiance that intersection contributes/removes. They are
@@ -212,7 +263,9 @@ def render_layered_focal_pair(
         "frames": [near_frame, far_frame],
         "geometry_coverage": [geometry, geometry_far],
         "extinction": [extinction_near, extinction_far],
+        "aperture_spread": [geometry, geometry_far],
         "gt": gt,
+        "formation_model": "aperture_mixed_extinction_v1",
     }
 
 
@@ -316,6 +369,8 @@ def generate(count: int, split: str) -> None:
         "s19",
         "s23",
         "t24",
+        "s25",
+        "s26",
     }
     if split not in supported_splits:
         raise ValueError(
@@ -337,16 +392,31 @@ def generate(count: int, split: str) -> None:
         "s19": 21001,
         "s23": 24001,
         "t24": 27001,
+        "s25": 30001,
+        "s26": 33001,
     }[split]
     is_transmissive = split == "t24"
+    is_one_sided_opaque = split in ONE_SIDED_OPAQUE_SPLITS
     if is_transmissive:
         stratum_schedule = TRANSMISSIVE_SCHEDULE
         material_model = "scalar_transmissive_occluder"
         cohort_role = "transmissive_oracle_development"
-    elif split == "s23":
+    elif split == "s23" or is_one_sided_opaque:
         stratum_schedule = PRIMARY_OPAQUE_SCHEDULE
-        material_model = "opaque_occluder"
-        cohort_role = "primary_opaque_post_audit"
+        material_model = (
+            "one_sided_opaque_occluder"
+            if is_one_sided_opaque
+            else "opaque_occluder"
+        )
+        cohort_role = (
+            "primary_one_sided_opaque_development"
+            if split == "s25"
+            else (
+                "primary_one_sided_opaque_post_freeze"
+                if split == "s26"
+                else "primary_opaque_post_audit"
+            )
+        )
     else:
         stratum_schedule = STRATA
         material_model = "opaque_occluder"
@@ -356,7 +426,11 @@ def generate(count: int, split: str) -> None:
         "version": 3,
         "split": split,
         "seed": seed,
-        "renderer": "exact_disk_two_layer_extinction",
+        "renderer": (
+            "one_sided_opaque_v1"
+            if is_one_sided_opaque
+            else "exact_disk_two_layer_extinction"
+        ),
         "material_model": material_model,
         "cohort_role": cohort_role,
         "stratum_schedule": list(stratum_schedule),
@@ -453,16 +527,26 @@ def generate(count: int, split: str) -> None:
         stats = coverage_stats(alpha, far_coverage)
         if not _stratum_matches(stratum, stats):
             continue
-        rendered = render_layered_focal_pair(
-            background,
-            foreground,
-            alpha,
-            max_radius,
-            material_opacity,
-        )
+        if is_one_sided_opaque:
+            rendered = render_one_sided_opaque_focal_pair(
+                background,
+                foreground,
+                alpha,
+                max_radius,
+            )
+        else:
+            rendered = render_layered_focal_pair(
+                background,
+                foreground,
+                alpha,
+                max_radius,
+                material_opacity,
+            )
         clean_frames = rendered["frames"]
         coverages = rendered["geometry_coverage"]
         extinctions = rendered["extinction"]
+        aperture_spreads = rendered["aperture_spread"]
+        rendered_stats = coverage_stats(alpha, coverages[1])
 
         sid = f"{split}_{scene_index:03d}"
         scene_dir = os.path.join(split_dir, sid)
@@ -496,8 +580,20 @@ def generate(count: int, split: str) -> None:
             os.path.join(scene_dir, "opacity.png"),
             np.round(np.clip(extinctions[0], 0, 1) * 255).astype(np.uint8),
         )
-        for frame_index, (frame, clean, coverage, extinction) in enumerate(
-            zip(frames, clean_frames, coverages, extinctions)
+        for frame_index, (
+            frame,
+            clean,
+            coverage,
+            extinction,
+            aperture_spread,
+        ) in enumerate(
+            zip(
+                frames,
+                clean_frames,
+                coverages,
+                extinctions,
+                aperture_spreads,
+            )
         ):
             cv2.imwrite(os.path.join(scene_dir, f"frame_{frame_index}.png"), frame)
             cv2.imwrite(
@@ -511,6 +607,15 @@ def generate(count: int, split: str) -> None:
             cv2.imwrite(
                 os.path.join(scene_dir, f"extinction_{frame_index}.png"),
                 np.round(np.clip(extinction, 0, 1) * 255).astype(np.uint8),
+            )
+            cv2.imwrite(
+                os.path.join(
+                    scene_dir,
+                    f"aperture_spread_{frame_index}.png",
+                ),
+                np.round(
+                    np.clip(aperture_spread, 0, 1) * 255
+                ).astype(np.uint8),
             )
         cv2.imwrite(
             os.path.join(scene_dir, "coverage_classes.png"),
@@ -537,6 +642,7 @@ def generate(count: int, split: str) -> None:
             "material_model": material_model,
             "material_opacity": float(material_opacity),
             "material_transmittance": float(1.0 - material_opacity),
+            "formation_model": rendered["formation_model"],
             "source": os.path.basename(os.path.dirname(source_path)),
             "source_mask_index": int(mask_index),
             "background": os.path.basename(os.path.dirname(background_path)),
@@ -545,14 +651,25 @@ def generate(count: int, split: str) -> None:
             "max_radius": float(max_radius),
             "defocus_radius": float(DEFOCUS_DISTANCE * max_radius),
             "alpha_area_fraction": area_fraction,
-            **stats,
+            **rendered_stats,
+            "aperture_core_fraction": stats["core_fraction"],
+            "aperture_inner_fraction": stats["inner_veil_fraction"],
         }
         manifest["scenes"].append(row)
+        if is_one_sided_opaque:
+            formation_summary = (
+                f"owned-core={rendered_stats['core_fraction']:.3f} "
+                f"owned-inner={rendered_stats['inner_veil_fraction']:.3f} "
+                f"aperture-core={stats['core_fraction']:.3f}"
+            )
+        else:
+            formation_summary = (
+                f"core={stats['core_fraction']:.3f} "
+                f"inner-veil={stats['inner_veil_fraction']:.3f}"
+            )
         print(
             f"{sid} {stratum:5s} opacity={material_opacity:.2f} "
-            f"core={stats['core_fraction']:.3f} "
-            f"inner-veil={stats['inner_veil_fraction']:.3f} "
-            f"area={area_fraction:.3f}",
+            f"{formation_summary} area={area_fraction:.3f}",
             flush=True,
         )
 
@@ -601,6 +718,13 @@ def scenes(split: str):
             ),
             "material_model": material_model,
             "material_opacity": material_opacity,
+            "formation_model": row.get(
+                "formation_model",
+                manifest.get(
+                    "renderer",
+                    "exact_disk_two_layer_extinction",
+                ),
+            ),
             "dir": scene_dir,
             "gt": cv2.imread(os.path.join(scene_dir, "gt.png")),
             "alpha": (
@@ -666,6 +790,33 @@ def scenes(split: str):
                 )
                 for index in (0, 1)
             ],
+            "aperture_spread": [
+                (
+                    cv2.imread(
+                        os.path.join(
+                            scene_dir,
+                            f"aperture_spread_{index}.png",
+                        ),
+                        0,
+                    ).astype(np.float32)
+                    / 255.0
+                    if os.path.exists(
+                        os.path.join(
+                            scene_dir,
+                            f"aperture_spread_{index}.png",
+                        )
+                    )
+                    else cv2.imread(
+                        os.path.join(
+                            scene_dir,
+                            f"coverage_{index}.png",
+                        ),
+                        0,
+                    ).astype(np.float32)
+                    / 255.0
+                )
+                for index in (0, 1)
+            ],
             "frames": [
                 cv2.imread(os.path.join(scene_dir, f"frame_{index}.png"))
                 for index in (0, 1)
@@ -679,7 +830,7 @@ def main() -> None:
     if len(sys.argv) != 3:
         raise SystemExit(
             "usage: objocc_v2_gen.py COUNT "
-            "{dev|holdout|extension|s12|s16|s19|s23|t24}"
+            "{dev|holdout|extension|s12|s16|s19|s23|t24|s25|s26}"
         )
     generate(int(sys.argv[1]), sys.argv[2])
 

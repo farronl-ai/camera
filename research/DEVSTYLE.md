@@ -13,7 +13,10 @@ starts in the same expert flow and improves from there.
 2. **Measure the mechanism directly**, not just end quality (e.g. weight-mass-on-true-frame,
    confidence distributions — not only SSIM).
 3. **Look** — eye-analysis 2.0 (`eyetool.py`): crops where methods *disagree most* +
-   amplified diffs, GT alongside when it exists. Never hand-pick crop locations.
+   amplified diffs, GT alongside when it exists. Use automatic crops for unbiased
+   discovery. A user-selected coordinate/window is first-class causal evidence once
+   it is recorded exactly and shown beside every original frame, pre/post output,
+   masks, and GT; it diagnoses a mechanism but cannot alone promote a rule.
 4. **A/B end-to-end** — the ONLY verdict on "is X harmful" is removing X and seeing if
    quality improves. A pathological-looking internal number is NOT evidence of harm
    (F24: "50% weight on wrong frames" turned out to be beneficial denoising).
@@ -40,6 +43,11 @@ alone: localize each metric's changed-error tail by physical region/ownership fi
 F56's SSIM dissent was benign contour sensitivity, while its MSE dissent exposed a
 real matte-support leak; the same disagreement procedure must be allowed to acquit
 or indict the method depending on mechanism.
+Analytic GT is the scene-truth reference, but a scalar summary of it is not the
+truth itself. For a localized synthesis transition, compare the captured formation,
+GT pixels, physical partitions, forward residual, and the exact visual boundary.
+F78's near-perfect `_010` checkpoint emerged only after this lattice separated a
+real background gradient from a veil-formation dip and a post-inverse seam.
 
 ## 3. Honesty norms (non-negotiable, they produced every breakthrough here)
 
@@ -61,6 +69,12 @@ analyze the image" → the local-scale arc; "the pyramid component is the key" �
 Answer direct questions first, honestly (even when the answer is "no, I was
 overclaiming"), then continue the work. Credit the user's insights explicitly in
 findings/commits when they drove the result.
+When the user can inspect faster than a full benchmark can explain, enter a short
+diagnostic regime deliberately: change one mechanism, regenerate only the named
+cases, preserve a fixed slider baseline, and let the next exact window drive the
+next hypothesis. Do not silently turn that loop into a promotion claim. Freeze the
+visually accepted output, write down rejected alternatives, then return to fresh
+cross-scene validation after the mechanism stabilizes. F78 is the reference example.
 
 ## 5. Cadence & operations
 

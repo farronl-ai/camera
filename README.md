@@ -88,9 +88,9 @@ focusstack images/*.png -o out.png --no-align
 # blob. Recommended for scenes with bright points or fine structures.
 focusstack images/*.png -o out.png --harden 0.5
 
-# High-res speed preset (~1.5x faster, quality-neutral-or-better): image-space
-# decision fusion + weights computed at half-resolution then upsampled (the
-# weights are smooth, so this is near-lossless; thin structures stay full-res).
+# High-res speed preset (~1.5x faster): image-space decision fusion + weights
+# computed at half-resolution then upsampled. This is an explicit CPU tradeoff,
+# measured around 0.005–0.025 GT-SSIM below the full perband default.
 focusstack big/*.png -o out.png --fast --harden 0.5
 
 # Default auto enhancement can re-render licensed thin contours. For exactly

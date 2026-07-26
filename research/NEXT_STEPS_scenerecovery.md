@@ -205,6 +205,20 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       response rather than invented texture. The actual composed bridge path
       fires the same recovery and identity-refuses failed gates, so exactly
       two-frame validated-size recovery is enabled in `--enhance auto`.
+- [ ] **S20: transmission-boundary integration generalization.** 🔶 F78 narrow
+      visual checkpoint. Preserve `bf99365` and do not tune further on
+      `s29_010`. The load-bearing rule is now: direct near-bound background comes
+      from `(O_rear - predicted_front_veil) / T_rear`; plausible PSFs are chosen
+      locally by two-frame forward residual; the integration band follows the
+      conservative 10% modeled-coverage contour rather than maximum-radius
+      support; and exterior-trend extrapolation is admitted only when that exact
+      proposed component forward-projects below the local observation noise.
+      The right-side `_010` output is user-validated near-perfect and the quick
+      cohort is `s29_002/007/010`. Next, freeze these parameters and generate a
+      genuinely fresh split spanning disk/box mismatch, exposure/noise/ISP,
+      boundary orientation, and foreground/background contrast sign. Require
+      zero protected-region rear application, no contour/false-texture tail,
+      and a visual original-frames/pre/post/GT audit before broad promotion.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

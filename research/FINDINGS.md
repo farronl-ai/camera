@@ -5,6 +5,73 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F78 — Veil-boundary integration is a formation inversion, not a confidence-smoothed seam
+
+The user-driven inspection loop on `s29_010`, especially native window
+`x=675:687, y=176:303`, closed a subtle failure that aggregate metrics and the
+automatic worst crop did not explain.  The broad one-sided recovery was already
+doing the right work: once licensed, it improved almost everywhere it reached.
+The remaining visible line came from how that recovered field met the nominal
+end of the veil, not from a need to shrink the recovery footprint.
+
+Several attractive fixes were rejected in sequence.  Circular absolute-image
+filters blurred real structure because their shape was unrelated to the veil.
+Contour-normal relative filtering was the right geometry, and a continuous
+taper was better than stacked thin/wide bands, but smoothing the correction
+field could not decide whether a low-frequency dip was true background or
+formation residue.  Blindly extrapolating the exterior background slope under
+the veil invented a broader dark blob.  Conversely, treating the
+background-focused frame as a clean plate preserved a dip that analytic GT
+showed was not in the latent background.  A focal observation near an occlusion
+boundary is still formation-contaminated.
+
+The replacement separates three questions that had been collapsed into one:
+
+1. **Direct background recovery.**  Where rear transmission is usable, invert
+   the captured formation rather than copy or smooth the frame:
+
+   ```text
+   B_direct = (O_rear - predicted_foreground_veil) / T_rear
+   ```
+
+   `T_rear` and foreground spread come from the paired one-sided PSF model.
+2. **Model choice.**  The box-like and disk PSF hypotheses need not agree.
+   Select the locally lower two-frame forward residual before integrating the
+   direct inverse.  In the diagnosed strip the disk model nearly reproduced GT;
+   averaging it with the box model merely preserved the over-subtraction.
+3. **Censored inference.**  Confidence in the overall under-veil background is
+   not confidence in one proposed dark component.  Forward-project that exact
+   component through the estimated veil.  Extrapolation is allowed only when
+   the projected component falls below the local observation-domain noise
+   floor; if it should have remained visible, its absence vetoes inference.
+
+The integration contour is now the physically meaningful aperture-coverage
+transition (`min` cross-PSF modeled foreground coverage at 10%), not the
+maximum-radius nonzero support.  The direct inverse may taper on both sides of
+that contour; extrapolation remains confined to the under-veil side.
+High-frequency integration still acts on the relative correction field along
+the local contour normal, never as a circular absolute-pixel blur.  The
+continuous low-frequency integration strength is 75%; the earlier 12–18%
+setting left a visible residual.
+
+On the final `_010` render, global deltas are `ΔSSIM +0.004015` and
+`ΔMAE -0.2189`.  In the diagnosed window, the prior processed candidate's mean
+luminance was `59.62`, the final is `60.98`, analytic GT is `64.16`, and the
+still-veiled rear-focused observation is `65.93`.  The important result is not
+that any of those scalars match exactly: the right-side inspector output at
+commit `bf99365` was visually judged near-perfect by the user, with the false
+trough reduced without copying the bright veil or inventing a latent blob.
+
+This is a visually validated narrow checkpoint, not a broad promotion claim.
+The quick regime intentionally regenerated only `s29_002/007/010`; their
+current `ΔSSIM/ΔMAE` pairs are
+`+0.004768/-0.6100`, `-0.001796/-0.2181`, and
+`+0.004015/-0.2189`. The `_007` scalar dissent is retained for visual/physical
+localization rather than optimized away. The
+transmission contour, local PSF selection, and censored extrapolation still
+require a fresh cross-scene/cross-PSF/noise audit before their parameters become
+a general camera claim.
+
 ## F77 — The inspector now shows the shipped evidence, not its history
 
 The owner workbench was rebuilt once after F76 from the frozen post-rule S29
@@ -1174,13 +1241,22 @@ high-res collapse the same way perband fixed the engine; best at BOTH regimes,
 +0.785/+0.869). **Q_SSIM alone** for all per-region/local decisions (Q_ABF
 anti-correlates locally, F12); Q_MI rejected outright; no-ref magnitudes are
 suspect on atypical content (near-black microscopy) — trust orderings confirmed
-by eye. With true GT available, **GT-SSIM is the verdict** — over both no-ref
-metrics and the unaided eye's sense of "clean."
+by eye. Analytic GT remains the pixel-truth reference, but **no scalar reduction
+of GT—not even global GT-SSIM—is the sole verdict for localized synthesis**.
+Partitioned direct error, observation-domain formation fit, changed-pixel
+outcomes, and GT-side visual continuity must agree on the mechanism. F72 showed
+benign SSIM dissent; F78 showed that a tiny physically wrong boundary transition
+can survive a favorable global score.
 
 **The eye.** Aggregate metrics hide localized artifacts (halos <1% of pixels); the
 unaided eye misjudges fidelity (F21). **Eye-analysis 2.0** (`eyetool.py`): crop
 where methods *disagree most* + amplified-difference views (+GT when available) —
 point the eye at the informative pixels instead of guessing crop locations.
+User-selected windows are a second instrument for causal diagnosis when they
+retain all original frames, pre/post output, GT, and exact coordinates; they are
+not a promotion set by themselves. F78's repeated `_010` window separated a real
+background trend, a veil-formation residual, and a seam-integration artifact that
+the automatic summaries had pooled.
 
 **Structure & operators.** `harden` (confidence-hardening) unifies spread-rejection
 and thin-structure preservation. `content_aware` routes laplacian↔mod_laplacian by
@@ -1240,10 +1316,16 @@ Regularizer + cross-PSF component consensus, a frozen physical candidate license
 fixed giant-CoC refusal, focused-owner geometry refinement/front reconstruction,
 and ordered rear visibility yield spatially safe
 exact-disk V2 fires across development, holdout diagnosis, and a fresh post-rule
-extension (F61). The giant-veil branch remains safety-disabled because its
-fine-band complement metric still detects a small positive tail. The key
-limitations are both narrow recall/scope and unresolved finest-band error:
-two frames, <=1600 px, giant CoC, semantic bridge, licensed candidate only.
+extension (F61). F76 later promoted the paired one-sided opaque branch for
+licensed two-frame, validated-size auto enhancement after the post-rule S29
+lattice passed. F78 then repaired its final visible integration seam without
+changing front ownership or the joint solve: invert foreground radiance and rear
+transmission at the meaningful aperture-coverage contour, choose the local PSF by
+two-frame forward fit, and use exterior extrapolation only as a
+proposal-specific below-noise fallback. The key limitations remain narrow
+scope and validation: two frames, <=1600 px, giant CoC, semantic bridge,
+licensed candidate only; F78's final boundary rule is visually frozen on the
+three-case quick cohort and still awaits a fresh cross-family audit.
 The general lessons are joint evidence accounting, analytic uncertainty, and—
 most importantly—null-space/false-texture auditing before any scene-recovery claim.
 Stack gaps (F52): where NO frame is sharp, one Wiener FFT at the known disk scale

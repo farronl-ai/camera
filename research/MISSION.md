@@ -44,6 +44,15 @@ The dividing line for every synthesis method admitted into this engine:
   for certifying synthesized detail) — plus the
   remnant-anchoring requirement itself, which is what confines synthesis to the
   observable-rooted part of the null space.
+- Observability is **component-specific**, not a single confidence attached to a
+  pixel or layer. The engine may know the baseline rear surface confidently while
+  a weak local contrast change is censored by foreground coverage and noise. Test
+  a proposed component by forwarding that component through the formation model:
+  if it should have survived in the capture, absence vetoes inference; only an
+  observation-domain sub-noise component may use constrained surrounding evidence.
+  Conversely, a background-focused boundary pixel is not automatically a clean
+  background sample—the same formation model must first remove foreground radiance
+  and undo rear attenuation (F78).
 
 ## The escalation ladder (thoroughness-first)
 
@@ -61,7 +70,7 @@ The dividing line for every synthesis method admitted into this engine:
 
 | Prior conclusion / area | Status under the new goal |
 |---|---|
-| F27: de-veiling by inversion loses | **NARROWLY SHIPPED / AUTO ENABLED** (F76) — F68/F69 repair opaque source topology and discrete formation support; F70 preserves the numerical inverse while selecting focused graph ownership. F72–F75 separate rear openings, native fragments, focused-owner radiance, corroborated negative evidence, and resolved fragments from mask speckle. Frozen post-rule S29 licenses 11/refuses one; all fires improve MAE/MSE and every physical partition, with zero protected-region rear application and exact far identity. Exactly two-frame, validated-size one-sided opaque recovery now runs behind the existing gates; N-frame, transmission, and broader CoC are not implied. |
+| F27: de-veiling by inversion loses | **NARROWLY SHIPPED / AUTO ENABLED** (F76; boundary integration F78) — F68/F69 repair opaque source topology and discrete formation support; F70 preserves the numerical inverse while selecting focused graph ownership. F72–F75 separate rear openings, native fragments, focused-owner radiance, corroborated negative evidence, and resolved fragments from mask speckle. Frozen post-rule S29 licenses 11/refuses one; all fires improve MAE/MSE and every physical partition, with zero protected-region rear application and exact far identity. F78 adds formation-aware direct rear inversion, local forward-fit PSF selection, a material transmission contour, and proposal-specific censored extrapolation; `_010` is visually frozen near-perfect on the quick cohort. Exactly two-frame, validated-size one-sided opaque recovery runs behind the existing gates; F78 still needs a fresh cross-family split, and N-frame, transmission, broader CoC, compound lenses, and ISP are not implied. |
 | F33: selection cannot fix boundary contamination | **STRENGTHENED** — the theorem that motivates the whole framework |
 | F45: no-ref metrics cannot audit synthesis | stands; the constructive path is the observation-domain audit (L1) |
 | Metric composite (q_abf_ms+q_ssim) | **RESCOPED** — valid for the selection floor only; must never steer or veto synthesis work |

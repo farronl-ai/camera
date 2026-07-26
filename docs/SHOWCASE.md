@@ -194,13 +194,14 @@ The generalist engine above is what every
 stack gets. On top of it sit **specialists**: narrow mechanisms that fix physics the
 generalist provably cannot (a lens mixes both sides of a depth boundary into the
 captured pixels — no weighting scheme can unmix a contour, and no weighting can
-recover a wide occluder's latent background). One narrowly licensed mechanism is
-live; the second remains an explicitly disabled research path:
+recover a wide occluder's latent background). Two narrowly licensed mechanisms are
+live; the historical correction-after-fusion veil operator remains explicitly
+retired:
 
 - **Contour reconstruction** (thin occluders — wires, stems, hairs): re-renders the
   contaminated boundary band as a fresh composite from a pixel-precise difference
   matte. Purely classical; no extra dependencies.
-- **Joint-layer giant-veil recovery** (research, safety-disabled): solves
+- **Joint-layer one-sided opaque recovery** (narrow auto path): solves
   both captured formation equations for observed foreground/background corrections,
   then keeps only components stable across three regularizers and two PSF families.
   Semantic candidates must first improve observation-domain fit under a frozen
@@ -214,9 +215,14 @@ live; the second remains an explicitly disabled research path:
   partial front interior, and only then invokes F61's positive rear-observation
   rule. That closes the foreground-partition tail on both diagnosed fires and the
   S16 counterexample. A genuinely post-final 72-scene S19 split then yields three
-  all-partition-positive fires and 69 exact refusals. Auto enhancement still
-  refuses every veil case because all seven current fires retain a small positive
-  finest-band error on otherwise-smooth veil pixels.
+  all-partition-positive fires and 69 exact refusals. F68–F75 subsequently repair
+  the one-sided opaque formation/ownership contract; frozen post-rule S29 licenses
+  11 cases and refuses one, with all 11 improving every physical partition and
+  exact far identity. F76 enables that validated two-frame/size-bounded path in
+  auto enhancement. F78 integrates the recovered field at the 10%
+  aperture-coverage contour by subtracting predicted front radiance, dividing by rear
+  transmission, selecting the locally better forward PSF, and allowing exterior
+  extrapolation only for proposal-specific below-noise components.
 
 Here is contour reconstruction on a factory thin-occluder scene — one where the
 shipped gate actually fires (predicted gain +0.0044 ≥ margin +0.0040; the actual
@@ -302,7 +308,8 @@ current evidence and shipping status are therefore:
 | Exact-disk V2 first fresh split (S12) | 1/36 fires; all-partition positive, 35 exact refusals |
 | Exact-disk V2 S16 counterexample | sole fire flips from harmful to ΔSSIM +0.000582 / ΔMAE −0.1296; inner −2.167, outer −1.507, core/far identity |
 | Exact-disk V2 genuinely post-final S19 | 3/72 fires; 3/3 improve SSIM/MAE/MSE and every physical partition, 69 exact refusals |
-| Giant-veil auto path | **Safety-disabled**; current runtime behavior is identity for every veil case |
+| One-sided opaque auto path, frozen post-rule S29 | **Enabled narrowly**; 11/12 licensed, all 11 improve MAE/MSE and every physical partition, protected rear overlap zero, far identity exact |
+| F78 transmission-boundary integration | `_010` right-side output at `bf99365` visually validated near-perfect; quick cohort `s29_002/007/010`, fresh cross-family audit still required |
 | Fixed giant hypothesis, all audited moderate scenes | 0/66 fire |
 | Bridge absent / N≠2 / >1600 px / candidate unlicensed | byte-identical refusal |
 | Both specialists silent | byte-identical to the base engine, by construction |
@@ -335,7 +342,7 @@ discipline is that **a verdict in one regime is a hypothesis in every other**.
 | Real optical defocus (microscopy z-stacks) | perband sharpest — eye-confirmed | no GT exists; no-ref metric ordering confirmed visually |
 | Deep stacks (N = 2 → 8) | quality **rises** with N for every method | broad soft weights act as multi-frame denoising |
 | Exposure drift (±12% + WB tilt) | −0.025 SSIM broken → **−0.002** with default-on fix | clipped highlights slightly weaken the mean invariant |
-| Joint giant-veil recovery | **Research retained, runtime disabled**; front-first ordering is all-partition-safe on 2 diagnosed fires, the repaired S16 counterexample, and 3/3 genuinely post-final S19 fires | small positive smooth-veil finest-band tail remains; no shipping claim |
+| Joint one-sided opaque recovery | **Narrowly auto-enabled** after post-rule S29: 11/12 licensed, every fire improves all physical partitions; F78 `_010` boundary visually near-perfect | exactly two frames, validated size/formation only; F78 boundary rule still needs a fresh cross-family audit |
 
 The metric itself got the same treatment as the engine: the standard gradient-transfer
 metric (Q<sup>AB/F</sup>) collapses at high resolution for the same fixed-window reason —

@@ -1,7 +1,52 @@
 # Occlusion formation audit — geometry, veil, and material transmission
 
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
-`NEXT_STEPS_scenerecovery.md`, and F60–F67 in `FINDINGS.md`.
+`NEXT_STEPS_scenerecovery.md`, and F60–F78 in `FINDINGS.md`.
+
+## 2026-07-26 transmission-boundary integration checkpoint
+
+`s29_010` exposed a second formation invariant after ownership was already
+correct: the background-focused observation is not a clean background plate at
+the end of a bright foreground veil.  It contains both foreground radiance
+spread and attenuated rear radiance:
+
+```text
+O_rear = V_front + T_rear * B
+B_direct = (O_rear - V_front) / T_rear
+```
+
+Therefore a dark or bright boundary feature seen in `O_rear` cannot be copied
+as latent background merely because the rear layer is globally high-confidence.
+Likewise, smoothing the final image or extrapolating the exterior trend is not
+an inverse.  The runtime now uses the paired one-sided formation model to
+subtract predicted foreground veil radiance and divide by remaining rear
+transmission where that division is locally usable.
+
+Two further distinctions are load-bearing:
+
+- **Support is not the integration contour.** Nonzero aperture support extends
+  to the maximum PSF radius, but the visible transition is centered where
+  modeled foreground coverage becomes material. The integration contour uses
+  the conservative cross-PSF 10% coverage level and tapers continuously around
+  it; the full licensed veil recovery footprint remains unchanged.
+- **Scene confidence is not feature observability.** For a proposed latent
+  low-frequency component, forward-project that component through each
+  plausible PSF. If it would exceed the local captured-frame noise floor, its
+  absence vetoes extrapolation. Only a component censored by the veil/noise may
+  be inferred from the clean exterior trend.
+
+The box-like and disk PSF inverses are selected locally by their two-frame
+forward residual instead of averaged or rejected for disagreement. On the
+diagnosed `_010` strip, the disk inverse explained the observations and nearly
+matched analytic GT; the box hypothesis over-subtracted the bright veil.
+Relative high-frequency integration follows the local contour normal on the
+correction field. Circular absolute-image filters and unconstrained slope
+extrapolation are explicitly rejected.
+
+Commit `bf99365` is the visually validated checkpoint: the inspector's
+right-side `_010` output was judged near-perfect. This remains a three-case
+quick-cohort result (`s29_002/007/010`), not evidence for transmission,
+arbitrary CoCs, real compound-lens PSFs, or all camera/ISP regimes.
 
 ## 2026-07-26 narrow shipping checkpoint
 

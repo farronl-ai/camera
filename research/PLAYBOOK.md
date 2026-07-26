@@ -308,6 +308,26 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    prevented a wrong causal conclusion. Because that counterexample then shaped
    F62, it became development evidence; S19 was generated only after the final
    rule froze and supplied the actual post-final validation.
+6l. **A rear-focused boundary observation is not a clean rear plate** (F78).
+   Near a foreground veil it contains additive foreground radiance *and*
+   multiplicatively attenuated background. Recover the direct low-frequency
+   rear estimate as `(O_rear - predicted_front_veil) / T_rear` only where
+   transmission is usable. Select among plausible PSFs by the local two-frame
+   forward residual; averaging a good disk inverse with a bad box inverse is
+   not conservatism—it preserves the wrong subtraction. Center integration on
+   a meaningful aperture-coverage/rear-transmission contour, not on the farthest
+   nonzero PSF support. Support answers “can the lens contribute here?”; the
+   contour answers “where does the recovered field need integration?”
+6m. **Confidence is component-specific in an inverse problem** (F78). High
+   confidence in the baseline under-veil background does not imply confidence
+   in one weak dark transition. Test the proposed component itself: forward it
+   through the veil and compare its observation-domain magnitude with the local
+   noise floor. If it should have remained visible, absence vetoes inference;
+   only a censored component may borrow an exterior trend. Extrapolation is a
+   below-noise fallback, never a general background replacement. Apply seam
+   regularization to the relative correction field along the local contour
+   normal. Circular absolute-image filters and unconstrained normal-slope
+   continuation are shape-blind band-aids.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

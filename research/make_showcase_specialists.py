@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Generate the specialist-layer figures for docs/SHOWCASE.md (F43-F48 arc).
+"""Generate the specialist-layer figures for docs/SHOWCASE.md.
 
-Three figures, same conventions as make_showcase.py (docs/img/*.jpg, JPEG q85):
+Figures use the same conventions as make_showcase.py (docs/img/*.jpg, JPEG q85):
 
   spec_recon.jpg — contour reconstruction on a canonical thin-occluder scene
       where the SHIPPED gate (focusstack.gates.RECON_GATE) actually fires:
       [base perband | reconstructed | ground truth] at the most-differing crop.
   spec_veil.jpg  — retired veil-gain failure on a realistic object scene
       (mechanism at its clearest): [base | corrected | ground truth] fringe crop.
-  spec_fence.jpg — the real-data fire: the fence stack through the SHIPPED
-      enhance path, [base | enhanced | amplified difference] at the wire edge.
+  spec_joint.jpg — F55/F56's shipped owner-safe joint-layer recovery on a fresh
+      holdout fire: [base | recovered physical scene | ground truth].
+  spec_fence.jpg — the former real-data subtraction fire retained as an audit
+      artifact: [base | former output | amplified difference] at the wire edge.
 
 Crops are disagreement-guided (eyetool discipline), never hand-picked.
 Run:  python research/make_showcase_specialists.py [recon|veil|fence|all]
@@ -166,11 +168,72 @@ def fig_veil():
     save("spec_veil.jpg", hstack(*cells))
 
 
+def fig_joint():
+    """Shipped joint-layer recovery on an actually licensed holdout scene."""
+    from t2_candidates import candidates_with_features
+    from t2_confidence import scenes
+    from veilship import false_texture_error
+    from focusstack.veil_layers import recover_giant_veil
+
+    sc = list(scenes())[114]
+    base = fuse_perband(sc["frames"], harden=0.5)
+    output, report = recover_giant_veil(
+        sc["frames"],
+        base,
+        candidates_with_features(sc, topk=4),
+    )
+    if not report["fired"]:
+        print(f"  {sc['sid']}: package refused unexpectedly — no figure written")
+        return
+
+    dg = M.ref_ssim(output, sc["gt"]) - M.ref_ssim(base, sc["gt"])
+    base_error = np.abs(
+        base.astype(np.float32) - sc["gt"].astype(np.float32)
+    ).mean()
+    output_error = np.abs(
+        output.astype(np.float32) - sc["gt"].astype(np.float32)
+    ).mean()
+    ft0, _ = false_texture_error(
+        base,
+        sc["gt"],
+        sc["alpha"],
+        sc["max_r"],
+    )
+    ft, _ = false_texture_error(
+        output,
+        sc["gt"],
+        sc["alpha"],
+        sc["max_r"],
+    )
+    heat = _disagreement(base, output)
+    (cy, cx), = _top_regions(heat, 1, 130)
+    cells = crop_at(
+        [base, output, sc["gt"]],
+        (cy, cx),
+        130,
+        2.5,
+    )
+    amplified = _amplify_diff(cells[1], cells[0], gain=5.0)
+    print(
+        f"  {sc['sid']}: rank={report['candidate_rank']} "
+        f"forward_ratio={report['forward_ratio']:.3f}, "
+        f"GT-SSIM delta={dg:+.5f}, MAE={base_error:.3f}->{output_error:.3f}, "
+        f"false-texture={ft0:.3f}->{ft:.3f}; crop ({cy},{cx})"
+    )
+    save(
+        "spec_joint.jpg",
+        hstack(*cells, amplified),
+        max_w=2160,
+        q=88,
+    )
+
+
 def fig_fence():
-    """Real-data fire: fence stack through the shipped enhance path.
+    """Former real-data subtraction fire retained as an audit artifact.
 
     The enhanced output is cached (the semantic bridge takes minutes) so the
-    figure composition can iterate cheaply; delete the cache to force a re-run.
+    historical figure composition can iterate cheaply.  Do not delete the
+    cache: current ``enhance`` runs the replacement model, not this old branch.
     """
     from focusstack.enhance import enhance
     a = cv2.imread(os.path.join(HERE, "data", "standard", "c_05_1.tif"))
@@ -205,6 +268,8 @@ if __name__ == "__main__":
         fig_recon()
     if which in ("veil", "all"):
         fig_veil()
+    if which in ("joint", "all"):
+        fig_joint()
     if which in ("fence", "all"):
         fig_fence()
     print("done")

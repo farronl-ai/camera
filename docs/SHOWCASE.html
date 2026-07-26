@@ -598,12 +598,14 @@
   <p>The generalist engine above is what every stack gets. On top of it sit
   <strong>specialists</strong>: narrow mechanisms that fix physics the generalist provably
   cannot — a lens mixes both sides of a depth boundary into the captured pixels, so no
-  weighting scheme can unmix a contour, and none can subtract a wide occluder's veil.
-  One is live: <strong>contour reconstruction</strong> (thin occluders — wires, stems, hairs:
+  weighting scheme can unmix a contour, and none can recover a wide occluder's latent
+  background. Two narrow mechanisms are live: <strong>contour reconstruction</strong>
+  (thin occluders — wires, stems, hairs:
   re-renders the contaminated boundary band from a pixel-precise difference matte, purely
-  classical). <strong>Veil correction is safety-disabled</strong>: realistic-object tests
-  showed structure extension and double-restoration even with oracle matte and radius,
-  so <code>--enhance auto</code> no longer calls its semantic bridge.</p>
+  classical) and <strong>joint-layer giant-veil recovery</strong> (exactly two frames,
+  max side 1600). The latter solves both captured formation equations, physically
+  reranks semantic candidates, retains only regularizer/PSF-consistent components,
+  and vetoes edits where focus evidence assigns ownership to foreground.</p>
 
   <figure>
     <a class="imglink" href="img/spec_recon.jpg" target="_blank" rel="noopener">
@@ -633,15 +635,29 @@
     multiplicative recovery, and ground truth (left to right) on a realistic object
     scene. Both recovery inputs use oracle matte and radius, yet global SSIM falls
     0.9566 → 0.9372. This counterexample overturned the earlier simple-blob result
-    and safety-disabled the branch.</figcaption>
+    and permanently retired that correction-after-fusion operator.</figcaption>
   </figure>
 
-  <p>The live contour specialist sits behind an <strong>outcome-trained gate</strong>:
+  <figure>
+    <a class="imglink" href="img/spec_joint.jpg" target="_blank" rel="noopener">
+      <img src="img/spec_joint.jpg" alt="Owner-safe joint-layer recovery: base, recovered physical scene, ground truth, amplified edit">
+    </a>
+    <figcaption>The replacement on a fresh holdout fire, 2.5× zoom. Left to right:
+    base <code>perband</code>, owner-safe joint-layer recovery, physical ground truth,
+    and the signed edit amplified 5×. The horizontal veil at the black boundary is
+    attenuated toward the clean GT edge; the recovery does not fully reach GT. The
+    amplified panel localizes the edit, not its severity. MAE improves 10.087 → 9.918
+    and GT-SSIM +0.00093; the +0.013-gray false-texture-index contour tail is disclosed.</figcaption>
+  </figure>
+
+  <p>The contour specialist sits behind an <strong>outcome-trained gate</strong>:
   candidates are scored on factory scenes with exact ground truth. F54 also exposed the
-  limit of that recipe: a gate inherits its factory and labels' blind spots. The retired
-  veil gate fired only four times among 366 candidates/100 scenes at native resolution;
-  one fire lost globally, one lost in the true fringe, and two added smooth-region false
-  texture. Its former real-photograph fire is retained below as an audit artifact:</p>
+  limit of that recipe: a gate inherits its factory and labels' blind spots. F56's
+  replacement adds observation-domain reranking, cross-model consensus, and an
+  independent focus-ownership veto. Exact-package audits are 7/7 positive in
+  development and 3/3 across two scene-disjoint holdouts on SSIM, MAE, MSE/PSNR,
+  and fringe L1; all 66 moderate-CoC scenes refuse. The former real-photograph
+  subtraction fire is retained below as an audit artifact:</p>
 
   <figure>
     <a class="imglink" href="img/spec_fence.jpg" target="_blank" rel="noopener">
@@ -653,11 +669,11 @@
     small to see” is not evidence of correctness, and the path is now disabled.</figcaption>
   </figure>
 
-  <p>The design rule this arc proved: <em>a specialist must be paired with its regime and
-  matte class; its operator must first have a positive realistic oracle ceiling; and its
-  gate must be trained on every regime it will meet — including the ones where the correct
-  answer is "never fire."</em> <code>--enhance auto</code> now contains the contour
-  specialist only and is byte-identical whenever that gate stays silent.</p>
+  <p>The design rule this arc proved: <em>a specialist must be paired with its regime
+  and matte class; its operator must first have a positive realistic oracle ceiling;
+  forward fit needs independent ownership evidence inside blur's null space; and every
+  unvalidated regime must refuse.</em> If both specialists stay silent,
+  <code>--enhance auto</code> is byte-identical to the base engine.</p>
 </section>
 
 <!-- ================= evidence ================= -->
@@ -703,6 +719,11 @@
           <td>−0.025 SSIM broken → <span class="win">−0.002</span> with default-on fix</td>
           <td>clipped highlights slightly weaken the mean invariant</td>
         </tr>
+        <tr>
+          <td>Joint giant-veil recovery (exact package)</td>
+          <td><span class="win">10/10 fired scenes improve</span> SSIM + direct physical errors</td>
+          <td>synthetic object factory; fixed 3.5% CoC, two frames, ≤1600 px; low recall by design</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -741,9 +762,9 @@
     <div class="card"><b>Real photographic deep stacks</b> real handheld sweeps are now in
     (13 phone sweeps — they exposed misalignment robustness as a new regime axis); the
     iPhone-12 ground-truth dataset is the pending promotion gate.</div>
-    <div class="card"><b>Joint two-layer inversion</b> replace correction-after-fusion with
-    a solver that explains every focal frame as foreground + background. Realistic-object
-    oracle and false-texture worst cases come before blind inputs.</div>
+    <div class="card"><b>Generalize joint-layer recovery without weakening refusal</b>
+    N&gt;2 equations, bounded non-giant CoC banks, multiple occluders, and tiled
+    &gt;1600 px solving each need their own factory + holdout.</div>
     <div class="card"><b>Contour-gate recall</b> grow useful fires only after the operator's
     oracle ceiling and expanded safety labels hold.</div>
     <div class="card"><b>Deep-stack alignment</b> chained/feature-initialized registration and
@@ -764,11 +785,14 @@
     <div class="card"><b>A synthesis-aware no-reference metric</b> today's no-reference metrics
     score any deviation from the sources as damage, so they cannot audit corrections that
     improve on every source; one that can would unlock runtime self-auditing.</div>
+    <div class="card"><b>Real optical truth for recovery</b> controlled macro/product
+    captures where removing the occluder reveals the latent scene; ordinary real stacks
+    can audit refusal but cannot certify synthesized texture.</div>
     <div class="card"><b>Temporal focus stacking</b> fusing focus sweeps from video with
     temporal coherence.</div>
   </div>
 
-  <p>The deeper record: <a href="../research/FINDINGS.md"><code>research/FINDINGS.md</code></a> (54 dated
+  <p>The deeper record: <a href="../research/FINDINGS.md"><code>research/FINDINGS.md</code></a> (56 dated
   findings + a living synthesis), <a href="../research/PLAYBOOK.md"><code>research/PLAYBOOK.md</code></a>
   (domain knowledge and every trap we hit), and
   <a href="../research/DEVSTYLE.md"><code>research/DEVSTYLE.md</code></a> (the working method that produced

@@ -3782,7 +3782,30 @@ def recover_giant_veil(
                 0.75 * spatial_scale,
                 borderType=cv2.BORDER_REFLECT,
             )
-            absolute_strength = seam_strength * (0.04 / 0.12)
+            signed_edge_distance = np.where(
+                veil_support,
+                -edge_distance,
+                edge_distance,
+            )
+            absolute_offset = 1.5 * spatial_scale
+            absolute_width = np.where(
+                signed_edge_distance < absolute_offset,
+                3.0 * spatial_scale,
+                4.0 * spatial_scale,
+            )
+            absolute_phase = np.clip(
+                np.abs(signed_edge_distance - absolute_offset)
+                / np.maximum(absolute_width, 1e-6),
+                0.0,
+                1.0,
+            )
+            absolute_strength = 0.04 * (
+                1.0
+                - absolute_phase
+                * absolute_phase
+                * (3.0 - 2.0 * absolute_phase)
+            )
+            absolute_strength[front_extent] = 0.0
             composed = (
                 composed * (1.0 - absolute_strength[..., None])
                 + absolute_blend * absolute_strength[..., None]

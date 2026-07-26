@@ -21,6 +21,7 @@ import cv2
 import numpy as np
 
 from .focus import content_aware_energies
+from .fusion import guided_filter
 from .io import to_gray_float
 from .reconstruct import _disk_blur
 
@@ -35,6 +36,14 @@ FOCUS_POSITIONS = (0.15, 0.85)
 NEAR_DEPTH = 0.15
 FAR_DEPTH = 0.85
 SOLVER_CONFIGS = ((2.0, 0.02), (8.0, 0.05), (32.0, 0.10))
+# An owner-frame semantic fragment is admitted as missing foreground support
+# only when adding it to the layer model reduces 512px observation error by
+# this absolute amount.  P11 calibrated the margin above every harmful
+# component in development; the unchanged rule is validated on a fresh factory
+# extension before package promotion.
+SUPPORT_FORWARD_MARGIN = 0.01
+SUPPORT_MAX_AREA_FRACTION = 0.02
+SUPPORT_MAX_OVERLAP_FRACTION = 0.20
 
 BlurFunction = Callable[[np.ndarray, float], np.ndarray]
 
@@ -473,6 +482,154 @@ def select_licensed_candidate(
     return selected, report
 
 
+def complete_owner_support(
+    images: list[np.ndarray],
+    selected: dict,
+    owner_masks: np.ndarray | None,
+) -> tuple[np.ndarray, dict]:
+    """Find physically licensed owner-only semantic fragments.
+
+    The ordinary semantic bridge sees the already-fused image.  If fusion has
+    mixed a small foreground appendage with sharp revealed background, that
+    appendage may no longer be segmentable there.  The foreground-owner frame
+    still observes it sharply.  We therefore inspect that frame's semantic
+    masks for small nearby *satellites* that are not already part of the
+    selected matte.
+
+    A satellite is not trusted on appearance alone.  It is added to the
+    two-layer alpha at model resolution and must independently reduce the
+    captured-frame forward residual by ``SUPPORT_FORWARD_MARGIN``.  Accepted
+    masks are used only to hard-select the observed owner and to veto
+    background recovery; they never generate texture.
+    """
+    shape = images[0].shape[:2]
+    empty = np.zeros(shape, bool)
+    report = {
+        "owner_support_candidate_count": 0,
+        "owner_support_accepted_count": 0,
+        "owner_support_pixels": 0,
+        "owner_support_reason": "owner_masks_unavailable",
+    }
+    if owner_masks is None:
+        return empty, report
+    masks = np.asarray(owner_masks)
+    if masks.ndim != 3 or masks.shape[1:] != shape:
+        report["owner_support_reason"] = "owner_masks_invalid"
+        return empty, report
+
+    alpha = np.clip(np.asarray(selected["alpha"], np.float32), 0.0, 1.0)
+    seed = alpha >= 0.5
+    if not np.any(seed):
+        report["owner_support_reason"] = "owner_seed_empty"
+        return empty, report
+
+    max_radius = RADIUS_FRACTION * max(shape)
+    near_radius = max(3, int(round(1.5 * max_radius)))
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE,
+        (2 * near_radius + 1, 2 * near_radius + 1),
+    )
+    nearby = cv2.dilate(seed.astype(np.uint8), kernel) > 0
+    min_area = max(
+        8,
+        int(round(20.0 * (max(shape) / 1536.0) ** 2)),
+    )
+    max_area = SUPPORT_MAX_AREA_FRACTION * seed.size
+    owner = int(selected["owner"])
+    guide = to_gray_float(images[owner]) / 255.0
+    base_after = float(selected["forward_after"])
+    trials = []
+
+    for mask_index, raw_mask in enumerate(masks):
+        mask = np.asarray(raw_mask) > 0
+        area = int(mask.sum())
+        if area < min_area or area > max_area:
+            continue
+        overlap = int((mask & seed).sum())
+        if overlap / max(area, 1) >= SUPPORT_MAX_OVERLAP_FRACTION:
+            continue
+        # The fragment must belong to the selected object's immediate optical
+        # neighborhood, not merely share its colors elsewhere in the frame.
+        if float((mask & nearby).sum()) / area < 0.90:
+            continue
+
+        report["owner_support_candidate_count"] += 1
+        mask_alpha = np.clip(
+            guided_filter(
+                guide.astype(np.float32),
+                mask.astype(np.float32),
+                2,
+                1e-4,
+            ),
+            0.0,
+            1.0,
+        )
+        augmented = np.maximum(alpha, mask_alpha)
+        evidence = _candidate_evidence(
+            images,
+            {**selected, "alpha": augmented},
+        )
+        if evidence is None:
+            continue
+        improvement = base_after - float(evidence["forward_after"])
+        if improvement > SUPPORT_FORWARD_MARGIN:
+            trials.append(
+                {
+                    "index": int(mask_index),
+                    "mask": mask,
+                    "alpha": mask_alpha,
+                    "forward_after": float(evidence["forward_after"]),
+                    "improvement": float(improvement),
+                }
+            )
+
+    if not trials:
+        report["owner_support_reason"] = "no_forward_licensed_fragment"
+        return empty, report
+
+    combined_alpha = alpha.copy()
+    combined_mask = empty.copy()
+    for trial in trials:
+        combined_alpha = np.maximum(combined_alpha, trial["alpha"])
+        combined_mask |= trial["mask"]
+    combined_evidence = _candidate_evidence(
+        images,
+        {**selected, "alpha": combined_alpha},
+    )
+    combined_improvement = (
+        base_after - float(combined_evidence["forward_after"])
+        if combined_evidence is not None
+        else -np.inf
+    )
+    if combined_improvement <= SUPPORT_FORWARD_MARGIN:
+        # Individually useful fragments can overlap or compete in the joint
+        # model.  Retain only the strongest independently licensed fragment.
+        best = max(trials, key=lambda row: row["improvement"])
+        trials = [best]
+        combined_mask = best["mask"].copy()
+        combined_improvement = best["improvement"]
+        combined_after = best["forward_after"]
+    else:
+        combined_after = float(combined_evidence["forward_after"])
+
+    support = combined_mask & ~seed
+    report.update(
+        {
+            "owner_support_accepted_count": len(trials),
+            "owner_support_pixels": int(support.sum()),
+            "owner_support_reason": "forward_licensed_owner_fragments",
+            "owner_support_mask_indices": [
+                int(trial["index"])
+                for trial in trials
+            ],
+            "owner_support_forward_before": base_after,
+            "owner_support_forward_after": combined_after,
+            "owner_support_forward_improvement": float(combined_improvement),
+        }
+    )
+    return support, report
+
+
 def _fringe_mask(
     alpha: np.ndarray,
     max_radius: float,
@@ -544,6 +701,8 @@ def recover_giant_veil(
     images: list[np.ndarray],
     base: np.ndarray,
     candidates: list[dict],
+    *,
+    owner_masks_by_frame: list[np.ndarray] | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Recover one licensed giant veil or return ``base`` byte-for-byte."""
     report = {
@@ -572,6 +731,18 @@ def recover_giant_veil(
 
     owner = int(selected["owner"])
     alpha = np.clip(selected["alpha"].astype(np.float32), 0.0, 1.0)
+    owner_masks = (
+        owner_masks_by_frame[owner]
+        if owner_masks_by_frame is not None
+        and len(owner_masks_by_frame) == len(images)
+        else None
+    )
+    owner_support, owner_support_report = complete_owner_support(
+        images,
+        selected,
+        owner_masks,
+    )
+    report.update(owner_support_report)
     ordered = [images[owner], images[1 - owner]]
     spatial_scale = max(base.shape[:2]) / MODEL_SIDE
     max_radius = RADIUS_FRACTION * max(base.shape[:2])
@@ -612,11 +783,28 @@ def recover_giant_veil(
         _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
         * ownership
     )
+    mask[owner_support] = 0.0
     if not np.any(mask > 1e-4):
-        report["reason"] = "empty_fringe"
-        return base, report
+        if not np.any(owner_support):
+            report["reason"] = "empty_fringe"
+            return base, report
+        output = base.copy()
+        output[owner_support] = images[owner][owner_support]
+        report.update(
+            {
+                "fired": True,
+                "reason": "licensed_owner_support_only",
+                "owner": owner,
+                "changed_pixels": int(
+                    np.any(output != base, axis=2).sum()
+                ),
+            }
+        )
+        return output, report
+    repaired_base = base.copy()
+    repaired_base[owner_support] = images[owner][owner_support]
     output = np.clip(
-        base.astype(np.float32) + correction * mask[..., None],
+        repaired_base.astype(np.float32) + correction * mask[..., None],
         0,
         255,
     ).astype(np.uint8)

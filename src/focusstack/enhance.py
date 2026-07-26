@@ -17,7 +17,7 @@ import tempfile
 import cv2
 import numpy as np
 
-from .bridge import run_bridge
+from .bridge import run_bridge, run_bridge_many
 from .focus import content_aware_energies
 from .fusion import guided_filter
 from .gates import RECON_GATE, predict_gain
@@ -145,17 +145,41 @@ def enhance(images, fused_pass1, radius=None, harden=0.5,
         with tempfile.TemporaryDirectory() as td:
             p1 = os.path.join(td, "pass1.png")
             cv2.imwrite(p1, fused_pass1)
+            frame_paths = []
+            for index, image in enumerate(images):
+                path = os.path.join(td, f"frame_{index}.png")
+                cv2.imwrite(path, image)
+                frame_paths.append(path)
             dp = run_bridge("depth", p1, python=bridge_python)
-            mp = run_bridge("masks", p1, python=bridge_python)
+            mask_paths = run_bridge_many(
+                "masks",
+                [p1, *frame_paths],
+                python=bridge_python,
+            )
+            if mask_paths:
+                mp = mask_paths[0]
+                owner_mask_paths = mask_paths[1:]
+            else:
+                # Older/custom bridge shims may only expose the single-image
+                # surface.  Preserve the prior recovery path, but omit the new
+                # owner-silhouette repair when owner-frame masks are unavailable.
+                mp = run_bridge("masks", p1, python=bridge_python)
+                owner_mask_paths = None
             if dp and mp:
                 try:
                     masks, depth = np.load(mp), np.load(dp)
+                    owner_masks = (
+                        [np.load(path) for path in owner_mask_paths]
+                        if owner_mask_paths is not None
+                        else None
+                    )
                     candidates = _mask_candidates(images, masks, depth)
                     report["bridge"] = True
                     recovered, veil_report = recover_giant_veil(
                         images,
                         fused_pass1,
                         candidates,
+                        owner_masks_by_frame=owner_masks,
                     )
                 except (ValueError, OSError, cv2.error) as error:
                     report["veil_reason"] = (

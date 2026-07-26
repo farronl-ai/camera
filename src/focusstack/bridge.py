@@ -40,6 +40,30 @@ def run_bridge(kind: str, image_path: str, python: str | None = None,
     Returns the produced .npy path, or None on any failure (no environment,
     crash, timeout) — never raises.
     """
+    outputs = run_bridge_many(
+        kind,
+        [image_path],
+        python=python,
+        timeout=timeout,
+    )
+    return outputs[0] if outputs else None
+
+
+def run_bridge_many(
+    kind: str,
+    image_paths: list[str],
+    python: str | None = None,
+    timeout: int = 900,
+) -> list[str] | None:
+    """Run one bridge process over several images, or return ``None``.
+
+    Torch/model import dominates the semantic-mask bridge startup.  Loading the
+    model once also lets enhancement inspect the mixed base and both captured
+    frames without tripling that cost.  The result is all-or-nothing so callers
+    never silently pair outputs from different bridge runs.
+    """
+    if not image_paths:
+        return []
     py = find_bridge_python(python)
     if py is None:
         return None
@@ -47,9 +71,14 @@ def run_bridge(kind: str, image_path: str, python: str | None = None,
     if not script.exists():
         return None
     try:
-        subprocess.run([py, str(script), str(image_path)], check=True,
-                       timeout=timeout, capture_output=True)
+        subprocess.run(
+            [py, str(script), *(str(path) for path in image_paths)],
+            check=True,
+            timeout=timeout,
+            capture_output=True,
+        )
     except Exception:
         return None
-    out = f"{image_path}.{ 'depth' if kind == 'depth' else 'masks'}.npy"
-    return out if os.path.exists(out) else None
+    suffix = "depth" if kind == "depth" else "masks"
+    outputs = [f"{path}.{suffix}.npy" for path in image_paths]
+    return outputs if all(os.path.exists(path) for path in outputs) else None

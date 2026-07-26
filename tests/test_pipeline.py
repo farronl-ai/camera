@@ -86,6 +86,7 @@ def test_enhance_auto_refuses_cleanly_when_veil_bridge_is_absent(monkeypatch):
         return None
 
     monkeypatch.setattr(enhance_module, "run_bridge", absent_bridge)
+    monkeypatch.setattr(enhance_module, "run_bridge_many", absent_bridge)
     rng = np.random.default_rng(14)
     image = rng.integers(0, 255, (96, 96, 3), dtype=np.uint8)
     stack = [image, cv2.GaussianBlur(image, (9, 9), 3)]
@@ -105,6 +106,7 @@ def test_enhance_auto_does_not_bridge_an_unlicensed_frame_count(monkeypatch):
         raise AssertionError("three-frame veil refusal launched the bridge")
 
     monkeypatch.setattr(enhance_module, "run_bridge", unexpected_bridge)
+    monkeypatch.setattr(enhance_module, "run_bridge_many", unexpected_bridge)
     rng = np.random.default_rng(15)
     image = rng.integers(0, 255, (96, 96, 3), dtype=np.uint8)
     stack = [
@@ -125,11 +127,24 @@ def test_enhance_auto_wires_licensed_joint_layer_recovery(tmp_path, monkeypatch)
 
     masks_path = tmp_path / "masks.npy"
     depth_path = tmp_path / "depth.npy"
+    owner_0_path = tmp_path / "owner_0.npy"
+    owner_1_path = tmp_path / "owner_1.npy"
     np.save(masks_path, np.zeros((1, 96, 96), np.uint8))
     np.save(depth_path, np.zeros((96, 96), np.float32))
+    np.save(owner_0_path, np.zeros((2, 96, 96), np.uint8))
+    np.save(owner_1_path, np.zeros((3, 96, 96), np.uint8))
 
     def bridge(kind, *_args, **_kwargs):
         return str(depth_path if kind == "depth" else masks_path)
+
+    def bridge_many(kind, paths, *_args, **_kwargs):
+        assert kind == "masks"
+        assert len(paths) == 3
+        return [
+            str(masks_path),
+            str(owner_0_path),
+            str(owner_1_path),
+        ]
 
     candidate = {
         "feats": np.ones(7, np.float32),
@@ -137,8 +152,9 @@ def test_enhance_auto_wires_licensed_joint_layer_recovery(tmp_path, monkeypatch)
         "owner": 0,
     }
 
-    def recover(_images, base, candidates):
+    def recover(_images, base, candidates, *, owner_masks_by_frame):
         assert candidates == [candidate]
+        assert [len(masks) for masks in owner_masks_by_frame] == [2, 3]
         return np.clip(base.astype(np.int16) + 1, 0, 255).astype(np.uint8), {
             "fired": True,
             "reason": "licensed_consensus",
@@ -148,6 +164,7 @@ def test_enhance_auto_wires_licensed_joint_layer_recovery(tmp_path, monkeypatch)
         }
 
     monkeypatch.setattr(enhance_module, "run_bridge", bridge)
+    monkeypatch.setattr(enhance_module, "run_bridge_many", bridge_many)
     monkeypatch.setattr(
         enhance_module,
         "_mask_candidates",
@@ -210,11 +227,17 @@ def test_gates_predict_gain_shapes():
 
 
 def test_bridge_runner_graceful_absence():
-    from focusstack.bridge import find_bridge_python, run_bridge
+    from focusstack.bridge import find_bridge_python, run_bridge, run_bridge_many
 
     # explicit-but-missing python resolves to None, and run degrades to None
     assert find_bridge_python("/nonexistent/python") is None
     assert run_bridge("depth", "/nonexistent/img.png", python="/nonexistent/python") is None
+    assert run_bridge_many(
+        "masks",
+        ["/nonexistent/a.png", "/nonexistent/b.png"],
+        python="/nonexistent/python",
+    ) is None
+    assert run_bridge_many("masks", [], python="/nonexistent/python") == []
     # unknown bridge kind is also a graceful None (never raises)
     assert run_bridge("nope", "/nonexistent/img.png", python="/nonexistent/python") is None
 

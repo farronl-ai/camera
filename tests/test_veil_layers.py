@@ -9,13 +9,14 @@ from focusstack.veil_layers import (
     _ownership_gate,
     _prepare_model,
     candidate_is_licensed,
+    complete_owner_support,
     recover_giant_veil,
     select_licensed_candidate,
     stable_correction,
 )
 
 
-def _physical_giant_stack(size=192):
+def _physical_giant_stack(size=192, *, missing_satellite=False):
     yy, xx = np.mgrid[:size, :size]
     background = np.stack(
         [
@@ -25,10 +26,18 @@ def _physical_giant_stack(size=192):
         ],
         axis=2,
     ).astype(np.float32)
-    alpha = (
+    alpha_main = (
         (xx - size / 2) ** 2 + (yy - size / 2) ** 2
         < (size * 0.22) ** 2
     ).astype(np.float32)
+    alpha = alpha_main.copy()
+    satellite = np.zeros_like(alpha)
+    if missing_satellite:
+        satellite[
+            size // 2 - 5 : size // 2 + 5,
+            size // 2 + 43 : size // 2 + 51,
+        ] = 1.0
+        alpha = np.maximum(alpha, satellite)
     foreground = np.empty_like(background)
     foreground[:] = (210.0, 60.0, 30.0)
     model = _prepare_model(
@@ -53,10 +62,10 @@ def _physical_giant_stack(size=192):
             (0.8, 0.95, 0.8, 0.96, 0.2, 0.1, 0.95),
             np.float32,
         ),
-        "alpha": alpha,
+        "alpha": alpha_main if missing_satellite else alpha,
         "owner": 0,
     }
-    return frames, gt, candidate
+    return frames, gt, candidate, satellite
 
 
 def test_candidate_license_uses_semantics_and_forward_evidence():
@@ -121,7 +130,7 @@ def test_ownership_gate_vetoes_observed_foreground_evidence():
 
 
 def test_physical_reranking_and_joint_recovery_improve_scene_error():
-    frames, gt, candidate = _physical_giant_stack()
+    frames, gt, candidate, _ = _physical_giant_stack()
     selected, evidence = select_licensed_candidate(frames, [candidate])
 
     assert selected is not None
@@ -140,7 +149,7 @@ def test_physical_reranking_and_joint_recovery_improve_scene_error():
 
 
 def test_joint_recovery_refusal_is_byte_identical():
-    frames, _, candidate = _physical_giant_stack(96)
+    frames, _, candidate, _ = _physical_giant_stack(96)
     base = fuse_perband(frames, harden=0.5)
     weak = dict(candidate)
     weak["feats"] = np.zeros(7, np.float32)
@@ -153,3 +162,44 @@ def test_joint_recovery_refusal_is_byte_identical():
     output, report = recover_giant_veil(frames + [frames[0]], base, [candidate])
     assert report["reason"] == "requires_two_frames"
     assert np.array_equal(output, base)
+
+
+def test_owner_frame_satellite_repairs_missing_foreground_support():
+    frames, gt, candidate, satellite = _physical_giant_stack(
+        missing_satellite=True
+    )
+    selected, evidence = select_licensed_candidate(frames, [candidate])
+    assert selected is not None, evidence
+
+    owner_masks = np.stack([satellite.astype(np.uint8)], axis=0)
+    support, support_evidence = complete_owner_support(
+        frames,
+        selected,
+        owner_masks,
+    )
+
+    assert support_evidence["owner_support_accepted_count"] == 1
+    assert support_evidence["owner_support_forward_improvement"] > 0.01
+    assert np.mean(support[satellite > 0]) > 0.95
+
+    base = fuse_perband(frames, harden=0.5)
+    output, report = recover_giant_veil(
+        frames,
+        base,
+        [candidate],
+        owner_masks_by_frame=[
+            owner_masks,
+            np.zeros((0, *satellite.shape), np.uint8),
+        ],
+    )
+    satellite_pixels = satellite > 0
+
+    assert report["owner_support_pixels"] > 0
+    assert np.array_equal(
+        output[satellite_pixels],
+        frames[0][satellite_pixels],
+    )
+    assert (
+        np.abs(output.astype(np.float32) - gt)[satellite_pixels].mean()
+        < np.abs(base.astype(np.float32) - gt)[satellite_pixels].mean()
+    )

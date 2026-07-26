@@ -29,6 +29,10 @@ Run:
     ../.venv/bin/python veillayers.py p8
     ../.venv/bin/python veillayers.py p9
     ../.venv/bin/python veillayers.py p10
+    ../.venv/bin/python veillayers.py p11
+    ../.venv/bin/python veillayers.py p11hbank
+    ../.venv/bin/python veillayers.py p11h
+    ../.venv/bin/python veillayers.py p12
 """
 from __future__ import annotations
 
@@ -1004,6 +1008,8 @@ def cmd_p8() -> None:
 def run_package_audit(
     bank_filename: str,
     output_filename: str,
+    *,
+    owner_support: bool = False,
 ) -> None:
     """Audit the exact package entry point on every bank-licensed scene."""
     bank = json.load(open(os.path.join(HERE, bank_filename)))
@@ -1024,10 +1030,22 @@ def run_package_audit(
             continue
         base = fuse_perband(sc["frames"], harden=0.5)
         started = time.perf_counter()
+        owner_masks = None
+        if owner_support:
+            owner_masks = [
+                np.load(
+                    os.path.join(
+                        sc["dir"],
+                        f"frame_{frame_index}.png.masks.npy",
+                    )
+                )
+                for frame_index in range(len(sc["frames"]))
+            ]
         output, report = recover_giant_veil(
             sc["frames"],
             base,
             candidates_with_features(sc, topk=4),
+            owner_masks_by_frame=owner_masks,
         )
         outcome = score(output, base, sc)
         row = {
@@ -1059,7 +1077,11 @@ def run_package_audit(
     )
     payload = {
         "source_bank": bank_filename,
-        "package_model": "joint_two_layer_giant_owner_safe",
+        "package_model": (
+            "joint_two_layer_giant_owner_support"
+            if owner_support
+            else "joint_two_layer_giant_owner_safe"
+        ),
         "bank_scenes": len(bank["scenes"]),
         "licensed_scenes": len(licensed_indices),
         "rows": rows,
@@ -1096,6 +1118,56 @@ def cmd_p9() -> None:
     )
 
 
+def cmd_p11() -> None:
+    """Exact package audit with owner-frame satellite support completion."""
+    run_package_audit(
+        "veillayers_p6_fixed_giant_dev.json",
+        "veillayers_p11_owner_support_dev.json",
+        owner_support=True,
+    )
+    run_package_audit(
+        "veillayers_p6_fixed_giant_holdout.json",
+        "veillayers_p11_owner_support_holdout.json",
+        owner_support=True,
+    )
+    run_package_audit(
+        "veillayers_p9_second_holdout_bank.json",
+        "veillayers_p11_owner_support_second_holdout.json",
+        owner_support=True,
+    )
+    print(
+        "DOCTRINE: foreground fragments are taken only from the observed sharp "
+        "owner frame and must improve the captured-frame forward model before "
+        "they may override a mixed fusion or veto background recovery.",
+        flush=True,
+    )
+
+
+def cmd_p11hbank() -> None:
+    """Frozen candidate bank for the post-P11 factory extension."""
+    run_candidate_bank(
+        150,
+        "veillayers_p11_fresh_holdout_bank.json",
+        radius_fraction=0.035,
+        end_index=175,
+    )
+
+
+def cmd_p11h() -> None:
+    """Frozen owner-support rule on the post-P11 factory extension."""
+    run_package_audit(
+        "veillayers_p11_fresh_holdout_bank.json",
+        "veillayers_p11_owner_support_fresh_holdout.json",
+        owner_support=True,
+    )
+    print(
+        "DOCTRINE: this scene-disjoint extension was generated only after the "
+        "owner-support margin was frozen; its result may validate or reject "
+        "that rule, but may not tune it.",
+        flush=True,
+    )
+
+
 def run_composed_package_audit(
     bank_filename: str,
     output_filename: str,
@@ -1115,6 +1187,7 @@ def run_composed_package_audit(
 
     rows = []
     original_bridge = package_enhance.run_bridge
+    original_bridge_many = package_enhance.run_bridge_many
     try:
         for index, sc in enumerate(scenes()):
             if index not in licensed_indices:
@@ -1127,7 +1200,18 @@ def run_composed_package_audit(
                 path = pass1 + suffix
                 return path if os.path.exists(path) else None
 
+            def cached_bridge_many(kind, image_paths, *_args, **_kwargs):
+                if kind != "masks" or len(image_paths) != 3:
+                    return None
+                paths = [
+                    pass1 + ".masks.npy",
+                    os.path.join(sc["dir"], "frame_0.png.masks.npy"),
+                    os.path.join(sc["dir"], "frame_1.png.masks.npy"),
+                ]
+                return paths if all(os.path.exists(path) for path in paths) else None
+
             package_enhance.run_bridge = cached_bridge
+            package_enhance.run_bridge_many = cached_bridge_many
             started = time.perf_counter()
             output, report = package_enhance.enhance(sc["frames"], base)
             outcome = score(output, base, sc)
@@ -1150,6 +1234,7 @@ def run_composed_package_audit(
             )
     finally:
         package_enhance.run_bridge = original_bridge
+        package_enhance.run_bridge_many = original_bridge_many
 
     keys = (
         "dg",
@@ -1195,6 +1280,26 @@ def cmd_p10() -> None:
     )
 
 
+def cmd_p12() -> None:
+    """Composed package audit after owner-support integration."""
+    for bank, label in (
+        ("veillayers_p6_fixed_giant_dev.json", "dev"),
+        ("veillayers_p6_fixed_giant_holdout.json", "holdout"),
+        ("veillayers_p9_second_holdout_bank.json", "second_holdout"),
+        ("veillayers_p11_fresh_holdout_bank.json", "fresh_holdout"),
+    ):
+        run_composed_package_audit(
+            bank,
+            f"veillayers_p12_composed_owner_support_{label}.json",
+        )
+    print(
+        "DOCTRINE: missing foreground support is admitted only from observed "
+        "owner-frame evidence; the composed entry point must retain its "
+        "physical license, tail safety, and exact refusal behavior.",
+        flush=True,
+    )
+
+
 def main() -> None:
     commands = {
         "p0": cmd_p0,
@@ -1210,10 +1315,16 @@ def main() -> None:
         "p8": cmd_p8,
         "p9": cmd_p9,
         "p10": cmd_p10,
+        "p11": cmd_p11,
+        "p11hbank": cmd_p11hbank,
+        "p11h": cmd_p11h,
+        "p12": cmd_p12,
     }
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
         raise SystemExit(
-            "usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7|p8|p9|p10}"
+            "usage: veillayers.py "
+            "{p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7|p8|p9|p10|p11|"
+            "p11hbank|p11h|p12}"
         )
     commands[sys.argv[1]]()
 

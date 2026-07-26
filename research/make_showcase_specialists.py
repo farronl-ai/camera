@@ -417,73 +417,67 @@ def _inspection_ledger():
 
 
 def _v2_visibility_cases():
-    """Build current front-first cases with all optical partitions exposed."""
-    from objocc_v2_eval import _score
+    """Build post-rule S29 cases with all physical partitions exposed."""
+    from objocc_v2_eval import _score, candidates_with_features
     from objocc_v2_gen import scenes
-    from t2_candidates import candidates_with_features
     from focusstack.veil_layers import (
         MODEL_SIDE,
         RADIUS_FRACTION,
-        _fringe_mask,
-        _owner_front_reconstruction_support,
         _owner_geometry_consensus,
-        _ordered_visibility_gate,
-        complete_owner_support,
+        _one_sided_rear_application_mask,
         recover_giant_veil,
-        refine_owner_candidate,
-        select_licensed_candidate,
+        select_one_sided_owner_geometry,
     )
 
     selections = (
         (
-            "s23",
-            "s23_006",
-            "current primary opaque · broad front reconstruction",
-            "A current-formation primary opaque case with 81% complete aperture "
-            "coverage and a large consensus-qualified focused-front repair.",
+            "s29",
+            "s29_000",
+            "post-rule primary · tiny connected foreground restored",
+            "The fresh case that reproduced the user's small dark-piece failure. "
+            "A strict native graph continuation now hard-selects the focused owner.",
         ),
         (
-            "s23",
-            "s23_007",
-            "current primary opaque · causal consensus case",
-            "The current-formation case that exposed a locally false foreground "
-            "extension. F64 local proposal consensus restores exact far-background identity.",
+            "s29",
+            "s29_002",
+            "post-rule boundary · hardest silhouette",
+            "The lowest-IoU licensed S29 geometry. It exposes boundary misses while "
+            "still keeping rear application out of every protected GT partition.",
         ),
         (
-            "s23",
-            "s23_030",
-            "current primary opaque · single-proposal path",
-            "A substantial-core case with one associated owner proposal; the "
-            "independently forward-licensed path is preserved rather than treating "
-            "missing duplicate segmentations as counter-evidence.",
+            "s29",
+            "s29_005",
+            "post-rule all-veil · strongest direct recovery",
+            "A nearly all-veil stress case with the largest S29 core and veil error "
+            "reduction; included with the finest-band diagnostic dissent visible.",
         ),
         (
-            "s23",
-            "s23_031",
-            "current primary opaque · strict local agreement",
-            "A lower-margin primary case where four comparable owner proposals "
-            "constrain hard front selection and its optical footprint.",
+            "s29",
+            "s29_007",
+            "post-rule primary · ordinary object and SSIM dissent",
+            "A representative butterfly/object case where direct physical errors "
+            "improve even though global SSIM dissents.",
         ),
         (
-            "s23",
-            "s23_057",
-            "current primary opaque · high-consensus support",
-            "Five comparable focused-owner proposals agree on the local opaque "
-            "geometry; complete core and far background remain protected.",
+            "s29",
+            "s29_009",
+            "post-rule primary · second graph continuation",
+            "The independent S29 case that also licenses a bounded native graph "
+            "continuation, providing a non-single-scene check of that mechanism.",
         ),
         (
-            "s23",
-            "s23_060",
-            "current primary opaque · strongest direct recovery",
-            "The largest current S23 direct-error and SSIM improvement, shown "
-            "without pooling its remaining fine-texture warning into the verdict.",
+            "s29",
+            "s29_010",
+            "post-rule boundary · narrow partial coverage",
+            "A compact boundary-dominant object where hard foreground, boundary, "
+            "and outward veil all improve with exact far identity.",
         ),
         (
-            "s23",
-            "s23_069",
-            "current primary opaque · independent single proposal",
-            "Another substantial-core one-proposal fire: both partial-coverage "
-            "partitions improve while the far background is exactly unchanged.",
+            "s29",
+            "s29_011",
+            "post-rule all-veil · subpixel-speckle correction",
+            "The source case whose two unresolved three-pixel mask islands were "
+            "removed without deleting its real small opaque object.",
         ),
     )
     diagnostic_points = {}
@@ -505,36 +499,36 @@ def _v2_visibility_cases():
             )
             for frame_index in range(2)
         ]
+        selected, selection_report = select_one_sided_owner_geometry(
+            scene["frames"],
+            owner_masks,
+        )
+        if selected is None:
+            raise RuntimeError(
+                f"{sid} unexpectedly lost one-sided geometry: "
+                f"{selection_report}"
+            )
         output, report = recover_giant_veil(
             scene["frames"],
             base,
             candidates,
             owner_masks_by_frame=owner_masks,
+            one_sided_selection=(selected, selection_report),
         )
         if not report["fired"]:
             raise RuntimeError(f"{sid} unexpectedly refused: {report}")
-        selected, selection_report = select_licensed_candidate(
-            scene["frames"],
-            candidates,
-        )
-        if selected is None:
-            raise RuntimeError(f"{sid} lost candidate: {selection_report}")
         owner = int(selected["owner"])
-        selected, refinement_report = refine_owner_candidate(
-            scene["frames"],
-            selected,
-            owner_masks[owner],
-        )
         estimated_alpha = np.clip(
             selected["alpha"].astype(np.float32),
             0.0,
             1.0,
         )
-        owner_support, support_report = complete_owner_support(
-            scene["frames"],
-            selected,
-            owner_masks[owner],
-        )
+        owner_support = np.zeros(estimated_alpha.shape, bool)
+        support_report = {
+            "owner_support_accepted_count": 0,
+            "owner_support_mask_indices": [],
+            "owner_support_kinds": [],
+        }
         spatial_scale = max(1.0, max(base.shape[:2]) / MODEL_SIDE)
         max_radius = RADIUS_FRACTION * max(base.shape[:2])
         (
@@ -547,48 +541,40 @@ def _v2_visibility_cases():
             max_radius,
             spatial_scale,
         )
-        if consensus_report["owner_consensus_active"]:
-            satellite_support = np.zeros(estimated_alpha.shape, bool)
-            for mask_index, kind in zip(
-                support_report.get("owner_support_mask_indices", []),
-                support_report.get("owner_support_kinds", []),
-            ):
-                if kind == "satellite":
-                    satellite_support |= (
-                        owner_masks[owner][int(mask_index)] > 0
-                    )
-            owner_support &= front_consensus | satellite_support
-        front_reconstruction = _owner_front_reconstruction_support(
-            estimated_alpha,
-            owner_masks[owner],
-            {**support_report, **refinement_report},
-            max_radius,
-            spatial_scale,
+        inside_distance = cv2.distanceTransform(
+            (estimated_alpha >= 0.5).astype(np.uint8),
+            cv2.DIST_L2,
+            5,
         )
-        front_reconstruction &= front_consensus
-        if (
-            int(owner_support.sum()) != report["owner_support_pixels"]
-            or support_report["owner_support_accepted_count"]
-            != report["owner_support_accepted_count"]
-            or int(front_reconstruction.sum())
-            != report["owner_front_reconstruction_pixels"]
-        ):
+        cross_frame_fragments = np.asarray(
+            selected.get(
+                "cross_frame_satellite_extent",
+                np.zeros(estimated_alpha.shape, bool),
+            ),
+            bool,
+        )
+        front_reconstruction = (
+            (
+                inside_distance > max(1.0, spatial_scale)
+            )
+            & front_consensus
+        ) | cross_frame_fragments
+        if int(front_reconstruction.sum()) != report[
+            "owner_front_reconstruction_pixels"
+        ]:
             raise RuntimeError(f"{sid} owner/front audit mismatch")
-        ordered_visibility, _ = _ordered_visibility_gate(
+        application_mask, _ = _one_sided_rear_application_mask(
             scene["frames"],
             owner,
             estimated_alpha,
+            np.asarray(selected["rear_support_alpha"], np.float32),
+            np.asarray(selected["front_veto_extent"], bool),
+            fringe_consensus,
+            max_radius,
             spatial_scale,
+            float(selected.get("front_veto_model_pixels", 3.0)),
         )
-        application_mask = (
-            _fringe_mask(
-                estimated_alpha,
-                max_radius,
-                2.0 * spatial_scale,
-            )
-            * ordered_visibility
-            * fringe_consensus.astype(np.float32)
-        )
+        ordered_visibility = application_mask
         owner_copy_support = owner_support | front_reconstruction
         application_mask[owner_copy_support] = 0.0
 
@@ -613,7 +599,7 @@ def _v2_visibility_cases():
         inner = sharp & (coverage > 0.05) & (coverage < 0.95)
         outer = (scene["alpha"] < 0.05) & (coverage > 0.05)
         true_fringe = inner | outer
-        true_foreground = scene["alpha"] >= 0.5
+        true_foreground = scene["hard_ownership"]
         true_background = coverage <= 0.05
         support_pixels = int(owner_support.sum())
         support_true_foreground = int(
@@ -624,7 +610,7 @@ def _v2_visibility_cases():
             (front_reconstruction & true_foreground).sum()
         )
 
-        case_dir = os.path.join(INSPECTION_IMG, "s23", sid)
+        case_dir = os.path.join(INSPECTION_IMG, "s29", sid)
         assets = {
             "frame0": "frame0.jpg",
             "frame1": "frame1.jpg",
@@ -634,6 +620,7 @@ def _v2_visibility_cases():
             "coverage_classes": "coverage_classes.png",
             "estimated_alpha": "estimated_alpha.png",
             "true_alpha": "true_alpha.png",
+            "hard_ownership": "hard_ownership.png",
             "ordered_visibility": "ordered_visibility.png",
             "application_mask": "application_mask.png",
             "owner_support": "owner_support.png",
@@ -656,6 +643,9 @@ def _v2_visibility_cases():
             ),
             "estimated_alpha": _mask_image(estimated_alpha),
             "true_alpha": _mask_image(scene["alpha"]),
+            "hard_ownership": _mask_image(
+                scene["hard_ownership"].astype(np.float32)
+            ),
             "ordered_visibility": _mask_image(ordered_visibility),
             "application_mask": _mask_image(application_mask),
             "owner_support": _mask_image(owner_support.astype(np.float32)),
@@ -703,7 +693,7 @@ def _v2_visibility_cases():
                 max_side=max_side,
                 quality=quality,
             )
-            assets[key] = f"img/inspection/s23/{sid}/{filename}"
+            assets[key] = f"img/inspection/s29/{sid}/{filename}"
 
         diagnostic_point = None
         if point_spec is not None:
@@ -883,7 +873,7 @@ def _v2_visibility_cases():
             }
         )
         print(
-            f"  S12 inspection {sid}: "
+            f"  S29 inspection {sid}: "
             f"ΔSSIM={metrics['d_ssim']:+.6f} "
             f"ΔMAE={metrics['d_mae']:+.4f}"
         )
@@ -1403,59 +1393,7 @@ def fig_inspection():
     from objocc_v2_gen import scenes as v2_scenes
 
     v2_cases = []
-    formation_dir = os.path.join(
-        HERE,
-        "data",
-        "objocc_v2",
-        "formation_audit",
-        "extension_007_opaque_primary_r12",
-    )
-    with open(
-        os.path.join(
-            HERE,
-            "objocc_v2_extension_007_opaque_primary.json",
-        ),
-        encoding="utf-8",
-    ) as handle:
-        formation_report = json.load(handle)
-    formation_asset_dir = os.path.join(
-        INSPECTION_IMG,
-        "factory_v2",
-    )
-    formation_filename = "extension_007_opaque_primary_r12.jpg"
-    _write_image(
-        os.path.join(formation_asset_dir, formation_filename),
-        cv2.imread(os.path.join(formation_dir, "comparison.png")),
-        max_side=6400,
-        quality=96,
-    )
-    v2_cases.append(
-        {
-            "sid": formation_report["id"],
-            "stratum": "same-scene opaque-primary rerender",
-            "asset": (
-                "img/inspection/factory_v2/"
-                f"{formation_filename}"
-            ),
-            "core_fraction": formation_report["core_fraction"],
-            "inner_veil_fraction": formation_report[
-                "inner_veil_fraction"
-            ],
-            "defocus_radius": formation_report["new_defocus_radius"],
-            "description": (
-                "Top: old near · old far · new near · new far. "
-                "Bottom: GT · old coverage · GT · new coverage. "
-                "Same bird/background/placement/noise; only CoC radius changes "
-                f"{formation_report['old_defocus_radius']:.1f}→"
-                f"{formation_report['new_defocus_radius']:.1f}px. At "
-                f"({formation_report['diagnostic_xy'][0]},"
-                f"{formation_report['diagnostic_xy'][1]}) coverage changes "
-                f"{formation_report['old_diagnostic_coverage']:.3f}→"
-                f"{formation_report['new_diagnostic_coverage']:.3f}."
-            ),
-        }
-    )
-    for scene in list(v2_scenes("dev"))[:3]:
+    for scene in list(v2_scenes("s29"))[:3]:
         source = os.path.join(scene["dir"], "vis.png")
         asset_dir = os.path.join(INSPECTION_IMG, "factory_v2")
         filename = f"{scene['sid']}.jpg"
@@ -1478,26 +1416,35 @@ def fig_inspection():
             }
         )
 
-    audit_files = {
-        "extension": "objocc_v2_extension_ordered_visibility.json",
-        "s12": "objocc_v2_s12_ordered_visibility.json",
-        "s16": "objocc_v2_s16_ordered_visibility.json",
-        "s19": "objocc_v2_s19_ordered_visibility.json",
-        "s23": "objocc_v2_s23_ordered_visibility.json",
-    }
-    audits = {}
-    for split, filename in audit_files.items():
-        with open(os.path.join(HERE, filename), encoding="utf-8") as handle:
-            audits[split] = json.load(handle)
+    audit_files = (
+        "objocc_v2_s29_formation_audit.json",
+        "objocc_v2_s29_geometry_audit.json",
+        "objocc_v2_s29_ordered_visibility.json",
+    )
+    with open(
+        os.path.join(HERE, audit_files[0]),
+        encoding="utf-8",
+    ) as handle:
+        formation_audit = json.load(handle)
+    with open(
+        os.path.join(HERE, audit_files[1]),
+        encoding="utf-8",
+    ) as handle:
+        geometry_audit = json.load(handle)
+    with open(
+        os.path.join(HERE, audit_files[2]),
+        encoding="utf-8",
+    ) as handle:
+        ordered_audit = json.load(handle)
 
     current_cases = _v2_visibility_cases()
     normal_cases = _normal_photo_cases()
     manifest = {
-        "schema": 6,
+        "schema": 7,
         "title": "focusstack owner inspection lab",
         "generated_from": (
-            "F64 consensus-qualified front-first runs on current S23 primary-"
-            "opaque inputs plus the current default pipeline on ordinary real "
+            "F76 shipped one-sided recovery on frozen post-rule S29 opaque "
+            "inputs plus the current default pipeline on ordinary real "
             "photographic stacks"
         ),
         "oracle_warning": (
@@ -1505,14 +1452,14 @@ def fig_inspection():
             "the exact-disk physical-stress cases and are audit-only; they never "
             "enter runtime recovery. The normal-photo cohort is real optical input "
             "without all-in-focus GT, so its numbers are descriptive rather than "
-            "quality verdicts. The giant-veil auto path remains safety-disabled."
+            "quality verdicts. Giant-veil auto is now enabled only for the "
+            "validated two-frame regime and identity-refuses failed gates."
         ),
         "case_selection": (
-            "All seven deep cases are current S23 primary-opaque inputs generated "
-            "after the formation reset. These are the seven S23 development fires "
-            "rerun through F64; historical extension/S12/S16/S19 inputs are no "
-            "longer presented as current deep cases. S23 exposed and shaped the "
-            "consensus rule, so this is development evidence, not a fresh holdout."
+            "All seven deep cases are frozen post-rule S29 inputs rerun through "
+            "the shipped F76 path. They include the diagnosed tiny-continuation "
+            "repair, hardest boundary, ordinary primary, and all-veil cases. "
+            "No legacy formation or stale lower-panel input is shown."
         ),
         "normal_selection": (
             "Six ordinary real-photo stacks show the actual default pipeline: four "
@@ -1520,35 +1467,24 @@ def fig_inspection():
             "original frame is visible in a labeled contact sheet; aligned/normalized "
             "inputs are shown separately so registration artifacts cannot hide."
         ),
-        "audit_sources": list(audit_files.values()),
+        "audit_sources": list(audit_files),
         "s12_summary": {
-            "post_freeze_scene_count": audits["s12"]["scene_count"],
-            "post_freeze_fired_count": audits["s12"]["fired_count"],
-            "post_freeze_all_partitions_nonregressing": audits["s12"][
+            "auto_enabled": True,
+            "current_s29_scene_count": ordered_audit["scene_count"],
+            "current_s29_fired_count": ordered_audit["fired_count"],
+            "current_s29_all_partitions_nonregressing": ordered_audit[
                 "fired_summary"
             ]["all_partitions_nonregressing"],
-            "diagnostic_extension_fired_count": audits["extension"][
-                "fired_count"
+            "current_s29_protected_rear_overlap": int(
+                sum(geometry_audit["rear_overlap_totals"].values())
+            ),
+            "formation_owned_invariant": formation_audit[
+                "all_v2_owned_exactly_invariant"
             ],
-            "diagnostic_extension_all_partitions_nonregressing": audits[
-                "extension"
-            ]["fired_summary"]["all_partitions_nonregressing"],
+            "formation_outer_veil_retained": formation_audit[
+                "all_v2_retain_outer_veil"
+            ],
             "current_case_count": len(current_cases),
-            "post_refinement_scene_count": audits["s16"]["scene_count"],
-            "post_refinement_fired_count": audits["s16"]["fired_count"],
-            "post_refinement_all_partitions_nonregressing": audits["s16"][
-                "fired_summary"
-            ]["all_partitions_nonregressing"],
-            "post_final_scene_count": audits["s19"]["scene_count"],
-            "post_final_fired_count": audits["s19"]["fired_count"],
-            "post_final_all_partitions_nonregressing": audits["s19"][
-                "fired_summary"
-            ]["all_partitions_nonregressing"],
-            "current_s23_scene_count": audits["s23"]["scene_count"],
-            "current_s23_fired_count": audits["s23"]["fired_count"],
-            "current_s23_all_partitions_nonregressing": audits["s23"][
-                "fired_summary"
-            ]["all_partitions_nonregressing"],
             "false_texture_warning_count": sum(
                 case["metrics"]["d_false_texture"] > 0
                 for case in current_cases
@@ -1557,14 +1493,13 @@ def fig_inspection():
         },
         "factory_v2": {
             "status": (
-                "The first panel is an immediate same-scene formation audit: "
-                "extension_007 is rerendered with a 12px instead of 37.6px CoC "
-                "radius, preserving all content and seeds. The remaining panels "
-                "show the frozen V2 solid/mixed/thin regimes."
+                "These are the same frozen S29 inputs used in every lower deep "
+                "panel. Across all 12 scenes, changing only hidden background "
+                "changes zero hard-owned V2 pixels; coverage is exactly one and "
+                "an outward foreground veil remains."
             ),
             "panel_order": (
-                "Special comparison order is stated under its panel. Standard "
-                "panels: near-focus · far-focus · all-in-focus GT · optical "
+                "Every panel: near-focus · far-focus · all-in-focus GT · optical "
                 "classes (green complete core, yellow inner partial, magenta "
                 "outer veil). Click any panel for the full-size image."
             ),

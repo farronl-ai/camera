@@ -268,16 +268,16 @@ contour, disclosed rather than rounded to zero.*
 
 For inspection rather than presentation, open the
 **[Owner Inspection Lab](INSPECTION.html)**. Its physical-stress section now shows
-all seven current F62 fires and no legacy V1 deep cases: every input, the
-unamplified base/output slider, runtime alpha/visibility/support/front-reconstruction
-maps, GT-only error maps, all four optical partitions, automatically selected
-regression crops, and the exact reported `extension_007` `(1048,216)` crop.
+seven shipped F76 sentinels rerun on frozen post-rule S29 inputs, with no legacy
+formation or stale lower panels: every input, the unamplified base/output slider,
+runtime alpha/focused-owner/rear-application maps, GT-only hard ownership and error
+maps, all six physical partitions, and automatically selected edit and regression
+crops.
 A separate normal-photo section runs the actual default pipeline on four classic
 real two-frame photographs and two real phone sweeps. Every original frame is
 shown beside the aligned/normalized stack, final output, focus-winner map, and
-post-fusion specialist edit. Five normal cases refuse post-fusion edits exactly;
-the gated contour specialist fires on the golfer pair (71,170 pixels), exposed
-for direct inspection without pretending that no-GT data certifies a win.
+post-fusion specialist edit. Runtime fires and refusals are both exposed for
+direct inspection without pretending that no-GT data certifies a win.
 
 The contour specialist sits behind an **outcome-trained gate**: candidates are
 scored by a model trained on factory scenes where the ground truth is known,

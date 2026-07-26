@@ -12,8 +12,8 @@ whole scene in focus.
 >
 > 🔬 **[Owner Inspection Lab](docs/INSPECTION.html)** — the engineering view:
 > all current physical-stress fires plus ordinary real-photo stacks, every input
-> frame, aligned/normalized inputs, base/output slider, visibility/support/front
-> reconstruction maps, GT-only error maps where truth exists, exact regional
+> frame, aligned/normalized inputs, base/output slider, hard-ownership/focused-owner/
+> rear-application maps, GT-only error maps where truth exists, exact regional
 > metrics, adversarial crops, and explicit optional coordinate feedback.
 
 ## How it works

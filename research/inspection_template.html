@@ -371,12 +371,11 @@
   <p class="eyebrow">Owner workbench · falsification first</p>
   <h1>See exactly what changed.</h1>
   <p class="lede">This workbench keeps ordinary photographic behavior beside the
-  deliberately hard physical-stress cases. The current cascade refines mixed-base
-  geometry from a forward-licensed focused-owner silhouette, reconstructs the
-  partially covered front layer first, and only then applies ordered rear recovery. It
-  repairs the diagnosed inner-foreground tail, the S16 counterexample, and three
-  genuinely post-final S19 fires. The giant-veil auto path remains safety-disabled
-  while the fine-band false-texture warning is still open.</p>
+  deliberately hard physical-stress cases. The shipped F76 cascade treats opaque
+  ownership as a hard visibility fact: rear detail is never allowed into hard-owned
+  foreground. It reconstructs directly observed focused-owner pixels first and applies
+  rear recovery only where one-sided geometry licenses an actual opening or veil. The
+  deep panels below are all fresh post-rule S29 cases; none reuse the old formation.</p>
   <p class="oracle" id="oracle-warning"></p>
   <div class="summary-grid" id="summary"></div>
 </header>
@@ -392,8 +391,9 @@
     Feedback coordinates are optional and can only be chosen from an explicit large-view
     region picker.</p>
     <div class="legend-grid">
-      <div class="legend"><strong>Base → output slider</strong><p>Drag horizontally. This is
-      the unamplified result, which is the only honest severity view.</p></div>
+      <div class="legend"><strong>Base → output slider</strong><p><strong>Base is always
+      left; output is always right.</strong> Drag the divider left to reveal more output,
+      or right to reveal more base. This unamplified view is the honest severity view.</p></div>
       <div class="legend"><strong>Signed edit ×8</strong><p>Neutral gray is no edit. Color
       localizes direction and structure; amplification must not be read as severity.</p></div>
       <div class="legend"><strong>Error delta</strong><p><span class="swatch" style="background:#6fd184"></span>closer
@@ -403,18 +403,18 @@
       exactly against GT. Dark pixels were byte-identical to the base.</p></div>
       <div class="legend"><strong>Estimated vs true α</strong><p>Estimated α is runtime
       semantic evidence. True α is factory-only and exposes matte misses or leaks.</p></div>
-      <div class="legend"><strong>Owner support</strong><p>Bright pixels are small semantic
-      fragments or parent-silhouette tails found in the sharp owner frame. Satellites
-      must improve absolute physical fit; parent silhouettes require strong containment
-      plus a material relative fit gain inside the fragment’s optical influence
-      neighborhood. These pixels hard-select observed foreground.</p></div>
+      <div class="legend"><strong>Hard ownership</strong><p>Bright GT-only pixels belong to
+      opaque foreground before antialiasing. They audit the non-negotiable invariant:
+      changing hidden background must not change these input pixels, and rear recovery
+      must never enter them.</p></div>
       <div class="legend"><strong>Front reconstruction</strong><p>Bright pixels are safely
-      inside a forward-winning focused-owner silhouette and predicted by both PSFs to
-      be mixed in the far-focus frame. They hard-select the directly observed front
-      layer before any rear recovery.</p></div>
-      <div class="legend"><strong>Ordered visibility</strong><p>Bright pixels have positive
-      rear-focused structure and no front-focused veto. Merely falling outside an
-      estimated matte is no longer permission to edit.</p></div>
+      inside a corroborated focused-owner silhouette, including tightly bounded native
+      continuations of small foreground pieces. They hard-select the directly observed
+      front layer before any rear recovery.</p></div>
+      <div class="legend"><strong>Rear application weight</strong><p>Bright pixels are the
+      final runtime rear-recovery permission after rear evidence, front vetoes, and
+      owner reconstruction. Merely falling outside an estimated matte is never
+      permission to edit.</p></div>
       <div class="legend"><strong>Protected map</strong><p>Bright areas are suppressed by
       proposed foreground support or independent focus-owner evidence.</p></div>
     </div>
@@ -440,7 +440,7 @@
 
   <section id="cases">
     <p class="eyebrow">Deep inspection · current physical-stress cases</p>
-    <h2>Current front-first sentinels after local consensus; no legacy reproductions</h2>
+    <h2>Current shipped S29 sentinels; no legacy inputs or results</h2>
     <p class="section-intro" id="case-selection"></p>
     <div id="case-list"></div>
   </section>
@@ -457,7 +457,9 @@
       <dt>Fringe MAE</dt><dd>Per-channel absolute error inside the GT-defined defocus fringe.
       This is oracle-localized and cannot be measured on ordinary captures.</dd>
       <dt>False texture</dt><dd>GT-credited finest-band error on smooth true-background
-      fringe pixels. Positive delta is a warning even when global metrics improve.</dd>
+      fringe pixels. Positive delta is a diagnostic that demands visual and causal
+      inspection, not an automatic veto: sparse fine-band phase disagreement can rise
+      while the reconstructed radiance is visibly and directly closer to GT.</dd>
       <dt>Forward ratio</dt><dd>Observation-domain residual after/before the 512px physical
       fit. Lower is better; the license requires &lt;0.85, but forward fit alone is not truth.</dd>
       <dt>Owner-support fit Δ</dt><dd>Absolute reduction in the same observation-domain
@@ -503,10 +505,11 @@
 
   const s12 = data.s12_summary;
   const summaries = [
-    ["OFF", "giant-veil auto safety switch"],
-    [s12.current_s23_fired_count + "/" + s12.current_s23_scene_count, "current S23 development fires"],
-    [s12.current_s23_all_partitions_nonregressing + "/" + s12.current_s23_fired_count, "S23 fires safe on all four partitions"],
-    [s12.false_texture_warning_count + "/" + s12.current_case_count, "current fine-band warnings still open"],
+    [s12.auto_enabled ? "ON" : "OFF", "validated two-frame auto path"],
+    [s12.current_s29_fired_count + "/" + s12.current_s29_scene_count, "fresh S29 licensed fires"],
+    [s12.current_s29_all_partitions_nonregressing + "/" + s12.current_s29_fired_count, "fires improve every GT partition"],
+    [s12.current_s29_protected_rear_overlap, "rear pixels in protected partitions"],
+    [s12.formation_owned_invariant ? "PASS" : "FAIL", "hidden-background hard-owner invariant"],
     [s12.normal_case_count, "ordinary real-photo stacks"],
   ];
   document.getElementById("summary").innerHTML = summaries.map(([v, l]) =>
@@ -558,7 +561,7 @@
           ${metric("Specialist edit", changed, `${(100 * m.changed_fraction_after_base).toFixed(3)}% of output pixels`, m.changed_pixels_after_base === 0 ? "better" : "")}
           ${metric("Output edge energy", m.output_edge_energy.toFixed(3), `median source ${m.median_source_edge_energy.toFixed(3)}`, "")}
           ${metric("Closest source MAE", m.closest_source_mae.toFixed(3), "descriptive only; lower is not necessarily better", "")}
-          ${metric("Veil path", r.veil_reason, r.veil_disabled_safety ? "safety-disabled" : "evaluated", "")}
+          ${metric("Veil path", r.veil_reason, r.veil_disabled_safety ? "disabled" : "auto evaluated", "")}
         </div>
         <p class="case-why"><strong>Top focus-winner shares:</strong> ${topShares}</p>
         <h3>Every original input frame</h3>
@@ -613,15 +616,12 @@
     const p = c.diagnostic_point;
     const hasOwnerSupport = m.owner_support_pixels > 0;
     const hasFrontReconstruction = (m.front_reconstruction_pixels || 0) > 0;
-    const outputName = "Current consensus-qualified front-first research output";
+    const outputName = "Shipped F76 one-sided recovery output";
     const supportSub = hasOwnerSupport
       ? `${(r.owner_support_kinds || []).join(" + ")} · GT precision ${m.owner_support_precision.toFixed(3)} · fit Δ ${Number(r.owner_support_forward_improvement).toFixed(3)} · local ${Number(r.owner_support_local_forward_improvement_ratio || 0).toFixed(3)}`
       : "No owner-only fragment passed the runtime physical gate";
     const coverageTile = a.coverage_classes
       ? tile(a.coverage_classes, "True optical coverage classes · GT-only", "Green complete core · yellow inner partial occlusion · magenta outer veil.")
-      : "";
-    const orderedTile = a.ordered_visibility
-      ? tile(a.ordered_visibility, "Ordered visibility gate · runtime", "Positive rear observation after front-focused exclusion.")
       : "";
     const partitionRows = m.partitions ? Object.entries(m.partitions).map(([name, values]) => {
       if (values.mae_base === null) return evidenceRow(name.replaceAll("_", " "), "not present", "This optical partition has no pixels in this scene.", "");
@@ -692,11 +692,10 @@
         <div class="diagnostic-grid">
           ${tile(a.estimated_alpha, "Estimated semantic α · runtime", "Selected after observation-domain reranking.")}
           ${tile(a.true_alpha, "True α · GT-only", "Factory diagnostic for matte precision and recall.")}
-          ${orderedTile}
-          ${tile(a.application_mask, "Veil-correction mask · runtime", "Cross-PSF partial coverage × ordered visibility, excluding hard owner support.")}
-          ${tile(a.owner_support, "Owner-frame support · runtime", "Observed satellites or parent-silhouette tails that passed their physical-fit license.")}
-          ${a.front_reconstruction ? tile(a.front_reconstruction, "Front reconstruction · runtime", "Focused-owner pixels copied where both PSFs predict partial far-frame coverage.") : ""}
-          ${tile(a.protected, "Protected from veil correction · runtime", "Estimated foreground, owner support, and focus-owner veto.")}
+          ${tile(a.hard_ownership, "True hard ownership · GT-only", "Opaque pre-antialias support: hidden rear radiance is forbidden here.")}
+          ${tile(a.application_mask, "Final rear-application weight · runtime", "One-sided rear permission after focus direction, front veto, and owner reconstruction.")}
+          ${a.front_reconstruction ? tile(a.front_reconstruction, "Focused-owner reconstruction · runtime", "Directly observed focused-owner pixels hard-selected before rear recovery.") : ""}
+          ${tile(a.protected, "Protected from rear recovery · runtime", "Estimated foreground, reconstructed owner support, and focus-owner veto.")}
           ${tile(a.edit_x8, "Signed edit ×8", "Locator only; use the slider for severity.")}
           ${tile(a.error_delta, "Continuous GT error delta", `Green better, magenta worse; saturation ≈ ${m.error_map_scale_gray.toFixed(2)} gray.`)}
           ${tile(a.outcomes, "Discrete changed-pixel outcome", "Green closer, magenta worse, dark unchanged.")}
@@ -732,7 +731,7 @@
           ${evidenceRow("Owner-veto mean", Number(r.owner_veto_mean).toFixed(4), "Average independent focus-owner suppression.", "")}
           ${r.rear_evidence_mean === undefined ? "" : evidenceRow("Rear evidence mean", Number(r.rear_evidence_mean).toFixed(4), "Positive rear-focused observation density before the 20% local license.", "")}
           ${r.ordered_visibility_fraction === undefined ? "" : evidenceRow("Ordered visibility fraction", Number(r.ordered_visibility_fraction).toFixed(4), "Image fraction passing front exclusion plus positive rear evidence.", "")}
-          ${evidenceRow("Selected semantic rank", String(r.candidate_rank), "Rank after physical reranking (0-based).", "")}
+          ${evidenceRow("Selected semantic rank", String(r.candidate_rank), Number(r.candidate_rank) < 0 ? "One-sided geometry path; semantic list rank is not the router." : "Rank after physical reranking (0-based).", "")}
         </tbody></table></div>
 
         <div class="feedback">
@@ -855,7 +854,7 @@
         updatePickerMarker();
       });
       useRegion.addEventListener("click", () => {
-        if (!dialog.dataset.x) return;
+        if (dialog.dataset.x === "") return;
         body.dataset.x = dialog.dataset.x;
         body.dataset.y = dialog.dataset.y;
         regionReadout.textContent = `Selected: x=${body.dataset.x}, y=${body.dataset.y} · ${c.native_width}×${c.native_height}`;

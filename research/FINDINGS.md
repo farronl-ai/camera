@@ -5,6 +5,36 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F77 — The inspector now shows the shipped evidence, not its history
+
+The owner workbench was rebuilt once after F76 from the frozen post-rule S29
+inputs and live shipped recovery.  Its seven deep cases span the diagnosed tiny
+foreground continuation, hardest silhouette, ordinary primary object, compact
+boundary, and all-veil stresses.  Every deep panel exposes both original
+formation frames, base, shipped output, GT, true hard ownership, estimated
+alpha, focused-owner reconstruction, final rear-application weight, all six
+physical partitions, exact changed-pixel outcomes, and automatically selected
+edit/regression crops.  No S23, extension, V1, or stale lower-panel inputs are
+referenced.
+
+The page also retains six ordinary photographic stacks through the current
+default pipeline.  All original inputs are present, including every frame in
+the 12- and 14-frame phone sweeps, with aligned inputs shown separately.
+The comparison is unambiguous: base is always left, output always right, moving
+the divider left reveals output, and moving it right reveals base.  Ordinary
+image clicks only open the full image; coordinates can be created only inside
+the explicit large-image picker and require a second confirmation.
+
+The static manifest is tested as a contract rather than a screenshot.  It
+requires current S29 identifiers, the opaque hidden-background invariant,
+11/11 all-partition nonregression among licensed S29 fires, zero protected rear
+overlap, exact asset existence, the live auto state, all normal-frame counts,
+and the absence of legacy deep identifiers.  Browser rendering was attempted
+in the headless environment, whose software compositor could not allocate a
+framebuffer; the generated factory and contact-sheet assets were therefore
+inspected directly, while the embedded manifest and page interaction strings
+were verified structurally.
+
 ## F76 — One-sided opaque recovery enters the auto path
 
 The complete post-rule S29 solve licenses 11 scenes and exactly refuses one.

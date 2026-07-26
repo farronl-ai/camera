@@ -3815,28 +3815,38 @@ def recover_giant_veil(
             applied_correction -= seam_strength[..., None] * (
                 applied_correction - normal_low
             )
-            low_step = 2.0 * spatial_scale
-            low_minus = cv2.remap(
+            inward_anchor = 1.5 * spatial_scale
+            outward_anchor = 4.0 * spatial_scale
+            low_inside = cv2.remap(
                 applied_low,
-                grid_x - low_step * normal_x,
-                grid_y - low_step * normal_y,
+                grid_x
+                + (-inward_anchor - signed_edge_distance) * normal_x,
+                grid_y
+                + (-inward_anchor - signed_edge_distance) * normal_y,
                 cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_REFLECT,
             )
-            low_plus = cv2.remap(
+            low_outside = cv2.remap(
                 applied_low,
-                grid_x + low_step * normal_x,
-                grid_y + low_step * normal_y,
+                grid_x
+                + (outward_anchor - signed_edge_distance) * normal_x,
+                grid_y
+                + (outward_anchor - signed_edge_distance) * normal_y,
                 cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_REFLECT,
             )
-            low_normal = (
-                0.25 * low_minus
-                + 0.50 * applied_low
-                + 0.25 * low_plus
+            low_phase = np.clip(
+                (signed_edge_distance + inward_anchor)
+                / (inward_anchor + outward_anchor),
+                0.0,
+                1.0,
+            )
+            low_expected = (
+                low_inside * (1.0 - low_phase[..., None])
+                + low_outside * low_phase[..., None]
             )
             applied_correction += 1.5 * seam_strength[..., None] * (
-                low_normal - applied_low
+                low_expected - applied_low
             )
             composed = (
                 repaired_base.astype(np.float32) + applied_correction

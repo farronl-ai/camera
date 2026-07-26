@@ -3795,14 +3795,14 @@ def recover_giant_veil(
             )
             normal_step = 0.5 * spatial_scale
             normal_minus = cv2.remap(
-                composed,
+                applied_correction,
                 grid_x - normal_step * normal_x,
                 grid_y - normal_step * normal_y,
                 cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_REFLECT,
             )
             normal_plus = cv2.remap(
-                composed,
+                applied_correction,
                 grid_x + normal_step * normal_x,
                 grid_y + normal_step * normal_y,
                 cv2.INTER_LINEAR,
@@ -3810,11 +3810,14 @@ def recover_giant_veil(
             )
             normal_low = (
                 0.25 * normal_minus
-                + 0.50 * composed
+                + 0.50 * applied_correction
                 + 0.25 * normal_plus
             )
-            composed -= seam_strength[..., None] * (
-                composed - normal_low
+            applied_correction -= seam_strength[..., None] * (
+                applied_correction - normal_low
+            )
+            composed = (
+                repaired_base.astype(np.float32) + applied_correction
             )
     output = np.rint(np.clip(composed, 0, 255)).astype(np.uint8)
     report.update(

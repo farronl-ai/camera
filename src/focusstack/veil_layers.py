@@ -190,12 +190,9 @@ ONE_SIDED_DIRECTIONAL_REAR_VETO_MARGIN = 0.30
 ONE_SIDED_REAR_PRESENCE_NOISE_QUANTILE = 10.0
 ONE_SIDED_REAR_PRESENCE_NOISE_MULTIPLIER = 2.0
 ONE_SIDED_DIRECTIONAL_BOUNDARY_EXTENSION_MODEL_PIXELS = 2.0
-# Sub-quantization mask tails can survive several continuous gates while
-# carrying too little correction mass to make a stable image decision.  They
-# produced isolated far-background edits even though 98% of the admitted veil
-# mass lay above this floor.  Zero them explicitly instead of letting rounding
-# decide whether a nominally untouched rear pixel changes.
-ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT = 0.075
+# Preserve the geometric veil's continuous decay to identity. A nonzero floor
+# creates a visible uncorrected outer loop at the cutoff.
+ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT = 0.0
 # Detached foreground fragments are admitted only as positive geometry seen in
 # both focal frames.  This is deliberately stricter than the historical
 # forward-fit satellite bridge: the owner proposal must be almost entirely

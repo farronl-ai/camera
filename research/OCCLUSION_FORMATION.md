@@ -3,6 +3,38 @@
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
 `NEXT_STEPS_scenerecovery.md`, and F60–F67 in `FINDINGS.md`.
 
+## 2026-07-26 pause — restart from the hidden-background invariant
+
+The current inspector's recovery result is a strong checkpoint and must be
+preserved.  Later boundary-ownership work remains an uncommitted experiment;
+do not let it replace the last pushed solver or use it to excuse a malformed
+input.
+
+The input formation is still **not accepted** merely because a region metric or
+the existing alpha-core counterfactual passes.  The user's visual diagnosis is
+the authority for the failure: foreground defocus must never transport hidden
+rear detail into a region claimed as opaque foreground.  On resume, stop inverse
+and gate tuning and prove the generator directly:
+
+1. Hold foreground radiance, geometry, focus, PSF, and noise fixed.
+2. Render once over a high-contrast checkerboard and once over its inverse.
+3. Compare the defocused-foreground observations over the full hard ownership
+   support saved **before** antialiasing or PSF spread.  The difference must be
+   exactly zero there, not merely small on an eroded `alpha == 1` subset.
+4. Display that support and the magnified absolute-difference image beside both
+   renders.  Any recognizable checker structure inside it invalidates the
+   generator.
+5. Foreground radiance may be redistributed using foreground samples only and
+   may spread outward into an explicitly labeled silhouette veil.  Blur of an
+   already composed foreground/background image, or any normalization that can
+   import rear samples into hard support, is forbidden.
+
+The inspection page seen at this pause mixed the new input example at the top
+with stale historical input frames in lower scene panels.  It is therefore not
+evidence that every displayed input used the repaired formation.  Leave the
+page frozen now; rebuild all panels from one final formation version only after
+the direct counterfactual above passes and the inverse pipeline is revalidated.
+
 ## User correction and pause checkpoint — supersedes the primary input contract
 
 The historical exact-disk renderer uses aperture-coverage convolution on both

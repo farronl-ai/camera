@@ -798,7 +798,7 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
     )
     resume_enabled = os.environ.get("OBJ_OCC_RESUME") == "1"
     resume_key = (
-        f"f74_corroborated_opaque_ownership:{split}:"
+        f"f75_native_continuation_opaque_ownership:{split}:"
         f"{'oracle' if oracle_alpha else 'semantic'}"
     )
     resume_path = os.path.join(
@@ -942,7 +942,7 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
             else "objocc_v2_exact_disk"
         ),
         "split": split,
-        "pipeline": "f74_corroborated_opaque_ownership",
+        "pipeline": "f75_native_continuation_opaque_ownership",
         "oracle_fields": ["alpha", "owner"] if oracle_alpha else [],
         "owner_support": not oracle_alpha,
         "rear_evidence_density": REAR_EVIDENCE_DENSITY,

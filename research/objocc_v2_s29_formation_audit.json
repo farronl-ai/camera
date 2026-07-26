@@ -1,0 +1,144 @@
+{
+  "formation_model": "one_sided_opaque_v2",
+  "split": "s29",
+  "scene_count": 12,
+  "all_v2_owned_exactly_invariant": true,
+  "all_v2_owned_coverage_exactly_one": true,
+  "all_v2_retain_outer_veil": true,
+  "v1_total_changed_owned_pixels": 34183,
+  "v2_total_changed_owned_pixels": 0,
+  "rows": [
+    {
+      "id": "s29_000",
+      "stratum": "primary",
+      "hard_owned_pixels": 313268,
+      "v1_hidden_background_changed_owned_pixels": 3995,
+      "v1_hidden_background_owned_max_delta": 182.46902465820312,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 82823
+    },
+    {
+      "id": "s29_001",
+      "stratum": "primary",
+      "hard_owned_pixels": 225467,
+      "v1_hidden_background_changed_owned_pixels": 2777,
+      "v1_hidden_background_owned_max_delta": 130.96470642089844,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 60213
+    },
+    {
+      "id": "s29_002",
+      "stratum": "boundary",
+      "hard_owned_pixels": 257147,
+      "v1_hidden_background_changed_owned_pixels": 4675,
+      "v1_hidden_background_owned_max_delta": 188.3614959716797,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 123790
+    },
+    {
+      "id": "s29_003",
+      "stratum": "primary",
+      "hard_owned_pixels": 306995,
+      "v1_hidden_background_changed_owned_pixels": 3874,
+      "v1_hidden_background_owned_max_delta": 219.15365600585938,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 73514
+    },
+    {
+      "id": "s29_004",
+      "stratum": "boundary",
+      "hard_owned_pixels": 234907,
+      "v1_hidden_background_changed_owned_pixels": 4512,
+      "v1_hidden_background_owned_max_delta": 182.07058715820312,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 108766
+    },
+    {
+      "id": "s29_005",
+      "stratum": "all_veil",
+      "hard_owned_pixels": 27344,
+      "v1_hidden_background_changed_owned_pixels": 1541,
+      "v1_hidden_background_owned_max_delta": 164.6780548095703,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 36080
+    },
+    {
+      "id": "s29_006",
+      "stratum": "primary",
+      "hard_owned_pixels": 375803,
+      "v1_hidden_background_changed_owned_pixels": 2397,
+      "v1_hidden_background_owned_max_delta": 168.83135986328125,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 80687
+    },
+    {
+      "id": "s29_007",
+      "stratum": "primary",
+      "hard_owned_pixels": 392881,
+      "v1_hidden_background_changed_owned_pixels": 3300,
+      "v1_hidden_background_owned_max_delta": 115.08234405517578,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 75327
+    },
+    {
+      "id": "s29_008",
+      "stratum": "boundary",
+      "hard_owned_pixels": 92884,
+      "v1_hidden_background_changed_owned_pixels": 1322,
+      "v1_hidden_background_owned_max_delta": 147.56411743164062,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 49422
+    },
+    {
+      "id": "s29_009",
+      "stratum": "primary",
+      "hard_owned_pixels": 333951,
+      "v1_hidden_background_changed_owned_pixels": 4153,
+      "v1_hidden_background_owned_max_delta": 156.37954711914062,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 85647
+    },
+    {
+      "id": "s29_010",
+      "stratum": "boundary",
+      "hard_owned_pixels": 73953,
+      "v1_hidden_background_changed_owned_pixels": 933,
+      "v1_hidden_background_owned_max_delta": 179.11764526367188,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 46064
+    },
+    {
+      "id": "s29_011",
+      "stratum": "all_veil",
+      "hard_owned_pixels": 8013,
+      "v1_hidden_background_changed_owned_pixels": 704,
+      "v1_hidden_background_owned_max_delta": 148.4620361328125,
+      "v2_hidden_background_changed_owned_pixels": 0,
+      "v2_hidden_background_owned_max_delta": 0.0,
+      "v2_min_owned_coverage": 1.0,
+      "v2_outer_veil_pixels_gt_005": 13678
+    }
+  ]
+}

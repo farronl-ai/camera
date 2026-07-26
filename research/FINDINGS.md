@@ -5,6 +5,37 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F75 — Tiny fragments split into real continuations and mask speckle
+
+The newly frozen S29 split reproduced the user's small-piece failure before any
+solve.  `s29_000` left 43 rear-application pixels inside a real dark foreground
+continuation; `s29_011` left five pixels belonging to two disconnected
+three-pixel source-mask islands.  Treating both as the same problem would
+either erase real foreground or train the inverse against segmentation noise.
+
+The real fragment is recovered as a native focused-owner graph continuation.
+The region must already overlap accepted front by 15–50%, occupy only 20–40
+model pixels, extend 3–7.5 model pixels, exceed the measured presence floor by
+2.5×, carry at most 10% rear-frame semantic support, and be no more than mildly
+rear-biased after spatial averaging.  This last allowance is essential:
+downsampled focal direction lets sharp rear surroundings outvote a tiny front
+part.  On the frozen split it admits two regions, adding 515 pixels of which
+509 are GT hard/soft foreground; the six remainder pixels are the same
+antialiased boundary, not rear structure.  The continuation is a hard choice
+from the focused owner, not dilation or blended synthesis.
+
+The two three-pixel islands are generator faults.  The S29 source contract now
+removes only disconnected components expected to occupy fewer than eight
+rendered pixels.  It retains the user's ~50-pixel failure class and every
+resolved small part.  Regenerated S29 again passes formation 12/12: V1 changes
+34,183 hard-owned pixels under hidden-background inversion, V2 changes zero,
+coverage is exactly one, and every scene retains outward veil.
+
+The blind geometry rerun licenses 11 scenes and exactly refuses one ambiguous
+competitor.  Mean/min IoU are `0.96566/0.88187`; rear application totals are
+exactly zero in hard ownership, core, hard soft edge, ordinary boundary, and
+far background.  Full reconstruction remains the next gate.
+
 ## F74 — Negative ownership requires a corroborated object
 
 Historical V1 preservation found a specific failure in the new negative

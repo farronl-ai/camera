@@ -10,6 +10,7 @@ sys.path.insert(0, str(RESEARCH))
 
 from objocc_v2_gen import (  # noqa: E402
     _prepare_opaque_object,
+    _remove_subpixel_source_components,
     _solid_opaque_source_mask,
     coverage_stats,
     exact_disk_blur,
@@ -17,6 +18,23 @@ from objocc_v2_gen import (  # noqa: E402
     render_layered_focal_pair,
     render_one_sided_opaque_focal_pair,
 )
+
+
+def test_opaque_source_cleanup_keeps_small_parts_but_removes_speckles():
+    mask = np.zeros((64, 64), np.uint8)
+    mask[8:40, 8:40] = 1
+    mask[45:50, 45:55] = 1
+    mask[55:57, 55:57] = 1
+
+    cleaned, report = _remove_subpixel_source_components(
+        mask,
+        scale=0.5,
+    )
+
+    assert np.all(cleaned[8:40, 8:40])
+    assert np.all(cleaned[45:50, 45:55])
+    assert not np.any(cleaned[55:57, 55:57])
+    assert report["source_mask_subpixel_components_removed"] == 1
 
 
 def test_solid_opaque_source_mask_fills_only_small_enclosed_holes():

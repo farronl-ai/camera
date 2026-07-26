@@ -161,6 +161,19 @@ ONE_SIDED_MAIN_FRAGMENT_MAX_DISTANCE_MODEL_PIXELS = 5.0
 ONE_SIDED_MAIN_FRAGMENT_MAX_SPAN_MODEL_PIXELS = 7.0
 ONE_SIDED_MAIN_FRAGMENT_MIN_DIRECTION_SCORE = 0.30
 ONE_SIDED_MAIN_FRAGMENT_PRESENCE_MULTIPLIER = 2.5
+# A native graph region may overlap an established silhouette yet carry a thin
+# continuation beyond it. Downsampled focal direction is unreliable there
+# because sharp rear surroundings outvote the small front part. Admit the
+# whole focused-owner graph region only under a narrow partial-overlap/size/
+# distance band, strong foreground-presence residual, and almost no semantic
+# claim from the rear-focused frame.
+ONE_SIDED_MAIN_CONTINUATION_MIN_OVERLAP_FRACTION = 0.15
+ONE_SIDED_MAIN_CONTINUATION_MAX_OVERLAP_FRACTION = 0.50
+ONE_SIDED_MAIN_CONTINUATION_MIN_SPAN_MODEL_PIXELS = 3.0
+ONE_SIDED_MAIN_CONTINUATION_MAX_SPAN_MODEL_PIXELS = 7.5
+ONE_SIDED_MAIN_CONTINUATION_MIN_DIRECTION_SCORE = -0.15
+ONE_SIDED_MAIN_CONTINUATION_MAX_OTHER_SEMANTIC_FRACTION = 0.10
+ONE_SIDED_MAIN_CONTINUATION_PRESENCE_MULTIPLIER = 2.5
 # Once a satellite is independently established as opaque foreground, a narrow
 # uncertainty annulus may deny rear synthesis around fragments too small for a
 # hard source decision. This is rear-veto-only; it never expands copy support.
@@ -1233,6 +1246,11 @@ def _focused_graph_ownership_seeds(
         native_fragment_extension &= ~completed
     native_main_fragment_extension = np.zeros(completed.shape, bool)
     native_main_fragment_regions = 0
+    native_main_continuation_extension = np.zeros(
+        completed.shape,
+        bool,
+    )
+    native_main_continuation_regions = 0
     distance_to_completed = cv2.distanceTransform(
         (~completed).astype(np.uint8),
         cv2.DIST_L2,
@@ -1296,6 +1314,46 @@ def _focused_graph_ownership_seeds(
             continue
         native_main_fragment_extension |= region
         native_main_fragment_regions += 1
+    for label in range(int(native_main_labels.max()) + 1):
+        region = native_main_labels == label
+        area = int(region.sum())
+        if not minimum_main_area <= area <= maximum_main_area:
+            continue
+        overlap_fraction = float(completed[region].mean())
+        farthest = float(distance_to_completed[region].max())
+        if (
+            not (
+                ONE_SIDED_MAIN_CONTINUATION_MIN_OVERLAP_FRACTION
+                <= overlap_fraction
+                <= ONE_SIDED_MAIN_CONTINUATION_MAX_OVERLAP_FRACTION
+            )
+            or not (
+                ONE_SIDED_MAIN_CONTINUATION_MIN_SPAN_MODEL_PIXELS
+                * spatial_scale
+                <= farthest
+                <= ONE_SIDED_MAIN_CONTINUATION_MAX_SPAN_MODEL_PIXELS
+                * spatial_scale
+            )
+            or float(direction_score[region].mean())
+            < ONE_SIDED_MAIN_CONTINUATION_MIN_DIRECTION_SCORE
+            or float(
+                semantics_native[1 - owner][region].mean()
+            )
+            > (
+                ONE_SIDED_MAIN_CONTINUATION_MAX_OTHER_SEMANTIC_FRACTION
+            )
+            or float(np.median(reverse_reblur_residual[region]))
+            < (
+                ONE_SIDED_MAIN_CONTINUATION_PRESENCE_MULTIPLIER
+                * presence_threshold
+            )
+        ):
+            continue
+        native_main_continuation_extension |= region & ~completed
+        native_main_continuation_regions += 1
+    native_main_fragment_extension |= (
+        native_main_continuation_extension
+    )
     satellite_extension |= native_fragment_extension
     satellite_extension |= native_main_fragment_extension
     seeds |= native_fragment_extension | native_main_fragment_extension
@@ -1325,6 +1383,12 @@ def _focused_graph_ownership_seeds(
         ),
         "one_sided_native_main_fragment_pixels": int(
             native_main_fragment_extension.sum()
+        ),
+        "one_sided_native_main_continuation_regions": (
+            native_main_continuation_regions
+        ),
+        "one_sided_native_main_continuation_pixels": int(
+            native_main_continuation_extension.sum()
         ),
         "one_sided_focused_graph_noise_floor": noise_floor,
         "one_sided_focused_graph_presence_threshold": presence_threshold,

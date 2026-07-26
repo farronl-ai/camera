@@ -99,6 +99,12 @@ HARD_OWNERSHIP_OPAQUE_SPLITS = {"s27", "s28", "s29"}
 # later explicit aperture/transmission cohort instead.
 SOLID_OPAQUE_MASK_SPLITS = {"s27", "s28", "s29"}
 SOLID_OPAQUE_MAX_ENCLOSED_HOLE_FRACTION = 0.005
+# A source-mask island that would occupy only a few output samples is not a
+# resolvable foreground object; it is segmentation speckle. Keep meaningful
+# small parts (including the user's ~50-pixel class) while preventing 1–3 pixel
+# mask noise from becoming synthetic ownership truth.
+SPECKLE_CLEAN_OPAQUE_SPLITS = {"s29"}
+SOLID_OPAQUE_MIN_RENDERED_COMPONENT_PIXELS = 8
 
 
 def exact_disk_blur(image: np.ndarray, radius: float) -> np.ndarray:
@@ -491,6 +497,41 @@ def _prepare_opaque_object(
     return radiance, matte, hard_ownership
 
 
+def _remove_subpixel_source_components(
+    mask: np.ndarray,
+    scale: float,
+) -> tuple[np.ndarray, dict]:
+    """Remove only islands that cannot resolve to eight rendered pixels."""
+    binary = np.asarray(mask) > 0
+    component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
+        binary.astype(np.uint8),
+        8,
+    )
+    keep = np.zeros(binary.shape, bool)
+    removed_components = 0
+    removed_source_pixels = 0
+    for label in range(1, component_count):
+        area = int(stats[label, cv2.CC_STAT_AREA])
+        expected_rendered_area = area * scale * scale
+        if (
+            expected_rendered_area
+            >= SOLID_OPAQUE_MIN_RENDERED_COMPONENT_PIXELS
+        ):
+            keep |= labels == label
+        else:
+            removed_components += 1
+            removed_source_pixels += area
+    return keep, {
+        "source_mask_min_rendered_component_pixels": (
+            SOLID_OPAQUE_MIN_RENDERED_COMPONENT_PIXELS
+        ),
+        "source_mask_subpixel_components_removed": removed_components,
+        "source_mask_subpixel_source_pixels_removed": (
+            removed_source_pixels
+        ),
+    }
+
+
 def generate(count: int, split: str) -> None:
     supported_splits = {
         "dev",
@@ -581,7 +622,9 @@ def generate(count: int, split: str) -> None:
         "material_model": material_model,
         "cohort_role": cohort_role,
         "source_mask_contract": (
-            "solid_opaque_no_ambiguous_holes_v1"
+            "solid_opaque_no_ambiguous_holes_no_subpixel_speckles_v2"
+            if split in SPECKLE_CLEAN_OPAQUE_SPLITS
+            else "solid_opaque_no_ambiguous_holes_v1"
             if solid_opaque_sources
             else "legacy_semantic_mask"
         ),
@@ -643,10 +686,27 @@ def generate(count: int, split: str) -> None:
             "all_veil": (0.18, 0.48),
         }[stratum]
         scale = float(rng.uniform(*scale_range))
+        rendered_component_report = {
+            "source_mask_min_rendered_component_pixels": None,
+            "source_mask_subpixel_components_removed": 0,
+            "source_mask_subpixel_source_pixels_removed": 0,
+        }
+        prepared_source_mask = source_mask
+        if split in SPECKLE_CLEAN_OPAQUE_SPLITS:
+            (
+                prepared_source_mask,
+                rendered_component_report,
+            ) = _remove_subpixel_source_components(
+                source_mask,
+                scale,
+            )
+            rendered_component_report["source_mask_contract"] = (
+                "solid_opaque_no_ambiguous_holes_no_subpixel_speckles_v2"
+            )
         foreground_crop, alpha_crop, hard_ownership_crop = (
             _prepare_opaque_object(
             source_radiance,
-            source_mask,
+            prepared_source_mask,
             scale,
             )
         )
@@ -837,6 +897,7 @@ def generate(count: int, split: str) -> None:
             "source": os.path.basename(os.path.dirname(source_path)),
             "source_mask_index": int(mask_index),
             **source_mask_report,
+            **rendered_component_report,
             "background": os.path.basename(os.path.dirname(background_path)),
             "scale": scale,
             "placement_xy": [px, py],

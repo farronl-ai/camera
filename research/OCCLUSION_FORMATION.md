@@ -3,6 +3,20 @@
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
 `NEXT_STEPS_scenerecovery.md`, and F60–F67 in `FINDINGS.md`.
 
+## 2026-07-26 post-rule S29 checkpoint
+
+S29 separates resolved small ownership from source-mask speckle.  A connected
+native graph continuation can hard-select the focused owner under strict
+partial-overlap, size, distance, presence, and rear-semantic bounds even when
+downsampled direction is mildly rear-biased by its surroundings.  Disconnected
+source components expected below eight rendered pixels are not physical
+factory truth; meaningful ~50-pixel pieces remain.
+
+Regenerated S29 passes the hidden-background invariant 12/12 with outward veil
+retained.  Blind geometry licenses 11/refuses one, mean IoU is `0.96566`, and
+rear application is zero in hard/core/soft-edge/boundary/far regions.  Full
+reconstruction remains open.
+
 ## 2026-07-26 negative-geometry preservation checkpoint
 
 A rear-focused patch cannot subtract support unless the enclosing foreground

@@ -92,6 +92,16 @@ toward GT without F53-style pattern extension. The remaining −0.00063/−0.000
 global SSIM rows are a real metric disagreement at a thin contour, not grounds
 to overclaim. Production-PSF mismatch is the next mandatory rung.
 
+P8 closes that rung with component consensus across the factory box PSF and the
+production downscaled-disk PSF. Fresh native holdout remains 2/2 SSIM-positive;
+all nine fires improve fringe L1 and false-texture stays below +0.015 gray.
+Two development SSIM rows remain negative, but direct global physical error
+overturns that isolated verdict: MAE −0.0526/−0.0468 gray, MSE −1.637/−1.334,
+PSNR +0.175/+0.072 dB, and net changed pixels closer to GT
++28,781/+46,711. Eye panels agree with direct error. This is the concrete
+post-doctrine benchmark case: retain the dissenting SSIM result, but admit the
+operator on the full physical evidence lattice rather than optimizing SSIM.
+
 ## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
 
 **The mission (2026-07-22).** The goal has graduated: produce the image TRUE TO THE

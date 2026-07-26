@@ -267,18 +267,29 @@ GT without pattern extension. The metric lattice is mixed, not failed silently:
 native global SSIM dislikes a thin contour shift while region L1 and the eye
 credit the physical correction.
 
-Do not package yet. Next:
+P8 takes consensus across the factory box approximation and production
+downscaled-disk PSF. Fresh native holdout remains 2/2 positive
+(+0.00093/+0.000062 SSIM); all nine fires improve true-fringe error and
+false-texture tails stay below +0.015 gray. Development SSIM remains negative
+on `scene_75`/`scene_99`, so those two were rerun with direct global error:
 
-1. repeat the native audit with the production downscaled-disk PSF rather than
-   the factory's large-radius box approximation, or take consensus across both;
-2. add global MAE/PSNR and guarded false-texture measures so the native
-   disagreement is explicit rather than decided by one global metric;
-3. port the solver only after that model-mismatch rung, with the veil auto
-   kill-switch still default-safe throughout.
+- global MAE improves −0.0526/−0.0468 gray;
+- MSE improves −1.637/−1.334 and PSNR +0.175/+0.072 dB;
+- among changed pixels, closer-to-GT exceeds worse by +28,781/+46,711;
+- the eye shows broad veil removal toward GT without pattern extension.
 
-Current native solver cost after fixing the streaming runner is ~6.9 s per fired
-1536 px scene and <0.93 GB process RSS in this audit; bridge/candidate cost is
-separate.
+This is a genuine metric disagreement: SSIM penalizes a thin contour change
+while per-pixel physical fidelity improves locally and globally. The project
+mission does not optimize one benchmark, so the two rows pass the expanded
+lattice with the disagreement explicitly retained. Packaging is now licensed
+for the narrow two-frame giant-veil regime, using physical candidate reranking
+at max-side 512, the frozen four-feature refusal rule, fixed 3.5% CoC,
+resolution-scaled priors, and box/disk PSF consensus. Keep identity for every
+other case and preserve a kill switch.
+
+Current native six-solve PSF-consensus cost is ~15 s per fired 1536 px scene and
+~1.1 GB process RSS in this audit; bridge/candidate cost is separate. This is
+acceptable only for explicit `--enhance auto`, not the base fusion path.
 
 ## Doctrine
 

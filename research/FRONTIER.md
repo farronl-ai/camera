@@ -134,8 +134,10 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     3.5% giant hypothesis plus unchanged gate fires 9/9 positive at 512 and
     refuses all 54 moderate scenes. Native scale-aware P7 keeps fresh holdout
     2/2 positive and all 9 fringe errors improved, but two development global
-    SSIM tails remain (~−0.00065). Next mandatory rung is production disk-PSF
-    mismatch/consensus, not packaging.
+    SSIM tails remain. P8 cross-PSF consensus keeps fresh native 2/2 positive;
+    the two dissenting dev SSIM rows improve global MAE/MSE/PSNR and changed-
+    pixel fidelity, with no visual pattern extension. Narrow packaging is
+    licensed; every non-giant/nonlicensed case remains identity.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

@@ -26,6 +26,7 @@ Run:
     ../.venv/bin/python veillayers.py p6
     ../.venv/bin/python veillayers.py p6h
     ../.venv/bin/python veillayers.py p7
+    ../.venv/bin/python veillayers.py p8
 """
 from __future__ import annotations
 
@@ -47,6 +48,7 @@ from t2_confidence import scenes  # noqa: E402
 from veilband import fringe_mask  # noqa: E402
 from veilship import false_texture_error  # noqa: E402
 from focusstack.fusion import fuse_perband  # noqa: E402
+from focusstack.reconstruct import _disk_blur as production_disk_blur  # noqa: E402
 
 
 MAX_SIDE = 512
@@ -56,9 +58,16 @@ NEAR_DEPTH = 0.15
 FAR_DEPTH = 0.85
 
 
-def blur3(image: np.ndarray, radii: np.ndarray) -> np.ndarray:
+def blur3(
+    image: np.ndarray,
+    radii: np.ndarray,
+    blur_fn=disk_blur,
+) -> np.ndarray:
     return np.stack(
-        [disk_blur(image[..., c].astype(np.float32), float(radii[c])) for c in range(3)],
+        [
+            blur_fn(image[..., c].astype(np.float32), float(radii[c]))
+            for c in range(3)
+        ],
         axis=2,
     )
 
@@ -71,10 +80,10 @@ def radii_for(max_r: float) -> tuple[list[np.ndarray], list[np.ndarray]]:
     return near, far
 
 
-def prepare_model(alpha: np.ndarray, max_r: float) -> dict:
+def prepare_model(alpha: np.ndarray, max_r: float, blur_fn=disk_blur) -> dict:
     near_radii, far_radii = radii_for(max_r)
     transmission = [
-        1.0 - blur3(np.repeat(alpha[..., None], 3, axis=2), radii)
+        1.0 - blur3(np.repeat(alpha[..., None], 3, axis=2), radii, blur_fn)
         for radii in near_radii
     ]
     return {
@@ -82,13 +91,15 @@ def prepare_model(alpha: np.ndarray, max_r: float) -> dict:
         "near_radii": near_radii,
         "far_radii": far_radii,
         "transmission": transmission,
+        "blur_fn": blur_fn,
     }
 
 
 def forward_layers(near: np.ndarray, far: np.ndarray, model: dict) -> list[np.ndarray]:
     premult = model["alpha"][..., None] * near
     return [
-        blur3(premult, rn) + transmission * blur3(far, rf)
+        blur3(premult, rn, model["blur_fn"])
+        + transmission * blur3(far, rf, model["blur_fn"])
         for rn, rf, transmission in zip(
             model["near_radii"], model["far_radii"], model["transmission"]
         )
@@ -108,8 +119,8 @@ def adjoint(residuals: list[np.ndarray], model: dict) -> tuple[np.ndarray, np.nd
         # Disk kernels are symmetric. Reflect-border filtering is only
         # approximately self-adjoint at the outer image border; the recovery
         # support is far from that border in the factory.
-        near += alpha * blur3(residual, rn)
-        far += blur3(transmission * residual, rf)
+        near += alpha * blur3(residual, rn, model["blur_fn"])
+        far += blur3(transmission * residual, rf, model["blur_fn"])
     return near, far
 
 
@@ -130,11 +141,12 @@ def solve_layers(
     smooth_lambda: float = 2.0,
     anchor_lambda: float = 0.02,
     regularizer_sigma: float = 1.0,
+    blur_fn=disk_blur,
     iterations: int = 18,
 ) -> tuple[np.ndarray, dict]:
     """Solve for layer corrections with conjugate gradients on normal equations."""
     observed = [image.astype(np.float32) for image in images]
-    model = prepare_model(alpha, max_r)
+    model = prepare_model(alpha, max_r, blur_fn=blur_fn)
     near0 = observed[0].copy()
     far0 = (
         observed[1].copy()
@@ -319,13 +331,28 @@ def apply_correction_to_fringe(
 
 def score(output: np.ndarray, base: np.ndarray, sc: dict) -> dict:
     fringe = fringe_mask(sc["alpha"], sc["max_r"])
-    error = np.abs(output.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)
-    error0 = np.abs(base.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)
+    output_f = output.astype(np.float32)
+    base_f = base.astype(np.float32)
+    gt_f = sc["gt"].astype(np.float32)
+    error = np.abs(output_f - gt_f).sum(2)
+    error0 = np.abs(base_f - gt_f).sum(2)
+    mse = float(np.mean((output_f - gt_f) ** 2))
+    mse0 = float(np.mean((base_f - gt_f) ** 2))
+    changed = np.any(output != base, axis=2)
+    closer = (error < error0) & changed
+    worse = (error > error0) & changed
     ft, n = false_texture_error(output, sc["gt"], sc["alpha"], sc["max_r"])
     ft0, _ = false_texture_error(base, sc["gt"], sc["alpha"], sc["max_r"])
     return {
         "dg": M.ref_ssim(output, sc["gt"]) - M.ref_ssim(base, sc["gt"]),
         "de_fringe": float(error[fringe].mean() - error0[fringe].mean()),
+        "d_global_mae": float(
+            np.abs(output_f - gt_f).mean() - np.abs(base_f - gt_f).mean()
+        ),
+        "d_global_mse": mse - mse0,
+        "d_psnr": float(10.0 * np.log10(max(mse0, 1e-12) / max(mse, 1e-12))),
+        "changed_closer": int(closer.sum()),
+        "changed_worse": int(worse.sum()),
         "d_false_texture": float(ft - ft0),
         "false_texture_pixels": n,
     }
@@ -792,6 +819,7 @@ def run_licensed_consensus(
     output_filename: str,
     native: bool = False,
     radius_fraction: float | None = None,
+    psf_consensus: bool = False,
 ) -> None:
     bank = json.load(open(os.path.join(HERE, bank_filename)))
     configs = ((2.0, 0.02), (8.0, 0.05), (32.0, 0.10))
@@ -836,16 +864,23 @@ def run_licensed_consensus(
         started = time.perf_counter()
         spatial_scale = max(sc["gt"].shape[:2]) / MAX_SIDE if native else 1.0
         solved = []
-        for smooth_lambda, anchor_lambda in configs:
-            image, _ = solve_layers(
-                ordered,
-                alpha_est,
-                sc["max_r"],
-                smooth_lambda=smooth_lambda,
-                anchor_lambda=anchor_lambda,
-                regularizer_sigma=spatial_scale,
-            )
-            solved.append(image)
+        blur_functions = (
+            (disk_blur, production_disk_blur)
+            if psf_consensus
+            else (disk_blur,)
+        )
+        for blur_fn in blur_functions:
+            for smooth_lambda, anchor_lambda in configs:
+                image, _ = solve_layers(
+                    ordered,
+                    alpha_est,
+                    sc["max_r"],
+                    smooth_lambda=smooth_lambda,
+                    anchor_lambda=anchor_lambda,
+                    regularizer_sigma=spatial_scale,
+                    blur_fn=blur_fn,
+                )
+                solved.append(image)
         correction, uncertainty = stable_correction(
             base,
             solved,
@@ -889,6 +924,7 @@ def run_licensed_consensus(
                 "configs": configs,
                 "native": native,
                 "radius_fraction": radius_fraction,
+                "psf_consensus": psf_consensus,
                 "fired": fired,
                 "aggregate": {
                     key: summarize(fired, key)
@@ -937,6 +973,28 @@ def cmd_p7() -> None:
     )
 
 
+def cmd_p8() -> None:
+    run_licensed_consensus(
+        "veillayers_p6_fixed_giant_dev.json",
+        "veillayers_p8_native_psf_consensus_dev.json",
+        native=True,
+        radius_fraction=0.035,
+        psf_consensus=True,
+    )
+    run_licensed_consensus(
+        "veillayers_p6_fixed_giant_holdout.json",
+        "veillayers_p8_native_psf_consensus_holdout.json",
+        native=True,
+        radius_fraction=0.035,
+        psf_consensus=True,
+    )
+    print(
+        "DOCTRINE: corrections unstable across plausible PSF families belong "
+        "to model uncertainty and are refused component-wise.",
+        flush=True,
+    )
+
+
 def main() -> None:
     commands = {
         "p0": cmd_p0,
@@ -949,10 +1007,11 @@ def main() -> None:
         "p6": cmd_p6,
         "p6h": cmd_p6h,
         "p7": cmd_p7,
+        "p8": cmd_p8,
     }
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
         raise SystemExit(
-            "usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7}"
+            "usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7|p8}"
         )
     commands[sys.argv[1]]()
 

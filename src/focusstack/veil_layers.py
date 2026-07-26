@@ -2896,7 +2896,7 @@ def _fringe_mask(
     near_visibility = np.minimum.reduce(coverages)
     rear_visibility = 1.0 - np.maximum.reduce(coverages)
     support = (
-        (near_visibility > VISIBILITY_COVERAGE_FLOOR)
+        (near_visibility > 0.0)
         & (rear_visibility > VISIBILITY_COVERAGE_FLOOR)
         & (alpha < 0.5)
     )
@@ -2907,8 +2907,7 @@ def _fringe_mask(
         borderType=cv2.BORDER_REFLECT,
     )
     near_weight = np.clip(
-        (near_visibility - VISIBILITY_COVERAGE_FLOOR)
-        / VISIBILITY_COVERAGE_RAMP,
+        near_visibility / VISIBILITY_COVERAGE_RAMP,
         0.0,
         1.0,
     )

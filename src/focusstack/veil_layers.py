@@ -3726,14 +3726,57 @@ def recover_giant_veil(
             detail_correction * mask[..., None]
             + low_correction * low_mask[..., None]
         )
-    output = np.rint(
-        np.clip(
-            repaired_base.astype(np.float32)
-            + applied_correction,
-            0,
-            255,
+    composed = repaired_base.astype(np.float32) + applied_correction
+    if one_sided_geometry:
+        front_extent = np.asarray(selected["front_extent"], bool)
+        veil_support = (
+            _fringe_mask(alpha, max_radius, 2.0 * spatial_scale) > 0.0
         )
-    ).astype(np.uint8)
+        support_edge = veil_support & ~(
+            cv2.erode(
+                veil_support.astype(np.uint8),
+                np.ones((3, 3), np.uint8),
+            )
+            > 0
+        )
+        distance_to_front = cv2.distanceTransform(
+            (~front_extent).astype(np.uint8),
+            cv2.DIST_L2,
+            5,
+        )
+        outer_edge = support_edge & (
+            distance_to_front >= 0.65 * max_radius
+        )
+        if np.any(outer_edge):
+            edge_distance = cv2.distanceTransform(
+                (~outer_edge).astype(np.uint8),
+                cv2.DIST_L2,
+                5,
+            )
+            transition_width = np.where(
+                veil_support,
+                1.5 * spatial_scale,
+                4.0 * spatial_scale,
+            )
+            phase = np.clip(
+                edge_distance / np.maximum(transition_width, 1e-6),
+                0.0,
+                1.0,
+            )
+            seam_strength = 0.12 * (
+                1.0 - phase * phase * (3.0 - 2.0 * phase)
+            )
+            seam_strength[front_extent] = 0.0
+            local_low = cv2.GaussianBlur(
+                composed,
+                (0, 0),
+                0.5 * spatial_scale,
+                borderType=cv2.BORDER_REFLECT,
+            )
+            composed -= seam_strength[..., None] * (
+                composed - local_low
+            )
+    output = np.rint(np.clip(composed, 0, 255)).astype(np.uint8)
     report.update(
         {
             "fired": True,

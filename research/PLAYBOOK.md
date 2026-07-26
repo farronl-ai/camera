@@ -328,6 +328,13 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    regularization to the relative correction field along the local contour
    normal. Circular absolute-image filters and unconstrained normal-slope
    continuation are shape-blind band-aids.
+6n. **Formation coefficients are upstream state, not post-fusion estimates**
+   (F78). Solve `V_front`, `T_rear`, PSF choice/weight, forward residual, and
+   detection floor while the original focal observations and geometry coexist.
+   Pass those maps to the integrator. Recomputing them inside a recovery function
+   is acceptable only while that function still owns the originals and the same
+   formation model; inferring them from the fused base is structurally
+   underdetermined and recreates the retired correction-after-fusion failure.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

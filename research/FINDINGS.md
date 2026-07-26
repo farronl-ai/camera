@@ -45,6 +45,18 @@ The replacement separates three questions that had been collapsed into one:
    the projected component falls below the local observation-domain noise
    floor; if it should have remained visible, its absence vetoes inference.
 
+This establishes an architectural data contract, not only an equation.
+`V_front`, `T_rear`, selected PSF/model weight, observation-domain residual,
+and component-specific detection floor must be solved while both original
+focal observations and the selected geometry are still present. They should
+become first-class formation-state fields handed to boundary integration and
+composition. The current narrow implementation remains valid because
+`recover_giant_veil` receives both original frames and recomputes those fields
+inside the same function; a future refactor should compute them once upstream
+and pass them explicitly. They must never be inferred from the fused base,
+whose contributions are no longer identifiable. That image-only architecture
+was the structural failure behind the retired correction-after-fusion branch.
+
 The integration contour is now the physically meaningful aperture-coverage
 transition (`min` cross-PSF modeled foreground coverage at 10%), not the
 maximum-radius nonzero support.  The direct inverse may taper on both sides of

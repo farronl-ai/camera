@@ -22,6 +22,22 @@ an inverse.  The runtime now uses the paired one-sided formation model to
 subtract predicted foreground veil radiance and divide by remaining rear
 transmission where that division is locally usable.
 
+The formation stage owns these quantities. While both original frames are
+available it must emit, per frame/model/pixel:
+
+- predicted foreground radiance contribution `V_front`;
+- rear transmission `T_rear`;
+- selected or weighted PSF hypothesis;
+- forward residual/model disagreement; and
+- the observation-domain detection floor used for component-specific vetoes.
+
+Boundary integration consumes that formation state. It must not estimate these
+fields from the fused base: fusion has already pooled frequency-dependent
+evidence from both frames, so the decomposition is no longer identifiable.
+The current implementation computes the fields inside `recover_giant_veil`
+because that function still receives both originals; the intended durable
+architecture is one upstream solve and an explicit formation-state handoff.
+
 Two further distinctions are load-bearing:
 
 - **Support is not the integration contour.** Nonzero aperture support extends

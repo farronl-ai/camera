@@ -219,6 +219,11 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       boundary orientation, and foreground/background contrast sign. Require
       zero protected-region rear application, no contour/false-texture tail,
       and a visual original-frames/pre/post/GT audit before broad promotion.
+      Before N-frame or compound-lens work, introduce an explicit formation-state
+      handoff carrying `V_front`, `T_rear`, local PSF selection/weight, forward
+      residual/disagreement, and detection floor from the original-frame solve
+      into boundary integration. Do not let downstream code reconstruct those
+      fields from the fused base.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

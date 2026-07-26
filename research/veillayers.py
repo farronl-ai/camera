@@ -33,6 +33,10 @@ Run:
     ../.venv/bin/python veillayers.py p11hbank
     ../.venv/bin/python veillayers.py p11h
     ../.venv/bin/python veillayers.py p12
+    ../.venv/bin/python veillayers.py p13
+    ../.venv/bin/python veillayers.py p13hbank
+    ../.venv/bin/python veillayers.py p13h
+    ../.venv/bin/python veillayers.py p14
 """
 from __future__ import annotations
 
@@ -1188,7 +1192,12 @@ def run_composed_package_audit(
     rows = []
     original_bridge = package_enhance.run_bridge
     original_bridge_many = package_enhance.run_bridge_many
+    original_enabled = package_enhance.VEIL_AUTO_ENABLED
     try:
+        # F60 safety-disables veil auto in the shipped product.  Historical and
+        # research composition audits must opt in explicitly so their mechanism
+        # result remains reproducible without changing the runtime default.
+        package_enhance.VEIL_AUTO_ENABLED = True
         for index, sc in enumerate(scenes()):
             if index not in licensed_indices:
                 continue
@@ -1235,6 +1244,7 @@ def run_composed_package_audit(
     finally:
         package_enhance.run_bridge = original_bridge
         package_enhance.run_bridge_many = original_bridge_many
+        package_enhance.VEIL_AUTO_ENABLED = original_enabled
 
     keys = (
         "dg",
@@ -1247,6 +1257,7 @@ def run_composed_package_audit(
     payload = {
         "source_bank": bank_filename,
         "entry_point": "focusstack.enhance.enhance",
+        "research_veil_override": True,
         "cached_bridge_outputs": True,
         "licensed_scenes": len(licensed_indices),
         "rows": rows,
@@ -1300,6 +1311,76 @@ def cmd_p12() -> None:
     )
 
 
+def cmd_p13() -> None:
+    """Owner support with high-overlap parent-silhouette completion."""
+    for bank, label in (
+        ("veillayers_p6_fixed_giant_dev.json", "dev"),
+        ("veillayers_p6_fixed_giant_holdout.json", "holdout"),
+        ("veillayers_p9_second_holdout_bank.json", "second_holdout"),
+        ("veillayers_p11_fresh_holdout_bank.json", "prior_extension"),
+    ):
+        run_package_audit(
+            bank,
+            f"veillayers_p13_parent_support_{label}.json",
+            owner_support=True,
+        )
+    print(
+        "DOCTRINE: an owner-frame parent silhouette may carry opaque foreground "
+        "that the mixed-base matte omitted, but only strong containment plus a "
+        "material captured-frame fit gain can authorize the hard owner choice.",
+        flush=True,
+    )
+
+
+def cmd_p13hbank() -> None:
+    """Frozen candidate bank for the post-parent-rule factory extension."""
+    run_candidate_bank(
+        175,
+        "veillayers_p13_fresh_holdout_bank.json",
+        radius_fraction=0.035,
+        end_index=200,
+    )
+
+
+def cmd_p13h() -> None:
+    """Frozen parent-support rule on its post-threshold factory extension."""
+    run_package_audit(
+        "veillayers_p13_fresh_holdout_bank.json",
+        "veillayers_p13_fresh_holdout_baseline.json",
+        owner_support=False,
+    )
+    run_package_audit(
+        "veillayers_p13_fresh_holdout_bank.json",
+        "veillayers_p13_parent_support_fresh_holdout.json",
+        owner_support=True,
+    )
+    print(
+        "DOCTRINE: the parent-containment and relative-fit thresholds were "
+        "frozen before this extension existed; its result cannot tune them.",
+        flush=True,
+    )
+
+
+def cmd_p14() -> None:
+    """Composed package audit after parent-silhouette integration."""
+    for bank, label in (
+        ("veillayers_p6_fixed_giant_dev.json", "dev"),
+        ("veillayers_p6_fixed_giant_holdout.json", "holdout"),
+        ("veillayers_p9_second_holdout_bank.json", "second_holdout"),
+        ("veillayers_p11_fresh_holdout_bank.json", "prior_extension"),
+        ("veillayers_p13_fresh_holdout_bank.json", "fresh_holdout"),
+    ):
+        run_composed_package_audit(
+            bank,
+            f"veillayers_p14_composed_parent_support_{label}.json",
+        )
+    print(
+        "DOCTRINE: front/back ordering must survive the exact composed entry "
+        "point; no downstream specialist may remix licensed opaque support.",
+        flush=True,
+    )
+
+
 def main() -> None:
     commands = {
         "p0": cmd_p0,
@@ -1319,12 +1400,16 @@ def main() -> None:
         "p11hbank": cmd_p11hbank,
         "p11h": cmd_p11h,
         "p12": cmd_p12,
+        "p13": cmd_p13,
+        "p13hbank": cmd_p13hbank,
+        "p13h": cmd_p13h,
+        "p14": cmd_p14,
     }
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
         raise SystemExit(
             "usage: veillayers.py "
             "{p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7|p8|p9|p10|p11|"
-            "p11hbank|p11h|p12}"
+            "p11hbank|p11h|p12|p13|p13hbank|p13h|p14}"
         )
     commands[sys.argv[1]]()
 

@@ -264,6 +264,25 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    copy observed owner foreground and veto background recovery there. Freeze the
    physical-fit margin before generating the validation extension; otherwise the
    “holdout” is only another development set.
+6h. **A containing owner-frame mask is an ordering observation, not a duplicate
+   matte** (F59). If a sharp-frame silhouette contains nearly all of the mixed-base
+   seed and adds a nearby tail, the tail is evidence that the sharp object stands
+   in front of what another focal frame reveals. Test that parent hypothesis in the
+   captured-frame formation model, require a stronger relative gain than a small
+   satellite, and hard-select only the novel support. Never feed a known opaque
+   owner core to a veil specialist and ask regularization to rediscover ownership.
+   Freeze the containment/IoU/relative-fit rule before generating its extension,
+   and include a causal support-off comparison: pooled benchmark wins alone do not
+   establish that the mechanism fixed its intended failure.
+6i. **Sharp alpha is not frame-specific optical coverage, and a named PSF is not
+   evidence that the implementation uses it** (F60). For layered defocus, save
+   the blurred coverage for every frame and grade complete core, inner partial
+   occlusion, outer veil, and far background separately. Unit-test the renderer
+   against an aperture average; inspect its large-radius branch; clean cutout
+   radiance independently of its matte. A benchmark that hides coverage can make
+   valid partial occlusion look like bad transparency, while a box shortcut can
+   make invalid inputs look like disk optics. When the judge changes, prior
+   promotion scores become provisional even if the mechanism still looks sound.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

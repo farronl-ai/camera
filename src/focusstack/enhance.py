@@ -27,9 +27,12 @@ from .reconstruct import (contamination_band, estimate_thin_matte,
 from .veil_layers import recover_giant_veil
 
 
-# Operational kill switch. F54's correction-after-fusion implementation remains
-# retired; this enables only F55's separately validated joint-layer specialist.
-VEIL_AUTO_ENABLED = True
+# Operational kill switch.  F60's physically audited factory preserves a
+# promising joint-layer ceiling but exposes an unresolved inner-partial-
+# occlusion regression on one post-freeze fire.  Keep the mechanism and its
+# refusal audits reproducible, but do not launch the semantic bridge in auto
+# enhancement until positive background evidence closes that spatial tail.
+VEIL_AUTO_ENABLED = False
 
 
 def _mask_candidates(images, masks, depth, topk=4):
@@ -162,7 +165,7 @@ def enhance(images, fused_pass1, radius=None, harden=0.5,
             else:
                 # Older/custom bridge shims may only expose the single-image
                 # surface.  Preserve the prior recovery path, but omit the new
-                # owner-silhouette repair when owner-frame masks are unavailable.
+                # owner-silhouette ordering when owner-frame masks are unavailable.
                 mp = run_bridge("masks", p1, python=bridge_python)
                 owner_mask_paths = None
             if dp and mp:

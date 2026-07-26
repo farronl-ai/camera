@@ -101,12 +101,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["auto", "off"],
         default="auto",
         help="Gated specialist enhancement (default auto): contour reconstruction "
-        "fires only where its outcome-trained gate predicts a win. On exactly "
-        "two frames, an optional semantic bridge may also admit the narrow "
-        "owner-support-completed joint-layer specialist for physically licensed "
-        "giant veils; "
-        "all other veil cases are identity. 'off' disables both. perband method "
-        "only.",
+        "fires only where its outcome-trained gate predicts a win. The "
+        "joint-layer giant-veil specialist is retained for research but "
+        "safety-disabled after a corrected optical factory exposed an unresolved "
+        "foreground-partition tail; all veil cases are currently identity. "
+        "'off' disables enhancement. perband method only.",
     )
     p.add_argument(
         "--reconstruct-boundaries",

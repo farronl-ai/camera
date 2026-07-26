@@ -205,6 +205,31 @@ def test_owner_frame_satellite_repairs_missing_foreground_support():
     )
 
 
+def test_owner_frame_parent_silhouette_completes_opaque_foreground():
+    frames, _, candidate, satellite = _physical_giant_stack(
+        missing_satellite=True
+    )
+    selected, evidence = select_licensed_candidate(frames, [candidate])
+    assert selected is not None, evidence
+    parent = np.maximum(
+        candidate["alpha"],
+        satellite,
+    ).astype(np.uint8)[None]
+
+    support, support_evidence = complete_owner_support(
+        frames,
+        selected,
+        parent,
+    )
+
+    assert support_evidence["owner_support_accepted_count"] == 1
+    assert support_evidence["owner_support_kinds"] == ["parent_silhouette"]
+    assert support_evidence["owner_support_forward_improvement"] > (
+        0.05 * support_evidence["owner_support_forward_before"]
+    )
+    assert np.mean(support[satellite > 0]) > 0.95
+
+
 def test_owner_frame_fragment_without_physical_support_is_refused():
     frames, _, candidate, _ = _physical_giant_stack()
     selected, evidence = select_licensed_candidate(frames, [candidate])
@@ -229,3 +254,16 @@ def test_owner_frame_fragment_without_physical_support_is_refused():
         support_evidence["owner_support_reason"]
         == "no_forward_licensed_fragment"
     )
+
+    unsupported_parent = np.maximum(
+        candidate["alpha"],
+        unsupported,
+    ).astype(np.uint8)[None]
+    support, support_evidence = complete_owner_support(
+        frames,
+        selected,
+        unsupported_parent,
+    )
+    assert not np.any(support)
+    assert support_evidence["owner_support_candidate_count"] == 1
+    assert support_evidence["owner_support_accepted_count"] == 0

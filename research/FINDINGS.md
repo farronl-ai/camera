@@ -5,6 +5,140 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F60 — The optical factory, not another threshold, resets the veil verdict
+
+The user correctly challenged the input frames after inspecting them rather than
+trusting the aggregate scores. The precise diagnosis has two parts. A severely
+defocused foreground really can become partially occluding: different aperture
+rays see foreground or the revealed background, so sharp alpha=1 does not imply
+frame-specific coverage=1. At the reported `scene_122` point, the far-focus
+coverage is only 0.505 at a 37.7 px defocus radius; it is physically an inner
+veil even though the old inspection page showed only sharp alpha. But the V1
+factory also had a genuine implementation defect: `hardbench.disk_blur()` changed
+every radius above 12 px into downscale→**box** blur→upscale while the benchmark
+continued to call it a disk. It used FastSAM silhouettes as exact alpha, retained
+source-photo edge contamination in the cutout RGB, and did not expose
+frame-specific coverage. The old 10/10 and P13/P14 ledgers remain reproducible
+mechanism diagnostics, but they no longer promote or ship the veil path.
+
+The F60 V2 factory replaces that foundation before changing the algorithm:
+
+- offline convolution uses the exact circular aperture at native resolution and
+  is unit-tested against a brute aperture average;
+- two layers sit exactly at the two focal planes, making the premultiplied
+  near/far equations exact rather than an independent-blur approximation;
+- uncertain source-mask boundary RGB is replaced by nearest eroded-interior
+  foreground radiance before compositing;
+- every scene saves near/far frame-specific coverage plus a class map: green
+  complete-coverage core, yellow inner partial occlusion, magenta outer veil;
+- development, untouched holdout, and post-rule extension each cycle through
+  explicit `solid`, `mixed`, and `thin` strata. Solid scenes preserve 55–80%
+  complete-coverage core; thin/all-veil scenes are labeled rather than pooled.
+
+The visual invariant now matches the optics and the user's intended audit:
+background contributes nowhere inside the green complete-coverage core. In the
+yellow/magenta partial-coverage band it is expected and measured, not mistaken
+for opaque foreground damage.
+
+The unchanged mixed-base runtime gate fires on 0/12 V2 development and 0/12
+untouched-holdout scenes, returning exact identity. That is safe but means the V1
+runtime evidence does not transfer. The operator ceiling survives: with oracle
+factory alpha/owner but unchanged forward license and solver, 9/12 development
+scenes fire and all nine improve SSIM, MAE, MSE, and complete-core MAE. On the
+untouched holdout, 8/12 oracle cases fire; seven improve SSIM/MAE and all eight
+improve MSE and do not damage complete-core MAE. The dissent,
+`holdout_003`, is tiny globally (ΔSSIM −0.000026, ΔMAE +0.0018) but real:
+its correction slightly worsens outer veil/far background while leaving opaque
+core and inner foreground byte-identical. Forward ratio 0.590 cannot detect that
+spatial tail.
+
+Moving the existing ownership idea upstream was tested without retuning any
+threshold: sharp owner-frame masks use the same score/purity/area-fit/ring and
+captured-frame license as mixed-base masks. One development and one untouched
+holdout scene fire, both improving global SSIM/MAE/MSE. The holdout fire,
+however, worsens complete-core and inner-partial MAE because a hierarchical
+child mask contains missed support but is neither a detached satellite nor a
+full parent. A physically licensed overlapping-patch experiment repairs that
+case, but it was derived from the holdout and therefore is **not promoted**.
+The owner-frame fallback remains research-only.
+
+After freezing V2, parent thresholds, and the production mixed-base path, a new
+36-scene extension produces two fires. Both improve SSIM/MAE/MSE. `extension_034`
+independently accepts parent-silhouette plus satellite support and improves
+complete-core, inner-partial, outer-veil, and far-background MAE—so F58/F59's
+discrete ownership fixes survive the corrected optics. `extension_007`, however,
+improves global errors and outer veil while worsening inner-partial MAE by +0.415
+gray and false texture by +0.0159. The runtime cannot yet distinguish these two
+fires. That is enough to retain the model and enough to refuse shipment.
+
+**Shipping action:** `VEIL_AUTO_ENABLED=False`. `--enhance auto` keeps gated
+contour reconstruction but no longer launches the semantic bridge or joint veil
+solver. The V1 inspector is labeled legacy; its exact scene-114/122 diagnostics
+remain available. A new V2 section shows the actual input frames beside explicit
+optical coverage. Re-enable requires positive observed-background evidence that
+protects inner partial foreground, then a fresh post-rule extension with no
+physical-partition regression. Global benchmark unanimity cannot substitute.
+
+## F59 — Parent-silhouette completion carries front/back ordering into recovery
+
+> **F60 scope correction:** the ownership mechanism remains valid and is
+> independently observed on the corrected V2 extension, but the V1 scores below
+> no longer support shipment. The giant-veil auto path is safety-disabled.
+
+The `scene_122` report at native `(x=804, y=521)` exposed the larger form of
+F58's ownership failure. Frame 0 contains a sharp yellow foreground edge and
+frame 1 contains the revealed rear surface. The mixed-base semantic alpha is
+zero at the point even though true alpha is one, and the local focus-energy
+winner is split almost evenly across the missed 727-pixel foreground component.
+The old satellite-only rule therefore left the correct base pixel available for
+the veil specialist to overwrite with rear-frame content: RGB `[240,189,8]`
+became `[165,138,46]` while GT is `[245,202,9]`. This is not a better veil
+solver problem. It is a missing front/back ordering constraint.
+
+The owner-frame segmenter had already supplied the needed observation: its main
+mask contains 96.3% of the licensed seed, has 0.909 IoU with that seed, and adds
+a 4,306-pixel tail with 0.94 GT foreground precision. P13 therefore generalizes
+owner support from detached satellites to high-overlap parent silhouettes. A
+parent must contain at least 90% of the licensed seed, reach at least 0.80 IoU,
+add no more than 2% image area, keep at least 90% of that novel support inside a
+1.5-CoC neighborhood, and reduce captured-frame forward MAE by both the existing
+0.01 absolute margin and a new 5% relative margin. Only the novel pixels are
+hard-copied from the observed owner and excluded from veil correction. The
+semantic model proposes a correspondence; re-rendered observations license it;
+neither GT nor a public image-quality score participates at runtime.
+
+At the reported pixel, the composed output now selects frame 0 exactly:
+`[248,202,13]`, reducing mean RGB error 6.33→2.33 instead of increasing it to
+60.33. In the connected 669-pixel reported region, MAE falls 8.06→4.39 and
+changed pixels grade 569 closer / 83 worse. Whole-scene `scene_122` improves from
+the user's prior +0.001420 SSIM / −0.1546 MAE / 53,613:18,016
+closer:worse checkpoint to +0.001792 / −0.1879 / 54,713:16,642. True-foreground
+MAE falls by 1.87 gray/channel. The five-case inspection lab is regenerated
+through the same composed package: foreground MAE now improves on `scene_75` and
+`scene_122`; three smaller tails remain explicitly open.
+
+The 90% containment, 0.80 IoU, and 5% relative-fit thresholds were frozen before
+creating scenes 175–199. Only two fresh scenes pass the older giant-veil license.
+Both independently accept a parent silhouette. On `scene_178`, the same package
+with support disabled is harmful on every direct measure
+(SSIM −0.000740, MAE +0.0313, MSE +1.0885, fringe +1.037); the frozen parent rule
+flips all four positive (+0.000108, −0.0161, −0.3770, −0.762). `scene_184`
+improves further from +0.000819/−0.1554/−8.392/−4.157 to
++0.001594/−0.1777/−9.008/−4.714. This causal, post-rule extension matters more
+than a pooled benchmark mean: it directly tests whether the new ownership
+constraint prevents the failure it claims to prevent.
+
+P14 then exercises the exact `enhance()` composition across the ten established
+fires, six prior-extension fires, and two fresh fires. Direct and composed
+outputs match; contour reconstruction remains silent. Seventeen of eighteen
+improve SSIM, and all eighteen improve MAE, MSE/PSNR, and true-fringe error. The
+sole SSIM tail remains prior `scene_172` (−0.000416) with no owner-support fire,
+so this mechanism neither caused nor conceals it. False-texture deltas remain
+slightly positive and the scope is still exactly two frames, fixed giant CoC,
+semantic bridge, and <=1600 px. Parent completion repairs a discrete
+identifiability failure; it does not close continuous support uncertainty,
+outer-fringe evidence, general CoC/N-frame recovery, or real-scene truth.
+
 ## F58 — Owner-frame support completion repairs the reported mixed-ownership fragment
 
 The `scene_114` diagnostic at native `(x=187, y=252)` isolated an upstream

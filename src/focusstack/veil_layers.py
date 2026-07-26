@@ -36,14 +36,17 @@ FOCUS_POSITIONS = (0.15, 0.85)
 NEAR_DEPTH = 0.15
 FAR_DEPTH = 0.85
 SOLVER_CONFIGS = ((2.0, 0.02), (8.0, 0.05), (32.0, 0.10))
-# An owner-frame semantic fragment is admitted as missing foreground support
-# only when adding it to the layer model reduces 512px observation error by
-# this absolute amount.  P11 calibrated the margin above every harmful
-# component in development; the unchanged rule is validated on a fresh factory
-# extension before package promotion.
+# Owner-frame semantic support is admitted only when adding it to the 512px
+# layer model reduces captured-frame observation error.  Detached satellites
+# use the P11 absolute margin.  A broader, high-overlap parent silhouette must
+# also clear the P13 relative margin; its thresholds were frozen before the
+# post-rule factory extension and composed-package audit.
 SUPPORT_FORWARD_MARGIN = 0.01
+SUPPORT_PARENT_FORWARD_RATIO_MARGIN = 0.05
 SUPPORT_MAX_AREA_FRACTION = 0.02
 SUPPORT_MAX_OVERLAP_FRACTION = 0.20
+SUPPORT_PARENT_MIN_SEED_CONTAINMENT = 0.90
+SUPPORT_PARENT_MIN_IOU = 0.80
 
 BlurFunction = Callable[[np.ndarray, float], np.ndarray]
 
@@ -493,14 +496,18 @@ def complete_owner_support(
     mixed a small foreground appendage with sharp revealed background, that
     appendage may no longer be segmentable there.  The foreground-owner frame
     still observes it sharply.  We therefore inspect that frame's semantic
-    masks for small nearby *satellites* that are not already part of the
-    selected matte.
+    masks for both small nearby *satellites* and high-overlap *parent
+    silhouettes*.  A parent is the important asymmetric-occlusion case: the
+    mixed-base mask found only part of an object, while its sharp owner-frame
+    mask contains that matte plus opaque foreground that another focal frame
+    replaced with background.
 
-    A satellite is not trusted on appearance alone.  It is added to the
-    two-layer alpha at model resolution and must independently reduce the
-    captured-frame forward residual by ``SUPPORT_FORWARD_MARGIN``.  Accepted
-    masks are used only to hard-select the observed owner and to veto
-    background recovery; they never generate texture.
+    Neither class is trusted on appearance alone.  It is added to the two-layer
+    alpha at model resolution and must independently reduce the captured-frame
+    forward residual.  Parent silhouettes require a stronger relative
+    improvement because their full-mask hypothesis is broader.  Accepted novel
+    support is used only to hard-select the observed owner and to veto
+    background recovery; it never generates texture.
     """
     shape = images[0].shape[:2]
     empty = np.zeros(shape, bool)
@@ -535,6 +542,7 @@ def complete_owner_support(
         int(round(20.0 * (max(shape) / 1536.0) ** 2)),
     )
     max_area = SUPPORT_MAX_AREA_FRACTION * seed.size
+    seed_area = int(seed.sum())
     owner = int(selected["owner"])
     guide = to_gray_float(images[owner]) / 255.0
     base_after = float(selected["forward_after"])
@@ -543,14 +551,35 @@ def complete_owner_support(
     for mask_index, raw_mask in enumerate(masks):
         mask = np.asarray(raw_mask) > 0
         area = int(mask.sum())
-        if area < min_area or area > max_area:
-            continue
         overlap = int((mask & seed).sum())
-        if overlap / max(area, 1) >= SUPPORT_MAX_OVERLAP_FRACTION:
+        novel = mask & ~seed
+        novel_area = int(novel.sum())
+        if novel_area < min_area or novel_area > max_area:
             continue
-        # The fragment must belong to the selected object's immediate optical
+        overlap_fraction = overlap / max(area, 1)
+        seed_containment = overlap / max(seed_area, 1)
+        mask_iou = overlap / max(int((mask | seed).sum()), 1)
+        if overlap_fraction < SUPPORT_MAX_OVERLAP_FRACTION:
+            support_kind = "satellite"
+            # A satellite is itself the proposed support, so its complete mask
+            # must remain within the narrow validated area budget.
+            if area > max_area:
+                continue
+            required_improvement = SUPPORT_FORWARD_MARGIN
+        elif (
+            seed_containment >= SUPPORT_PARENT_MIN_SEED_CONTAINMENT
+            and mask_iou >= SUPPORT_PARENT_MIN_IOU
+        ):
+            support_kind = "parent_silhouette"
+            required_improvement = max(
+                SUPPORT_FORWARD_MARGIN,
+                SUPPORT_PARENT_FORWARD_RATIO_MARGIN * base_after,
+            )
+        else:
+            continue
+        # Novel support must belong to the selected object's immediate optical
         # neighborhood, not merely share its colors elsewhere in the frame.
-        if float((mask & nearby).sum()) / area < 0.90:
+        if float((novel & nearby).sum()) / novel_area < 0.90:
             continue
 
         report["owner_support_candidate_count"] += 1
@@ -564,7 +593,14 @@ def complete_owner_support(
             0.0,
             1.0,
         )
-        augmented = np.maximum(alpha, mask_alpha)
+        # Score exactly the support that would be hard-selected.  In particular,
+        # a parent mask may refine the already-known seed, but improvement there
+        # must not subsidize licensing its novel tail.
+        augmented = alpha.copy()
+        augmented[novel] = np.maximum(
+            augmented[novel],
+            mask_alpha[novel],
+        )
         evidence = _candidate_evidence(
             images,
             {**selected, "alpha": augmented},
@@ -572,14 +608,16 @@ def complete_owner_support(
         if evidence is None:
             continue
         improvement = base_after - float(evidence["forward_after"])
-        if improvement > SUPPORT_FORWARD_MARGIN:
+        if improvement > required_improvement:
             trials.append(
                 {
                     "index": int(mask_index),
-                    "mask": mask,
+                    "kind": support_kind,
+                    "support": novel,
                     "alpha": mask_alpha,
                     "forward_after": float(evidence["forward_after"]),
                     "improvement": float(improvement),
+                    "required_improvement": float(required_improvement),
                 }
             )
 
@@ -591,7 +629,7 @@ def complete_owner_support(
     combined_mask = empty.copy()
     for trial in trials:
         combined_alpha = np.maximum(combined_alpha, trial["alpha"])
-        combined_mask |= trial["mask"]
+        combined_mask |= trial["support"]
     combined_evidence = _candidate_evidence(
         images,
         {**selected, "alpha": combined_alpha},
@@ -601,12 +639,21 @@ def complete_owner_support(
         if combined_evidence is not None
         else -np.inf
     )
-    if combined_improvement <= SUPPORT_FORWARD_MARGIN:
+    combined_required = max(
+        trial["required_improvement"]
+        for trial in trials
+    )
+    if combined_improvement <= combined_required:
         # Individually useful fragments can overlap or compete in the joint
         # model.  Retain only the strongest independently licensed fragment.
-        best = max(trials, key=lambda row: row["improvement"])
+        best = max(
+            trials,
+            key=lambda row: (
+                row["improvement"] - row["required_improvement"]
+            ),
+        )
         trials = [best]
-        combined_mask = best["mask"].copy()
+        combined_mask = best["support"].copy()
         combined_improvement = best["improvement"]
         combined_after = best["forward_after"]
     else:
@@ -620,6 +667,10 @@ def complete_owner_support(
             "owner_support_reason": "forward_licensed_owner_fragments",
             "owner_support_mask_indices": [
                 int(trial["index"])
+                for trial in trials
+            ],
+            "owner_support_kinds": [
+                trial["kind"]
                 for trial in trials
             ],
             "owner_support_forward_before": base_after,

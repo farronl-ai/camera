@@ -359,6 +359,7 @@
   <a class="brand" href="#top">focusstack / inspection</a>
   <div class="links">
     <a href="#read">How to read</a>
+    <a href="#factory">V2 physics</a>
     <a href="#ledger">All cases</a>
     <a href="#cases">Deep inspection</a>
     <a href="#definitions">Definitions</a>
@@ -369,10 +370,10 @@
 <header id="top">
   <p class="eyebrow">Owner workbench · falsification first</p>
   <h1>See exactly what changed.</h1>
-  <p class="lede">This is the engineering view of the current giant-veil recovery: every
-  camera input, base fusion, shipped output, licensed veil mask, owner-frame support,
-  protected region, GT-only error diagnostic, and exact score. It deliberately includes
-  weak and suspicious cases so missed behavior has somewhere to become visible.</p>
+  <p class="lede">This workbench keeps both the newly corrected optical foundation and
+  the older failure reproductions visible. The giant-veil auto path is currently
+  safety-disabled; the detailed scene-72/75/114/122/147 results are legacy V1
+  diagnostics, not current promotion evidence.</p>
   <p class="oracle" id="oracle-warning"></p>
   <div class="summary-grid" id="summary"></div>
 </header>
@@ -400,20 +401,29 @@
       <div class="legend"><strong>Estimated vs true α</strong><p>Estimated α is runtime
       semantic evidence. True α is factory-only and exposes matte misses or leaks.</p></div>
       <div class="legend"><strong>Owner support</strong><p>Bright pixels are small semantic
-      fragments found only in the sharp owner frame and accepted only when they improve
-      the captured-frame physical fit. These pixels hard-select observed foreground.</p></div>
+      fragments or parent-silhouette tails found in the sharp owner frame. Satellites
+      must improve absolute physical fit; parent silhouettes require strong containment
+      and a material relative fit gain. These pixels hard-select observed foreground.</p></div>
       <div class="legend"><strong>Protected map</strong><p>Bright areas are suppressed by
       proposed foreground support or independent focus-owner evidence.</p></div>
     </div>
   </section>
 
+  <section id="factory">
+    <p class="eyebrow">Current optical foundation · V2</p>
+    <h2>Opaque core and partial-occlusion veil are now explicit</h2>
+    <p class="section-intro" id="factory-status"></p>
+    <p class="section-intro" id="factory-order"></p>
+    <div class="tile-grid" id="factory-cases"></div>
+  </section>
+
   <section id="ledger">
-    <p class="eyebrow">Exact-package ledger</p>
-    <h2>All ten licensed fires, including the uncomfortable columns</h2>
-    <p class="section-intro">Direct errors improve on every row. The false-texture-index
-    delta remains slightly positive on every row and is therefore shown as a warning,
-    not hidden by the aggregate win. Click a scene ID to jump to a deep case when one is
-    available.</p>
+    <p class="eyebrow">Legacy V1 exact-package ledger</p>
+    <h2>All ten historical fires, retained for failure reproduction</h2>
+    <p class="section-intro">These rows no longer promote the veil path. They remain
+    useful for reproducing the reported coordinates and testing ownership mechanisms,
+    but the V1 large-radius renderer used a box shortcut and did not expose
+    frame-specific coverage. Click a scene ID to jump to a deep case.</p>
     <div class="table-wrap"><table id="ledger-table"></table></div>
   </section>
 
@@ -440,8 +450,9 @@
       <dt>Forward ratio</dt><dd>Observation-domain residual after/before the 512px physical
       fit. Lower is better; the license requires &lt;0.85, but forward fit alone is not truth.</dd>
       <dt>Owner-support fit Δ</dt><dd>Absolute reduction in the same observation-domain
-      residual after adding owner-only semantic fragments. Runtime acceptance requires
-      more than 0.01; GT is not used.</dd>
+      residual after adding owner-only semantic support. Satellites require more than
+      0.01; high-overlap parent silhouettes additionally require more than 5% of the
+      prior residual. GT is not used.</dd>
       <dt>Stable fraction</dt><dd>Fraction of RGB components with matching correction sign
       across three regularizers and two plausible PSFs. It is consensus, not correctness.</dd>
       <dt>Changed closer/worse</dt><dd>GT class of each changed pixel. Counts expose whether
@@ -467,6 +478,15 @@
   const byId = Object.fromEntries(data.cases.map(c => [c.sid, c]));
   document.getElementById("oracle-warning").textContent = data.oracle_warning;
   document.getElementById("case-selection").textContent = data.case_selection;
+  document.getElementById("factory-status").textContent = data.factory_v2.status;
+  document.getElementById("factory-order").textContent = data.factory_v2.panel_order;
+  document.getElementById("factory-cases").innerHTML = data.factory_v2.cases.map(c =>
+    tile(
+      c.asset,
+      `${c.sid} · ${c.stratum}`,
+      `complete core ${(100 * c.core_fraction).toFixed(1)}% · inner partial occlusion ${(100 * c.inner_veil_fraction).toFixed(1)}% · defocus radius ${c.defocus_radius.toFixed(1)} px`
+    )
+  ).join("");
 
   const n = data.ledger.length;
   const minSsim = Math.min(...data.ledger.map(r => r.dg));
@@ -474,7 +494,8 @@
   const worse = data.ledger.reduce((s, r) => s + r.changed_worse, 0);
   const maxFt = Math.max(...data.ledger.map(r => r.d_false_texture));
   const summaries = [
-    [n + "/" + n, "licensed fires improve all direct measures"],
+    ["OFF", "giant-veil auto safety switch"],
+    [n + "/" + n, "legacy V1 fires retained"],
     [signed(minSsim, 6), "weakest GT-SSIM delta"],
     [(closer / Math.max(worse, 1)).toFixed(2) + "×", "changed pixels closer / worse"],
     ["+" + maxFt.toFixed(3), "largest false-texture tail (gray)"],
@@ -541,7 +562,7 @@
     const p = c.diagnostic_point;
     const hasOwnerSupport = m.owner_support_pixels > 0;
     const supportSub = hasOwnerSupport
-      ? `GT precision ${m.owner_support_precision.toFixed(3)} · fit Δ ${Number(r.owner_support_forward_improvement).toFixed(3)}`
+      ? `${(r.owner_support_kinds || []).join(" + ")} · GT precision ${m.owner_support_precision.toFixed(3)} · fit Δ ${Number(r.owner_support_forward_improvement).toFixed(3)}`
       : "No owner-only fragment passed the runtime physical gate";
     const reportedCrop = p ? `
         <p class="crop-key"><strong>${p.label}</strong> at native (${p.x}, ${p.y}).
@@ -601,7 +622,7 @@
           ${tile(a.estimated_alpha, "Estimated semantic α · runtime", "Selected after observation-domain reranking.")}
           ${tile(a.true_alpha, "True α · GT-only", "Factory diagnostic for matte precision and recall.")}
           ${tile(a.application_mask, "Veil-correction mask · runtime", "Estimated fringe × owner-safe gate, excluding hard owner support.")}
-          ${tile(a.owner_support, "Owner-frame support · runtime", "Observed owner fragments whose physical-fit improvement exceeded 0.01.")}
+          ${tile(a.owner_support, "Owner-frame support · runtime", "Observed satellites or parent-silhouette tails that passed their physical-fit license.")}
           ${tile(a.protected, "Protected from veil correction · runtime", "Estimated foreground, owner support, and focus-owner veto.")}
           ${tile(a.edit_x8, "Signed edit ×8", "Locator only; use the slider for severity.")}
           ${tile(a.error_delta, "Continuous GT error delta", `Green better, magenta worse; saturation ≈ ${m.error_map_scale_gray.toFixed(2)} gray.`)}
@@ -623,7 +644,7 @@
           ${evidenceRow("True-foreground MAE", `${m.foreground_mae_base.toFixed(3)} → ${m.foreground_mae_output.toFixed(3)}`, "Owner damage check.", m.foreground_mae_output <= m.foreground_mae_base ? "better" : "worse")}
           ${evidenceRow("Far-background MAE", `${m.far_background_mae_base.toFixed(3)} → ${m.far_background_mae_output.toFixed(3)}`, "Checks spill beyond the true fringe.", m.far_background_mae_output <= m.far_background_mae_base ? "better" : "worse")}
           ${evidenceRow("Owner-support MAE", hasOwnerSupport ? `${m.owner_support_mae_base.toFixed(3)} → ${m.owner_support_mae_output.toFixed(3)}` : "not active", "GT-only audit of the pixels hard-selected from the observed owner.", !hasOwnerSupport || m.owner_support_mae_output <= m.owner_support_mae_base ? "better" : "worse")}
-          ${evidenceRow("Owner-support fit Δ", hasOwnerSupport ? Number(r.owner_support_forward_improvement).toFixed(4) : "not active", "Runtime observation-domain acceptance margin; must exceed 0.01.", !hasOwnerSupport || r.owner_support_forward_improvement > .01 ? "better" : "worse")}
+          ${evidenceRow("Owner-support fit Δ", hasOwnerSupport ? Number(r.owner_support_forward_improvement).toFixed(4) : "not active", "Runtime observation-domain acceptance: >0.01 for satellites; parent silhouettes also require >5% relative gain.", !hasOwnerSupport || r.owner_support_forward_improvement > .01 ? "better" : "worse")}
           ${evidenceRow("Owner-support GT precision", hasOwnerSupport ? m.owner_support_precision.toFixed(4) : "not active", "Audit-only fraction of support that is true foreground; never used by runtime.", !hasOwnerSupport || m.owner_support_precision >= .8 ? "better" : "warn")}
           ${reportedEvidence}
           ${evidenceRow("Changed on true foreground", m.changed_on_true_foreground.toLocaleString(), "A support count, not proof of damage.", m.changed_on_true_foreground === 0 ? "better" : "warn")}

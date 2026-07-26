@@ -59,6 +59,46 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
 2. Estimated-matte rung (F41 pattern) + R3 trust-mask fallback.
 3. L1 re-degradation audit as gate feature / runtime self-audit (FRONTIER 17).
 
+## P11–P14 support-ordering checkpoint — ✅ PARTIAL (F58/F59)
+- [x] Detached owner-frame satellites: <=2% area, <20% seed overlap, >=90%
+      inside a 1.5-CoC neighborhood, and >0.01 captured-frame fit improvement.
+- [x] High-overlap parent silhouettes: >=90% seed containment, >=0.80 IoU,
+      <=2% novel area, the same neighborhood constraint, and both >0.01 absolute
+      and >5% relative captured-frame fit improvement.
+- [x] Hard-select only novel observed support; veil application is zero there.
+- [x] Freeze the parent rule before scenes 175–199. Fresh `scene_178` flips from
+      harmful on SSIM/MAE/MSE/fringe with support off to positive on all four;
+      `scene_184` improves further. Exact composed P14 matches direct P13.
+- [x] Regenerate the five-case owner lab with fixed scene-114 and scene-122
+      coordinate crops. The scene-122 point error falls 6.33→2.33.
+- [ ] **S10: continuous outer-support evidence.** Separate opaque owner core from
+      uncertain blur spread using positive revealed-background observations; do
+      not infer this from the mixed base or tune it against SSIM.
+- [ ] **S11: older candidate-license tail.** Localize `scene_172`'s −0.000416
+      SSIM dissent (direct MAE/MSE/fringe still improve) and decide whether
+      identity or a spatial veto is the physically correct candidate.
+
+## F60 optical-foundation reset — 🔶 ACTIVE
+- [x] Replace the V1 >12 px box shortcut with exact circular-aperture convolution.
+- [x] Save frame-specific coverage and separate solid/mixed/thin optical strata.
+- [x] Clean cutout boundary radiance; brute-aperture equivalence test passes.
+- [x] Freeze V2 dev/holdout/extension before judging the corresponding bank.
+- [x] Unchanged runtime: 0/24 initial V2 fires (identity). Oracle ceiling:
+      dev 9/9 fired positives; holdout 7/8 SSIM+MAE positive, 8/8 MSE/core-safe.
+- [x] Frozen 36-scene extension: 2 fires improve global direct errors; parent
+      support independently survives, but one worsens inner-partial foreground.
+- [x] Safety-disable giant-veil auto; keep contour reconstruction live.
+- [ ] **S12: positive background observation gate.** Edit outer veil only where
+      another captured frame positively reveals rear-layer structure. “Outside
+      estimated alpha” is insufficient. Grade all four V2 optical partitions.
+- [ ] **S13: owner-frame candidate bank.** The unchanged feature/license recipe
+      yields one dev and one holdout global win, but the holdout exposes a
+      hierarchical child-mask support gap. Develop without that holdout, freeze,
+      then require an independent extension fire before integration.
+- [ ] **S14: real aperture calibration.** Compare V2 disk coverage/PSF against a
+      controlled first-party macro occluder capture; exact synthetic optics are
+      still not real optics.
+
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);
 factory GT + region metrics + eye only. Base band never gains (DC). Gain field

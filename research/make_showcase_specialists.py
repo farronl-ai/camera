@@ -167,9 +167,9 @@ def _rgb_pixel(image, x, y):
 
 def _inspection_ledger():
     sources = (
-        ("development", "veillayers_p12_composed_owner_support_dev.json"),
-        ("holdout-1", "veillayers_p12_composed_owner_support_holdout.json"),
-        ("holdout-2", "veillayers_p12_composed_owner_support_second_holdout.json"),
+        ("development", "veillayers_p14_composed_parent_support_dev.json"),
+        ("holdout-1", "veillayers_p14_composed_parent_support_holdout.json"),
+        ("holdout-2", "veillayers_p14_composed_parent_support_second_holdout.json"),
     )
     ledger = []
     for split, filename in sources:
@@ -251,6 +251,11 @@ def fig_inspection():
             187,
             252,
             "User-reported black foreground appendage",
+        ),
+        122: (
+            804,
+            521,
+            "User-reported yellow foreground core",
         ),
     }
     all_scenes = list(scenes())
@@ -550,13 +555,41 @@ def fig_inspection():
         )
 
     ledger, sources = _inspection_ledger()
+    from objocc_v2_gen import scenes as v2_scenes
+    v2_cases = []
+    for scene in list(v2_scenes("dev"))[:3]:
+        source = os.path.join(scene["dir"], "vis.png")
+        asset_dir = os.path.join(INSPECTION_IMG, "factory_v2")
+        filename = f"{scene['sid']}.jpg"
+        _write_image(
+            os.path.join(asset_dir, filename),
+            cv2.imread(source),
+            max_side=3200,
+            quality=94,
+        )
+        v2_cases.append(
+            {
+                "sid": scene["sid"],
+                "stratum": scene["stratum"],
+                "asset": f"img/inspection/factory_v2/{filename}",
+                "core_fraction": scene["factory"]["core_fraction"],
+                "inner_veil_fraction": scene["factory"][
+                    "inner_veil_fraction"
+                ],
+                "defocus_radius": scene["factory"]["defocus_radius"],
+            }
+        )
     manifest = {
-        "schema": 2,
+        "schema": 3,
         "title": "focusstack owner inspection lab",
-        "generated_from": "shipped focusstack.veil_layers.recover_giant_veil",
+        "generated_from": (
+            "legacy V1 recovery audit plus physically audited V2 factory"
+        ),
         "oracle_warning": (
             "Ground truth, true alpha, error maps, and GT metrics are audit-only. "
-            "They are never inputs to the shipped recovery."
+            "They are never inputs to runtime recovery. The giant-veil auto path is currently "
+            "safety-disabled: the five deep cases and ten-row ledger below use the "
+            "superseded V1 factory and remain only as reproducible diagnostics."
         ),
         "case_selection": (
             "Adversarial/diagnostic selection: weakest licensed win, largest "
@@ -564,6 +597,19 @@ def fig_inspection():
             "ownership stress, and a second scene-disjoint holdout."
         ),
         "audit_sources": sources,
+        "factory_v2": {
+            "status": (
+                "Current validation foundation: exact circular aperture, explicit "
+                "frame-specific coverage, cleaned foreground radiance, and separate "
+                "solid/mixed/thin strata."
+            ),
+            "panel_order": (
+                "near-focus frame · far-focus frame · all-in-focus GT · optical "
+                "coverage classes (green complete core, yellow inner partial "
+                "occlusion, magenta outer veil)"
+            ),
+            "cases": v2_cases,
+        },
         "ledger": ledger,
         "cases": cases,
     }

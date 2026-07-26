@@ -82,6 +82,8 @@ def test_enhance_auto_identity_when_silent(tmp_path, monkeypatch):
 def test_enhance_auto_refuses_cleanly_when_veil_bridge_is_absent(monkeypatch):
     import focusstack.enhance as enhance_module
 
+    monkeypatch.setattr(enhance_module, "VEIL_AUTO_ENABLED", True)
+
     def absent_bridge(*_args, **_kwargs):
         return None
 
@@ -101,6 +103,8 @@ def test_enhance_auto_refuses_cleanly_when_veil_bridge_is_absent(monkeypatch):
 
 def test_enhance_auto_does_not_bridge_an_unlicensed_frame_count(monkeypatch):
     import focusstack.enhance as enhance_module
+
+    monkeypatch.setattr(enhance_module, "VEIL_AUTO_ENABLED", True)
 
     def unexpected_bridge(*_args, **_kwargs):
         raise AssertionError("three-frame veil refusal launched the bridge")
@@ -124,6 +128,8 @@ def test_enhance_auto_does_not_bridge_an_unlicensed_frame_count(monkeypatch):
 
 def test_enhance_auto_wires_licensed_joint_layer_recovery(tmp_path, monkeypatch):
     import focusstack.enhance as enhance_module
+
+    monkeypatch.setattr(enhance_module, "VEIL_AUTO_ENABLED", True)
 
     masks_path = tmp_path / "masks.npy"
     depth_path = tmp_path / "depth.npy"

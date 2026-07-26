@@ -14,7 +14,7 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 2 | **Real N-frame optical data** (BBBC006 microscopy z-stacks) | Real optical defocus. | ✅ F25: got 4 real 3-plane stacks; perband visibly sharpest, pyramid softens/halos nuclei. Microscopy domain covered; macro/photographic real still open (2b). |
 | 2b | **Real photographic/macro deep stacks** | Microscopy ≠ everyday photography content; the photographic real-optical gap persists (MFFW/UHD blocked). | 🔶 DATA IN: `research/REAL_DATA.md`. `mobiledepth` in-tree (13 real phone sweeps, N=12–41, no AiF GT); `iphone12`/Learn2Refocus (N=9, 4K, +pseudo-GT) documented; `araujo` scripted. Photographic gap NARROWED; true macro/product still open. |
 | 3 | **Occlusion-boundary physics (α-matte)** | Real depth edges mix fg/bg semi-transparently. | ✅ F25: built layered α-matte defocus generator; re-ranked — perband crown WIDENS (blend worst under honest occlusion). Synthetic conclusions not artifacts. Fusion itself is still occlusion-UNAWARE (3b). |
-| 3b | **Occlusion-AWARE scene recovery** | Joint layer inversion (de-veiling beyond camera-mix). | 🔶 F58: the narrow two-frame giant-CoC solver now completes physically licensed owner-frame support; all 10 established exact-package fires remain positive and the frozen support rule survives a new 25-scene extension. Correction-after-fusion remains retired. General CoC, N>2, >1600 px, real truth, and remaining spatial tails stay open in 19g–19i. |
+| 3b | **Occlusion-AWARE scene recovery** | Joint layer inversion (de-veiling beyond camera-mix). | 🔶 F60 / SAFETY-DISABLED: V1 evidence was demoted after its large-radius “disk” proved to be a box shortcut. Exact-disk V2 preserves a positive oracle ceiling and two positive fires on a frozen 36-scene extension; one independently validates parent support, while the other worsens inner partial foreground. The model remains research; auto veil is off until 19i closes the spatial tail. |
 | 4 | **Per-band Q_ABF metric** | Fix Q_ABF's high-res collapse structurally. | ✅ F26: q_abf_ms (mean-pool) recovers +0.11→+0.78 at high-res; new composite best at BOTH regimes (+0.785/+0.869). Adopted. |
 | 5 | **Depth map byproduct** | Free feature from the fusion decision. | ✅ F26: --depth-out shipped; r=0.59 on textured pixels (texture-only observability — documented limitation). |
 | 6 | **Exposure/WB drift between frames** | Real capture drifts brightness/color. | ✅ F28: drift costs −0.025 SSIM; per-frame gain to stack-median means (mean is blur-invariant) recovers to −0.002; near-identity gate passed → default-ON (--no-normalize-exposure). lit-scan 2026-07: EDMF (Sensors 2024) = 1000 REAL phone pairs with genuine exposure differences, public — the in-the-wild test F28 never had (→ L9). |
@@ -31,7 +31,7 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 16 | **Boundary Engine (E-phase)** | True object boundaries + near-side occlusion tags from stack evidence ∪ learned appearance; additive integration into guided/perband/harden. THE current push — plan: NEXT_STEPS_boundary.md. Relates to 3b/10/12. | 🔶 E4 done as rigorous negative (F33): decision-side integration cannot fix boundary error — it is coefficient-contamination (reconstruction physics). Boundary engine (fused F=0.55) stands as data product. Successor lever: matte-aware / supersampled boundary RECONSTRUCTION (16b). |
 | 16b | **Matte-aware boundary reconstruction** | The hard-lines lever per F33. | 🔶 F34/F35/F36: ceiling −22%; buildable C3 −16% + global WIN on matte-model data; regresses off-model → mechanism ships behind the contour gate; ungated `--reconstruct-boundaries` is deprecated reproduction-only. |
 | 16d | **Weight-scaled in-loop veil correction** | F54 overturned the narrow-factory validation: realistic object scenes fail even with oracle matte/radius; native fires are microscopic and fail fringe/false-texture tails. Operator retired; successor is joint two-layer inversion, not correction-after-fusion. | ❌ |
-| 16e | **Semantic matte input** | F58: top-4 mixed-base candidates license the giant object; small owner-frame semantic satellites may complete omitted support only after an independent captured-frame forward-fit margin. General matte recall/boundary precision remains open; current shipped coverage is deliberately low. | 🔶 narrow ship |
+| 16e | **Semantic matte input** | F60: parent/satellite completion survives exact-disk V2, but mixed-base masks fire only 2/60 across V2 banks and one fire damages inner-partial foreground. Direct owner-frame candidates are promising (1 dev + 1 holdout global win) but the holdout exposes an unvalidated hierarchical child-mask gap. | 🔶 research only |
 | 16c | **Reconstruction applicability gating** | Fire only where the matte model holds. | 🔶 F38: plane-step ribbon (raw-winner median + energy floor) shipped — strongest on-model result (−16% e2, +global, all scenes), real-data neutral + fire moved to silhouettes. REMAINING: F39 killed veil-side licensing (thin structures have no strong veil — category mismatch); next license is SILHOUETTE-side (owner-frame contour sharpness + plane gap); iphone12 GT verdicts gate promotion. |
 
 Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEPS_breadth.md).
@@ -147,12 +147,13 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     holdout, and 1/1 second untouched holdout positive on SSIM, MAE, MSE/PSNR, and
     fringe L1; it refuses all 66 moderate scenes. Shipped scope is two frames,
     3.5%-image giant CoC, max side <=1600, bridge + licensed candidate; everything
-    else is identity. F58 repairs a distinct matte-support failure: small nearby
-    masks observed only in the sharp owner frame must improve the physical
-    forward fit by >0.01 before their observed pixels can override mixed fusion.
-    Six of the established ten fires gain support while all ten retain positive
-    direct outcomes. The frozen rule fires on two of six licensed scenes in a
-    post-threshold 25-scene extension, with positive causal deltas in both.
+    else is identity. F58 repairs detached owner-frame fragments; F59 adds the
+    asymmetric-occlusion parent case. A parent silhouette must contain >=90% of
+    the licensed seed at >=0.80 IoU and improve the captured-frame fit by >5%
+    (and >0.01 absolute) before only its novel observed pixels can override mixed
+    fusion. All ten established fires retain positive direct outcomes. On the
+    post-rule scenes 175–199, both licensed cases accept a parent; `scene_178`
+    flips from harmful on SSIM/MAE/MSE/fringe to positive on all four.
   - **19g (spawned by F56): generalize without weakening refusal** — N>2 joint layer
     equations, a bounded CoC bank wider than the fixed giant model, >1600 px tiled/
     multigrid solving, and multiple disjoint occluders. Each axis needs its own
@@ -161,18 +162,26 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     product capture with physical target geometry or controlled occluder removal.
     Real stacks without latent-scene truth can audit refusal/artifacts and forward
     fit, but cannot certify recovered texture.
-  - **19i (spawned by F57, 🔶 PARTIAL F58): support-tail projection** — the first
-    discrete support failure is repaired. Small nearby masks from the sharp owner
-    frame are admitted only after >0.01 observed forward-fit improvement, then
-    hard-select captured foreground and veto veil correction. The user-reported
-    `scene_114` component improves MAE 25.01→13.83 (440/76 changed closer/worse);
-    a frozen post-threshold extension accepts two support cases without regression.
-    Not closed: aggregate foreground MAE still worsens slightly on four of five
-    deep cases, off-hard-fringe edits remain substantial, and fresh `scene_172`
-    exposes a small older-license SSIM tail with zero support pixels. Next:
-    continuous support uncertainty plus positive observed-background evidence for
-    the outer fringe. Grade physical partitions and maximum-regression maps, not
-    SSIM; preserve identity as a candidate.
+  - **19i (spawned by F57, 🔶 PARTIAL F60): support-tail projection** — two discrete
+    support failures are repaired. Detached satellites use the >0.01 absolute
+    observed-fit license; high-overlap parent silhouettes additionally require
+    >=90% seed containment, >=0.80 IoU, and >5% relative fit improvement. Both
+    hard-select captured foreground and veto veil correction only on novel
+    support. The reported `scene_114` component improves MAE 25.01→13.83; at
+    `scene_122` the reported point improves 6.33→2.33 and its 669-pixel region
+    improves 8.06→4.39. A frozen post-parent-rule extension causally flips harmful
+    `scene_178` positive on every direct measure. Not closed: foreground MAE still
+    worsens slightly on three of five deep cases, off-hard-fringe edits and positive
+    false-texture tails remain, and prior `scene_172` exposes a small older-license
+    SSIM tail with zero support pixels. Next: continuous support uncertainty plus
+    positive observed-background evidence for the outer fringe. Grade physical
+    partitions and maximum-regression maps, not SSIM; preserve identity as a
+    candidate. F60 resets the judge: exact-disk V2 explicitly separates complete
+    core, inner partial occlusion, outer veil, and far background. Parent support
+    independently survives (`extension_034`), but `extension_007` worsens inner
+    partial MAE by +0.415 despite global wins. Direct owner-frame candidates and
+    overlapping hierarchical patches remain unpromoted. Auto veil is disabled
+    until positive observed-background evidence distinguishes these cases.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

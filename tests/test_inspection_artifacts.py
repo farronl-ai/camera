@@ -8,6 +8,17 @@ DOCS = REPO / "docs"
 
 def test_owner_inspection_lab_is_complete_and_oracle_labeled():
     manifest = json.loads((DOCS / "inspection_manifest.json").read_text())
+    assert manifest["schema"] == 3
+    assert [case["stratum"] for case in manifest["factory_v2"]["cases"]] == [
+        "solid",
+        "mixed",
+        "thin",
+    ]
+    assert all(
+        case["core_fraction"] >= 0.55
+        for case in manifest["factory_v2"]["cases"]
+        if case["stratum"] == "solid"
+    )
     assert len(manifest["ledger"]) == 10
     assert len(manifest["cases"]) == 5
     assert "never inputs" in manifest["oracle_warning"].lower()
@@ -59,9 +70,23 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
     )
     assert "crop_reported" in scene_114["assets"]
 
+    scene_122 = next(
+        case for case in manifest["cases"] if case["sid"] == "scene_122"
+    )
+    assert scene_122["diagnostic_point"]["x"] == 804
+    assert scene_122["diagnostic_point"]["y"] == 521
+    assert scene_122["diagnostic_point"]["owner_support"] is True
+    assert scene_122["diagnostic_point"]["output_error"] < (
+        scene_122["diagnostic_point"]["base_error"]
+    )
+    assert "parent_silhouette" in scene_122["report"]["owner_support_kinds"]
+    assert "crop_reported" in scene_122["assets"]
+
     html = (DOCS / "INSPECTION.html").read_text()
     assert "__INSPECTION_MANIFEST__" not in html
     assert "GT-only" in html
+    assert "safety-disabled" in html
+    assert "Current optical foundation" in html
     assert "Every image input" in html
     assert "Copy diagnostic note" in html
     assert "BASE</strong> is always left of the divider" in html

@@ -26,6 +26,7 @@ giant CoC instead of accidentally making nearly every object an all-veil case.
 Run:
     python research/objocc_v2_gen.py 12 dev
     python research/objocc_v2_gen.py 12 holdout
+    python research/objocc_v2_gen.py 12 extension
 """
 from __future__ import annotations
 
@@ -207,8 +208,8 @@ def _prepare_object(
 
 
 def generate(count: int, split: str) -> None:
-    if split not in {"dev", "holdout"}:
-        raise ValueError("split must be 'dev' or 'holdout'")
+    if split not in {"dev", "holdout", "extension"}:
+        raise ValueError("split must be 'dev', 'holdout', or 'extension'")
     split_dir = os.path.join(OUT, split)
     os.makedirs(split_dir, exist_ok=True)
     assets = _source_assets()
@@ -216,7 +217,7 @@ def generate(count: int, split: str) -> None:
         raise RuntimeError("no source objects with cached masks")
     photos = sorted(glob.glob(os.path.join(SRC, "*", "gt.png")))
     background_cache = {}
-    seed = 6001 if split == "dev" else 9001
+    seed = {"dev": 6001, "holdout": 9001, "extension": 12001}[split]
     rng = np.random.default_rng(seed)
     manifest = {
         "version": 2,
@@ -391,9 +392,46 @@ def generate(count: int, split: str) -> None:
     print(f"{count} physically audited {split} scenes -> {split_dir}")
 
 
+def scenes(split: str):
+    """Load generated V2 scenes with frame-specific optical coverage."""
+    split_dir = os.path.join(OUT, split)
+    with open(os.path.join(split_dir, "manifest.json")) as handle:
+        manifest = json.load(handle)
+    for row in manifest["scenes"]:
+        scene_dir = os.path.join(split_dir, row["id"])
+        yield {
+            "sid": row["id"],
+            "stratum": row["stratum"],
+            "dir": scene_dir,
+            "gt": cv2.imread(os.path.join(scene_dir, "gt.png")),
+            "alpha": (
+                cv2.imread(os.path.join(scene_dir, "alpha.png"), 0).astype(
+                    np.float32
+                )
+                / 255.0
+            ),
+            "coverage": [
+                cv2.imread(
+                    os.path.join(scene_dir, f"coverage_{index}.png"),
+                    0,
+                ).astype(np.float32)
+                / 255.0
+                for index in (0, 1)
+            ],
+            "frames": [
+                cv2.imread(os.path.join(scene_dir, f"frame_{index}.png"))
+                for index in (0, 1)
+            ],
+            "max_r": float(row["max_radius"]),
+            "factory": row,
+        }
+
+
 def main() -> None:
     if len(sys.argv) != 3:
-        raise SystemExit("usage: objocc_v2_gen.py COUNT {dev|holdout}")
+        raise SystemExit(
+            "usage: objocc_v2_gen.py COUNT {dev|holdout|extension}"
+        )
     generate(int(sys.argv[1]), sys.argv[2])
 
 

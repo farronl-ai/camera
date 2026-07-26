@@ -1,0 +1,2283 @@
+{
+  "factory": "objocc_v2_exact_disk",
+  "split": "extension",
+  "entry_point": "focusstack.enhance.enhance",
+  "research_veil_override": true,
+  "thresholds_retuned": false,
+  "scene_count": 36,
+  "fired_count": 2,
+  "rows": [
+    {
+      "sid": "extension_000",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 0,
+          "forward_before": 1.963317632675171,
+          "forward_after": 1.7842674255371094,
+          "forward_ratio": 0.9088022212207753
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9638296961784363,
+        "ssim_output": 0.9638296961784363,
+        "d_ssim": 0.0,
+        "mae_base": 2.728193521499634,
+        "mae_output": 2.728193521499634,
+        "d_mae": 0.0,
+        "mse_base": 23.40957260131836,
+        "mse_output": 23.40957260131836,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.753369927406311,
+        "false_texture_output": 1.753369927406311,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 9277,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 55558,
+            "mae_base": 2.646693468093872,
+            "mae_output": 2.646693468093872
+          },
+          "inner_partial_occlusion": {
+            "pixels": 37283,
+            "mae_base": 5.248817443847656,
+            "mae_output": 5.248817443847656
+          },
+          "outer_veil": {
+            "pixels": 49776,
+            "mae_base": 12.981670379638672,
+            "mae_output": 12.981670379638672
+          },
+          "far_background": {
+            "pixels": 1426191,
+            "mae_base": 2.2766075134277344,
+            "mae_output": 2.2766075134277344
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_001",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 3,
+          "forward_before": 2.247006893157959,
+          "forward_after": 2.1894407272338867,
+          "forward_ratio": 0.9743809571304125
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9596028923988342,
+        "ssim_output": 0.9596028923988342,
+        "d_ssim": 0.0,
+        "mae_base": 2.3814516067504883,
+        "mae_output": 2.3814516067504883,
+        "d_mae": 0.0,
+        "mse_base": 11.334667205810547,
+        "mse_output": 11.334667205810547,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.828904628753662,
+        "false_texture_output": 1.828904628753662,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 11689,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 30008,
+            "mae_base": 2.3374767303466797,
+            "mae_output": 2.3374767303466797
+          },
+          "inner_partial_occlusion": {
+            "pixels": 40940,
+            "mae_base": 6.270867824554443,
+            "mae_output": 6.270867824554443
+          },
+          "outer_veil": {
+            "pixels": 47078,
+            "mae_base": 5.956710338592529,
+            "mae_output": 5.956710338592529
+          },
+          "far_background": {
+            "pixels": 2238497,
+            "mae_base": 2.230058431625366,
+            "mae_output": 2.230058431625366
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_002",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 2,
+          "forward_before": 4.191691875457764,
+          "forward_after": 3.5297131538391113,
+          "forward_ratio": 0.8420736205601087
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9622238278388977,
+        "ssim_output": 0.9622238278388977,
+        "d_ssim": 0.0,
+        "mae_base": 2.3621695041656494,
+        "mae_output": 2.3621695041656494,
+        "d_mae": 0.0,
+        "mse_base": 9.713448524475098,
+        "mse_output": 9.713448524475098,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6243245601654053,
+        "false_texture_output": 1.6243245601654053,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 33339,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 143,
+            "mae_base": 3.855477809906006,
+            "mae_output": 3.855477809906006
+          },
+          "inner_partial_occlusion": {
+            "pixels": 30591,
+            "mae_base": 3.8741023540496826,
+            "mae_output": 3.8741023540496826
+          },
+          "outer_veil": {
+            "pixels": 37671,
+            "mae_base": 5.65406608581543,
+            "mae_output": 5.65406608581543
+          },
+          "far_background": {
+            "pixels": 1502188,
+            "mae_base": 2.245959997177124,
+            "mae_output": 2.245959997177124
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_003",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 1,
+          "forward_before": 5.454033851623535,
+          "forward_after": 5.5394134521484375,
+          "forward_ratio": 1.0156543950491776
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9579288363456726,
+        "ssim_output": 0.9579288363456726,
+        "d_ssim": 0.0,
+        "mae_base": 2.5501787662506104,
+        "mae_output": 2.5501787662506104,
+        "d_mae": 0.0,
+        "mse_base": 13.31106948852539,
+        "mse_output": 13.31106948852539,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6935818195343018,
+        "false_texture_output": 1.6935818195343018,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 27956,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 54365,
+            "mae_base": 2.840571165084839,
+            "mae_output": 2.840571165084839
+          },
+          "inner_partial_occlusion": {
+            "pixels": 36505,
+            "mae_base": 4.506396293640137,
+            "mae_output": 4.506396293640137
+          },
+          "outer_veil": {
+            "pixels": 48907,
+            "mae_base": 6.965846538543701,
+            "mae_output": 6.965846538543701
+          },
+          "far_background": {
+            "pixels": 1626614,
+            "mae_base": 2.356395959854126,
+            "mae_output": 2.356395959854126
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_004",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 0,
+          "forward_before": 1.6568427085876465,
+          "forward_after": 1.4831442832946777,
+          "forward_ratio": 0.8951629962260959
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9687907099723816,
+        "ssim_output": 0.9687907099723816,
+        "d_ssim": 0.0,
+        "mae_base": 2.4855778217315674,
+        "mae_output": 2.4855778217315674,
+        "d_mae": 0.0,
+        "mse_base": 14.168643951416016,
+        "mse_output": 14.168643951416016,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6038402318954468,
+        "false_texture_output": 1.6038402318954468,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 23162,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 27810,
+            "mae_base": 2.9027090072631836,
+            "mae_output": 2.9027090072631836
+          },
+          "inner_partial_occlusion": {
+            "pixels": 27485,
+            "mae_base": 6.282408714294434,
+            "mae_output": 6.282408714294434
+          },
+          "outer_veil": {
+            "pixels": 36639,
+            "mae_base": 8.81529712677002,
+            "mae_output": 8.81529712677002
+          },
+          "far_background": {
+            "pixels": 1478573,
+            "mae_base": 2.239675998687744,
+            "mae_output": 2.239675998687744
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_005",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 1,
+          "forward_before": 7.624683380126953,
+          "forward_after": 8.256270408630371,
+          "forward_ratio": 1.0828345253193847
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9593697190284729,
+        "ssim_output": 0.9593697190284729,
+        "d_ssim": 0.0,
+        "mae_base": 2.144775867462158,
+        "mae_output": 2.144775867462158,
+        "d_mae": 0.0,
+        "mse_base": 7.4716010093688965,
+        "mse_output": 7.4716010093688965,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.4950302839279175,
+        "false_texture_output": 1.4950302839279175,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 14348,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 1537,
+            "mae_base": 3.4946863651275635,
+            "mae_output": 3.4946863651275635
+          },
+          "inner_partial_occlusion": {
+            "pixels": 8858,
+            "mae_base": 2.958831787109375,
+            "mae_output": 2.958831787109375
+          },
+          "outer_veil": {
+            "pixels": 13939,
+            "mae_base": 2.501781463623047,
+            "mae_output": 2.501781463623047
+          },
+          "far_background": {
+            "pixels": 1547221,
+            "mae_base": 2.1352083683013916,
+            "mae_output": 2.1352083683013916
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_006",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 3,
+          "forward_before": 4.677279472351074,
+          "forward_after": 4.575479030609131,
+          "forward_ratio": 0.9782351167289193
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9625714421272278,
+        "ssim_output": 0.9625714421272278,
+        "d_ssim": 0.0,
+        "mae_base": 2.868063449859619,
+        "mae_output": 2.868063449859619,
+        "d_mae": 0.0,
+        "mse_base": 19.617448806762695,
+        "mse_output": 19.617448806762695,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7201378345489502,
+        "false_texture_output": 1.7201378345489502,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 51251,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 320252,
+            "mae_base": 2.591412305831909,
+            "mae_output": 2.591412305831909
+          },
+          "inner_partial_occlusion": {
+            "pixels": 81682,
+            "mae_base": 3.3128068447113037,
+            "mae_output": 3.3128068447113037
+          },
+          "outer_veil": {
+            "pixels": 92811,
+            "mae_base": 8.482524871826172,
+            "mae_output": 8.482524871826172
+          },
+          "far_background": {
+            "pixels": 1269126,
+            "mae_base": 2.482020378112793,
+            "mae_output": 2.482020378112793
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_007",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 1,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "licensed_consensus",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": true,
+          "reason": "licensed_consensus",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 3,
+          "candidate_rank": 0,
+          "forward_before": 2.5551605224609375,
+          "forward_after": 2.0730175971984863,
+          "forward_ratio": 0.8113062091308113,
+          "owner_support_candidate_count": 1,
+          "owner_support_accepted_count": 0,
+          "owner_support_pixels": 0,
+          "owner_support_reason": "no_forward_licensed_fragment",
+          "model_count": 6,
+          "stable_fraction": 0.732416087962963,
+          "ensemble_spread_rms": 1.0338718891143799,
+          "retained_rms": 1.9839600324630737,
+          "owner_veto_mean": 0.032187655568122864,
+          "owner_veto_confident_fraction": 0.03276041666666667,
+          "owner": 0,
+          "changed_pixels": 51972
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9789100289344788,
+        "ssim_output": 0.980034589767456,
+        "d_ssim": 0.001124560832977295,
+        "mae_base": 2.87384033203125,
+        "mae_output": 2.8150293827056885,
+        "d_mae": -0.05881094932556152,
+        "mse_base": 17.801847457885742,
+        "mse_output": 16.1451473236084,
+        "changed_pixels": 51972,
+        "changed_closer": 30627,
+        "changed_worse": 18467,
+        "false_texture_base": 2.0683186054229736,
+        "false_texture_output": 2.084212303161621,
+        "d_false_texture": 0.01589369773864746,
+        "false_texture_pixels": 3219,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 16730,
+            "mae_base": 2.854233980178833,
+            "mae_output": 2.854233980178833
+          },
+          "inner_partial_occlusion": {
+            "pixels": 36704,
+            "mae_base": 3.143472194671631,
+            "mae_output": 3.5586583614349365
+          },
+          "outer_veil": {
+            "pixels": 43213,
+            "mae_base": 8.317219734191895,
+            "mae_output": 6.674264907836914
+          },
+          "far_background": {
+            "pixels": 821488,
+            "mae_base": 2.5483338832855225,
+            "mae_output": 2.5485329627990723
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_008",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 2,
+          "forward_before": 1.1021554470062256,
+          "forward_after": 1.2498019933700562,
+          "forward_ratio": 1.1339616355976658
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9620619416236877,
+        "ssim_output": 0.9620619416236877,
+        "d_ssim": 0.0,
+        "mae_base": 2.2530853748321533,
+        "mae_output": 2.2530853748321533,
+        "d_mae": 0.0,
+        "mse_base": 8.995960235595703,
+        "mse_output": 8.995960235595703,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6237318515777588,
+        "false_texture_output": 1.6237318515777588,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 16291,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 1906,
+            "mae_base": 2.409234046936035,
+            "mae_output": 2.409234046936035
+          },
+          "inner_partial_occlusion": {
+            "pixels": 14058,
+            "mae_base": 4.260705471038818,
+            "mae_output": 4.260705471038818
+          },
+          "outer_veil": {
+            "pixels": 21701,
+            "mae_base": 5.649570465087891,
+            "mae_output": 5.649570465087891
+          },
+          "far_background": {
+            "pixels": 1533908,
+            "mae_base": 2.18477201461792,
+            "mae_output": 2.18477201461792
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_009",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 1,
+          "forward_before": 2.1496825218200684,
+          "forward_after": 1.6227962970733643,
+          "forward_ratio": 0.75490044720622
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9526000022888184,
+        "ssim_output": 0.9526000022888184,
+        "d_ssim": 0.0,
+        "mae_base": 2.7914257049560547,
+        "mae_output": 2.7914257049560547,
+        "d_mae": 0.0,
+        "mse_base": 25.78754425048828,
+        "mse_output": 25.78754425048828,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6435688734054565,
+        "false_texture_output": 1.6435688734054565,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 41083,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 170902,
+            "mae_base": 2.4440438747406006,
+            "mae_output": 2.4440438747406006
+          },
+          "inner_partial_occlusion": {
+            "pixels": 56224,
+            "mae_base": 4.656089782714844,
+            "mae_output": 4.656089782714844
+          },
+          "outer_veil": {
+            "pixels": 67307,
+            "mae_base": 12.886509895324707,
+            "mae_output": 12.886509895324707
+          },
+          "far_background": {
+            "pixels": 1275153,
+            "mae_base": 2.201889991760254,
+            "mae_output": 2.201889991760254
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_010",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 0,
+          "forward_before": 1.4473772048950195,
+          "forward_after": 1.6911227703094482,
+          "forward_ratio": 1.1684050049911543
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9572606682777405,
+        "ssim_output": 0.9572606682777405,
+        "d_ssim": 0.0,
+        "mae_base": 2.541285514831543,
+        "mae_output": 2.541285514831543,
+        "d_mae": 0.0,
+        "mse_base": 15.930648803710938,
+        "mse_output": 15.930648803710938,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6731407642364502,
+        "false_texture_output": 1.6731407642364502,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 18741,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 10026,
+            "mae_base": 3.293170928955078,
+            "mae_output": 3.293170928955078
+          },
+          "inner_partial_occlusion": {
+            "pixels": 43666,
+            "mae_base": 6.727972507476807,
+            "mae_output": 6.727972507476807
+          },
+          "outer_veil": {
+            "pixels": 48619,
+            "mae_base": 8.367661476135254,
+            "mae_output": 8.367661476135254
+          },
+          "far_background": {
+            "pixels": 1466980,
+            "mae_base": 2.1998605728149414,
+            "mae_output": 2.1998605728149414
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_011",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 1,
+          "forward_before": 1.2103623151779175,
+          "forward_after": 1.2747455835342407,
+          "forward_ratio": 1.0531933847815307
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9607362747192383,
+        "ssim_output": 0.9607362747192383,
+        "d_ssim": 0.0,
+        "mae_base": 2.3517699241638184,
+        "mae_output": 2.3517699241638184,
+        "d_mae": 0.0,
+        "mse_base": 11.569280624389648,
+        "mse_output": 11.569280624389648,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6267335414886475,
+        "false_texture_output": 1.6267335414886475,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 23380,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 20048,
+            "mae_base": 5.717644214630127,
+            "mae_output": 5.717644214630127
+          },
+          "outer_veil": {
+            "pixels": 32900,
+            "mae_base": 7.510587692260742,
+            "mae_output": 7.510587692260742
+          },
+          "far_background": {
+            "pixels": 1517709,
+            "mae_base": 2.1897802352905273,
+            "mae_output": 2.1897802352905273
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_012",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 2,
+          "forward_before": 1.5643229484558105,
+          "forward_after": 1.6107635498046875,
+          "forward_ratio": 1.0296873490187688
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9687446355819702,
+        "ssim_output": 0.9687446355819702,
+        "d_ssim": 0.0,
+        "mae_base": 2.4113192558288574,
+        "mae_output": 2.4113192558288574,
+        "d_mae": 0.0,
+        "mse_base": 10.935004234313965,
+        "mse_output": 10.935004234313965,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6390985250473022,
+        "false_texture_output": 1.6390985250473022,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 26083,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 41055,
+            "mae_base": 2.857085704803467,
+            "mae_output": 2.857085704803467
+          },
+          "inner_partial_occlusion": {
+            "pixels": 32317,
+            "mae_base": 4.410630226135254,
+            "mae_output": 4.410630226135254
+          },
+          "outer_veil": {
+            "pixels": 43404,
+            "mae_base": 5.975247859954834,
+            "mae_output": 5.975247859954834
+          },
+          "far_background": {
+            "pixels": 1649972,
+            "mae_base": 2.258890151977539,
+            "mae_output": 2.258890151977539
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_013",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 2,
+          "candidate_rank": 0,
+          "forward_before": 2.0849719047546387,
+          "forward_after": 2.167137384414673,
+          "forward_ratio": 1.039408434939896
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9833255410194397,
+        "ssim_output": 0.9833255410194397,
+        "d_ssim": 0.0,
+        "mae_base": 3.147557020187378,
+        "mae_output": 3.147557020187378,
+        "d_mae": 0.0,
+        "mse_base": 31.338842391967773,
+        "mse_output": 31.338842391967773,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.1627542972564697,
+        "false_texture_output": 2.1627542972564697,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 1293,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 9042,
+            "mae_base": 4.232175827026367,
+            "mae_output": 4.232175827026367
+          },
+          "inner_partial_occlusion": {
+            "pixels": 42753,
+            "mae_base": 14.075823783874512,
+            "mae_output": 14.075823783874512
+          },
+          "outer_veil": {
+            "pixels": 47650,
+            "mae_base": 15.163392066955566,
+            "mae_output": 15.163392066955566
+          },
+          "far_background": {
+            "pixels": 1666524,
+            "mae_base": 2.483703851699829,
+            "mae_output": 2.483703851699829
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_014",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 1,
+          "forward_before": 1.51996648311615,
+          "forward_after": 1.5869337320327759,
+          "forward_ratio": 1.0440583721157677
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9684975147247314,
+        "ssim_output": 0.9684975147247314,
+        "d_ssim": 0.0,
+        "mae_base": 2.3413572311401367,
+        "mae_output": 2.3413572311401367,
+        "d_mae": 0.0,
+        "mse_base": 10.04956340789795,
+        "mse_output": 10.04956340789795,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6440045833587646,
+        "false_texture_output": 1.6440045833587646,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 11041,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 582,
+            "mae_base": 6.582474231719971,
+            "mae_output": 6.582474231719971
+          },
+          "inner_partial_occlusion": {
+            "pixels": 14034,
+            "mae_base": 5.380504608154297,
+            "mae_output": 5.380504608154297
+          },
+          "outer_veil": {
+            "pixels": 18402,
+            "mae_base": 8.070499420166016,
+            "mae_output": 8.070499420166016
+          },
+          "far_background": {
+            "pixels": 1735169,
+            "mae_base": 2.252591371536255,
+            "mae_output": 2.252591371536255
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_015",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 3,
+          "forward_before": 6.982412338256836,
+          "forward_after": 7.813472270965576,
+          "forward_ratio": 1.1190218927855835
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9529918432235718,
+        "ssim_output": 0.9529918432235718,
+        "d_ssim": 0.0,
+        "mae_base": 3.201045036315918,
+        "mae_output": 3.201045036315918,
+        "d_mae": 0.0,
+        "mse_base": 32.688140869140625,
+        "mse_output": 32.688140869140625,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.702414870262146,
+        "false_texture_output": 1.702414870262146,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 26570,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 137576,
+            "mae_base": 2.726766586303711,
+            "mae_output": 2.726766586303711
+          },
+          "inner_partial_occlusion": {
+            "pixels": 83811,
+            "mae_base": 7.562654495239258,
+            "mae_output": 7.562654495239258
+          },
+          "outer_veil": {
+            "pixels": 89561,
+            "mae_base": 12.75480842590332,
+            "mae_output": 12.75480842590332
+          },
+          "far_background": {
+            "pixels": 1454238,
+            "mae_base": 2.3780884742736816,
+            "mae_output": 2.3780884742736816
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_016",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 0,
+          "forward_before": 1.7975473403930664,
+          "forward_after": 1.7636197805404663,
+          "forward_ratio": 0.9811256376451364
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9650714993476868,
+        "ssim_output": 0.9650714993476868,
+        "d_ssim": 0.0,
+        "mae_base": 2.510193347930908,
+        "mae_output": 2.510193347930908,
+        "d_mae": 0.0,
+        "mse_base": 14.535210609436035,
+        "mse_output": 14.535210609436035,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6613612174987793,
+        "false_texture_output": 1.6613612174987793,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 17937,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 15490,
+            "mae_base": 2.2271788120269775,
+            "mae_output": 2.2271788120269775
+          },
+          "inner_partial_occlusion": {
+            "pixels": 30578,
+            "mae_base": 4.995508193969727,
+            "mae_output": 4.995508193969727
+          },
+          "outer_veil": {
+            "pixels": 37395,
+            "mae_base": 11.638205528259277,
+            "mae_output": 11.638205528259277
+          },
+          "far_background": {
+            "pixels": 1683786,
+            "mae_base": 2.2576329708099365,
+            "mae_output": 2.2576329708099365
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_017",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 3,
+          "forward_before": 1.0801078081130981,
+          "forward_after": 1.1959285736083984,
+          "forward_ratio": 1.1072307455101489
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9629254341125488,
+        "ssim_output": 0.9629254341125488,
+        "d_ssim": 0.0,
+        "mae_base": 2.2190282344818115,
+        "mae_output": 2.2190282344818115,
+        "d_mae": 0.0,
+        "mse_base": 8.009214401245117,
+        "mse_output": 8.009214401245117,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6021761894226074,
+        "false_texture_output": 1.6021761894226074,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 17072,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 582,
+            "mae_base": 2.3361971378326416,
+            "mae_output": 2.3361971378326416
+          },
+          "inner_partial_occlusion": {
+            "pixels": 14034,
+            "mae_base": 2.8760392665863037,
+            "mae_output": 2.8760392665863037
+          },
+          "outer_veil": {
+            "pixels": 18402,
+            "mae_base": 3.7174220085144043,
+            "mae_output": 3.7174220085144043
+          },
+          "far_background": {
+            "pixels": 1538561,
+            "mae_base": 2.1942529678344727,
+            "mae_output": 2.1942529678344727
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_018",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 1,
+          "forward_before": 1.3706820011138916,
+          "forward_after": 1.5064899921417236,
+          "forward_ratio": 1.099080597044002
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9541924595832825,
+        "ssim_output": 0.9541924595832825,
+        "d_ssim": 0.0,
+        "mae_base": 2.592726469039917,
+        "mae_output": 2.592726469039917,
+        "d_mae": 0.0,
+        "mse_base": 17.59417724609375,
+        "mse_output": 17.59417724609375,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6693223714828491,
+        "false_texture_output": 1.6693223714828491,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 29127,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 66231,
+            "mae_base": 2.222362995147705,
+            "mae_output": 2.222362995147705
+          },
+          "inner_partial_occlusion": {
+            "pixels": 49960,
+            "mae_base": 8.015538215637207,
+            "mae_output": 8.015538215637207
+          },
+          "outer_veil": {
+            "pixels": 54878,
+            "mae_base": 8.510283470153809,
+            "mae_output": 8.510283470153809
+          },
+          "far_background": {
+            "pixels": 1400232,
+            "mae_base": 2.177351713180542,
+            "mae_output": 2.177351713180542
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_019",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 0,
+          "forward_before": 1.41493821144104,
+          "forward_after": 1.4328111410140991,
+          "forward_ratio": 1.01263159721643
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9678244590759277,
+        "ssim_output": 0.9678244590759277,
+        "d_ssim": 0.0,
+        "mae_base": 2.390383720397949,
+        "mae_output": 2.390383720397949,
+        "d_mae": 0.0,
+        "mse_base": 11.064495086669922,
+        "mse_output": 11.064495086669922,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6212090253829956,
+        "false_texture_output": 1.6212090253829956,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 17493,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 20801,
+            "mae_base": 2.790362596511841,
+            "mae_output": 2.790362596511841
+          },
+          "inner_partial_occlusion": {
+            "pixels": 20445,
+            "mae_base": 3.5280020236968994,
+            "mae_output": 3.5280020236968994
+          },
+          "outer_veil": {
+            "pixels": 26524,
+            "mae_base": 9.166365623474121,
+            "mae_output": 9.166365623474121
+          },
+          "far_background": {
+            "pixels": 1503748,
+            "mae_base": 2.2441234588623047,
+            "mae_output": 2.2441234588623047
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_020",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 0,
+          "forward_before": 1.5977840423583984,
+          "forward_after": 1.6773027181625366,
+          "forward_ratio": 1.0497680998783572
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9661989808082581,
+        "ssim_output": 0.9661989808082581,
+        "d_ssim": 0.0,
+        "mae_base": 2.5011026859283447,
+        "mae_output": 2.5011026859283447,
+        "d_mae": 0.0,
+        "mse_base": 15.19956111907959,
+        "mse_output": 15.19956111907959,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.9045523405075073,
+        "false_texture_output": 1.9045523405075073,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 2844,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 1616,
+            "mae_base": 5.642119884490967,
+            "mae_output": 5.642119884490967
+          },
+          "inner_partial_occlusion": {
+            "pixels": 14185,
+            "mae_base": 11.049371719360352,
+            "mae_output": 11.049371719360352
+          },
+          "outer_veil": {
+            "pixels": 29421,
+            "mae_base": 12.671911239624023,
+            "mae_output": 12.671911239624023
+          },
+          "far_background": {
+            "pixels": 1722177,
+            "mae_base": 2.2380118370056152,
+            "mae_output": 2.2380118370056152
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_021",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 3,
+          "forward_before": 3.833958625793457,
+          "forward_after": 4.201498031616211,
+          "forward_ratio": 1.0958642076495255
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9631166458129883,
+        "ssim_output": 0.9631166458129883,
+        "d_ssim": 0.0,
+        "mae_base": 2.441260814666748,
+        "mae_output": 2.441260814666748,
+        "d_mae": 0.0,
+        "mse_base": 12.036492347717285,
+        "mse_output": 12.036492347717285,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6128202676773071,
+        "false_texture_output": 1.6128202676773071,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 43531,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 197328,
+            "mae_base": 2.1699371337890625,
+            "mae_output": 2.1699371337890625
+          },
+          "inner_partial_occlusion": {
+            "pixels": 55189,
+            "mae_base": 3.232769727706909,
+            "mae_output": 3.232769727706909
+          },
+          "outer_veil": {
+            "pixels": 64817,
+            "mae_base": 6.489723205566406,
+            "mae_output": 6.489723205566406
+          },
+          "far_background": {
+            "pixels": 2037709,
+            "mae_base": 2.3094186782836914,
+            "mae_output": 2.3094186782836914
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_022",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 1,
+          "candidate_rank": 0,
+          "forward_before": 9.021540641784668,
+          "forward_after": 7.258344650268555,
+          "forward_ratio": 0.8045571082006108
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9794073104858398,
+        "ssim_output": 0.9794073104858398,
+        "d_ssim": 0.0,
+        "mae_base": 2.75046443939209,
+        "mae_output": 2.75046443939209,
+        "d_mae": 0.0,
+        "mse_base": 15.485673904418945,
+        "mse_output": 15.485673904418945,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.0911448001861572,
+        "false_texture_output": 2.0911448001861572,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 1956,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 14299,
+            "mae_base": 2.5077977180480957,
+            "mae_output": 2.5077977180480957
+          },
+          "inner_partial_occlusion": {
+            "pixels": 18846,
+            "mae_base": 3.7298099994659424,
+            "mae_output": 3.7298099994659424
+          },
+          "outer_veil": {
+            "pixels": 24993,
+            "mae_base": 8.772616386413574,
+            "mae_output": 8.772616386413574
+          },
+          "far_background": {
+            "pixels": 861059,
+            "mae_base": 2.540074110031128,
+            "mae_output": 2.540074110031128
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_023",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 1,
+          "candidate_rank": 0,
+          "forward_before": 1.8665674924850464,
+          "forward_after": 2.097137689590454,
+          "forward_ratio": 1.123526311281913
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9925976991653442,
+        "ssim_output": 0.9925976991653442,
+        "d_ssim": 0.0,
+        "mae_base": 2.6702535152435303,
+        "mae_output": 2.6702535152435303,
+        "d_mae": 0.0,
+        "mse_base": 15.348027229309082,
+        "mse_output": 15.348027229309082,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.119201421737671,
+        "false_texture_output": 2.119201421737671,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 478,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 1153,
+            "mae_base": 5.406186580657959,
+            "mae_output": 5.406186580657959
+          },
+          "inner_partial_occlusion": {
+            "pixels": 12421,
+            "mae_base": 11.658348083496094,
+            "mae_output": 11.658348083496094
+          },
+          "outer_veil": {
+            "pixels": 18107,
+            "mae_base": 12.655620574951172,
+            "mae_output": 12.655620574951172
+          },
+          "far_background": {
+            "pixels": 1737184,
+            "mae_base": 2.4946908950805664,
+            "mae_output": 2.4946908950805664
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_024",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 2,
+          "forward_before": 6.157332420349121,
+          "forward_after": 6.575504302978516,
+          "forward_ratio": 1.067914456144579
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9651908278465271,
+        "ssim_output": 0.9651908278465271,
+        "d_ssim": 0.0,
+        "mae_base": 2.5188236236572266,
+        "mae_output": 2.5188236236572266,
+        "d_mae": 0.0,
+        "mse_base": 15.367228507995605,
+        "mse_output": 15.367228507995605,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6086419820785522,
+        "false_texture_output": 1.6086419820785522,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 36419,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 77618,
+            "mae_base": 2.142376661300659,
+            "mae_output": 2.142376661300659
+          },
+          "inner_partial_occlusion": {
+            "pixels": 53089,
+            "mae_base": 4.9943742752075195,
+            "mae_output": 4.9943742752075195
+          },
+          "outer_veil": {
+            "pixels": 58124,
+            "mae_base": 6.931869983673096,
+            "mae_output": 6.931869983673096
+          },
+          "far_background": {
+            "pixels": 1382393,
+            "mae_base": 2.25325083732605,
+            "mae_output": 2.25325083732605
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_025",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 1,
+          "candidate_rank": 0,
+          "forward_before": 7.733932018280029,
+          "forward_after": 5.916585922241211,
+          "forward_ratio": 0.7650165411664709
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9716593623161316,
+        "ssim_output": 0.9716593623161316,
+        "d_ssim": 0.0,
+        "mae_base": 2.7551214694976807,
+        "mae_output": 2.7551214694976807,
+        "d_mae": 0.0,
+        "mse_base": 14.874560356140137,
+        "mse_output": 14.874560356140137,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.1182405948638916,
+        "false_texture_output": 2.1182405948638916,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 1952,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 10764,
+            "mae_base": 2.328378438949585,
+            "mae_output": 2.328378438949585
+          },
+          "inner_partial_occlusion": {
+            "pixels": 26085,
+            "mae_base": 6.758660316467285,
+            "mae_output": 6.758660316467285
+          },
+          "outer_veil": {
+            "pixels": 33231,
+            "mae_base": 5.748808860778809,
+            "mae_output": 5.748808860778809
+          },
+          "far_background": {
+            "pixels": 849570,
+            "mae_base": 2.5071091651916504,
+            "mae_output": 2.5071091651916504
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_026",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 2,
+          "forward_before": 1.4779804944992065,
+          "forward_after": 1.56778883934021,
+          "forward_ratio": 1.0607642287399968
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9692076444625854,
+        "ssim_output": 0.9692076444625854,
+        "d_ssim": 0.0,
+        "mae_base": 2.3144445419311523,
+        "mae_output": 2.3144445419311523,
+        "d_mae": 0.0,
+        "mse_base": 9.534224510192871,
+        "mse_output": 9.534224510192871,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6289156675338745,
+        "false_texture_output": 1.6289156675338745,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 16182,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 2782,
+            "mae_base": 3.162113666534424,
+            "mae_output": 3.162113666534424
+          },
+          "inner_partial_occlusion": {
+            "pixels": 18287,
+            "mae_base": 4.517289161682129,
+            "mae_output": 4.517289161682129
+          },
+          "outer_veil": {
+            "pixels": 24352,
+            "mae_base": 5.865514278411865,
+            "mae_output": 5.865514278411865
+          },
+          "far_background": {
+            "pixels": 1722277,
+            "mae_base": 2.2361958026885986,
+            "mae_output": 2.2361958026885986
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_027",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 1,
+          "forward_before": 3.723407030105591,
+          "forward_after": 3.9355075359344482,
+          "forward_ratio": 1.056964093399921
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9608429074287415,
+        "ssim_output": 0.9608429074287415,
+        "d_ssim": 0.0,
+        "mae_base": 2.741135835647583,
+        "mae_output": 2.741135835647583,
+        "d_mae": 0.0,
+        "mse_base": 16.67276382446289,
+        "mse_output": 16.67276382446289,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.620283842086792,
+        "false_texture_output": 1.620283842086792,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 69353,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 240107,
+            "mae_base": 2.6232080459594727,
+            "mae_output": 2.6232080459594727
+          },
+          "inner_partial_occlusion": {
+            "pixels": 90741,
+            "mae_base": 3.986393690109253,
+            "mae_output": 3.986393690109253
+          },
+          "outer_veil": {
+            "pixels": 96056,
+            "mae_base": 6.740876197814941,
+            "mae_output": 6.740876197814941
+          },
+          "far_background": {
+            "pixels": 1142704,
+            "mae_base": 2.32353138923645,
+            "mae_output": 2.32353138923645
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_028",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 3,
+          "candidate_rank": 1,
+          "forward_before": 2.411451816558838,
+          "forward_after": 2.3466081619262695,
+          "forward_ratio": 0.9731101180677536
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9881634712219238,
+        "ssim_output": 0.9881634712219238,
+        "d_ssim": 0.0,
+        "mae_base": 3.0787546634674072,
+        "mae_output": 3.0787546634674072,
+        "d_mae": 0.0,
+        "mse_base": 27.31036376953125,
+        "mse_output": 27.31036376953125,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.123622417449951,
+        "false_texture_output": 2.123622417449951,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 2514,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 46423,
+            "mae_base": 2.889702796936035,
+            "mae_output": 2.889702796936035
+          },
+          "inner_partial_occlusion": {
+            "pixels": 56546,
+            "mae_base": 6.600024700164795,
+            "mae_output": 6.600024700164795
+          },
+          "outer_veil": {
+            "pixels": 61061,
+            "mae_base": 13.38029670715332,
+            "mae_output": 13.38029670715332
+          },
+          "far_background": {
+            "pixels": 1600575,
+            "mae_base": 2.5234930515289307,
+            "mae_output": 2.5234930515289307
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_029",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 3,
+          "candidate_rank": 0,
+          "forward_before": 1.7305188179016113,
+          "forward_after": 1.9266250133514404,
+          "forward_ratio": 1.1133221976098608
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9781294465065002,
+        "ssim_output": 0.9781294465065002,
+        "d_ssim": 0.0,
+        "mae_base": 2.6995673179626465,
+        "mae_output": 2.6995673179626465,
+        "d_mae": 0.0,
+        "mse_base": 13.827509880065918,
+        "mse_output": 13.827509880065918,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.0336570739746094,
+        "false_texture_output": 2.0336570739746094,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 2090,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 3699,
+            "mae_base": 2.296837091445923,
+            "mae_output": 2.296837091445923
+          },
+          "inner_partial_occlusion": {
+            "pixels": 23655,
+            "mae_base": 4.324300289154053,
+            "mae_output": 4.324300289154053
+          },
+          "outer_veil": {
+            "pixels": 24899,
+            "mae_base": 7.0523176193237305,
+            "mae_output": 7.0523176193237305
+          },
+          "far_background": {
+            "pixels": 867580,
+            "mae_base": 2.5181307792663574,
+            "mae_output": 2.5181307792663574
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_030",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 3,
+          "forward_before": 3.9814412593841553,
+          "forward_after": 4.272247314453125,
+          "forward_ratio": 1.0730403982184962
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9589106440544128,
+        "ssim_output": 0.9589106440544128,
+        "d_ssim": 0.0,
+        "mae_base": 2.906733751296997,
+        "mae_output": 2.906733751296997,
+        "d_mae": 0.0,
+        "mse_base": 25.604000091552734,
+        "mse_output": 25.604000091552734,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6451237201690674,
+        "false_texture_output": 1.6451237201690674,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 30166,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 137044,
+            "mae_base": 2.4139790534973145,
+            "mae_output": 2.4139790534973145
+          },
+          "inner_partial_occlusion": {
+            "pixels": 77267,
+            "mae_base": 4.66111421585083,
+            "mae_output": 4.66111421585083
+          },
+          "outer_veil": {
+            "pixels": 94922,
+            "mae_base": 9.615083694458008,
+            "mae_output": 9.615083694458008
+          },
+          "far_background": {
+            "pixels": 1256202,
+            "mae_base": 2.3150787353515625,
+            "mae_output": 2.3150787353515625
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_031",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 3,
+          "forward_before": 2.028282642364502,
+          "forward_after": 2.3043007850646973,
+          "forward_ratio": 1.1360846545422403
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9571606516838074,
+        "ssim_output": 0.9571606516838074,
+        "d_ssim": 0.0,
+        "mae_base": 2.549630641937256,
+        "mae_output": 2.549630641937256,
+        "d_mae": 0.0,
+        "mse_base": 13.13345718383789,
+        "mse_output": 13.13345718383789,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7025471925735474,
+        "false_texture_output": 1.7025471925735474,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 19552,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 27760,
+            "mae_base": 2.6385445594787598,
+            "mae_output": 2.6385445594787598
+          },
+          "inner_partial_occlusion": {
+            "pixels": 29355,
+            "mae_base": 3.1243174076080322,
+            "mae_output": 3.1243174076080322
+          },
+          "outer_veil": {
+            "pixels": 34714,
+            "mae_base": 9.842408180236816,
+            "mae_output": 9.842408180236816
+          },
+          "far_background": {
+            "pixels": 1675242,
+            "mae_base": 2.380481481552124,
+            "mae_output": 2.380481481552124
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_032",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 3,
+          "forward_before": 7.604360103607178,
+          "forward_after": 8.350586891174316,
+          "forward_ratio": 1.0981314374122237
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9600963592529297,
+        "ssim_output": 0.9600963592529297,
+        "d_ssim": 0.0,
+        "mae_base": 2.163433790206909,
+        "mae_output": 2.163433790206909,
+        "d_mae": 0.0,
+        "mse_base": 7.697218894958496,
+        "mse_output": 7.697218894958496,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.5937174558639526,
+        "false_texture_output": 1.5937174558639526,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 16441,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 1645,
+            "mae_base": 3.0385003089904785,
+            "mae_output": 3.0385003089904785
+          },
+          "inner_partial_occlusion": {
+            "pixels": 12207,
+            "mae_base": 4.161137104034424,
+            "mae_output": 4.161137104034424
+          },
+          "outer_veil": {
+            "pixels": 17608,
+            "mae_base": 3.6402013301849365,
+            "mae_output": 3.6402013301849365
+          },
+          "far_background": {
+            "pixels": 1540238,
+            "mae_base": 2.1283998489379883,
+            "mae_output": 2.1283998489379883
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_033",
+      "stratum": "solid",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 0,
+          "forward_before": 7.381494998931885,
+          "forward_after": 8.053728103637695,
+          "forward_ratio": 1.0910700481139775
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9582987427711487,
+        "ssim_output": 0.9582987427711487,
+        "d_ssim": 0.0,
+        "mae_base": 2.512054681777954,
+        "mae_output": 2.512054681777954,
+        "d_mae": 0.0,
+        "mse_base": 14.664727210998535,
+        "mse_output": 14.664727210998535,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6470848321914673,
+        "false_texture_output": 1.6470848321914673,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 36698,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 66552,
+            "mae_base": 2.9411489963531494,
+            "mae_output": 2.9411489963531494
+          },
+          "inner_partial_occlusion": {
+            "pixels": 39879,
+            "mae_base": 5.387580871582031,
+            "mae_output": 5.387580871582031
+          },
+          "outer_veil": {
+            "pixels": 53331,
+            "mae_base": 7.768108367919922,
+            "mae_output": 7.768108367919922
+          },
+          "far_background": {
+            "pixels": 1409761,
+            "mae_base": 2.1976239681243896,
+            "mae_output": 2.1976239681243896
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_034",
+      "stratum": "mixed",
+      "report": {
+        "bridge": true,
+        "veil_fired": 1,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "licensed_consensus",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": true,
+          "reason": "licensed_consensus",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 0,
+          "forward_before": 1.73210608959198,
+          "forward_after": 1.4142472743988037,
+          "forward_ratio": 0.8164899845897707,
+          "owner_support_candidate_count": 2,
+          "owner_support_accepted_count": 2,
+          "owner_support_pixels": 3478,
+          "owner_support_reason": "forward_licensed_owner_fragments",
+          "owner_support_mask_indices": [
+            0,
+            5
+          ],
+          "owner_support_kinds": [
+            "parent_silhouette",
+            "satellite"
+          ],
+          "owner_support_forward_before": 1.4142472743988037,
+          "owner_support_forward_after": 1.2989946603775024,
+          "owner_support_forward_improvement": 0.11525261402130127,
+          "model_count": 6,
+          "stable_fraction": 0.6991744571261935,
+          "ensemble_spread_rms": 0.7397438287734985,
+          "retained_rms": 3.603170871734619,
+          "owner_veto_mean": 0.02536820061504841,
+          "owner_veto_confident_fraction": 0.025983810424804688,
+          "owner": 0,
+          "changed_pixels": 59640
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9585539698600769,
+        "ssim_output": 0.9597354531288147,
+        "d_ssim": 0.001181483268737793,
+        "mae_base": 2.5652716159820557,
+        "mae_output": 2.449723243713379,
+        "d_mae": -0.11554837226867676,
+        "mse_base": 19.748165130615234,
+        "mse_output": 14.598819732666016,
+        "changed_pixels": 59640,
+        "changed_closer": 40977,
+        "changed_worse": 15610,
+        "false_texture_base": 1.7161847352981567,
+        "false_texture_output": 1.728463053703308,
+        "d_false_texture": 0.012278318405151367,
+        "false_texture_pixels": 10283,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 34429,
+            "mae_base": 2.801020622253418,
+            "mae_output": 2.801020622253418
+          },
+          "inner_partial_occlusion": {
+            "pixels": 32153,
+            "mae_base": 4.877170085906982,
+            "mae_output": 4.395836353302002
+          },
+          "outer_veil": {
+            "pixels": 37420,
+            "mae_base": 13.621049880981445,
+            "mae_output": 9.297826766967773
+          },
+          "far_background": {
+            "pixels": 1466304,
+            "mae_base": 2.2087724208831787,
+            "mae_output": 2.2049129009246826
+          }
+        }
+      }
+    },
+    {
+      "sid": "extension_035",
+      "stratum": "thin",
+      "report": {
+        "bridge": true,
+        "veil_fired": 0,
+        "veil_disabled_safety": false,
+        "veil_model": "joint_two_layer_giant",
+        "veil_reason": "candidate_unlicensed",
+        "recon_fired": 0,
+        "veil_evidence": {
+          "fired": false,
+          "reason": "candidate_unlicensed",
+          "model": "joint_two_layer_giant",
+          "radius_fraction": 0.035,
+          "candidate_count": 4,
+          "candidate_rank": 1,
+          "forward_before": 0.9378234148025513,
+          "forward_after": 1.089798092842102,
+          "forward_ratio": 1.1620504197707064
+        }
+      },
+      "metrics": {
+        "ssim_base": 0.9655789136886597,
+        "ssim_output": 0.9655789136886597,
+        "d_ssim": 0.0,
+        "mae_base": 2.2527623176574707,
+        "mae_output": 2.2527623176574707,
+        "d_mae": 0.0,
+        "mse_base": 8.308955192565918,
+        "mse_output": 8.308955192565918,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.5839589834213257,
+        "false_texture_output": 1.5839589834213257,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 18049,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 887,
+            "mae_base": 2.1055994033813477,
+            "mae_output": 2.1055994033813477
+          },
+          "inner_partial_occlusion": {
+            "pixels": 15661,
+            "mae_base": 4.023838520050049,
+            "mae_output": 4.023838520050049
+          },
+          "outer_veil": {
+            "pixels": 19480,
+            "mae_base": 3.3265914916992188,
+            "mae_output": 3.3265914916992188
+          },
+          "far_background": {
+            "pixels": 2321907,
+            "mae_base": 2.230794668197632,
+            "mae_output": 2.230794668197632
+          }
+        }
+      }
+    }
+  ],
+  "fired_summary": {
+    "ssim_positive": 2,
+    "mae_positive": 2,
+    "mse_positive": 2
+  }
+}

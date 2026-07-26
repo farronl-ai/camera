@@ -61,7 +61,7 @@ The dividing line for every synthesis method admitted into this engine:
 
 | Prior conclusion / area | Status under the new goal |
 |---|---|
-| F27: de-veiling by inversion loses | **CONDITIONALLY REOPENED / NARROW SHIP** (F58) — correction-after-fusion remains retired, but joint two-frame layer inversion now ships only for a physically licensed giant-CoC subset. Physically licensed owner-frame fragments can repair omitted foreground support without generation; exact-package established fires remain 10/10 positive and the frozen support rule survives a new 25-scene extension. General/multi-frame de-veiling and remaining spatial tails remain open |
+| F27: de-veiling by inversion loses | **CONDITIONALLY REOPENED / RESEARCH, AUTO DISABLED** (F60) — the V1 large-radius judge used a box shortcut and its promotion scores are demoted. Exact-disk V2 preserves a strong oracle ceiling and independently confirms parent support, but one post-freeze fire worsens inner partial foreground despite global wins. The model remains; runtime veil is identity until positive background evidence closes that spatial tail |
 | F33: selection cannot fix boundary contamination | **STRENGTHENED** — the theorem that motivates the whole framework |
 | F45: no-ref metrics cannot audit synthesis | stands; the constructive path is the observation-domain audit (L1) |
 | Metric composite (q_abf_ms+q_ssim) | **RESCOPED** — valid for the selection floor only; must never steer or veto synthesis work |

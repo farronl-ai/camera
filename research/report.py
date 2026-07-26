@@ -169,15 +169,15 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
   </tbody></table>
   </div>
 
-  <h2>Specialist + scene-recovery layer (F30&ndash;F58) &mdash; physics + refusal</h2>
+  <h2>Specialist + scene-recovery layer (F30&ndash;F60) &mdash; physics + refusal</h2>
   <div class="card">
   <table><thead><tr><th>milestone</th><th>outcome</th></tr></thead><tbody>
     <tr><td>Boundary physics settled</td><td>Residual hard-edge error is <b>coefficient contamination</b> &mdash; unfixable by any decision scheme (even oracle decisions lose); fixable only by re-rendering. (F33)</td></tr>
     <tr><td>Contour reconstruction (thin occluders)</td><td>Sharp-matte re-composite: boundary error &minus;16%, global up, on-model &mdash; the buildable version reaches 73% of the oracle ceiling. (F35)</td></tr>
     <tr><td>Correction-after-fusion veil path</td><td><b>Retired after user-caught hallucination.</b> Realistic-object/native audits overturned the narrow blob-factory win even with oracle matte/radius. (F53/F54)</td></tr>
     <tr><td>Outcome-trained gates</td><td>Unified recipe: regime-matched matte &rarr; features incl. matte-edge quality &rarr; ridge on the <i>actual</i> outcome from factory GT &rarr; property-driven fire margin. Held-out fires: 18/19 positive. (F44&ndash;F47)</td></tr>
-    <tr><td>Owner-support-completed joint giant-veil recovery</td><td>Solves both captured layers, physically reranks semantic mattes, retains cross-regularizer/PSF consensus, vetoes foreground focus ownership, and admits small observed owner-frame fragments only after &gt;0.01 forward-fit improvement. Exact established package: 7/7 development + 3/3 across two scene-disjoint holdouts improve SSIM, MAE, MSE/PSNR, and fringe L1; 0/66 moderate scenes fire. A frozen post-threshold extension accepts 2/2 support cases without regression. (F55/F56/F58)</td></tr>
-    <tr><td><code>--enhance auto</code> shipped</td><td>Contour reconstruction plus the narrow two-frame, &le;1600 px giant-veil solver. Missing bridge, N&ne;2, unlicensed matte, non-giant scale, oversized input, and kill-switch paths are identity. The owner lab exposes every input and the exact reported scene-114 support repair. (F48/F58)</td></tr>
+    <tr><td>Owner-support-completed joint giant-veil recovery</td><td><b>Research retained; runtime safety-disabled.</b> F60 found the V1 large-radius “disk” was a box shortcut and demoted its promotion scores. Exact-disk V2 preserves a positive oracle ceiling and independently reconfirms parent support on a frozen extension, but another fire worsens inner partial foreground despite global wins. Re-enable requires positive observed-background evidence and a fresh spatially clean extension. (F55/F56/F58/F59/F60)</td></tr>
+    <tr><td><code>--enhance auto</code> shipped</td><td>Gated contour reconstruction remains live. Giant-veil auto is identity and does not launch the semantic bridge. The owner lab labels scene-114/122 as legacy V1 diagnostics and adds V2 solid/mixed/thin optical coverage panels. (F48/F60)</td></tr>
     <tr><td>Rigorous negatives that redirected</td><td>No-ref metrics cannot audit synthesis corrections (F45); semantic models need natural benchmark content (F43); specialists firing cross-regime fail exactly as theory predicts (F46).</td></tr>
   </tbody></table>
   <p class="muted">Frontier now: continuous support uncertainty and outer-fringe

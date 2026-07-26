@@ -1,0 +1,927 @@
+{
+  "factory": "objocc_v2_exact_disk",
+  "split": "dev",
+  "pipeline": "unchanged_f59_owner_parent_support",
+  "thresholds_retuned": false,
+  "scene_count": 12,
+  "fired_count": 0,
+  "rows": [
+    {
+      "sid": "dev_000",
+      "stratum": "solid",
+      "factory": {
+        "id": "dev_000",
+        "stratum": "solid",
+        "source": "06_metal_specular",
+        "source_mask_index": 3,
+        "background": "08_rough_texture",
+        "scale": 0.2999784481197262,
+        "placement_xy": [
+          141,
+          536
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.062155829535590276,
+        "sharp_pixels": 109098,
+        "core_pixels": 71439,
+        "inner_veil_pixels": 37659,
+        "outer_veil_pixels": 42861,
+        "core_fraction": 0.6548149370290931,
+        "inner_veil_fraction": 0.3451850629709069
+      },
+      "candidate_count": 1,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 1,
+        "candidate_rank": 0,
+        "forward_before": 14.663714408874512,
+        "forward_after": 16.109315872192383,
+        "forward_ratio": 1.0985835800541088
+      },
+      "metrics": {
+        "ssim_base": 0.9814864993095398,
+        "ssim_output": 0.9814864993095398,
+        "d_ssim": 0.0,
+        "mae_base": 3.0999913215637207,
+        "mae_output": 3.0999913215637207,
+        "d_mae": 0.0,
+        "mse_base": 31.350080490112305,
+        "mse_output": 31.350080490112305,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.204720973968506,
+        "false_texture_output": 2.204720973968506,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 1088,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 71353,
+            "mae_base": 2.205742359161377,
+            "mae_output": 2.205742359161377
+          },
+          "inner_partial_occlusion": {
+            "pixels": 37739,
+            "mae_base": 8.68290901184082,
+            "mae_output": 8.68290901184082
+          },
+          "outer_veil": {
+            "pixels": 42994,
+            "mae_base": 19.072158813476562,
+            "mae_output": 19.072158813476562
+          },
+          "far_background": {
+            "pixels": 1615624,
+            "mae_base": 2.564462184906006,
+            "mae_output": 2.564462184906006
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_001",
+      "stratum": "mixed",
+      "factory": {
+        "id": "dev_001",
+        "stratum": "mixed",
+        "source": "07_metal_specular",
+        "source_mask_index": 10,
+        "background": "06_metal_specular",
+        "scale": 0.5162499494214414,
+        "placement_xy": [
+          1154,
+          528
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.03261085792824074,
+        "sharp_pixels": 56670,
+        "core_pixels": 29805,
+        "inner_veil_pixels": 26818,
+        "outer_veil_pixels": 32119,
+        "core_fraction": 0.5259396506087877,
+        "inner_veil_fraction": 0.47323098641256395
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.5908905267715454,
+        "forward_after": 1.6270456314086914,
+        "forward_ratio": 1.022726330962896
+      },
+      "metrics": {
+        "ssim_base": 0.9565979838371277,
+        "ssim_output": 0.9565979838371277,
+        "d_ssim": 0.0,
+        "mae_base": 2.5496418476104736,
+        "mae_output": 2.5496418476104736,
+        "d_mae": 0.0,
+        "mse_base": 13.558277130126953,
+        "mse_output": 13.558277130126953,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7252529859542847,
+        "false_texture_output": 1.7252529859542847,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 18428,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 29739,
+            "mae_base": 2.776735305786133,
+            "mae_output": 2.776735305786133
+          },
+          "inner_partial_occlusion": {
+            "pixels": 26873,
+            "mae_base": 3.4616777896881104,
+            "mae_output": 3.4616777896881104
+          },
+          "outer_veil": {
+            "pixels": 32233,
+            "mae_base": 10.929677963256836,
+            "mae_output": 10.929677963256836
+          },
+          "far_background": {
+            "pixels": 1678661,
+            "mae_base": 2.362534999847412,
+            "mae_output": 2.362534999847412
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_002",
+      "stratum": "thin",
+      "factory": {
+        "id": "dev_002",
+        "stratum": "thin",
+        "source": "07_metal_specular",
+        "source_mask_index": 5,
+        "background": "09_hard_edges",
+        "scale": 0.26365997646534756,
+        "placement_xy": [
+          765,
+          415
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.028713107638888888,
+        "sharp_pixels": 25213,
+        "core_pixels": 0,
+        "inner_veil_pixels": 25155,
+        "outer_veil_pixels": 33557,
+        "core_fraction": 0.0,
+        "inner_veil_fraction": 0.9976995994130012
+      },
+      "candidate_count": 2,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 2,
+        "candidate_rank": 0,
+        "forward_before": 2.1095266342163086,
+        "forward_after": 1.9417352676391602,
+        "forward_ratio": 0.9204601810398648
+      },
+      "metrics": {
+        "ssim_base": 0.979152500629425,
+        "ssim_output": 0.979152500629425,
+        "d_ssim": 0.0,
+        "mae_base": 2.808070421218872,
+        "mae_output": 2.808070421218872,
+        "d_mae": 0.0,
+        "mse_base": 15.699858665466309,
+        "mse_output": 15.699858665466309,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 2.077888250350952,
+        "false_texture_output": 2.077888250350952,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 2401,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 0,
+            "mae_base": null,
+            "mae_output": null
+          },
+          "inner_partial_occlusion": {
+            "pixels": 25147,
+            "mae_base": 4.363793849945068,
+            "mae_output": 4.363793849945068
+          },
+          "outer_veil": {
+            "pixels": 33678,
+            "mae_base": 7.751321315765381,
+            "mae_output": 7.751321315765381
+          },
+          "far_background": {
+            "pixels": 860326,
+            "mae_base": 2.550523519515991,
+            "mae_output": 2.550523519515991
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_003",
+      "stratum": "solid",
+      "factory": {
+        "id": "dev_003",
+        "stratum": "solid",
+        "source": "08_rough_texture",
+        "source_mask_index": 0,
+        "background": "06_metal_specular",
+        "scale": 0.6476414584132199,
+        "placement_xy": [
+          197,
+          394
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.1507133201316551,
+        "sharp_pixels": 264403,
+        "core_pixels": 199751,
+        "inner_veil_pixels": 64638,
+        "outer_veil_pixels": 73787,
+        "core_fraction": 0.7554793251211219,
+        "inner_veil_fraction": 0.2444677254040234
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 1,
+        "forward_before": 2.0402848720550537,
+        "forward_after": 1.642632246017456,
+        "forward_ratio": 0.8050994586667368
+      },
+      "metrics": {
+        "ssim_base": 0.9602584838867188,
+        "ssim_output": 0.9602584838867188,
+        "d_ssim": 0.0,
+        "mae_base": 2.7005341053009033,
+        "mae_output": 2.7005341053009033,
+        "d_mae": 0.0,
+        "mse_base": 16.247648239135742,
+        "mse_output": 16.247648239135742,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.7040084600448608,
+        "false_texture_output": 1.7040084600448608,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 42314,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 199565,
+            "mae_base": 2.6284902095794678,
+            "mae_output": 2.6284902095794678
+          },
+          "inner_partial_occlusion": {
+            "pixels": 64813,
+            "mae_base": 3.651695489883423,
+            "mae_output": 3.651695489883423
+          },
+          "outer_veil": {
+            "pixels": 74070,
+            "mae_base": 7.227797985076904,
+            "mae_output": 7.227797985076904
+          },
+          "far_background": {
+            "pixels": 1426514,
+            "mae_base": 2.4236931800842285,
+            "mae_output": 2.4236931800842285
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_004",
+      "stratum": "mixed",
+      "factory": {
+        "id": "dev_004",
+        "stratum": "mixed",
+        "source": "07_metal_specular",
+        "source_mask_index": 8,
+        "background": "04_foliage",
+        "scale": 0.38746905462352177,
+        "placement_xy": [
+          123,
+          239
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.03092193603515625,
+        "sharp_pixels": 47005,
+        "core_pixels": 20404,
+        "inner_veil_pixels": 26601,
+        "outer_veil_pixels": 37509,
+        "core_fraction": 0.43408148069354324,
+        "inner_veil_fraction": 0.5659185193064568
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 1,
+        "forward_before": 1.744436264038086,
+        "forward_after": 1.64506196975708,
+        "forward_ratio": 0.9430335769041108
+      },
+      "metrics": {
+        "ssim_base": 0.9600154757499695,
+        "ssim_output": 0.9600154757499695,
+        "d_ssim": 0.0,
+        "mae_base": 2.2558186054229736,
+        "mae_output": 2.2558186054229736,
+        "d_mae": 0.0,
+        "mse_base": 8.712151527404785,
+        "mse_output": 8.712151527404785,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6142902374267578,
+        "false_texture_output": 1.6142902374267578,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 31874,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 20338,
+            "mae_base": 2.837398052215576,
+            "mae_output": 2.837398052215576
+          },
+          "inner_partial_occlusion": {
+            "pixels": 26650,
+            "mae_base": 3.0082802772521973,
+            "mae_output": 3.0082802772521973
+          },
+          "outer_veil": {
+            "pixels": 37679,
+            "mae_base": 5.122800350189209,
+            "mae_output": 5.122800350189209
+          },
+          "far_background": {
+            "pixels": 1484897,
+            "mae_base": 2.156837224960327,
+            "mae_output": 2.156837224960327
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_005",
+      "stratum": "thin",
+      "factory": {
+        "id": "dev_005",
+        "stratum": "thin",
+        "source": "01_fine_detail",
+        "source_mask_index": 1,
+        "background": "07_metal_specular",
+        "scale": 0.24446501485880795,
+        "placement_xy": [
+          588,
+          248
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.007426821312457221,
+        "sharp_pixels": 10605,
+        "core_pixels": 865,
+        "inner_veil_pixels": 9726,
+        "outer_veil_pixels": 15263,
+        "core_fraction": 0.08156529938708157,
+        "inner_veil_fraction": 0.9171145685997171
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 12.673454284667969,
+        "forward_after": 13.484420776367188,
+        "forward_ratio": 1.063989380754725
+      },
+      "metrics": {
+        "ssim_base": 0.9780568480491638,
+        "ssim_output": 0.9780568480491638,
+        "d_ssim": 0.0,
+        "mae_base": 2.636760950088501,
+        "mae_output": 2.636760950088501,
+        "d_mae": 0.0,
+        "mse_base": 13.367745399475098,
+        "mse_output": 13.367745399475098,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6949572563171387,
+        "false_texture_output": 1.6949572563171387,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 7752,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 847,
+            "mae_base": 5.075167655944824,
+            "mae_output": 5.075167655944824
+          },
+          "inner_partial_occlusion": {
+            "pixels": 9732,
+            "mae_base": 12.070180892944336,
+            "mae_output": 12.070180892944336
+          },
+          "outer_veil": {
+            "pixels": 15333,
+            "mae_base": 9.565512657165527,
+            "mae_output": 9.565512657165527
+          },
+          "far_background": {
+            "pixels": 1469181,
+            "mae_base": 2.496117115020752,
+            "mae_output": 2.496117115020752
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_006",
+      "stratum": "solid",
+      "factory": {
+        "id": "dev_006",
+        "stratum": "solid",
+        "source": "07_metal_specular",
+        "source_mask_index": 4,
+        "background": "05_foliage",
+        "scale": 0.8235604556684731,
+        "placement_xy": [
+          840,
+          377
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.22678007902922453,
+        "sharp_pixels": 398069,
+        "core_pixels": 309779,
+        "inner_veil_pixels": 88290,
+        "outer_veil_pixels": 83213,
+        "core_fraction": 0.7782042811673353,
+        "inner_veil_fraction": 0.2217957188326647
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 5.012837886810303,
+        "forward_after": 5.486576080322266,
+        "forward_ratio": 1.0945049898299035
+      },
+      "metrics": {
+        "ssim_base": 0.9615417122840881,
+        "ssim_output": 0.9615417122840881,
+        "d_ssim": 0.0,
+        "mae_base": 3.2560017108917236,
+        "mae_output": 3.2560017108917236,
+        "d_mae": 0.0,
+        "mse_base": 31.507062911987305,
+        "mse_output": 31.507062911987305,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.9118354320526123,
+        "false_texture_output": 1.9118354320526123,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 15555,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 309243,
+            "mae_base": 2.3877222537994385,
+            "mae_output": 2.3877222537994385
+          },
+          "inner_partial_occlusion": {
+            "pixels": 88809,
+            "mae_base": 2.951866865158081,
+            "mae_output": 2.951866865158081
+          },
+          "outer_veil": {
+            "pixels": 83381,
+            "mae_base": 14.814582824707031,
+            "mae_output": 14.814582824707031
+          },
+          "far_background": {
+            "pixels": 1281713,
+            "mae_base": 2.699281930923462,
+            "mae_output": 2.699281930923462
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_007",
+      "stratum": "mixed",
+      "factory": {
+        "id": "dev_007",
+        "stratum": "mixed",
+        "source": "00_fine_detail",
+        "source_mask_index": 0,
+        "background": "01_fine_detail",
+        "scale": 0.24616371285652064,
+        "placement_xy": [
+          796,
+          794
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.0273895263671875,
+        "sharp_pixels": 62777,
+        "core_pixels": 22615,
+        "inner_veil_pixels": 40162,
+        "outer_veil_pixels": 46444,
+        "core_fraction": 0.36024340124567916,
+        "inner_veil_fraction": 0.6397565987543209
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.260825276374817,
+        "forward_after": 1.0448616743087769,
+        "forward_ratio": 0.8287125059175617
+      },
+      "metrics": {
+        "ssim_base": 0.9636327028274536,
+        "ssim_output": 0.9636327028274536,
+        "d_ssim": 0.0,
+        "mae_base": 2.4239180088043213,
+        "mae_output": 2.4239180088043213,
+        "d_mae": 0.0,
+        "mse_base": 12.173036575317383,
+        "mse_output": 12.173036575317383,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.9163203239440918,
+        "false_texture_output": 1.9163203239440918,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 8660,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 22504,
+            "mae_base": 3.082770347595215,
+            "mae_output": 3.082770347595215
+          },
+          "inner_partial_occlusion": {
+            "pixels": 40265,
+            "mae_base": 4.136636257171631,
+            "mae_output": 4.136636257171631
+          },
+          "outer_veil": {
+            "pixels": 46616,
+            "mae_base": 8.49376392364502,
+            "mae_output": 8.49376392364502
+          },
+          "far_background": {
+            "pixels": 2246214,
+            "mae_base": 2.2532172203063965,
+            "mae_output": 2.2532172203063965
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_008",
+      "stratum": "thin",
+      "factory": {
+        "id": "dev_008",
+        "stratum": "thin",
+        "source": "07_metal_specular",
+        "source_mask_index": 7,
+        "background": "03_fine_detail",
+        "scale": 0.2907236049438534,
+        "placement_xy": [
+          677,
+          562
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.019241968790690105,
+        "sharp_pixels": 29165,
+        "core_pixels": 13,
+        "inner_veil_pixels": 29152,
+        "outer_veil_pixels": 36648,
+        "core_fraction": 0.0004457397565575176,
+        "inner_veil_fraction": 0.9995542602434425
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.632596492767334,
+        "forward_after": 1.425767421722412,
+        "forward_ratio": 0.8733128045042311
+      },
+      "metrics": {
+        "ssim_base": 0.9681126475334167,
+        "ssim_output": 0.9681126475334167,
+        "d_ssim": 0.0,
+        "mae_base": 2.4516289234161377,
+        "mae_output": 2.4516289234161377,
+        "d_mae": 0.0,
+        "mse_base": 12.073159217834473,
+        "mse_output": 12.073159217834473,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.608333945274353,
+        "false_texture_output": 1.608333945274353,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 23009,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 9,
+            "mae_base": 3.8518519401550293,
+            "mae_output": 3.8518519401550293
+          },
+          "inner_partial_occlusion": {
+            "pixels": 29154,
+            "mae_base": 5.4912190437316895,
+            "mae_output": 5.4912190437316895
+          },
+          "outer_veil": {
+            "pixels": 36768,
+            "mae_base": 7.732367515563965,
+            "mae_output": 7.732367515563965
+          },
+          "far_background": {
+            "pixels": 1504734,
+            "mae_base": 2.257354736328125,
+            "mae_output": 2.257354736328125
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_009",
+      "stratum": "solid",
+      "factory": {
+        "id": "dev_009",
+        "stratum": "solid",
+        "source": "07_metal_specular",
+        "source_mask_index": 2,
+        "background": "06_metal_specular",
+        "scale": 0.4508316956916544,
+        "placement_xy": [
+          370,
+          220
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.11545591001157407,
+        "sharp_pixels": 203393,
+        "core_pixels": 140421,
+        "inner_veil_pixels": 62972,
+        "outer_veil_pixels": 67963,
+        "core_fraction": 0.690392491383676,
+        "inner_veil_fraction": 0.3096075086163241
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 2.832111358642578,
+        "forward_after": 2.7565979957580566,
+        "forward_ratio": 0.973336725388964
+      },
+      "metrics": {
+        "ssim_base": 0.9597537517547607,
+        "ssim_output": 0.9597537517547607,
+        "d_ssim": 0.0,
+        "mae_base": 2.725794553756714,
+        "mae_output": 2.725794553756714,
+        "d_mae": 0.0,
+        "mse_base": 15.393461227416992,
+        "mse_output": 15.393461227416992,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6628813743591309,
+        "false_texture_output": 1.6628813743591309,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 42460,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 140337,
+            "mae_base": 2.7600204944610596,
+            "mae_output": 2.7600204944610596
+          },
+          "inner_partial_occlusion": {
+            "pixels": 63051,
+            "mae_base": 3.718909978866577,
+            "mae_output": 3.718909978866577
+          },
+          "outer_veil": {
+            "pixels": 68082,
+            "mae_base": 7.2339091300964355,
+            "mae_output": 7.2339091300964355
+          },
+          "far_background": {
+            "pixels": 1496190,
+            "mae_base": 2.472421884536743,
+            "mae_output": 2.472421884536743
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_010",
+      "stratum": "mixed",
+      "factory": {
+        "id": "dev_010",
+        "stratum": "mixed",
+        "source": "00_fine_detail",
+        "source_mask_index": 2,
+        "background": "04_foliage",
+        "scale": 0.29495556342736173,
+        "placement_xy": [
+          531,
+          500
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.058069864908854164,
+        "sharp_pixels": 89081,
+        "core_pixels": 37555,
+        "inner_veil_pixels": 51526,
+        "outer_veil_pixels": 56348,
+        "core_fraction": 0.4215826045958173,
+        "inner_veil_fraction": 0.5784173954041827
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 0,
+        "forward_before": 1.93483567237854,
+        "forward_after": 1.4962910413742065,
+        "forward_ratio": 0.7733426991940767
+      },
+      "metrics": {
+        "ssim_base": 0.9575262069702148,
+        "ssim_output": 0.9575262069702148,
+        "d_ssim": 0.0,
+        "mae_base": 2.668347120285034,
+        "mae_output": 2.668347120285034,
+        "d_mae": 0.0,
+        "mse_base": 20.00336456298828,
+        "mse_output": 20.00336456298828,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.6423219442367554,
+        "false_texture_output": 1.6423219442367554,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 39925,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 37416,
+            "mae_base": 3.098834753036499,
+            "mae_output": 3.098834753036499
+          },
+          "inner_partial_occlusion": {
+            "pixels": 51652,
+            "mae_base": 6.816489219665527,
+            "mae_output": 6.816489219665527
+          },
+          "outer_veil": {
+            "pixels": 56563,
+            "mae_base": 10.53483772277832,
+            "mae_output": 10.53483772277832
+          },
+          "far_background": {
+            "pixels": 1422729,
+            "mae_base": 2.1742138862609863,
+            "mae_output": 2.1742138862609863
+          }
+        }
+      }
+    },
+    {
+      "sid": "dev_011",
+      "stratum": "thin",
+      "factory": {
+        "id": "dev_011",
+        "stratum": "thin",
+        "source": "06_metal_specular",
+        "source_mask_index": 11,
+        "background": "07_metal_specular",
+        "scale": 0.374931067817234,
+        "placement_xy": [
+          218,
+          209
+        ],
+        "max_radius": 53.760000000000005,
+        "defocus_radius": 37.632,
+        "alpha_area_fraction": 0.02271159522587269,
+        "sharp_pixels": 32530,
+        "core_pixels": 114,
+        "inner_veil_pixels": 32204,
+        "outer_veil_pixels": 41630,
+        "core_fraction": 0.003504457423916385,
+        "inner_veil_fraction": 0.989978481401783
+      },
+      "candidate_count": 4,
+      "report": {
+        "fired": false,
+        "reason": "candidate_unlicensed",
+        "model": "joint_two_layer_giant",
+        "radius_fraction": 0.035,
+        "candidate_count": 4,
+        "candidate_rank": 1,
+        "forward_before": 12.434814453125,
+        "forward_after": 13.259058952331543,
+        "forward_ratio": 1.0662852270384624
+      },
+      "metrics": {
+        "ssim_base": 0.9709519147872925,
+        "ssim_output": 0.9709519147872925,
+        "d_ssim": 0.0,
+        "mae_base": 3.059758186340332,
+        "mae_output": 3.059758186340332,
+        "d_mae": 0.0,
+        "mse_base": 28.9177188873291,
+        "mse_output": 28.9177188873291,
+        "changed_pixels": 0,
+        "changed_closer": 0,
+        "changed_worse": 0,
+        "false_texture_base": 1.8267492055892944,
+        "false_texture_output": 1.8267492055892944,
+        "d_false_texture": 0.0,
+        "false_texture_pixels": 9228,
+        "partitions": {
+          "complete_coverage_core": {
+            "pixels": 107,
+            "mae_base": 3.0404982566833496,
+            "mae_output": 3.0404982566833496
+          },
+          "inner_partial_occlusion": {
+            "pixels": 32210,
+            "mae_base": 5.882748603820801,
+            "mae_output": 5.882748603820801
+          },
+          "outer_veil": {
+            "pixels": 41815,
+            "mae_base": 16.895004272460938,
+            "mae_output": 16.895004272460938
+          },
+          "far_background": {
+            "pixels": 1419184,
+            "mae_base": 2.5656800270080566,
+            "mae_output": 2.5656800270080566
+          }
+        }
+      }
+    }
+  ],
+  "fired_summary": {
+    "ssim_positive": 0,
+    "mae_positive": 0,
+    "mse_positive": 0
+  }
+}

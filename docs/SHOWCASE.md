@@ -194,19 +194,25 @@ The generalist engine above is what every
 stack gets. On top of it sit **specialists**: narrow mechanisms that fix physics the
 generalist provably cannot (a lens mixes both sides of a depth boundary into the
 captured pixels — no weighting scheme can unmix a contour, and no weighting can
-recover a wide occluder's latent background). Two narrowly licensed mechanisms are live:
+recover a wide occluder's latent background). One narrowly licensed mechanism is
+live; the second remains an explicitly disabled research path:
 
 - **Contour reconstruction** (thin occluders — wires, stems, hairs): re-renders the
   contaminated boundary band as a fresh composite from a pixel-precise difference
   matte. Purely classical; no extra dependencies.
-- **Joint-layer giant-veil recovery** (exactly two frames, max side 1600): solves
+- **Joint-layer giant-veil recovery** (research, safety-disabled): solves
   both captured formation equations for observed foreground/background corrections,
   then keeps only components stable across three regularizers and two PSF families.
   Semantic candidates must first improve observation-domain fit under a frozen
   high-precision license; focus ownership vetoes edits on foreground evidence.
-  Small semantic fragments seen only in the sharp owner frame must independently
-  improve the captured-frame fit before their observed foreground pixels can
-  override mixed fusion.
+  Semantic support seen only in the sharp owner frame may be either a detached
+  fragment or the novel tail of a high-overlap parent silhouette. Both must
+  independently improve captured-frame fit—the broader parent has stronger
+  containment, IoU, and relative-gain requirements—before observed foreground
+  pixels can override mixed fusion. F60's exact-disk optical factory preserved a
+  positive ceiling and parent-support evidence, but one frozen-extension fire
+  worsened inner partial foreground despite improving global metrics. Auto
+  enhancement therefore refuses every veil case until that spatial tail is closed.
 
 Here is contour reconstruction on a factory thin-occluder scene — one where the
 shipped gate actually fires (predicted gain +0.0044 ≥ margin +0.0040; the actual
@@ -262,9 +268,13 @@ five deliberately diagnostic fires (the weakest licensed win, the worst
 false-texture tail, the user-reported scene-114 support failure, ownership stress,
 and a second untouched holdout), a base/output slider, every input frame, runtime
 veil/support/protection masks, GT-only error maps, exact regional metrics,
-automatically selected regression crops, an exact crop at `(187,252)`, and a
-structured coordinate-tagged feedback tool. Its ledger includes all ten licensed
-package fires.
+automatically selected regression crops, exact crops at the reported scene-114
+`(187,252)` and scene-122 `(804,521)` coordinates, and a structured
+coordinate-tagged feedback tool. Its ledger includes all ten established licensed
+package fires. At the new scene-122 point, error falls 6.33→2.33; its 669-pixel
+region improves MAE 8.06→4.39. Those five cases are now labeled legacy V1
+diagnostics. A new V2 section shows near-focus, far-focus, GT, and explicit
+complete-core/inner-veil/outer-veil coverage for solid, mixed, and thin scenes.
 
 The contour specialist sits behind an **outcome-trained gate**: candidates are
 scored by a model trained on factory scenes where the ground truth is known,
@@ -272,7 +282,9 @@ predicting *the actual quality change of firing*. F54 also demonstrated the limi
 that recipe: a gate inherits its factory and labels' blind spots. F56's replacement
 adds observation-domain reranking, inverse-model consensus, an independent
 focus-ownership veto, and physically licensed semantic fragments from the sharp
-owner frame. The current `--enhance auto` evidence is therefore:
+owner frame. F59 extends that discrete ordering evidence to a containing
+owner-frame parent silhouette while hard-selecting only its novel support. The
+current evidence and shipping status are therefore:
 
 | Check | Result |
 |---|---|
@@ -280,7 +292,11 @@ owner frame. The current `--enhance auto` evidence is therefore:
 | Composed pass, 75 unseen scenes | wins to +0.020; worst case −0.0033 (2 outliers, documented) |
 | Joint veil package, development | 7/7 fires improve SSIM, MAE, MSE/PSNR, and fringe L1 |
 | Joint veil package, two scene-disjoint holdouts | 3/3 fires improve every direct measure; 0/24 moderate scenes fire |
-| Owner support, post-threshold 25-scene extension | 2/2 accepted support cases improve against the same support-disabled package; 4/6 licensed fires refuse support |
+| Detached owner support, post-threshold 25-scene extension | 2/2 accepted support cases improve against the same support-disabled package; 4/6 licensed fires refuse support |
+| Legacy V1 parent silhouettes | Mechanism retained for reproduction; V1 promotion scores demoted after the >12 px “disk” proved to be a box shortcut |
+| Exact-disk V2 oracle ceiling | 9/9 development fires positive; untouched holdout 7/8 SSIM+MAE positive and 8/8 MSE/core-safe |
+| Exact-disk V2 frozen 36-scene extension | 2 fires improve global SSIM/MAE/MSE; parent support survives one, but the other worsens inner-partial foreground |
+| Giant-veil auto path | **Safety-disabled**; current runtime behavior is identity for every veil case |
 | Fixed giant hypothesis, all audited moderate scenes | 0/66 fire |
 | Bridge absent / N≠2 / >1600 px / candidate unlicensed | byte-identical refusal |
 | Both specialists silent | byte-identical to the base engine, by construction |
@@ -313,7 +329,7 @@ discipline is that **a verdict in one regime is a hypothesis in every other**.
 | Real optical defocus (microscopy z-stacks) | perband sharpest — eye-confirmed | no GT exists; no-ref metric ordering confirmed visually |
 | Deep stacks (N = 2 → 8) | quality **rises** with N for every method | broad soft weights act as multi-frame denoising |
 | Exposure drift (±12% + WB tilt) | −0.025 SSIM broken → **−0.002** with default-on fix | clipped highlights slightly weaken the mean invariant |
-| Joint giant-veil recovery (exact package) | **10/10 established fired scenes improve** SSIM + direct physical errors | synthetic object factory; fixed 3.5% CoC, two frames, <=1600 px; owner support survives a separate post-threshold extension |
+| Joint giant-veil recovery | **Research retained, runtime disabled**; V2 oracle ceiling positive, parent support reconfirmed | exact-disk synthetic optics still expose an inner-partial foreground tail; no shipping claim |
 
 The metric itself got the same treatment as the engine: the standard gradient-transfer
 metric (Q<sup>AB/F</sup>) collapses at high resolution for the same fixed-window reason —

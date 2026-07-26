@@ -45,6 +45,17 @@ boundary-frequency discrepancies, not the broad pattern extension visible in
 F53, but remain part of the audit. This is evidence that solver disagreement is
 useful uncertainty, while forward residual alone is not.
 
+P3 exposes the next wall: the current semantic matte/owner chain is not an
+identifiable input to the solver. With semantic matte but factory-true radius,
+98 candidates average −0.00455 GT-SSIM (worst −0.0430), mean fringe error
+worsens +0.74 gray, and only 16 improve both verdicts. Low mean alpha error does
+not certify edge/ownership correctness: `scene_60` reports 0.006 but loses
+−0.00869. Every positive candidate has owner index 0 only because this factory
+always stores the near-focus frame first; gating on the index would be data-order
+leakage, not physics. Direct semantic integration is rejected. The next
+mechanism test is correction consensus across plausible matte displacements;
+failure there redirects to observation-fitted alpha or better matting.
+
 ## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
 
 **The mission (2026-07-22).** The goal has graduated: produce the image TRUE TO THE

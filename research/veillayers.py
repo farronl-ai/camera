@@ -19,6 +19,7 @@ Run:
     ../.venv/bin/python veillayers.py p0
     ../.venv/bin/python veillayers.py p1
     ../.venv/bin/python veillayers.py p2
+    ../.venv/bin/python veillayers.py p3
 """
 from __future__ import annotations
 
@@ -34,6 +35,7 @@ sys.path.insert(0, HERE)
 
 import metrics as M  # noqa: E402
 from hardbench import disk_blur  # noqa: E402
+from t2_candidates import candidates_with_features  # noqa: E402
 from t2_confidence import scenes  # noqa: E402
 from veilband import fringe_mask  # noqa: E402
 from veilship import false_texture_error  # noqa: E402
@@ -511,10 +513,102 @@ def cmd_p2() -> None:
     )
 
 
+def cmd_p3() -> None:
+    """Audit consensus inversion with runtime semantic matte, true radius."""
+    configs = ((2.0, 0.02), (8.0, 0.05), (32.0, 0.10))
+    correction_sigma = 0.5
+    rows = []
+    refused = []
+    for index, original in enumerate(scenes()):
+        candidates = candidates_with_features(original, topk=1)
+        if not candidates:
+            refused.append({"index": index, "sid": original["sid"]})
+            print(f"{original['sid']} REFUSE no semantic candidate", flush=True)
+            continue
+        candidate = candidates[0]
+        sc = resize_oracle(original)
+        h, w = sc["gt"].shape[:2]
+        alpha_est = cv2.resize(
+            candidate["alpha"], (w, h), interpolation=cv2.INTER_AREA
+        ).astype(np.float32)
+        owner = int(candidate["owner"])
+        ordered = [sc["frames"][owner], sc["frames"][1 - owner]]
+        base = fuse_perband(sc["frames"], harden=0.5)
+        solved = []
+        evidence_bank = []
+        for smooth_lambda, anchor_lambda in configs:
+            image, evidence = solve_layers(
+                ordered,
+                alpha_est,
+                sc["max_r"],
+                smooth_lambda=smooth_lambda,
+                anchor_lambda=anchor_lambda,
+            )
+            solved.append(image)
+            evidence_bank.append(evidence)
+        correction, uncertainty = stable_correction(
+            base, solved, correction_sigma=correction_sigma
+        )
+        model_sc = dict(sc, alpha=alpha_est)
+        output = apply_correction_to_fringe(base, correction, model_sc)
+        outcome = score(output, base, sc)
+        row = {
+            "index": index,
+            "sid": sc["sid"],
+            "regime": sc["regime"],
+            "owner": owner,
+            "semantic_features": candidate["feats"].tolist(),
+            "alpha_error": float(np.abs(alpha_est - sc["alpha"]).mean()),
+            **outcome,
+            **uncertainty,
+            "forward_before": evidence_bank[1]["forward_before"],
+            "forward_after": evidence_bank[1]["forward_after"],
+            "far_correction_rms": evidence_bank[1]["far_correction_rms"],
+        }
+        rows.append(row)
+        print(
+            f"{sc['sid']} dg={outcome['dg']:+.5f} "
+            f"dfr={outcome['de_fringe']:+.2f} "
+            f"dft={outcome['d_false_texture']:+.3f} "
+            f"ae={row['alpha_error']:.3f} owner={owner}",
+            flush=True,
+        )
+    aggregate = {
+        key: summarize(rows, key)
+        for key in (
+            "dg",
+            "de_fringe",
+            "d_false_texture",
+            "alpha_error",
+            "stable_fraction",
+            "ensemble_spread_rms",
+            "retained_rms",
+        )
+    }
+    payload = {
+        "max_side": MAX_SIDE,
+        "configs": configs,
+        "correction_sigma": correction_sigma,
+        "rows": rows,
+        "refused": refused,
+        "aggregate": aggregate,
+    }
+    path = os.path.join(HERE, "veillayers_p3_semantic_true_radius.json")
+    with open(path, "w") as handle:
+        json.dump(payload, handle, indent=2)
+    print(json.dumps(aggregate, indent=2), flush=True)
+    print(f"refused={len(refused)} -> {path}", flush=True)
+    print(
+        "DOCTRINE: a positive true-matte ceiling licenses testing runtime "
+        "mattes; it does not transfer safety to them by assumption.",
+        flush=True,
+    )
+
+
 def main() -> None:
-    commands = {"p0": cmd_p0, "p1": cmd_p1, "p2": cmd_p2}
+    commands = {"p0": cmd_p0, "p1": cmd_p1, "p2": cmd_p2, "p3": cmd_p3}
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
-        raise SystemExit("usage: veillayers.py {p0|p1|p2}")
+        raise SystemExit("usage: veillayers.py {p0|p1|p2|p3}")
     commands[sys.argv[1]]()
 
 

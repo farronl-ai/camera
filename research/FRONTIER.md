@@ -123,9 +123,11 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     projection closes the global tail (100/100 positive, mean +0.00383, worst
     +0.000053) and improves the false-texture tail to +0.065 gray, but one
     +0.35-gray fringe miss remains. It proves the model class is materially
-    better than correction-after-fusion, not that it is safe. Next: semantic
-    matte + true-radius audit, then scene-disjoint refusal. Blind radius follows
-    only if the semantic-input ceiling survives.
+    better than correction-after-fusion, not that it is safe. P3 semantic-matte
+    + true-radius is a hard negative (mean −0.00455, worst −0.0430; only 16/98
+    positive): current mattes are too boundary/owner-inaccurate. Next analytic
+    rung is consensus across erode/original/dilate matte hypotheses; otherwise
+    redirect to observation-fitted alpha or a higher-precision matting model.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

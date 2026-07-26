@@ -195,10 +195,25 @@ nonpositive.
 The consensus is a mechanism improvement, not a learned gate: uncertainty
 changes the operator itself. `scene_40` is now a refusal candidate because its
 benefit is microscopic and the expanded property is mixed. Do not tune away
-strong-scene gains to force this row. Next rung is semantic matte + true radius,
-using scene-disjoint outcomes later to learn refusal only after the input error
-distribution is visible. Blind radius, native resolution, real-stack identity,
-and package integration remain untouched.
+strong-scene gains to force this row.
+
+P3 decisively rejects direct use of the current semantic matte chain. Even with
+factory-true radius, 98 candidates average −0.00455 GT-SSIM (worst −0.0430),
+mean fringe error worsens +0.74 gray, and only 16 candidates improve both global
+and fringe scores. Mean alpha error is 0.135; worse, low mean error is not
+sufficient (`scene_60`: 0.006 alpha error but −0.00869 GT-SSIM due wrong
+ownership/boundary placement). All positive rows happen to have owner 0 because
+the factory always orders the near-focused frame first; using that index as a
+gate feature would be order leakage and is forbidden.
+
+Next analytic rung: make matte placement part of uncertainty. Solve a small
+erode/original/dilate matte ensemble and retain only correction components stable
+under both inverse regularization and plausible boundary displacement. This may
+turn edge sensitivity into refusal locally. If it cannot rescue the semantic
+ceiling, do not train a gate on it; the required replacement is genuinely
+observation-fitted alpha or a higher-precision matting model. Blind radius,
+native resolution, real-stack identity, and package integration remain
+untouched.
 
 ## Doctrine
 

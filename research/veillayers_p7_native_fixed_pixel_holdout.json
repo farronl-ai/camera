@@ -1,0 +1,76 @@
+{
+  "source_bank": "veillayers_p6_fixed_giant_holdout.json",
+  "configs": [
+    [
+      2.0,
+      0.02
+    ],
+    [
+      8.0,
+      0.05
+    ],
+    [
+      32.0,
+      0.1
+    ]
+  ],
+  "native": true,
+  "radius_fraction": 0.035,
+  "fired": [
+    {
+      "index": 114,
+      "sid": "scene_114",
+      "rank": 1,
+      "regime": 0.03502604166666667,
+      "alpha_error": 0.019499842077493668,
+      "forward_ratio": 0.6464512656528618,
+      "elapsed_seconds": 7.206533648999539,
+      "dg": 0.0012382268905639648,
+      "de_fringe": -9.128799438476562,
+      "d_false_texture": 0.06568145751953125,
+      "false_texture_pixels": 14379,
+      "stable_fraction": 0.8651405733088068,
+      "ensemble_spread_rms": 1.1926970481872559,
+      "retained_rms": 7.259354591369629
+    },
+    {
+      "index": 122,
+      "sid": "scene_122",
+      "rank": 1,
+      "regime": 0.03502604166666667,
+      "alpha_error": 0.009522133506834507,
+      "forward_ratio": 0.8142462283693918,
+      "elapsed_seconds": 6.959017667000808,
+      "dg": -0.00028574466705322266,
+      "de_fringe": -2.409954071044922,
+      "d_false_texture": 0.06325554847717285,
+      "false_texture_pixels": 28047,
+      "stable_fraction": 0.9282186296251085,
+      "ensemble_spread_rms": 0.48500117659568787,
+      "retained_rms": 6.122791290283203
+    }
+  ],
+  "aggregate": {
+    "dg": {
+      "n": 2,
+      "mean": 0.0004762411117553711,
+      "median": 0.0004762411117553711,
+      "worst": -0.00028574466705322266,
+      "best": 0.0012382268905639648
+    },
+    "de_fringe": {
+      "n": 2,
+      "mean": -5.769376754760742,
+      "median": -5.769376754760742,
+      "worst": -9.128799438476562,
+      "best": -2.409954071044922
+    },
+    "d_false_texture": {
+      "n": 2,
+      "mean": 0.06446850299835205,
+      "median": 0.06446850299835205,
+      "worst": 0.06325554847717285,
+      "best": 0.06568145751953125
+    }
+  }
+}

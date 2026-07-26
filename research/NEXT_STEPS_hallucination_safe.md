@@ -249,6 +249,37 @@ same forward-ratio license. This is justified only if it refuses every fresh
 moderate scene and preserves the giant fires; otherwise radius remains a hard
 blocker.
 
+P6 conditionally resolves that blocker by narrowing the regime. With one fixed
+`0.035 * max_dim` hypothesis, physical candidate selection plus the unchanged
+license fires the same 7 development and 2 fresh-holdout giant scenes, all
+positive at max-side 512, and fires on **zero of 54 moderate scenes**. This is
+not blind radius estimation; it is a high-precision giant-veil specialist whose
+observation gate rejects the wrong scale.
+
+P7 native resolution reveals and then fixes another fixed-pixel trap. Keeping
+the 512 px regularizer/correction/mask sigmas unchanged makes 3/9 native global
+scores negative and raises false-texture by ~0.064 gray. Scaling all spatial
+priors by `max_dim/512` restores the fresh holdout to 2/2 positive and cuts its
+false-texture delta to ~0.009 gray. Across development, 5/7 global scores are
+positive; `scene_75`/`scene_99` are −0.00063/−0.00066, but all 7 true-fringe
+errors improve (mean −4.26 gray) and eye panels show broad veil removal toward
+GT without pattern extension. The metric lattice is mixed, not failed silently:
+native global SSIM dislikes a thin contour shift while region L1 and the eye
+credit the physical correction.
+
+Do not package yet. Next:
+
+1. repeat the native audit with the production downscaled-disk PSF rather than
+   the factory's large-radius box approximation, or take consensus across both;
+2. add global MAE/PSNR and guarded false-texture measures so the native
+   disagreement is explicit rather than decided by one global metric;
+3. port the solver only after that model-mismatch rung, with the veil auto
+   kill-switch still default-safe throughout.
+
+Current native solver cost after fixing the streaming runner is ~6.9 s per fired
+1536 px scene and <0.93 GB process RSS in this audit; bridge/candidate cost is
+separate.
+
 ## Doctrine
 
 The binding rule is that recovery must stay rooted in observed remnants. A

@@ -77,6 +77,21 @@ this is not a zero-tail promotion. Broad radius consensus (1.2–4.5% image CoC)
 is a conditional negative: it erases most recovery and flips one development
 and one holdout fire negative. Blind radius remains the admission blocker.
 
+P6 replaces radius estimation with regime refusal. A fixed 3.5%-of-image CoC
+model plus the frozen observation license reproduces all 9 giant fires and
+rejects all 54 moderate scenes across development + fresh holdout; every
+max-side-512 fire improves global and fringe fidelity. This conditionally
+resolves radius for a narrow specialist, not arbitrary stacks.
+
+Native P7 catches another scale bug. Fixed 512 px priors yield 3/9 negative
+global scores and +0.064 mean false-texture. Scaling regularizer σ, correction
+σ, and blend-mask σ by resolution restores fresh holdout 2/2 positive and cuts
+false-texture to +0.009. Development is 5/7 global-positive, but all 7 improve
+true-fringe L1 (mean −4.26 gray); visual panels show the physical veil moves
+toward GT without F53-style pattern extension. The remaining −0.00063/−0.00066
+global SSIM rows are a real metric disagreement at a thin contour, not grounds
+to overclaim. Production-PSF mismatch is the next mandatory rung.
+
 ## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
 
 **The mission (2026-07-22).** The goal has graduated: produce the image TRUE TO THE

@@ -23,12 +23,16 @@ Run:
     ../.venv/bin/python veillayers.py p4
     ../.venv/bin/python veillayers.py p4h
     ../.venv/bin/python veillayers.py p5
+    ../.venv/bin/python veillayers.py p6
+    ../.venv/bin/python veillayers.py p6h
+    ../.venv/bin/python veillayers.py p7
 """
 from __future__ import annotations
 
 import json
 import os
 import sys
+import time
 
 import cv2
 import numpy as np
@@ -109,10 +113,13 @@ def adjoint(residuals: list[np.ndarray], model: dict) -> tuple[np.ndarray, np.nd
     return near, far
 
 
-def correction_regularizer(image: np.ndarray) -> np.ndarray:
+def correction_regularizer(
+    image: np.ndarray,
+    sigma: float = 1.0,
+) -> np.ndarray:
     """B^T B for B=(I-G_sigma), a DC-preserving high-frequency penalty."""
-    high = image - cv2.GaussianBlur(image, (0, 0), 1.0)
-    return high - cv2.GaussianBlur(high, (0, 0), 1.0)
+    high = image - cv2.GaussianBlur(image, (0, 0), sigma)
+    return high - cv2.GaussianBlur(high, (0, 0), sigma)
 
 
 def solve_layers(
@@ -122,6 +129,7 @@ def solve_layers(
     initial_far: np.ndarray | None = None,
     smooth_lambda: float = 2.0,
     anchor_lambda: float = 0.02,
+    regularizer_sigma: float = 1.0,
     iterations: int = 18,
 ) -> tuple[np.ndarray, dict]:
     """Solve for layer corrections with conjugate gradients on normal equations."""
@@ -139,8 +147,14 @@ def solve_layers(
 
     def normal(dn: np.ndarray, df: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         an, af = adjoint(forward_layers(dn, df, model), model)
-        an += smooth_lambda * correction_regularizer(dn) + anchor_lambda * dn
-        af += smooth_lambda * correction_regularizer(df) + anchor_lambda * df
+        an += (
+            smooth_lambda * correction_regularizer(dn, regularizer_sigma)
+            + anchor_lambda * dn
+        )
+        af += (
+            smooth_lambda * correction_regularizer(df, regularizer_sigma)
+            + anchor_lambda * df
+        )
         return an, af
 
     def dot(an: np.ndarray, af: np.ndarray, bn: np.ndarray, bf: np.ndarray) -> float:
@@ -181,8 +195,8 @@ def solve_layers(
     after = float(
         np.mean([np.abs(p - y).mean() for p, y in zip(predicted, observed)])
     )
-    high_n = dn - cv2.GaussianBlur(dn, (0, 0), 1.0)
-    high_f = df - cv2.GaussianBlur(df, (0, 0), 1.0)
+    high_n = dn - cv2.GaussianBlur(dn, (0, 0), regularizer_sigma)
+    high_f = df - cv2.GaussianBlur(df, (0, 0), regularizer_sigma)
     data0_sum = sum(
         np.sum((p - y) ** 2, dtype=np.float64)
         for p, y in zip(predicted0, observed)
@@ -295,9 +309,10 @@ def apply_correction_to_fringe(
     base: np.ndarray,
     correction: np.ndarray,
     sc: dict,
+    mask_sigma: float = 2.0,
 ) -> np.ndarray:
     support = fringe_mask(sc["alpha"], sc["max_r"]) & (sc["alpha"] < 0.5)
-    mask = cv2.GaussianBlur(support.astype(np.float32), (0, 0), 2.0)
+    mask = cv2.GaussianBlur(support.astype(np.float32), (0, 0), mask_sigma)
     output = base.astype(np.float32) + correction * mask[..., None]
     return np.uint8(np.clip(output, 0, 255))
 
@@ -635,16 +650,28 @@ def cmd_p3() -> None:
     )
 
 
-def run_candidate_bank(start_index: int, filename: str) -> None:
+def run_candidate_bank(
+    start_index: int,
+    filename: str,
+    radius_fraction: float | None = None,
+    end_index: int | None = None,
+) -> None:
     """Measure whether physical evidence can rerank the top-4 matte bank."""
     smooth_lambda = 8.0
     anchor_lambda = 0.05
     correction_sigma = 0.5
     scenes_out = []
     for index, original in enumerate(scenes()):
+        if end_index is not None and index >= end_index:
+            break
         if index < start_index:
             continue
         sc = resize_oracle(original)
+        model_radius = (
+            sc["max_r"]
+            if radius_fraction is None
+            else radius_fraction * max(sc["gt"].shape[:2])
+        )
         h, w = sc["gt"].shape[:2]
         base = fuse_perband(sc["frames"], harden=0.5)
         candidate_rows = []
@@ -657,7 +684,7 @@ def run_candidate_bank(start_index: int, filename: str) -> None:
             solved, evidence = solve_layers(
                 ordered,
                 alpha_est,
-                sc["max_r"],
+                model_radius,
                 smooth_lambda=smooth_lambda,
                 anchor_lambda=anchor_lambda,
             )
@@ -668,7 +695,7 @@ def run_candidate_bank(start_index: int, filename: str) -> None:
                 correction_sigma,
                 borderType=cv2.BORDER_REFLECT,
             )
-            model_sc = dict(sc, alpha=alpha_est)
+            model_sc = dict(sc, alpha=alpha_est, max_r=model_radius)
             output = apply_correction_to_fringe(base, correction, model_sc)
             outcome = score(output, base, sc)
             row = {
@@ -696,6 +723,9 @@ def run_candidate_bank(start_index: int, filename: str) -> None:
                 "index": index,
                 "sid": sc["sid"],
                 "regime": sc["regime"],
+                "model_radius_fraction": float(
+                    model_radius / max(sc["gt"].shape[:2])
+                ),
                 "candidates": candidate_rows,
             }
         )
@@ -721,11 +751,28 @@ def run_candidate_bank(start_index: int, filename: str) -> None:
 
 
 def cmd_p4() -> None:
-    run_candidate_bank(0, "veillayers_p4_candidate_bank.json")
+    run_candidate_bank(0, "veillayers_p4_candidate_bank.json", end_index=100)
 
 
 def cmd_p4h() -> None:
     run_candidate_bank(100, "veillayers_p4_fresh_holdout.json")
+
+
+def cmd_p6h() -> None:
+    run_candidate_bank(
+        100,
+        "veillayers_p6_fixed_giant_holdout.json",
+        radius_fraction=0.035,
+    )
+
+
+def cmd_p6() -> None:
+    run_candidate_bank(
+        0,
+        "veillayers_p6_fixed_giant_dev.json",
+        radius_fraction=0.035,
+        end_index=100,
+    )
 
 
 def candidate_is_licensed(row: dict) -> bool:
@@ -740,24 +787,45 @@ def candidate_is_licensed(row: dict) -> bool:
     )
 
 
-def run_licensed_consensus(bank_filename: str, output_filename: str) -> None:
+def run_licensed_consensus(
+    bank_filename: str,
+    output_filename: str,
+    native: bool = False,
+    radius_fraction: float | None = None,
+) -> None:
     bank = json.load(open(os.path.join(HERE, bank_filename)))
-    originals = {index: sc for index, sc in enumerate(scenes())}
     configs = ((2.0, 0.02), (8.0, 0.05), (32.0, 0.10))
-    fired = []
+    licensed = {}
     for scene_row in bank["scenes"]:
         if not scene_row["candidates"]:
             continue
         chosen = min(
             scene_row["candidates"], key=lambda row: row["forward_after"]
         )
-        if not candidate_is_licensed(chosen):
+        if candidate_is_licensed(chosen):
+            licensed[int(scene_row["index"])] = chosen
+    fired = []
+    for index, original in enumerate(scenes()):
+        if index not in licensed:
             continue
-        index = int(scene_row["index"])
-        original = originals[index]
+        chosen = licensed[index]
         candidates = candidates_with_features(original, topk=4)
         candidate = candidates[int(chosen["rank"])]
-        sc = resize_oracle(original)
+        if native:
+            sc = {
+                "sid": original["sid"],
+                "gt": original["gt"],
+                "alpha": original["alpha"],
+                "frames": original["frames"],
+                "max_r": float(original["max_r"]),
+                "regime": float(
+                    original["max_r"] / max(original["gt"].shape[:2])
+                ),
+            }
+        else:
+            sc = resize_oracle(original)
+        if radius_fraction is not None:
+            sc["max_r"] = radius_fraction * max(sc["gt"].shape[:2])
         h, w = sc["gt"].shape[:2]
         alpha_est = cv2.resize(
             candidate["alpha"], (w, h), interpolation=cv2.INTER_AREA
@@ -765,6 +833,8 @@ def run_licensed_consensus(bank_filename: str, output_filename: str) -> None:
         owner = int(candidate["owner"])
         ordered = [sc["frames"][owner], sc["frames"][1 - owner]]
         base = fuse_perband(sc["frames"], harden=0.5)
+        started = time.perf_counter()
+        spatial_scale = max(sc["gt"].shape[:2]) / MAX_SIDE if native else 1.0
         solved = []
         for smooth_lambda, anchor_lambda in configs:
             image, _ = solve_layers(
@@ -773,12 +843,21 @@ def run_licensed_consensus(bank_filename: str, output_filename: str) -> None:
                 sc["max_r"],
                 smooth_lambda=smooth_lambda,
                 anchor_lambda=anchor_lambda,
+                regularizer_sigma=spatial_scale,
             )
             solved.append(image)
-        correction, uncertainty = stable_correction(base, solved)
-        output = apply_correction_to_fringe(
-            base, correction, dict(sc, alpha=alpha_est)
+        correction, uncertainty = stable_correction(
+            base,
+            solved,
+            correction_sigma=0.5 * spatial_scale,
         )
+        output = apply_correction_to_fringe(
+            base,
+            correction,
+            dict(sc, alpha=alpha_est),
+            mask_sigma=2.0 * spatial_scale,
+        )
+        elapsed = time.perf_counter() - started
         outcome = score(output, base, sc)
         row = {
             "index": index,
@@ -789,6 +868,8 @@ def run_licensed_consensus(bank_filename: str, output_filename: str) -> None:
             "forward_ratio": float(
                 chosen["forward_after"] / max(chosen["forward_before"], 1e-6)
             ),
+            "elapsed_seconds": elapsed,
+            "spatial_scale": spatial_scale,
             **outcome,
             **uncertainty,
         }
@@ -796,7 +877,8 @@ def run_licensed_consensus(bank_filename: str, output_filename: str) -> None:
         print(
             f"{sc['sid']} dg={outcome['dg']:+.5f} "
             f"dfr={outcome['de_fringe']:+.2f} "
-            f"dft={outcome['d_false_texture']:+.3f}",
+            f"dft={outcome['d_false_texture']:+.3f} "
+            f"time={elapsed:.2f}s",
             flush=True,
         )
     path = os.path.join(HERE, output_filename)
@@ -805,6 +887,8 @@ def run_licensed_consensus(bank_filename: str, output_filename: str) -> None:
             {
                 "source_bank": bank_filename,
                 "configs": configs,
+                "native": native,
+                "radius_fraction": radius_fraction,
                 "fired": fired,
                 "aggregate": {
                     key: summarize(fired, key)
@@ -833,6 +917,26 @@ def cmd_p5() -> None:
     )
 
 
+def cmd_p7() -> None:
+    run_licensed_consensus(
+        "veillayers_p6_fixed_giant_dev.json",
+        "veillayers_p7_native_dev.json",
+        native=True,
+        radius_fraction=0.035,
+    )
+    run_licensed_consensus(
+        "veillayers_p6_fixed_giant_holdout.json",
+        "veillayers_p7_native_holdout.json",
+        native=True,
+        radius_fraction=0.035,
+    )
+    print(
+        "DOCTRINE: downscaled admission does not transfer to native output; "
+        "native tails, visuals, memory, and runtime receive their own verdict.",
+        flush=True,
+    )
+
+
 def main() -> None:
     commands = {
         "p0": cmd_p0,
@@ -842,9 +946,14 @@ def main() -> None:
         "p4": cmd_p4,
         "p4h": cmd_p4h,
         "p5": cmd_p5,
+        "p6": cmd_p6,
+        "p6h": cmd_p6h,
+        "p7": cmd_p7,
     }
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
-        raise SystemExit("usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5}")
+        raise SystemExit(
+            "usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7}"
+        )
     commands[sys.argv[1]]()
 
 

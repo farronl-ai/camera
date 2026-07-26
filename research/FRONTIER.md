@@ -130,9 +130,12 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     candidates versus 28/98 semantic top-1, but only 24 outcomes are positive.
     A four-feature development license isolates 7 all-positive cases; thresholds
     survive a fresh 25-scene holdout (2/2 fires positive after consensus:
-    +0.00303/+0.00075 GT-SSIM). Broad radius consensus is not safe; next test is
-    whether a fixed giant-CoC hypothesis plus the unchanged gate refuses all
-    moderate scenes. Blind radius remains the blocker.
+    +0.00303/+0.00075 GT-SSIM). Broad radius consensus is not safe. P6's fixed
+    3.5% giant hypothesis plus unchanged gate fires 9/9 positive at 512 and
+    refuses all 54 moderate scenes. Native scale-aware P7 keeps fresh holdout
+    2/2 positive and all 9 fringe errors improved, but two development global
+    SSIM tails remain (~−0.00065). Next mandatory rung is production disk-PSF
+    mismatch/consensus, not packaging.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

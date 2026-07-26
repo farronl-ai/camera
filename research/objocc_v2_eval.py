@@ -184,6 +184,10 @@ def _one_sided_geometry_audit(
         selected.get("front_extent", alpha >= 0.5),
         bool,
     )
+    front_veto_extent = np.asarray(
+        selected.get("front_veto_extent", predicted_front),
+        bool,
+    )
     true_front = scene["alpha"] >= 0.5
     intersection = int((predicted_front & true_front).sum())
     union = int((predicted_front | true_front).sum())
@@ -201,20 +205,30 @@ def _one_sided_geometry_audit(
         max_radius,
         spatial_scale,
     )
+    cross_frame_satellites = np.asarray(
+        selected.get(
+            "cross_frame_satellite_extent",
+            np.zeros(alpha.shape, bool),
+        ),
+        bool,
+    )
     inside_distance = cv2.distanceTransform(
         (alpha >= 0.5).astype(np.uint8),
         cv2.DIST_L2,
         5,
     )
     hard_front = (
-        inside_distance > max(1.0, spatial_scale)
-    ) & front_consensus
+        (
+            inside_distance > max(1.0, spatial_scale)
+        )
+        & front_consensus
+    ) | cross_frame_satellites
     rear_mask, rear_report = _one_sided_rear_application_mask(
         scene["frames"],
         int(selected["owner"]),
         alpha,
         np.asarray(selected["rear_support_alpha"], np.float32),
-        predicted_front,
+        front_veto_extent,
         fringe_consensus,
         max_radius,
         spatial_scale,
@@ -248,12 +262,22 @@ def _one_sided_geometry_audit(
             intersection / max(int(true_front.sum()), 1)
         ),
         "front_iou": float(intersection / max(union, 1)),
+        "front_veto_extent_pixels": int(front_veto_extent.sum()),
         "hard_front_pixels": int(hard_front.sum()),
         "hard_front_true_core_pixels": int(
             (hard_front & gt_regions["owned_foreground_core"]).sum()
         ),
+        "hard_front_missed_core_pixels": int(
+            (
+                ~hard_front
+                & gt_regions["owned_foreground_core"]
+            ).sum()
+        ),
         "hard_front_false_pixels": int(
             (hard_front & ~true_front).sum()
+        ),
+        "cross_frame_satellite_pixels": int(
+            cross_frame_satellites.sum()
         ),
         "rear_active_pixels": int(rear_active.sum()),
         "rear_overlap_by_gt_region": {
@@ -752,8 +776,34 @@ def oracle(split: str) -> None:
 
 def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
     """Grade discrete ownership, bounds, and one-sided rear recovery."""
+    suffix = (
+        "ordered_visibility_oracle"
+        if oracle_alpha
+        else "ordered_visibility"
+    )
+    resume_enabled = os.environ.get("OBJ_OCC_RESUME") == "1"
+    resume_key = (
+        f"f69_directional_boundary_veto:{split}:"
+        f"{'oracle' if oracle_alpha else 'semantic'}"
+    )
+    resume_path = os.path.join(
+        HERE,
+        f".objocc_v2_{split}_{suffix}.rows.json",
+    )
     rows = []
+    if resume_enabled and os.path.exists(resume_path):
+        with open(resume_path) as handle:
+            cached = json.load(handle)
+        if cached.get("resume_key") == resume_key:
+            rows = cached.get("rows", [])
+            print(
+                f"{split}: resuming after {len(rows)} cached rows",
+                flush=True,
+            )
+    completed_sids = {row["sid"] for row in rows}
     for scene in scenes(split):
+        if scene["sid"] in completed_sids:
+            continue
         base = fuse_perband(scene["frames"], harden=0.5)
         if oracle_alpha:
             candidates = [
@@ -801,6 +851,18 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
                 selected_geometry,
             )
         rows.append(row)
+        if resume_enabled:
+            temporary_resume_path = f"{resume_path}.tmp"
+            with open(temporary_resume_path, "w") as handle:
+                json.dump(
+                    {
+                        "resume_key": resume_key,
+                        "rows": rows,
+                    },
+                    handle,
+                    indent=2,
+                )
+            os.replace(temporary_resume_path, resume_path)
         metrics = row["metrics"]
         partition_deltas = {
             name: (
@@ -853,11 +915,6 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
             for delta in [partition_delta(row, name)]
         )
         for row in fired
-    )
-    suffix = (
-        "ordered_visibility_oracle"
-        if oracle_alpha
-        else "ordered_visibility"
     )
     payload = {
         "factory": (
@@ -942,6 +999,8 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
     path = os.path.join(HERE, f"objocc_v2_{split}_{suffix}.json")
     with open(path, "w") as handle:
         json.dump(payload, handle, indent=2)
+    if resume_enabled and os.path.exists(resume_path):
+        os.remove(resume_path)
     print(json.dumps(payload["fired_summary"], indent=2))
     print(f"{len(rows)} scenes, {len(fired)} S12 fires -> {path}")
 

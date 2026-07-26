@@ -139,21 +139,30 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       hypotheses. S23 rerun: 7/7 SSIM/MAE/MSE and all-partition positive,
       far background exact for every fire, 65 refusals identity. S23 is
       development evidence; do not spend another large split until S15 freezes.
-- [ ] **S18: one-sided opaque ownership.** 🔶 FROZEN DEV / F66. The S25+
+- [ ] **S18: one-sided opaque ownership.** 🔶 FROZEN DEV / F67. The S25+
       primary generator and paired forward/adjoint model now guarantee zero
       rear throughput throughout latent opaque foreground support while
       retaining foreground-only outward spread. Raw focal-frame masks are
       evaluated under that formation, near-tied containing silhouettes are
       preferred, cross-frame corroboration suppresses false ownership, and
       hard owner projection is disjoint from rear correction. Focal-pair
-      silhouette completion repairs the mirror holes; foreground-only NLM
+      silhouette completion repairs internal omissions; foreground-only NLM
       avoids copying sensor noise; the original intersection remains an
-      independent rear license. Explicit GT audits show zero rear overlap with
-      foreground core, antialiased edge, and far background in 6/6. All six
-      improve MAE/MSE/core/veil with exact far identity; mean silhouette IoU is
-      0.9647 and 5/6 improve SSIM. S25 shaped and froze the rule. Generate and
-      grade genuinely fresh S26 next. Regenerate the inspector once, at the
-      end; the solid S23 inspector is still preserved.
+      independent rear license. S26 then exposed rear entry at a missed lower
+      boundary and pure-rear entry on a concave case. Rear correction now also
+      requires the causal focal transformation and reverse-reblur residual
+      above a measured noise floor; the front-direction veto is confined to a
+      narrow boundary extension so it cannot erase legitimate exterior veil.
+      Cross-frame-proven detached satellites are discrete front support; the
+      legacy additive support bridge is disabled for one-sided geometry.
+      Re-frozen S25 has zero rear overlap with foreground core, antialiased
+      edge, and far background in 6/6; all six improve MAE/MSE/core/veil with
+      exact far identity; mean silhouette IoU is 0.9647 and 5/6 improve SSIM.
+      `s26_013/014` now satisfy the same rear invariant and improve direct
+      metrics, but `s26_014` retains a hard-front far extension. S26 shaped the
+      repair and cannot validate it. Finish that boundary attribution, freeze,
+      then generate S27. Regenerate the inspector once, at the end; the solid
+      S23 inspector is still preserved.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

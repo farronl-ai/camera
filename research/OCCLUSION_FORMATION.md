@@ -1,7 +1,7 @@
 # Occlusion formation audit — geometry, veil, and material transmission
 
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
-`NEXT_STEPS_scenerecovery.md`, and F60–F66 in `FINDINGS.md`.
+`NEXT_STEPS_scenerecovery.md`, and F60–F67 in `FINDINGS.md`.
 
 ## User correction and pause checkpoint — supersedes the primary input contract
 
@@ -63,8 +63,20 @@ previous S23 checkpoint while S25 is unfinished.
       background. All six improve MAE/MSE, foreground core, and exterior veil,
       with exact far-background identity. Five improve SSIM; `s25_003` changes
       `-0.000150` while improving direct errors and preserving ownership.
-- [ ] After the recovery rule freezes, generate a fresh S26 validation split;
-      regenerate the inspector only once at the end.
+- [x] Generate S26 after the first freeze. Its first 15 scenes exposed two
+      distinct ownership failures: rear application crossed a missed opaque
+      boundary on `s26_013`, and reached pure rear on `s26_014`. S26 therefore
+      became development evidence.
+- [x] Preserve the F66 focused-RGB completion/solver while adding only causal
+      safeguards: cross-frame-proven satellites, a front-direction veto
+      confined to the immediate boundary extension, and a reverse-reblur
+      presence threshold measured from the scene's rear noise floor.
+- [x] Re-freeze the six-scene S25 carpet. Rear application is zero in GT
+      core/boundary/far for 6/6; all six improve MAE/MSE/core/veil and preserve
+      exact far identity; 5/6 improve SSIM.
+- [ ] Finish attribution of `s26_014`'s remaining hard-front far extension,
+      freeze without weakening the working solver, then generate a genuinely
+      new S27 validation split. Regenerate the inspector only once at the end.
 
 ## Why this note exists
 

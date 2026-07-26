@@ -6,6 +6,7 @@ from focusstack.veil_layers import (
     RADIUS_FRACTION,
     _adjoint,
     _box_disk_blur,
+    _cross_frame_satellite_support,
     _forward_layers,
     _fringe_mask,
     _one_sided_rear_application_mask,
@@ -212,6 +213,115 @@ def test_one_sided_recovery_hard_selects_confident_foreground_interior():
     assert report["rear_mask_front_veto_removed_pixels"] >= 0
 
 
+def test_one_sided_owned_core_is_one_observation_not_a_blend():
+    frames, _, candidate, _ = _physical_giant_stack()
+    true_mask = candidate["alpha"] > 0
+    eroded = cv2.erode(
+        true_mask.astype(np.uint8),
+        np.ones((7, 7), np.uint8),
+    )
+    other_observation = cv2.dilate(
+        true_mask.astype(np.uint8),
+        np.ones((5, 5), np.uint8),
+    )
+    false_mask = np.zeros_like(eroded)
+    false_mask[15:55, 10:40] = 1
+    owner_masks = [
+        np.stack([true_mask, eroded]).astype(np.uint8),
+        np.stack([other_observation, false_mask]),
+    ]
+    selected = select_one_sided_owner_geometry(frames, owner_masks)
+    assert selected[0] is not None, selected[1]
+    base = np.rint(
+        0.37 * frames[0].astype(np.float32)
+        + 0.63 * frames[1].astype(np.float32)
+    ).astype(np.uint8)
+
+    output, report = recover_giant_veil(
+        frames,
+        base,
+        [candidate],
+        owner_masks_by_frame=owner_masks,
+        one_sided_selection=selected,
+    )
+
+    owner = int(selected[0]["owner"])
+    denoised_owner = cv2.fastNlMeansDenoisingColored(
+        frames[owner],
+        None,
+        2.0,
+        2.0,
+        3,
+        7,
+    )
+    alpha = np.asarray(selected[0]["alpha"], np.float32)
+    front_consensus, _, _ = _owner_geometry_consensus(
+        alpha,
+        owner_masks[owner],
+        RADIUS_FRACTION * max(alpha.shape),
+        1.0,
+    )
+    inside_distance = cv2.distanceTransform(
+        (alpha >= 0.5).astype(np.uint8),
+        cv2.DIST_L2,
+        5,
+    )
+    hard_front = (inside_distance > 1.0) & front_consensus
+    hard_front |= np.asarray(
+        selected[0].get(
+            "cross_frame_satellite_extent",
+            np.zeros(alpha.shape, bool),
+        ),
+        bool,
+    )
+    assert np.array_equal(
+        output[hard_front],
+        denoised_owner[hard_front],
+    )
+    assert report["owner_front_reconstruction_pixels"] == int(
+        hard_front.sum()
+    )
+
+
+def test_cross_frame_satellite_requires_positive_two_frame_geometry():
+    size = 192
+    completed = np.zeros((size, size), bool)
+    cv2.circle(
+        completed.view(np.uint8),
+        (80, 96),
+        35,
+        1,
+        -1,
+    )
+    satellite = np.zeros_like(completed)
+    satellite[88:100, 118:126] = True
+    unsupported = np.zeros_like(completed)
+    unsupported[20:32, 20:28] = True
+    owner_masks = np.stack(
+        [completed, satellite, unsupported]
+    ).astype(np.uint8)
+    other_masks = np.stack(
+        [
+            cv2.dilate(
+                completed.astype(np.uint8),
+                np.ones((3, 3), np.uint8),
+            ),
+            satellite.astype(np.uint8),
+        ]
+    )
+
+    support, evidence = _cross_frame_satellite_support(
+        [owner_masks, other_masks],
+        owner=0,
+        completed=completed,
+        max_radius=RADIUS_FRACTION * size,
+    )
+
+    assert np.mean(support[satellite]) > 0.95
+    assert not np.any(support[unsupported])
+    assert evidence["one_sided_satellite_accepted_count"] == 1
+
+
 def test_one_sided_rear_mask_never_crosses_true_foreground():
     frames, _, candidate, _ = _physical_giant_stack()
     true_mask = candidate["alpha"] > 0
@@ -252,6 +362,10 @@ def test_one_sided_rear_mask_never_crosses_true_foreground():
         report["rear_mask_after_geometry_corroboration_pixels"]
         >= report["rear_mask_active_pixels"]
     )
+    assert report["rear_mask_presence_reason"] in {
+        "reverse_reblur_exceeds_noise_floor",
+        "insufficient_rear_noise_reference",
+    }
 
 
 def test_candidate_license_uses_semantics_and_forward_evidence():

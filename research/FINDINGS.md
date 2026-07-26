@@ -5,6 +5,65 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F67 — Focal transformation is evidence, not permission to erase the veil
+
+The first 15 scenes of the genuinely new S26 cohort invalidated promotion of
+F66 without invalidating its solver. `s26_013` exposed 239 GT opaque-core and 37
+antialiased-edge pixels in the rear application mask; `s26_014` exposed 541
+true far-background pixels. Attribution separated three causes:
+
+1. the historical additive owner-support bridge was still running after the
+   completed one-sided silhouette and could add almost as much false as true
+   support, so the one-sided path now treats its completed geometry as
+   authoritative;
+2. small opaque pieces independently segmented in both focal frames were not
+   represented as discrete satellites;
+3. rear focus was being treated as enough evidence to apply the inverse, even
+   where reverse reblur already explained a pure rear pixel down to noise.
+
+The repair is deliberately narrower than the failed broad experiments. The
+focused-RGB graph completion and six-solve layer consensus that produced the
+strong F66 result are preserved. A detached satellite is added only when at
+least 90% of the owner-frame proposal is independently reproduced by one
+other-frame mask, only their intersection is admitted, and it lies within two
+CoC radii. For rear application, the two causal focal directions are compared:
+reblur the owner observation toward the other focal plane, and reblur the other
+observation toward the owner plane. Front-directed evidence vetoes rear
+application only in a two-model-pixel extension beyond the discrete front
+boundary—not globally, because the legitimate exterior veil is also
+front-directed. A rear correction must additionally leave at least twice the
+robust reverse-reblur noise floor; otherwise the rear observation already
+explains the pixel and identity is correct.
+
+Broad directional silhouette replacement, global convex hulls, whole-front
+two-frame hard switching, and global front-direction vetoes were tested and
+rejected. They could make a far-background counter look cleaner while
+discarding valid exterior-veil recovery or weakening the already-solid S25
+operator. This is the exact benchmark-shaped failure mode the project doctrine
+warns against.
+
+The two S26 causal sentinels now have zero rear-mask overlap with GT opaque
+core, GT antialiased boundary, and GT far background:
+
+- `s26_013`: ΔSSIM `+0.002213`, ΔMAE `-0.1660`, ΔMSE `-3.0686`;
+  core/boundary/outer-veil MAE all improve;
+- `s26_014`: ΔSSIM `+0.000994`, ΔMAE `-0.1574`, ΔMSE `-2.0418`;
+  core/boundary/outer-veil MAE all improve.
+
+`s26_014` still changes far background by `+0.01295` MAE, but attribution now
+proves that this comes from a locally overextended hard-front mask, not rear
+synthesis. That geometry error remains open. S26 has therefore become
+development evidence and cannot certify the rule it shaped; a later S27 must
+be generated after the boundary rule freezes.
+
+The six-scene S25 causal carpet was rerun after the repair: 6/6 improve MAE,
+MSE, opaque-core MAE, and outer-veil MAE; 5/6 improve SSIM; rear overlap is zero
+in GT core/boundary/far for 6/6; far background is exact identity for 6/6; mean
+silhouette IoU remains `0.9647`. One boundary partition dissents by `+0.0118`
+MAE while its scene improves globally and physically elsewhere. The strict
+false-texture proxy still dissents on 6/6 and remains a diagnostic, not a veto.
+The inspector and shipping auto path remain frozen.
+
 ## F66 — Foreground completion and rear permission are different decisions
 
 The remaining S25 foreground-core dissent was not sensor noise and was not a

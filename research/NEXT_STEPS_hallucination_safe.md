@@ -168,10 +168,27 @@ Two controls constrain the interpretation:
   worst case to −0.000067 and the false-texture mean/tail, while stronger
   filtering creates its own boundary-frequency error.
 
-This is promising mechanism evidence, not a shipping result. P1 must run the
-chosen far-anchor model over all 100 oracle scenes and expose every tail. Only
-then may a measurable refusal rule be designed. Blind mattes/radii, native
-resolution, real-stack identity, and package integration remain untouched.
+P1 ran the chosen far-anchor model over all 100 oracle scenes. Mean GT-SSIM is
++0.00408, 99/100 scenes are positive, and mean true-fringe absolute error falls
+by 7.48 gray levels. The lone loss is `scene_31` at −0.000067; only
+`scene_31`/`scene_40` have tiny positive fringe-error deltas (+0.03/+0.59).
+Smooth-region false-texture error improves by 0.0274 gray on average, but 31/97
+measurable scenes have positive deltas and the tail reaches +0.092 gray.
+
+Eye inspection of the worst false-texture row (`scene_45`, only 89 qualifying
+quiet pixels) shows a large veil reduction toward GT and no visible invented
+pattern; the tail is concentrated at the high-contrast contour. In contrast,
+`scene_31` visibly confirms a weak-scene boundary mismatch. The oracle model
+class has therefore passed the “worth continuing” test but not the strict
+every-scene property.
+
+Immediate next experiment: treat sensitivity to regularization/model choices as
+inverse-problem uncertainty. Retain only correction components stable across a
+small physically plausible solve ensemble, then test whether this removes the
+weak-scene and false-texture tails without erasing the P1 gain. Do not train a
+statistical gate around the two oracle misses until this analytic uncertainty
+control is exhausted. Blind mattes/radii, native resolution, real-stack
+identity, and package integration remain untouched.
 
 ## Doctrine
 

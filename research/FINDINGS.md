@@ -21,9 +21,18 @@ it with the already-fused result worsens both recovery and false-texture tails:
 fusion is an output to beat, not independent evidence. A 0.5 px low-pass on the
 *correction only* reduces the remaining P0 loss to −0.000067 and the positive
 false-texture tail to +0.044 gray, but stronger filtering introduces boundary
-frequency error. This is the first positive realistic-object ceiling after F54,
-not a promotion: full-factory tails, blind inputs, native resolution, refusal,
-and real identity tests remain open.
+frequency error.
+
+The full 100-scene oracle P1 survives: mean GT-SSIM +0.00408, 99/100 positive,
+mean true-fringe error −7.48 gray. The one loss is −0.000067; two scenes have
+small positive fringe-error tails (+0.03/+0.59). False-texture error improves
+−0.0274 gray on average but has a +0.092 tail. Eye inspection shows that worst
+false-texture row has a visibly correct broad veil reduction and only 89 metric
+pixels at the high-contrast contour; `scene_31` does show the weak boundary
+mismatch predicted by its negative scores. This is the first positive
+realistic-object ceiling after F54, not a promotion: analytic solver-uncertainty
+control, blind inputs, native resolution, refusal, and real identity tests remain
+open.
 
 ## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
 

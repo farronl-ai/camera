@@ -117,12 +117,13 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     model-class error. The false-texture index permanently joins the bench.
   - **19f (F54 replacement, 🔶 F55 P0): joint two-layer inversion** — solve all focal-frame
     formation equations simultaneously for foreground premultiplication and sharp
-    background, then render the all-focus scene. The 18-scene oracle-alpha/radius
-    rung is the first positive realistic-object ceiling (mean +0.00442 GT-SSIM,
-    17/18 positive; a 0.5px correction limit leaves worst −0.000067). It proves the
-    model class is materially better than correction-after-fusion, not that it is
-    safe. Next: all-100 oracle tails, then uncertainty/refusal. No blind work until
-    the oracle worst case and false-texture complement clear.
+    background, then render the all-focus scene. Full P1 is the first positive
+    realistic-object ceiling: mean +0.00408 GT-SSIM, 99/100 positive, worst
+    −0.000067, mean fringe error −7.48 gray; false-texture improves on average
+    but has a +0.092 gray tail. It proves the model class is materially better
+    than correction-after-fusion, not that it is safe. Next: regularization-
+    ensemble uncertainty, then refusal. No blind work until the oracle worst
+    case and false-texture complement clear.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

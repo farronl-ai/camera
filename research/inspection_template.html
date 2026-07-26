@@ -313,13 +313,10 @@
   }
   .picker-marker {
     position: absolute;
-    width: 22px;
-    height: 22px;
     border: 2px solid #fff;
-    border-radius: 50%;
+    border-radius: 3px;
     background: rgba(215,109,227,.48);
     box-shadow: 0 0 0 2px rgba(0,0,0,.75);
-    transform: translate(-50%, -50%);
     pointer-events: none;
   }
   .picker-marker[hidden] { display: none; }
@@ -649,7 +646,7 @@
         <div><div class="case-id">${c.sid}</div><div class="case-role">${c.role}</div></div>
         <div class="case-why">${c.why}</div>
       </summary>
-      <div class="case-body" data-case="${c.sid}" data-x="" data-y="">
+      <div class="case-body" data-case="${c.sid}" data-x0="" data-y0="" data-x1="" data-y1="">
         <div class="metric-grid">
           ${metric("ΔSSIM", signed(m.d_ssim, 6), `${m.ssim_base.toFixed(6)} → ${m.ssim_output.toFixed(6)}`, deltaClass(m.d_ssim, true))}
           ${metric("ΔMAE", signed(m.d_mae, 4), `${m.mae_base.toFixed(3)} → ${m.mae_output.toFixed(3)}`, deltaClass(m.d_mae, false))}
@@ -777,10 +774,10 @@
             </div>
           </div>
           <div class="picker-foot">
-            <span class="picker-readout">Click the large image to place a point.</span>
+            <span class="picker-readout">Click two opposite corners of the window.</span>
             <div class="picker-actions">
               <button class="cancel-region" type="button">Cancel</button>
-              <button class="use-region" type="button" disabled>Use selected point</button>
+              <button class="use-region" type="button" disabled>Use selected window</button>
             </div>
           </div>
         </dialog>
@@ -834,8 +831,7 @@
       const useRegion = dialog.querySelector(".use-region");
 
       body.querySelector(".select-region").addEventListener("click", () => {
-        dialog.dataset.x = body.dataset.x;
-        dialog.dataset.y = body.dataset.y;
+        for (const key of ["x0", "y0", "x1", "y1"]) dialog.dataset[key] = body.dataset[key];
         setPickerZoom("fit");
         updatePickerMarker();
         if (typeof dialog.showModal === "function") dialog.showModal();
@@ -849,21 +845,26 @@
         const rect = pickerImage.getBoundingClientRect();
         const x = Math.max(0, Math.min(c.native_width - 1, Math.round((event.clientX - rect.left) / rect.width * c.native_width)));
         const y = Math.max(0, Math.min(c.native_height - 1, Math.round((event.clientY - rect.top) / rect.height * c.native_height)));
-        dialog.dataset.x = x;
-        dialog.dataset.y = y;
+        if (dialog.dataset.x0 === "" || dialog.dataset.x1 !== "") {
+          dialog.dataset.x0 = x; dialog.dataset.y0 = y;
+          dialog.dataset.x1 = ""; dialog.dataset.y1 = "";
+        } else {
+          dialog.dataset.x1 = x; dialog.dataset.y1 = y;
+        }
         updatePickerMarker();
       });
       useRegion.addEventListener("click", () => {
-        if (dialog.dataset.x === "") return;
-        body.dataset.x = dialog.dataset.x;
-        body.dataset.y = dialog.dataset.y;
-        regionReadout.textContent = `Selected: x=${body.dataset.x}, y=${body.dataset.y} · ${c.native_width}×${c.native_height}`;
+        if (dialog.dataset.x1 === "") return;
+        body.dataset.x0 = Math.min(dialog.dataset.x0, dialog.dataset.x1);
+        body.dataset.y0 = Math.min(dialog.dataset.y0, dialog.dataset.y1);
+        body.dataset.x1 = Math.max(dialog.dataset.x0, dialog.dataset.x1);
+        body.dataset.y1 = Math.max(dialog.dataset.y0, dialog.dataset.y1);
+        regionReadout.textContent = `Selected window: (${body.dataset.x0},${body.dataset.y0}) → (${body.dataset.x1},${body.dataset.y1})`;
         clearRegion.hidden = false;
         dialog.close();
       });
       clearRegion.addEventListener("click", () => {
-        body.dataset.x = "";
-        body.dataset.y = "";
+        for (const key of ["x0", "y0", "x1", "y1"]) body.dataset[key] = "";
         regionReadout.textContent = "No region selected";
         clearRegion.hidden = true;
       });
@@ -872,23 +873,32 @@
         dialog.dataset.zoom = zoom;
       }
       function updatePickerMarker() {
-        const hasPoint = dialog.dataset.x !== "";
-        marker.hidden = !hasPoint;
-        useRegion.disabled = !hasPoint;
-        if (!hasPoint) {
-          pickerReadout.textContent = "Click the large image to place a point.";
+        const hasStart = dialog.dataset.x0 !== "";
+        const hasWindow = dialog.dataset.x1 !== "";
+        marker.hidden = !hasWindow;
+        useRegion.disabled = !hasWindow;
+        if (!hasStart) {
+          pickerReadout.textContent = "Click two opposite corners of the window.";
           return;
         }
-        const x = Number(dialog.dataset.x);
-        const y = Number(dialog.dataset.y);
-        marker.style.left = `${100 * x / c.native_width}%`;
-        marker.style.top = `${100 * y / c.native_height}%`;
-        pickerReadout.textContent = `Pending point: x=${x}, y=${y} · choose “Use selected point” to keep it.`;
+        if (!hasWindow) {
+          pickerReadout.textContent = `First corner: (${dialog.dataset.x0},${dialog.dataset.y0}) · click the opposite corner.`;
+          return;
+        }
+        const x0 = Math.min(dialog.dataset.x0, dialog.dataset.x1);
+        const y0 = Math.min(dialog.dataset.y0, dialog.dataset.y1);
+        const x1 = Math.max(dialog.dataset.x0, dialog.dataset.x1);
+        const y1 = Math.max(dialog.dataset.y0, dialog.dataset.y1);
+        marker.style.left = `${100 * x0 / c.native_width}%`;
+        marker.style.top = `${100 * y0 / c.native_height}%`;
+        marker.style.width = `${100 * (x1 - x0 + 1) / c.native_width}%`;
+        marker.style.height = `${100 * (y1 - y0 + 1) / c.native_height}%`;
+        pickerReadout.textContent = `Pending window: (${x0},${y0}) → (${x1},${y1})`;
       }
       body.querySelector(".copy-note").addEventListener("click", async () => {
         const issue = body.querySelector(".issue").value;
         const note = body.querySelector(".note").value.trim() || "[add observation]";
-        const coord = body.dataset.x ? `x=${body.dataset.x}, y=${body.dataset.y}` : "coordinate not selected";
+        const coord = body.dataset.x0 ? `x0=${body.dataset.x0}, y0=${body.dataset.y0}, x1=${body.dataset.x1}, y1=${body.dataset.y1}` : "window not selected";
         const text = [
           `focusstack inspection: ${c.sid} (${c.role})`,
           `region: ${coord}`,

@@ -103,7 +103,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Gated specialist enhancement (default auto): contour reconstruction "
         "fires only where its outcome-trained gate predicts a win. On exactly "
         "two frames, an optional semantic bridge may also admit the narrow "
-        "owner-safe joint-layer specialist for physically licensed giant veils; "
+        "owner-support-completed joint-layer specialist for physically licensed "
+        "giant veils; "
         "all other veil cases are identity. 'off' disables both. perband method "
         "only.",
     )

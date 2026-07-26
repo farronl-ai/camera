@@ -204,6 +204,9 @@ recover a wide occluder's latent background). Two narrowly licensed mechanisms a
   then keeps only components stable across three regularizers and two PSF families.
   Semantic candidates must first improve observation-domain fit under a frozen
   high-precision license; focus ownership vetoes edits on foreground evidence.
+  Small semantic fragments seen only in the sharp owner frame must independently
+  improve the captured-frame fit before their observed foreground pixels can
+  override mixed fusion.
 
 Here is contour reconstruction on a factory thin-occluder scene — one where the
 shipped gate actually fires (predicted gain +0.0044 ≥ margin +0.0040; the actual
@@ -243,29 +246,33 @@ rather than “fixed” by a more selective benchmark.*
 Its replacement is a different model, shown on a fresh holdout scene where the
 actual shipped package license fires:
 
-![Owner-safe joint-layer recovery: base, recovered scene, ground truth, amplified difference](img/spec_joint.jpg)
-*2.5× disagreement-guided crop. Left to right: base `perband`, owner-safe joint
-layer recovery, physical ground truth, and the signed edit amplified 5×. The
+![Owner-support-completed joint-layer recovery: base, recovered scene, ground truth, amplified difference](img/spec_joint.jpg)
+*2.5× disagreement-guided crop. Left to right: base `perband`,
+owner-support-completed joint-layer recovery, physical ground truth, and the
+signed edit amplified 5×. The
 recovery attenuates the horizontal veil/smear at the black boundary and moves it
 toward the clean GT edge; it does not fully reach GT. The amplified panel is an edit
-locator, not a severity view. On this scene, global MAE improves 10.087 → 9.918 and
-GT-SSIM +0.00093. The smooth-region false-texture index changes +0.013 gray at the
+locator, not a severity view. On this scene, global MAE improves 10.087 → 9.899 and
+GT-SSIM +0.00116. The smooth-region false-texture index changes +0.013 gray at the
 contour, disclosed rather than rounded to zero.*
 
 For inspection rather than presentation, open the
 **[Owner Inspection Lab](INSPECTION.html)**. It includes every original frame for
 five deliberately diagnostic fires (the weakest licensed win, the worst
-false-texture tail, the ownership stress case, and two untouched holdouts), a
-base/output slider, runtime masks, GT-only error maps, exact regional metrics,
-automatically selected regression crops, and a structured coordinate-tagged
-feedback tool. Its ledger includes all ten licensed package fires.
+false-texture tail, the user-reported scene-114 support failure, ownership stress,
+and a second untouched holdout), a base/output slider, every input frame, runtime
+veil/support/protection masks, GT-only error maps, exact regional metrics,
+automatically selected regression crops, an exact crop at `(187,252)`, and a
+structured coordinate-tagged feedback tool. Its ledger includes all ten licensed
+package fires.
 
 The contour specialist sits behind an **outcome-trained gate**: candidates are
 scored by a model trained on factory scenes where the ground truth is known,
 predicting *the actual quality change of firing*. F54 also demonstrated the limit of
 that recipe: a gate inherits its factory and labels' blind spots. F56's replacement
-adds observation-domain reranking, inverse-model consensus, and an independent
-focus-ownership veto. The current `--enhance auto` evidence is therefore:
+adds observation-domain reranking, inverse-model consensus, an independent
+focus-ownership veto, and physically licensed semantic fragments from the sharp
+owner frame. The current `--enhance auto` evidence is therefore:
 
 | Check | Result |
 |---|---|
@@ -273,6 +280,7 @@ focus-ownership veto. The current `--enhance auto` evidence is therefore:
 | Composed pass, 75 unseen scenes | wins to +0.020; worst case −0.0033 (2 outliers, documented) |
 | Joint veil package, development | 7/7 fires improve SSIM, MAE, MSE/PSNR, and fringe L1 |
 | Joint veil package, two scene-disjoint holdouts | 3/3 fires improve every direct measure; 0/24 moderate scenes fire |
+| Owner support, post-threshold 25-scene extension | 2/2 accepted support cases improve against the same support-disabled package; 4/6 licensed fires refuse support |
 | Fixed giant hypothesis, all audited moderate scenes | 0/66 fire |
 | Bridge absent / N≠2 / >1600 px / candidate unlicensed | byte-identical refusal |
 | Both specialists silent | byte-identical to the base engine, by construction |
@@ -305,7 +313,7 @@ discipline is that **a verdict in one regime is a hypothesis in every other**.
 | Real optical defocus (microscopy z-stacks) | perband sharpest — eye-confirmed | no GT exists; no-ref metric ordering confirmed visually |
 | Deep stacks (N = 2 → 8) | quality **rises** with N for every method | broad soft weights act as multi-frame denoising |
 | Exposure drift (±12% + WB tilt) | −0.025 SSIM broken → **−0.002** with default-on fix | clipped highlights slightly weaken the mean invariant |
-| Joint giant-veil recovery (exact package) | **10/10 fired scenes improve** SSIM + direct physical errors | synthetic object factory; fixed 3.5% CoC, two frames, <=1600 px; low recall by design |
+| Joint giant-veil recovery (exact package) | **10/10 established fired scenes improve** SSIM + direct physical errors | synthetic object factory; fixed 3.5% CoC, two frames, <=1600 px; owner support survives a separate post-threshold extension |
 
 The metric itself got the same treatment as the engine: the standard gradient-transfer
 metric (Q<sup>AB/F</sup>) collapses at high resolution for the same fixed-window reason —

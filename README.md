@@ -11,8 +11,9 @@ whole scene in focus.
 > idea, the evidence across every validated regime, and the road ahead.
 >
 > 🔬 **[Owner Inspection Lab](docs/INSPECTION.html)** — the engineering view:
-> every input frame, base/output slider, masks, GT-only error maps, exact regional
-> metrics, adversarial crops, and copyable coordinate-tagged feedback notes.
+> every input frame, base/output slider, veil/support/protection masks, GT-only
+> error maps, exact regional metrics, adversarial crops, and copyable
+> coordinate-tagged feedback notes.
 
 ## How it works
 
@@ -90,6 +91,11 @@ focusstack images/*.png -o out.png --harden 0.5
 # decision fusion + weights computed at half-resolution then upsampled (the
 # weights are smooth, so this is near-lossless; thin structures stay full-res).
 focusstack big/*.png -o out.png --fast --harden 0.5
+
+# Default auto enhancement can additionally re-render licensed thin contours.
+# On exactly two frames, the optional semantic bridge may admit a deliberately
+# narrow giant-veil scene-recovery path; every unlicensed case remains identity.
+focusstack bracket/*.png -o out.png --enhance auto
 ```
 
 Run `focusstack --help` for all options. You can also invoke it as

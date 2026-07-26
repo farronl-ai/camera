@@ -203,3 +203,29 @@ def test_owner_frame_satellite_repairs_missing_foreground_support():
         np.abs(output.astype(np.float32) - gt)[satellite_pixels].mean()
         < np.abs(base.astype(np.float32) - gt)[satellite_pixels].mean()
     )
+
+
+def test_owner_frame_fragment_without_physical_support_is_refused():
+    frames, _, candidate, _ = _physical_giant_stack()
+    selected, evidence = select_licensed_candidate(frames, [candidate])
+    assert selected is not None, evidence
+
+    size = frames[0].shape[0]
+    unsupported = np.zeros((size, size), np.uint8)
+    unsupported[
+        size // 2 - 5 : size // 2 + 5,
+        size // 2 + 43 : size // 2 + 51,
+    ] = 1
+    support, support_evidence = complete_owner_support(
+        frames,
+        selected,
+        unsupported[None],
+    )
+
+    assert not np.any(support)
+    assert support_evidence["owner_support_candidate_count"] == 1
+    assert support_evidence["owner_support_accepted_count"] == 0
+    assert (
+        support_evidence["owner_support_reason"]
+        == "no_forward_licensed_fragment"
+    )

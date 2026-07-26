@@ -256,6 +256,14 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    and far-background partitions; changed support outside each; and the
    maximum-regression crop. “All metrics pass” is not closure until the metrics
    cover the physical regions the operator can damage.
+6g. **When one frame observes foreground and another reveals background, soft
+   fusion is the worst ownership decision** (F58). Do not ask a downstream
+   restoration specialist to reinterpret an already mixed pixel. Inspect the
+   sharp owner observation for missing semantic fragments, license each fragment
+   by re-rendering the captured frames, then make the narrow discrete choice:
+   copy observed owner foreground and veto background recovery there. Freeze the
+   physical-fit margin before generating the validation extension; otherwise the
+   “holdout” is only another development set.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

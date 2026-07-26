@@ -28,6 +28,7 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
         "estimated_alpha",
         "true_alpha",
         "application_mask",
+        "owner_support",
         "protected",
         "edit_x8",
         "error_delta",
@@ -36,12 +37,27 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
         "crop_worse",
     }
     for case in manifest["cases"]:
-        assert set(case["assets"]) == required_assets
+        assert set(case["assets"]) >= required_assets
         assert case["report"]["fired"] is True
         assert case["metrics"]["d_ssim"] > 0
         assert case["metrics"]["d_mae"] < 0
+        assert (
+            case["metrics"]["owner_support_pixels"]
+            == case["report"]["owner_support_pixels"]
+        )
         for relative_path in case["assets"].values():
             assert (DOCS / relative_path).is_file(), relative_path
+
+    scene_114 = next(
+        case for case in manifest["cases"] if case["sid"] == "scene_114"
+    )
+    assert scene_114["diagnostic_point"]["x"] == 187
+    assert scene_114["diagnostic_point"]["y"] == 252
+    assert scene_114["diagnostic_point"]["owner_support"] is True
+    assert scene_114["diagnostic_point"]["output_error"] < (
+        scene_114["diagnostic_point"]["base_error"]
+    )
+    assert "crop_reported" in scene_114["assets"]
 
     html = (DOCS / "INSPECTION.html").read_text()
     assert "__INSPECTION_MANIFEST__" not in html
@@ -53,6 +69,7 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
     assert ".compare .after { clip-path: inset(0 0 0 50%);" in html
     assert "after.style.clipPath = `inset(0 0 0 ${v}%)`" in html
     assert "Select region on large image (optional)" in html
+    assert "Owner-frame support · runtime" in html
     assert "probe-img" not in html
     assert "Click to record a native coordinate" not in html
     for scene_id in expected_cases:

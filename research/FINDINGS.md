@@ -5,6 +5,55 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F58 — Owner-frame support completion repairs the reported mixed-ownership fragment
+
+The `scene_114` diagnostic at native `(x=187, y=252)` isolated an upstream
+support failure rather than a veil-solver failure. The true alpha there is
+0.882, but the pass-1 semantic alpha is exactly zero. Frame 0 observes the small
+black foreground appendage; frame 1 mostly reveals sharp checkerboard/background.
+Per-band focus energy therefore votes for the wrong frame on 557/605 nearby
+missed-foreground pixels. Hardening the focus winner would make the failure worse,
+and the veil specialist cannot infer that its input base already mixed two
+different scene owners.
+
+P11 adds a second semantic observation at the correct point in the pipeline:
+automatic masks from the sharp foreground-owner frame. A fragment is eligible
+only when it is at most 2% of the image, overlaps the already licensed matte by
+less than 20%, and lies at least 90% within a 1.5-CoC neighborhood of that matte.
+Appearance is not the license. Adding that fragment to the two-layer formation
+model must independently reduce 512 px captured-frame forward MAE by more than
+0.01; the combined fragment set must pass the same margin. Accepted pixels are
+copied only from the observed owner frame and hard-veto veil correction. They do
+not alter the inverse solver's alpha and never synthesize texture.
+
+On the ten established exact-package fires, this admits owner support on six
+scenes and preserves positive SSIM, MAE, MSE/PSNR, and fringe-L1 outcomes on all
+ten. `scene_114` accepts mask 15: 522 pixels at 0.883 GT precision, forward MAE
+1.5638→1.5330. At the reported pixel, RGB error falls 28.0→8.33; across the
+entire support component, MAE falls 25.01→13.83 and changed pixels grade
+440 closer / 76 worse. The full scene moves from the old +0.000931 SSIM /
+−0.1697 MAE checkpoint to +0.001156 / −0.1885.
+
+The 0.01 margin was frozen before generating a new 25-scene factory extension.
+Six fresh scenes pass the older giant-veil license; owner support fires on two.
+Against the same package with support disabled, `scene_152` improves slightly and
+`scene_159` gains an additional +0.00023 SSIM, −0.018 MAE, and −1.80 MSE. Neither
+accepted fresh case regresses. P12 then runs all established and fresh licensed
+fires through the composed `enhance()` entry point: joint recovery fires, contour
+reconstruction remains silent, and every score matches the direct package.
+The focused and full suites pass 42 tests, including refusal of a plausible
+owner fragment that does not improve the physical forward model.
+
+This is a narrow mechanism repair, not closure of F57. Four of the five deep
+cases still have slightly worse aggregate true-foreground MAE, and the disclosed
+false-texture index remains positive. Fresh `scene_172` also retains a small
+−0.00042 SSIM tail with zero owner-support pixels; that belongs to the older
+candidate license, not this new mechanism. FRONTIER 19i therefore remains open
+for continuous support uncertainty, outer-fringe evidence, and spatial tail
+control. The inspection lab now includes the owner-support mask, support-only
+metrics, physical-fit margin, exact RGB values, and a fixed crop at the reported
+coordinate.
+
 ## F57 — The owner lab turns aggregate wins into a spatial repair agenda
 
 The shipped F56 claim survives its direct package measures, but the new five-case

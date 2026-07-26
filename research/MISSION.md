@@ -61,7 +61,7 @@ The dividing line for every synthesis method admitted into this engine:
 
 | Prior conclusion / area | Status under the new goal |
 |---|---|
-| F27: de-veiling by inversion loses | **CONDITIONALLY REOPENED / NARROW SHIP** (F56) — correction-after-fusion remains retired, but joint two-frame layer inversion now ships only for a physically licensed giant-CoC subset. Exact-package fires are 10/10 positive across development + two holdouts; all 66 moderate scenes refuse. General/multi-frame de-veiling remains open |
+| F27: de-veiling by inversion loses | **CONDITIONALLY REOPENED / NARROW SHIP** (F58) — correction-after-fusion remains retired, but joint two-frame layer inversion now ships only for a physically licensed giant-CoC subset. Physically licensed owner-frame fragments can repair omitted foreground support without generation; exact-package established fires remain 10/10 positive and the frozen support rule survives a new 25-scene extension. General/multi-frame de-veiling and remaining spatial tails remain open |
 | F33: selection cannot fix boundary contamination | **STRENGTHENED** — the theorem that motivates the whole framework |
 | F45: no-ref metrics cannot audit synthesis | stands; the constructive path is the observation-domain audit (L1) |
 | Metric composite (q_abf_ms+q_ssim) | **RESCOPED** — valid for the selection floor only; must never steer or veto synthesis work |

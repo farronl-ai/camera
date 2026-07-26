@@ -118,6 +118,26 @@ Required evidence is a lattice:
       foreground MAE worsens on all five inspected fires even though every global
       direct measure improves. Logged as F57 / FRONTIER 19i rather than hidden by
       the completed F56 checkpoint.
+- [x] **S8 — repair the reported owner-support failure.** The native
+      `scene_114` point `(187,252)` proved that pass-1 alpha had omitted true
+      foreground and focus hardening would choose revealed background. Owner-frame
+      semantic satellites now require tight size/overlap/proximity constraints and
+      >0.01 captured-frame forward-fit improvement before they hard-select observed
+      owner pixels and veto veil correction. The reported 522-pixel component
+      improves MAE 25.01→13.83 (440/76 changed closer/worse).
+- [x] **S9 — frozen holdout, composition, and inspection refresh.** Generated 25
+      scenes only after freezing the owner-support rule. Six pass the older giant
+      license; support fires on two and improves both against a support-disabled
+      paired run. P12 reproduces direct scores through `enhance()` with the contour
+      branch silent. The owner lab now exposes support masks, support-only metrics,
+      physical margins, exact point RGB/error, and the fixed reported crop. Full
+      suite: 42 passed, including an unsupported-fragment refusal.
+
+Next inheritance: F58 resolves the discrete missing-fragment mechanism, not all
+F57 tails. Continue FRONTIER 19i with continuous support uncertainty and positive
+observed-background evidence for the outer fringe. Keep fresh `scene_172`
+(−0.00042 SSIM, zero support pixels) as an older-license counterexample rather
+than tuning the new support rule around it.
 
 ## Blind-radius result: point estimation is the wrong abstraction
 

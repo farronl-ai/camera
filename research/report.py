@@ -169,20 +169,21 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
   </tbody></table>
   </div>
 
-  <h2>Specialist + scene-recovery layer (F30&ndash;F56) &mdash; physics + refusal</h2>
+  <h2>Specialist + scene-recovery layer (F30&ndash;F58) &mdash; physics + refusal</h2>
   <div class="card">
   <table><thead><tr><th>milestone</th><th>outcome</th></tr></thead><tbody>
     <tr><td>Boundary physics settled</td><td>Residual hard-edge error is <b>coefficient contamination</b> &mdash; unfixable by any decision scheme (even oracle decisions lose); fixable only by re-rendering. (F33)</td></tr>
     <tr><td>Contour reconstruction (thin occluders)</td><td>Sharp-matte re-composite: boundary error &minus;16%, global up, on-model &mdash; the buildable version reaches 73% of the oracle ceiling. (F35)</td></tr>
     <tr><td>Correction-after-fusion veil path</td><td><b>Retired after user-caught hallucination.</b> Realistic-object/native audits overturned the narrow blob-factory win even with oracle matte/radius. (F53/F54)</td></tr>
     <tr><td>Outcome-trained gates</td><td>Unified recipe: regime-matched matte &rarr; features incl. matte-edge quality &rarr; ridge on the <i>actual</i> outcome from factory GT &rarr; property-driven fire margin. Held-out fires: 18/19 positive. (F44&ndash;F47)</td></tr>
-    <tr><td>Owner-safe joint giant-veil recovery</td><td>Solves both captured layers, physically reranks semantic mattes, retains cross-regularizer/PSF consensus, and vetoes foreground focus ownership. Exact package: 7/7 development + 3/3 across two scene-disjoint holdouts improve SSIM, MAE, MSE/PSNR, and fringe L1; 0/66 moderate scenes fire. (F55/F56)</td></tr>
-    <tr><td><code>--enhance auto</code> shipped</td><td>Contour reconstruction plus the narrow two-frame, &le;1600 px giant-veil solver. Missing bridge, N&ne;2, unlicensed matte, non-giant scale, oversized input, and kill-switch paths are identity. (F48/F56)</td></tr>
+    <tr><td>Owner-support-completed joint giant-veil recovery</td><td>Solves both captured layers, physically reranks semantic mattes, retains cross-regularizer/PSF consensus, vetoes foreground focus ownership, and admits small observed owner-frame fragments only after &gt;0.01 forward-fit improvement. Exact established package: 7/7 development + 3/3 across two scene-disjoint holdouts improve SSIM, MAE, MSE/PSNR, and fringe L1; 0/66 moderate scenes fire. A frozen post-threshold extension accepts 2/2 support cases without regression. (F55/F56/F58)</td></tr>
+    <tr><td><code>--enhance auto</code> shipped</td><td>Contour reconstruction plus the narrow two-frame, &le;1600 px giant-veil solver. Missing bridge, N&ne;2, unlicensed matte, non-giant scale, oversized input, and kill-switch paths are identity. The owner lab exposes every input and the exact reported scene-114 support repair. (F48/F58)</td></tr>
     <tr><td>Rigorous negatives that redirected</td><td>No-ref metrics cannot audit synthesis corrections (F45); semantic models need natural benchmark content (F43); specialists firing cross-regime fail exactly as theory predicts (F46).</td></tr>
   </tbody></table>
-  <p class="muted">Frontier now: gate recall growth, a synthesis-aware no-reference metric,
-  iPhone-12 GT verdicts, the two feature-invisible outliers. research/FRONTIER.md +
-  DEVSTYLE.md carry the full map and method.</p>
+  <p class="muted">Frontier now: continuous support uncertainty and outer-fringe
+  background evidence, general CoC/N-frame recovery, real optical truth, and the
+  remaining spatial error tails. research/FRONTIER.md + DEVSTYLE.md carry the
+  full map and method.</p>
   </div>
 </div>"""
     out = os.path.join(HERE, "report.html")

@@ -8,8 +8,9 @@ Figures use the same conventions as make_showcase.py (docs/img/*.jpg, JPEG q85):
       [base perband | reconstructed | ground truth] at the most-differing crop.
   spec_veil.jpg  — retired veil-gain failure on a realistic object scene
       (mechanism at its clearest): [base | corrected | ground truth] fringe crop.
-  spec_joint.jpg — F55/F56's shipped owner-safe joint-layer recovery on a fresh
-      holdout fire: [base | recovered physical scene | ground truth].
+  spec_joint.jpg — the shipped owner-safe joint-layer recovery, including
+      physically licensed owner-frame support, on a fresh holdout fire:
+      [base | recovered physical scene | ground truth].
   spec_fence.jpg — the former real-data subtraction fire retained as an audit
       artifact: [base | former output | amplified difference] at the wire edge.
 
@@ -159,11 +160,16 @@ def _crop_strip(images, center, half=120, zoom=2):
     return hstack(*crop_at(images, center, half, zoom))
 
 
+def _rgb_pixel(image, x, y):
+    """JSON-friendly RGB value from OpenCV's BGR storage."""
+    return [int(value) for value in image[y, x, ::-1]]
+
+
 def _inspection_ledger():
     sources = (
-        ("development", "veillayers_p10_composed_owner_safe_dev.json"),
-        ("holdout-1", "veillayers_p10_composed_owner_safe_holdout.json"),
-        ("holdout-2", "veillayers_p10_composed_owner_safe_second_holdout.json"),
+        ("development", "veillayers_p12_composed_owner_support_dev.json"),
+        ("holdout-1", "veillayers_p12_composed_owner_support_holdout.json"),
+        ("holdout-2", "veillayers_p12_composed_owner_support_second_holdout.json"),
     )
     ledger = []
     for split, filename in sources:
@@ -187,6 +193,14 @@ def _inspection_ledger():
                     "forward_ratio": evidence["forward_ratio"],
                     "stable_fraction": evidence["stable_fraction"],
                     "owner_veto_mean": evidence["owner_veto_mean"],
+                    "owner_support_pixels": evidence.get(
+                        "owner_support_pixels",
+                        0,
+                    ),
+                    "owner_support_forward_improvement": evidence.get(
+                        "owner_support_forward_improvement",
+                        0.0,
+                    ),
                     "changed_pixels": evidence["changed_pixels"],
                 }
             )
@@ -204,6 +218,7 @@ def fig_inspection():
         RADIUS_FRACTION,
         _fringe_mask,
         _ownership_gate,
+        complete_owner_support,
         recover_giant_veil,
         select_licensed_candidate,
     )
@@ -219,16 +234,23 @@ def fig_inspection():
             "Smallest positive GT-SSIM delta: a near-boundary license stress case.",
         ),
         114: (
-            "holdout 1 · representative fire",
-            "Fresh holdout used in the compact showcase; retained here with every input.",
+            "holdout 1 · diagnosed foreground miss",
+            "The reported black appendage at x=187, y=252 now exercises licensed owner-frame support.",
         ),
         122: (
-            "holdout 1 · ownership stress",
-            "Weak holdout whose earlier matte leak motivated focus-ownership protection.",
+            "holdout 1 · support and ownership stress",
+            "A broad owner-support completion plus the independent focus-ownership protection.",
         ),
         147: (
             "holdout 2 · untouched confirmation",
             "Only licensed fire in the second scene-disjoint untouched holdout.",
+        ),
+    }
+    diagnostic_points = {
+        114: (
+            187,
+            252,
+            "User-reported black foreground appendage",
         ),
     }
     all_scenes = list(scenes())
@@ -238,7 +260,21 @@ def fig_inspection():
         print(f"  inspection {sc['sid']}: running shipped recovery")
         base = fuse_perband(sc["frames"], harden=0.5)
         candidates = candidates_with_features(sc, topk=4)
-        output, report = recover_giant_veil(sc["frames"], base, candidates)
+        owner_masks = [
+            np.load(
+                os.path.join(
+                    sc["dir"],
+                    f"frame_{frame_index}.png.masks.npy",
+                )
+            )
+            for frame_index in range(len(sc["frames"]))
+        ]
+        output, report = recover_giant_veil(
+            sc["frames"],
+            base,
+            candidates,
+            owner_masks_by_frame=owner_masks,
+        )
         if not report["fired"]:
             raise RuntimeError(f"{sc['sid']} unexpectedly refused: {report}")
 
@@ -247,6 +283,17 @@ def fig_inspection():
             raise RuntimeError(f"{sc['sid']} lost licensed candidate: {selection_report}")
         owner = int(selected["owner"])
         estimated_alpha = np.clip(selected["alpha"].astype(np.float32), 0.0, 1.0)
+        owner_support, support_report = complete_owner_support(
+            sc["frames"],
+            selected,
+            owner_masks[owner],
+        )
+        if (
+            int(owner_support.sum()) != report["owner_support_pixels"]
+            or support_report["owner_support_accepted_count"]
+            != report["owner_support_accepted_count"]
+        ):
+            raise RuntimeError(f"{sc['sid']} owner-support audit mismatch")
         spatial_scale = max(base.shape[:2]) / MODEL_SIDE
         ownership, _ = _ownership_gate(
             sc["frames"],
@@ -260,6 +307,7 @@ def fig_inspection():
             2.0 * spatial_scale,
         )
         application_mask = estimated_fringe * ownership
+        application_mask[owner_support] = 0.0
         changed = np.any(output != base, axis=2)
         true_fringe = true_fringe_mask(sc["alpha"], sc["max_r"])
         true_foreground = sc["alpha"] >= 0.5
@@ -285,6 +333,7 @@ def fig_inspection():
             "estimated_alpha": "estimated_alpha.png",
             "true_alpha": "true_alpha.png",
             "application_mask": "application_mask.png",
+            "owner_support": "owner_support.png",
             "protected": "protected.png",
             "edit_x8": "edit_x8.jpg",
             "error_delta": "error_delta.jpg",
@@ -301,7 +350,10 @@ def fig_inspection():
             "estimated_alpha": _mask_image(estimated_alpha),
             "true_alpha": _mask_image(sc["alpha"]),
             "application_mask": _mask_image(application_mask),
-            "protected": _mask_image(1.0 - ownership),
+            "owner_support": _mask_image(owner_support.astype(np.float32)),
+            "protected": _mask_image(
+                np.maximum(1.0 - ownership, owner_support.astype(np.float32))
+            ),
             "edit_x8": edit_map,
             "error_delta": error_map,
             "outcomes": outcome_map,
@@ -314,6 +366,16 @@ def fig_inspection():
                 worse_center,
             ),
         }
+        point_spec = diagnostic_points.get(index)
+        if point_spec is not None:
+            point_x, point_y, _ = point_spec
+            assets["crop_reported"] = "crop_reported.jpg"
+            images["crop_reported"] = _crop_strip(
+                [*sc["frames"], base, output, sc["gt"], error_map],
+                (point_y, point_x),
+                half=80,
+                zoom=3,
+            )
         for key, filename in assets.items():
             max_side = 3200 if key.startswith("crop_") else 1600
             quality = 93 if key in {"frame0", "frame1", "base", "output", "gt"} else 90
@@ -339,6 +401,75 @@ def fig_inspection():
             output, sc["gt"], sc["alpha"], sc["max_r"]
         )
         alpha_scores = _alpha_scores(estimated_alpha, sc["alpha"])
+        support_pixels = int(owner_support.sum())
+        support_true_foreground = int(
+            (owner_support & true_foreground).sum()
+        )
+        diagnostic_point = None
+        if point_spec is not None:
+            point_x, point_y, point_label = point_spec
+            half = 32
+            component_count, component_labels = cv2.connectedComponents(
+                owner_support.astype(np.uint8),
+            )
+            point_component = int(component_labels[point_y, point_x])
+            if component_count <= 1 or point_component == 0:
+                raise RuntimeError(
+                    f"{sc['sid']} reported point lost owner support"
+                )
+            point_region = component_labels == point_component
+            diagnostic_point = {
+                "x": point_x,
+                "y": point_y,
+                "label": point_label,
+                "region_half_width": half,
+                "region_pixels": int(point_region.sum()),
+                "rgb": {
+                    "frame0": _rgb_pixel(sc["frames"][0], point_x, point_y),
+                    "frame1": _rgb_pixel(sc["frames"][1], point_x, point_y),
+                    "base": _rgb_pixel(base, point_x, point_y),
+                    "output": _rgb_pixel(output, point_x, point_y),
+                    "gt": _rgb_pixel(sc["gt"], point_x, point_y),
+                },
+                "estimated_alpha": float(
+                    estimated_alpha[point_y, point_x]
+                ),
+                "true_alpha": float(sc["alpha"][point_y, point_x]),
+                "owner_support": bool(owner_support[point_y, point_x]),
+                "application_mask": float(
+                    application_mask[point_y, point_x]
+                ),
+                "base_error": float(
+                    np.abs(base_f - gt_f)[point_y, point_x].mean()
+                ),
+                "output_error": float(
+                    np.abs(output_f - gt_f)[point_y, point_x].mean()
+                ),
+                "region_mae_base": _region_mae(
+                    base,
+                    sc["gt"],
+                    point_region,
+                ),
+                "region_mae_output": _region_mae(
+                    output,
+                    sc["gt"],
+                    point_region,
+                ),
+                "region_changed_closer": int(
+                    (
+                        point_region
+                        & changed
+                        & (output_error < base_error)
+                    ).sum()
+                ),
+                "region_changed_worse": int(
+                    (
+                        point_region
+                        & changed
+                        & (output_error > base_error)
+                    ).sum()
+                ),
+            }
         metrics = {
             "ssim_base": M.ref_ssim(base, sc["gt"]),
             "ssim_output": M.ref_ssim(output, sc["gt"]),
@@ -371,6 +502,23 @@ def fig_inspection():
             "changed_on_true_foreground": int((changed & true_foreground).sum()),
             "changed_outside_true_fringe": int((changed & ~true_fringe).sum()),
             "application_coverage": float((application_mask > 1e-4).mean()),
+            "owner_support_pixels": support_pixels,
+            "owner_support_true_foreground": support_true_foreground,
+            "owner_support_precision": (
+                support_true_foreground / support_pixels
+                if support_pixels
+                else None
+            ),
+            "owner_support_mae_base": (
+                _region_mae(base, sc["gt"], owner_support)
+                if support_pixels
+                else None
+            ),
+            "owner_support_mae_output": (
+                _region_mae(output, sc["gt"], owner_support)
+                if support_pixels
+                else None
+            ),
             "error_map_scale_gray": error_scale,
             "estimated_alpha": alpha_scores,
         }
@@ -390,8 +538,9 @@ def fig_inspection():
                 "report": {
                     key: value
                     for key, value in report.items()
-                    if isinstance(value, (str, bool, int, float))
+                    if isinstance(value, (str, bool, int, float, list))
                 },
+                "diagnostic_point": diagnostic_point,
             }
         )
         print(
@@ -402,7 +551,7 @@ def fig_inspection():
 
     ledger, sources = _inspection_ledger()
     manifest = {
-        "schema": 1,
+        "schema": 2,
         "title": "focusstack owner inspection lab",
         "generated_from": "shipped focusstack.veil_layers.recover_giant_veil",
         "oracle_warning": (
@@ -411,7 +560,8 @@ def fig_inspection():
         ),
         "case_selection": (
             "Adversarial/diagnostic selection: weakest licensed win, largest "
-            "false-texture tail, ownership stress, and two scene-disjoint holdouts."
+            "false-texture tail, the user-reported scene-114 foreground miss, "
+            "ownership stress, and a second scene-disjoint holdout."
         ),
         "audit_sources": sources,
         "ledger": ledger,
@@ -537,6 +687,15 @@ def fig_joint():
         sc["frames"],
         base,
         candidates_with_features(sc, topk=4),
+        owner_masks_by_frame=[
+            np.load(
+                os.path.join(
+                    sc["dir"],
+                    f"frame_{frame_index}.png.masks.npy",
+                )
+            )
+            for frame_index in range(len(sc["frames"]))
+        ],
     )
     if not report["fired"]:
         print(f"  {sc['sid']}: package refused unexpectedly — no figure written")

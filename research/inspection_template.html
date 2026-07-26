@@ -370,9 +370,9 @@
   <p class="eyebrow">Owner workbench · falsification first</p>
   <h1>See exactly what changed.</h1>
   <p class="lede">This is the engineering view of the current giant-veil recovery: every
-  camera input, base fusion, shipped output, licensed mask, protected region, GT-only
-  error diagnostic, and exact score. It deliberately includes weak and suspicious cases
-  so missed behavior has somewhere to become visible.</p>
+  camera input, base fusion, shipped output, licensed veil mask, owner-frame support,
+  protected region, GT-only error diagnostic, and exact score. It deliberately includes
+  weak and suspicious cases so missed behavior has somewhere to become visible.</p>
   <p class="oracle" id="oracle-warning"></p>
   <div class="summary-grid" id="summary"></div>
 </header>
@@ -399,6 +399,9 @@
       exactly against GT. Dark pixels were byte-identical to the base.</p></div>
       <div class="legend"><strong>Estimated vs true α</strong><p>Estimated α is runtime
       semantic evidence. True α is factory-only and exposes matte misses or leaks.</p></div>
+      <div class="legend"><strong>Owner support</strong><p>Bright pixels are small semantic
+      fragments found only in the sharp owner frame and accepted only when they improve
+      the captured-frame physical fit. These pixels hard-select observed foreground.</p></div>
       <div class="legend"><strong>Protected map</strong><p>Bright areas are suppressed by
       proposed foreground support or independent focus-owner evidence.</p></div>
     </div>
@@ -436,6 +439,9 @@
       fringe pixels. Positive delta is a warning even when global metrics improve.</dd>
       <dt>Forward ratio</dt><dd>Observation-domain residual after/before the 512px physical
       fit. Lower is better; the license requires &lt;0.85, but forward fit alone is not truth.</dd>
+      <dt>Owner-support fit Δ</dt><dd>Absolute reduction in the same observation-domain
+      residual after adding owner-only semantic fragments. Runtime acceptance requires
+      more than 0.01; GT is not used.</dd>
       <dt>Stable fraction</dt><dd>Fraction of RGB components with matching correction sign
       across three regularizers and two plausible PSFs. It is consensus, not correctness.</dd>
       <dt>Changed closer/worse</dt><dd>GT class of each changed pixel. Counts expose whether
@@ -482,8 +488,10 @@
     ["scene", "sid"], ["split", "split"], ["ΔSSIM", "dg"], ["ΔMAE", "d_global_mae"],
     ["ΔMSE", "d_global_mse"], ["ΔPSNR", "d_psnr"], ["Δfringe L1", "de_fringe"],
     ["Δfalse texture", "d_false_texture"], ["closer", "changed_closer"],
-    ["worse", "changed_worse"], ["forward ratio", "forward_ratio"],
-    ["stable", "stable_fraction"], ["owner veto", "owner_veto_mean"]
+    ["worse", "changed_worse"], ["owner support", "owner_support_pixels"],
+    ["support fit Δ", "owner_support_forward_improvement"],
+    ["forward ratio", "forward_ratio"], ["stable", "stable_fraction"],
+    ["owner veto", "owner_veto_mean"]
   ];
   const ledgerHead = `<thead><tr>${columns.map(c => `<th>${c[0]}</th>`).join("")}</tr></thead>`;
   const ledgerBody = data.ledger.map(row => {
@@ -493,8 +501,8 @@
       if (key === "sid") {
         value = byId[value] ? `<a href="#${value}">${value}</a>` : value;
       } else if (typeof value === "number") {
-        if (["changed_closer", "changed_worse"].includes(key)) value = value.toLocaleString();
-        else if (["forward_ratio", "stable_fraction", "owner_veto_mean"].includes(key)) value = value.toFixed(3);
+        if (["changed_closer", "changed_worse", "owner_support_pixels"].includes(key)) value = value.toLocaleString();
+        else if (["forward_ratio", "stable_fraction", "owner_veto_mean", "owner_support_forward_improvement"].includes(key)) value = value.toFixed(3);
         else value = signed(value, key === "dg" ? 6 : 3);
         if (["dg", "d_psnr"].includes(key)) klass = row[key] > 0 ? "better" : "worse";
         if (["d_global_mae", "d_global_mse", "de_fringe"].includes(key)) klass = row[key] < 0 ? "better" : "worse";
@@ -530,6 +538,21 @@
     const m = c.metrics, r = c.report, a = c.assets;
     const closerRatio = m.changed_closer / Math.max(m.changed_worse, 1);
     const alpha = m.estimated_alpha;
+    const p = c.diagnostic_point;
+    const hasOwnerSupport = m.owner_support_pixels > 0;
+    const supportSub = hasOwnerSupport
+      ? `GT precision ${m.owner_support_precision.toFixed(3)} · fit Δ ${Number(r.owner_support_forward_improvement).toFixed(3)}`
+      : "No owner-only fragment passed the runtime physical gate";
+    const reportedCrop = p ? `
+        <p class="crop-key"><strong>${p.label}</strong> at native (${p.x}, ${p.y}).
+        This is the exact feedback location, not an automatically selected flattering crop.</p>
+        <div class="crop-scroll"><a href="${a.crop_reported}" target="_blank"><img class="crop" loading="lazy" src="${a.crop_reported}" alt="${c.sid} reported diagnostic crop"></a></div>
+        <p class="crop-key">Reported owner-support component (${p.region_pixels.toLocaleString()} px) GT audit:
+        MAE ${p.region_mae_base.toFixed(3)} → ${p.region_mae_output.toFixed(3)};
+        changed closer/worse ${p.region_changed_closer.toLocaleString()} / ${p.region_changed_worse.toLocaleString()}.</p>` : "";
+    const reportedEvidence = p ? `
+          ${evidenceRow("Reported point RGB", `f0 ${p.rgb.frame0.join(",")} · f1 ${p.rgb.frame1.join(",")} · base ${p.rgb.base.join(",")} · output ${p.rgb.output.join(",")} · GT ${p.rgb.gt.join(",")}`, `Exact native (${p.x}, ${p.y}) values in RGB order.`, "")}
+          ${evidenceRow("Reported point error", `${p.base_error.toFixed(3)} → ${p.output_error.toFixed(3)}`, `Owner support=${p.owner_support}; estimated α=${p.estimated_alpha.toFixed(3)}; true α=${p.true_alpha.toFixed(3)}.`, p.output_error <= p.base_error ? "better" : "worse")}` : "";
     return `
     <details class="case" id="${c.sid}" ${open ? "open" : ""}>
       <summary class="case-head">
@@ -545,6 +568,7 @@
           ${metric("closer / worse", m.changed_closer.toLocaleString() + " / " + m.changed_worse.toLocaleString(), closerRatio.toFixed(2) + "× ratio", closerRatio >= 1 ? "better" : "worse")}
           ${metric("false texture Δ", signed(m.d_false_texture, 3), `${m.false_texture_base.toFixed(3)} → ${m.false_texture_output.toFixed(3)} gray`, m.d_false_texture <= 0 ? "better" : "warn")}
           ${metric("estimated α IoU", alpha.iou.toFixed(3), `P ${alpha.precision.toFixed(3)} · R ${alpha.recall.toFixed(3)}`, alpha.iou >= .8 ? "better" : "warn")}
+          ${metric("owner support", m.owner_support_pixels.toLocaleString() + " px", supportSub, hasOwnerSupport ? "better" : "")}
           ${metric("changed support", (100*m.changed_fraction).toFixed(2) + "%", `${m.changed_pixels.toLocaleString()} pixels`, "")}
         </div>
 
@@ -576,8 +600,9 @@
         <div class="diagnostic-grid">
           ${tile(a.estimated_alpha, "Estimated semantic α · runtime", "Selected after observation-domain reranking.")}
           ${tile(a.true_alpha, "True α · GT-only", "Factory diagnostic for matte precision and recall.")}
-          ${tile(a.application_mask, "Final application mask · runtime", "Estimated fringe × owner-safe gate.")}
-          ${tile(a.protected, "Protected from recovery · runtime", "Estimated foreground plus focus-owner veto.")}
+          ${tile(a.application_mask, "Veil-correction mask · runtime", "Estimated fringe × owner-safe gate, excluding hard owner support.")}
+          ${tile(a.owner_support, "Owner-frame support · runtime", "Observed owner fragments whose physical-fit improvement exceeded 0.01.")}
+          ${tile(a.protected, "Protected from veil correction · runtime", "Estimated foreground, owner support, and focus-owner veto.")}
           ${tile(a.edit_x8, "Signed edit ×8", "Locator only; use the slider for severity.")}
           ${tile(a.error_delta, "Continuous GT error delta", `Green better, magenta worse; saturation ≈ ${m.error_map_scale_gray.toFixed(2)} gray.`)}
           ${tile(a.outcomes, "Discrete changed-pixel outcome", "Green closer, magenta worse, dark unchanged.")}
@@ -586,6 +611,7 @@
         <h4>Automatically selected native crops</h4>
         <p class="crop-key">Each strip is: frame 0 · frame 1 · base · output · GT · error delta.
         Nearest-neighbor enlargement preserves pixel structure.</p>
+        ${reportedCrop}
         <div class="crop-scroll"><a href="${a.crop_edit}" target="_blank"><img class="crop" loading="lazy" src="${a.crop_edit}" alt="${c.sid} maximal edit crop"></a></div>
         <p class="crop-key">Largest edit neighborhood centered at (${c.edit_center[0]}, ${c.edit_center[1]}).</p>
         <div class="crop-scroll"><a href="${a.crop_worse}" target="_blank"><img class="crop" loading="lazy" src="${a.crop_worse}" alt="${c.sid} maximal regression crop"></a></div>
@@ -596,6 +622,10 @@
           ${evidenceRow("True-fringe MAE", `${m.fringe_mae_base.toFixed(3)} → ${m.fringe_mae_output.toFixed(3)}`, "Direct error where true defocus contamination exists.", m.fringe_mae_output < m.fringe_mae_base ? "better" : "worse")}
           ${evidenceRow("True-foreground MAE", `${m.foreground_mae_base.toFixed(3)} → ${m.foreground_mae_output.toFixed(3)}`, "Owner damage check.", m.foreground_mae_output <= m.foreground_mae_base ? "better" : "worse")}
           ${evidenceRow("Far-background MAE", `${m.far_background_mae_base.toFixed(3)} → ${m.far_background_mae_output.toFixed(3)}`, "Checks spill beyond the true fringe.", m.far_background_mae_output <= m.far_background_mae_base ? "better" : "worse")}
+          ${evidenceRow("Owner-support MAE", hasOwnerSupport ? `${m.owner_support_mae_base.toFixed(3)} → ${m.owner_support_mae_output.toFixed(3)}` : "not active", "GT-only audit of the pixels hard-selected from the observed owner.", !hasOwnerSupport || m.owner_support_mae_output <= m.owner_support_mae_base ? "better" : "worse")}
+          ${evidenceRow("Owner-support fit Δ", hasOwnerSupport ? Number(r.owner_support_forward_improvement).toFixed(4) : "not active", "Runtime observation-domain acceptance margin; must exceed 0.01.", !hasOwnerSupport || r.owner_support_forward_improvement > .01 ? "better" : "worse")}
+          ${evidenceRow("Owner-support GT precision", hasOwnerSupport ? m.owner_support_precision.toFixed(4) : "not active", "Audit-only fraction of support that is true foreground; never used by runtime.", !hasOwnerSupport || m.owner_support_precision >= .8 ? "better" : "warn")}
+          ${reportedEvidence}
           ${evidenceRow("Changed on true foreground", m.changed_on_true_foreground.toLocaleString(), "A support count, not proof of damage.", m.changed_on_true_foreground === 0 ? "better" : "warn")}
           ${evidenceRow("Changed outside true fringe", m.changed_outside_true_fringe.toLocaleString(), "GT-only support spill diagnostic.", m.changed_outside_true_fringe === 0 ? "better" : "warn")}
           ${evidenceRow("Forward residual ratio", Number(r.forward_ratio).toFixed(4), "Runtime license requires < 0.85.", r.forward_ratio < .85 ? "better" : "worse")}

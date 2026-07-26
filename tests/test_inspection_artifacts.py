@@ -10,10 +10,15 @@ def test_owner_inspection_lab_is_complete_and_oracle_labeled():
     manifest = json.loads((DOCS / "inspection_manifest.json").read_text())
     assert manifest["schema"] == 6
     assert [case["stratum"] for case in manifest["factory_v2"]["cases"]] == [
+        "same-scene opaque-primary rerender",
         "solid",
         "mixed",
         "thin",
     ]
+    formation_case = manifest["factory_v2"]["cases"][0]
+    assert formation_case["sid"] == "extension_007_opaque_primary_r12"
+    assert formation_case["core_fraction"] >= 0.75
+    assert "coverage changes 0.726→1.000" in formation_case["description"]
     assert all(
         case["core_fraction"] >= 0.55
         for case in manifest["factory_v2"]["cases"]

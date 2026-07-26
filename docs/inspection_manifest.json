@@ -28,9 +28,18 @@
     "normal_case_count": 6
   },
   "factory_v2": {
-    "status": "Current validation foundation: exact circular aperture, explicit frame-specific coverage, cleaned foreground radiance, and separate solid/mixed/thin strata.",
-    "panel_order": "near-focus frame \u00b7 far-focus frame \u00b7 all-in-focus GT \u00b7 optical coverage classes (green complete core, yellow inner partial occlusion, magenta outer veil)",
+    "status": "The first panel is an immediate same-scene formation audit: extension_007 is rerendered with a 12px instead of 37.6px CoC radius, preserving all content and seeds. The remaining panels show the frozen V2 solid/mixed/thin regimes.",
+    "panel_order": "Special comparison order is stated under its panel. Standard panels: near-focus \u00b7 far-focus \u00b7 all-in-focus GT \u00b7 optical classes (green complete core, yellow inner partial, magenta outer veil). Click any panel for the full-size image.",
     "cases": [
+      {
+        "sid": "extension_007_opaque_primary_r12",
+        "stratum": "same-scene opaque-primary rerender",
+        "asset": "img/inspection/factory_v2/extension_007_opaque_primary_r12.jpg",
+        "core_fraction": 0.7528113013378239,
+        "inner_veil_fraction": 0.24718869866217608,
+        "defocus_radius": 12.0,
+        "description": "Top: old near \u00b7 old far \u00b7 new near \u00b7 new far. Bottom: GT \u00b7 old coverage \u00b7 GT \u00b7 new coverage. Same bird/background/placement/noise; only CoC radius changes 37.6\u219212.0px. At (808,347) coverage changes 0.726\u21921.000."
+      },
       {
         "sid": "dev_000",
         "stratum": "solid",

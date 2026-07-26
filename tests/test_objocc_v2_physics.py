@@ -12,6 +12,7 @@ from objocc_v2_gen import (  # noqa: E402
     coverage_stats,
     exact_disk_blur,
     render_focal_pair,
+    render_layered_focal_pair,
 )
 
 
@@ -80,3 +81,106 @@ def test_disk_renderer_matches_brute_aperture_average_away_from_border():
         ]
     brute /= len(offsets)
     np.testing.assert_allclose(filtered[3:28, 3:28], brute, atol=2e-6)
+
+
+def test_layered_renderer_is_byte_equivalent_for_opaque_material():
+    rng = np.random.default_rng(11)
+    background = rng.uniform(0, 255, (71, 83, 3)).astype(np.float32)
+    foreground = rng.uniform(0, 255, (71, 83, 3)).astype(np.float32)
+    alpha = np.zeros((71, 83), np.float32)
+    alpha[13:59, 17:68] = 1.0
+    alpha = cv2.GaussianBlur(alpha, (0, 0), 0.5)
+
+    legacy_frames, legacy_coverage = render_focal_pair(
+        background,
+        foreground,
+        alpha,
+        max_radius=9.0,
+    )
+    layered = render_layered_focal_pair(
+        background,
+        foreground,
+        alpha,
+        max_radius=9.0,
+        material_opacity=1.0,
+    )
+
+    for legacy, current in zip(legacy_frames, layered["frames"]):
+        np.testing.assert_array_equal(legacy, current)
+    for legacy, current in zip(
+        legacy_coverage,
+        layered["geometry_coverage"],
+    ):
+        np.testing.assert_array_equal(legacy, current)
+    np.testing.assert_array_equal(
+        layered["extinction"][0],
+        layered["geometry_coverage"][0],
+    )
+    np.testing.assert_array_equal(
+        layered["extinction"][1],
+        layered["geometry_coverage"][1],
+    )
+
+
+def test_transmission_separates_geometry_from_extinction():
+    background = np.full((81, 81, 3), (20, 60, 100), np.float32)
+    foreground = np.full((81, 81, 3), (180, 120, 40), np.float32)
+    alpha = np.zeros((81, 81), np.float32)
+    alpha[10:71, 10:71] = 1.0
+    opacity = 0.4
+
+    rendered = render_layered_focal_pair(
+        background,
+        foreground,
+        alpha,
+        max_radius=10.0,
+        material_opacity=opacity,
+    )
+
+    y, x = 40, 40
+    assert rendered["geometry_coverage"][1][y, x] == 1.0
+    np.testing.assert_allclose(
+        rendered["extinction"][1][y, x],
+        opacity,
+        atol=1e-6,
+    )
+    expected = opacity * foreground[y, x] + (1.0 - opacity) * background[y, x]
+    np.testing.assert_allclose(rendered["frames"][1][y, x], expected, atol=1e-5)
+    np.testing.assert_allclose(rendered["gt"][y, x], expected, atol=1e-5)
+
+
+def test_scalar_transmission_preserves_aperture_coverage_geometry():
+    rng = np.random.default_rng(17)
+    background = rng.uniform(0, 255, (61, 75, 3)).astype(np.float32)
+    foreground = rng.uniform(0, 255, (61, 75, 3)).astype(np.float32)
+    alpha = np.zeros((61, 75), np.float32)
+    alpha[18:43, 14:61] = 1.0
+
+    opaque = render_layered_focal_pair(
+        background,
+        foreground,
+        alpha,
+        max_radius=8.0,
+        material_opacity=1.0,
+    )
+    transmissive = render_layered_focal_pair(
+        background,
+        foreground,
+        alpha,
+        max_radius=8.0,
+        material_opacity=0.55,
+    )
+
+    for opaque_coverage, transmitted_coverage in zip(
+        opaque["geometry_coverage"],
+        transmissive["geometry_coverage"],
+    ):
+        np.testing.assert_array_equal(
+            opaque_coverage,
+            transmitted_coverage,
+        )
+    for coverage, extinction in zip(
+        transmissive["geometry_coverage"],
+        transmissive["extinction"],
+    ):
+        np.testing.assert_allclose(extinction, 0.55 * coverage, atol=2e-6)

@@ -1377,6 +1377,58 @@ def fig_inspection():
     from objocc_v2_gen import scenes as v2_scenes
 
     v2_cases = []
+    formation_dir = os.path.join(
+        HERE,
+        "data",
+        "objocc_v2",
+        "formation_audit",
+        "extension_007_opaque_primary_r12",
+    )
+    with open(
+        os.path.join(
+            HERE,
+            "objocc_v2_extension_007_opaque_primary.json",
+        ),
+        encoding="utf-8",
+    ) as handle:
+        formation_report = json.load(handle)
+    formation_asset_dir = os.path.join(
+        INSPECTION_IMG,
+        "factory_v2",
+    )
+    formation_filename = "extension_007_opaque_primary_r12.jpg"
+    _write_image(
+        os.path.join(formation_asset_dir, formation_filename),
+        cv2.imread(os.path.join(formation_dir, "comparison.png")),
+        max_side=6400,
+        quality=96,
+    )
+    v2_cases.append(
+        {
+            "sid": formation_report["id"],
+            "stratum": "same-scene opaque-primary rerender",
+            "asset": (
+                "img/inspection/factory_v2/"
+                f"{formation_filename}"
+            ),
+            "core_fraction": formation_report["core_fraction"],
+            "inner_veil_fraction": formation_report[
+                "inner_veil_fraction"
+            ],
+            "defocus_radius": formation_report["new_defocus_radius"],
+            "description": (
+                "Top: old near · old far · new near · new far. "
+                "Bottom: GT · old coverage · GT · new coverage. "
+                "Same bird/background/placement/noise; only CoC radius changes "
+                f"{formation_report['old_defocus_radius']:.1f}→"
+                f"{formation_report['new_defocus_radius']:.1f}px. At "
+                f"({formation_report['diagnostic_xy'][0]},"
+                f"{formation_report['diagnostic_xy'][1]}) coverage changes "
+                f"{formation_report['old_diagnostic_coverage']:.3f}→"
+                f"{formation_report['new_diagnostic_coverage']:.3f}."
+            ),
+        }
+    )
     for scene in list(v2_scenes("dev"))[:3]:
         source = os.path.join(scene["dir"], "vis.png")
         asset_dir = os.path.join(INSPECTION_IMG, "factory_v2")
@@ -1471,14 +1523,16 @@ def fig_inspection():
         },
         "factory_v2": {
             "status": (
-                "Current validation foundation: exact circular aperture, explicit "
-                "frame-specific coverage, cleaned foreground radiance, and separate "
-                "solid/mixed/thin strata."
+                "The first panel is an immediate same-scene formation audit: "
+                "extension_007 is rerendered with a 12px instead of 37.6px CoC "
+                "radius, preserving all content and seeds. The remaining panels "
+                "show the frozen V2 solid/mixed/thin regimes."
             ),
             "panel_order": (
-                "near-focus frame · far-focus frame · all-in-focus GT · optical "
-                "coverage classes (green complete core, yellow inner partial "
-                "occlusion, magenta outer veil)"
+                "Special comparison order is stated under its panel. Standard "
+                "panels: near-focus · far-focus · all-in-focus GT · optical "
+                "classes (green complete core, yellow inner partial, magenta "
+                "outer veil). Click any panel for the full-size image."
             ),
             "cases": v2_cases,
         },

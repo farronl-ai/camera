@@ -37,6 +37,16 @@ object can be partial-coverage over its entire apparent width under severe
 defocus. This is physical, and the renderer is unit-tested against a brute
 aperture sum.
 
+A second inspection at native `(808,347)` tests the full-column intuition. The
+sharp foreground is only 46 px thick vertically in that column (46–50 px in the
+nearby sampled columns), while the far-frame CoC is about 75 px in diameter.
+The reported pixel has alpha `1.000`, coverage `0.725`, and lies about 16 px
+inside the sharp support. The column has no pixels with coverage at least 0.95:
+background is consequently visible to some extent throughout the blurred
+foreground column. That observation is real and important, but it identifies
+slender/all-veil opaque geometry—not material transmission. The inspector and
+cohort labels must expose the CoC-to-local-thickness relationship directly.
+
 The inspection confusion is nevertheless evidence of a benchmark-design
 problem. Sharp alpha alone makes an inner veil look like damaged opaque
 interior. Equal cycling through `solid`, `mixed`, and `thin` also gives

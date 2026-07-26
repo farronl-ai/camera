@@ -30,6 +30,8 @@ Run:
     python research/objocc_v2_gen.py 36 s12
     python research/objocc_v2_gen.py 36 s16
     python research/objocc_v2_gen.py 72 s19
+    python research/objocc_v2_gen.py 72 s23
+    python research/objocc_v2_gen.py 36 t24
 """
 from __future__ import annotations
 
@@ -53,6 +55,27 @@ OUT = os.path.join(HERE, "data", "objocc_v2")
 COC_FRACTION = 0.035
 DEFOCUS_DISTANCE = 0.70
 STRATA = ("solid", "mixed", "thin")
+OPTICAL_REGIME_BY_STRATUM = {
+    "solid": "substantial_coverage_core",
+    "mixed": "boundary_dominant_partial_coverage",
+    "thin": "all_veil_geometry_stress",
+}
+# The first post-audit opaque cohort represents the ordinary target more
+# heavily while retaining boundary and all-veil stress. Earlier splits keep the
+# equal-cycle schedule that generated their frozen evidence.
+PRIMARY_OPAQUE_SCHEDULE = (
+    "solid",
+    "solid",
+    "mixed",
+    "solid",
+    "mixed",
+    "thin",
+)
+# Transmission is isolated from the most severe geometry at first. Varying
+# opacity then tests material separation without making every scene also an
+# all-veil opaque stress.
+TRANSMISSIVE_SCHEDULE = ("solid", "solid", "mixed")
+TRANSMISSIVE_OPACITIES = (0.35, 0.55, 0.75)
 
 
 def exact_disk_blur(image: np.ndarray, radius: float) -> np.ndarray:
@@ -124,6 +147,70 @@ def render_focal_pair(
     premult = exact_disk_blur(a[..., None] * fg, radius)
     far_frame = premult + (1.0 - far_coverage[..., None]) * bg
     return [near_frame, far_frame], [near_coverage, far_coverage]
+
+
+def render_layered_focal_pair(
+    background: np.ndarray,
+    foreground: np.ndarray,
+    geometry_alpha: np.ndarray,
+    max_radius: float,
+    material_opacity: float | np.ndarray,
+) -> dict:
+    """Render opaque or nonrefractive transmissive two-layer observations.
+
+    Geometry answers whether a ray intersects the front object. Extinction
+    answers how much radiance that intersection contributes/removes. They are
+    identical only for an opaque material. Keeping both fields prevents a
+    slender opaque object from being mislabeled as transparent and prevents a
+    transmissive object from inheriting an opaque hard-ownership rule.
+    """
+    bg = np.asarray(background, np.float32)
+    fg = np.asarray(foreground, np.float32)
+    geometry = np.clip(np.asarray(geometry_alpha, np.float32), 0.0, 1.0)
+    opacity = np.asarray(material_opacity, np.float32)
+    if opacity.ndim == 0:
+        opacity = np.full_like(geometry, float(opacity))
+    if opacity.shape != geometry.shape:
+        raise ValueError(
+            "material opacity must be scalar or match geometry alpha"
+        )
+    if not np.isfinite(opacity).all() or np.any(
+        (opacity < 0.0) | (opacity > 1.0)
+    ):
+        raise ValueError("material opacity must lie in [0, 1]")
+
+    extinction_near = geometry * opacity
+    radius = DEFOCUS_DISTANCE * max_radius
+    far_blurred = exact_disk_blur(bg, radius)
+    near_frame = (
+        extinction_near[..., None] * fg
+        + (1.0 - extinction_near[..., None]) * far_blurred
+    )
+    geometry_far = np.clip(
+        exact_disk_blur(geometry, radius),
+        0.0,
+        1.0,
+    )
+    extinction_far = np.clip(
+        exact_disk_blur(extinction_near, radius),
+        0.0,
+        1.0,
+    )
+    far_premult = exact_disk_blur(
+        extinction_near[..., None] * fg,
+        radius,
+    )
+    far_frame = far_premult + (1.0 - extinction_far[..., None]) * bg
+    gt = (
+        extinction_near[..., None] * fg
+        + (1.0 - extinction_near[..., None]) * bg
+    )
+    return {
+        "frames": [near_frame, far_frame],
+        "geometry_coverage": [geometry, geometry_far],
+        "extinction": [extinction_near, extinction_far],
+        "gt": gt,
+    }
 
 
 def coverage_stats(alpha: np.ndarray, coverage: np.ndarray) -> dict:
@@ -211,9 +298,19 @@ def _prepare_object(
 
 
 def generate(count: int, split: str) -> None:
-    if split not in {"dev", "holdout", "extension", "s12", "s16", "s19"}:
+    supported_splits = {
+        "dev",
+        "holdout",
+        "extension",
+        "s12",
+        "s16",
+        "s19",
+        "s23",
+        "t24",
+    }
+    if split not in supported_splits:
         raise ValueError(
-            "split must be dev, holdout, extension, s12, s16, or s19"
+            f"split must be one of {sorted(supported_splits)}"
         )
     split_dir = os.path.join(OUT, split)
     os.makedirs(split_dir, exist_ok=True)
@@ -229,13 +326,31 @@ def generate(count: int, split: str) -> None:
         "s12": 15001,
         "s16": 18001,
         "s19": 21001,
+        "s23": 24001,
+        "t24": 27001,
     }[split]
+    is_transmissive = split == "t24"
+    if is_transmissive:
+        stratum_schedule = TRANSMISSIVE_SCHEDULE
+        material_model = "scalar_transmissive_occluder"
+        cohort_role = "transmissive_oracle_development"
+    elif split == "s23":
+        stratum_schedule = PRIMARY_OPAQUE_SCHEDULE
+        material_model = "opaque_occluder"
+        cohort_role = "primary_opaque_post_audit"
+    else:
+        stratum_schedule = STRATA
+        material_model = "opaque_occluder"
+        cohort_role = "legacy_equal_optical_regime_cycle"
     rng = np.random.default_rng(seed)
     manifest = {
-        "version": 2,
+        "version": 3,
         "split": split,
         "seed": seed,
-        "renderer": "exact_disk_two_layer_focal_pair",
+        "renderer": "exact_disk_two_layer_extinction",
+        "material_model": material_model,
+        "cohort_role": cohort_role,
+        "stratum_schedule": list(stratum_schedule),
         "coc_fraction": COC_FRACTION,
         "defocus_distance": DEFOCUS_DISTANCE,
         "scenes": [],
@@ -245,7 +360,14 @@ def generate(count: int, split: str) -> None:
     while len(manifest["scenes"]) < count and attempts < 4000:
         attempts += 1
         scene_index = len(manifest["scenes"])
-        stratum = STRATA[scene_index % len(STRATA)]
+        stratum = stratum_schedule[scene_index % len(stratum_schedule)]
+        material_opacity = (
+            TRANSMISSIVE_OPACITIES[
+                scene_index % len(TRANSMISSIVE_OPACITIES)
+            ]
+            if is_transmissive
+            else 1.0
+        )
         source_path, mask_index, source_radiance, source_mask = assets[
             int(rng.integers(len(assets)))
         ]
@@ -315,20 +437,21 @@ def generate(count: int, split: str) -> None:
         stats = coverage_stats(alpha, far_coverage)
         if not _stratum_matches(stratum, stats):
             continue
-        clean_frames, coverages = render_focal_pair(
+        rendered = render_layered_focal_pair(
             background,
             foreground,
             alpha,
             max_radius,
+            material_opacity,
         )
+        clean_frames = rendered["frames"]
+        coverages = rendered["geometry_coverage"]
+        extinctions = rendered["extinction"]
 
         sid = f"{split}_{scene_index:03d}"
         scene_dir = os.path.join(split_dir, sid)
         os.makedirs(scene_dir, exist_ok=True)
-        gt = (
-            alpha[..., None] * foreground
-            + (1.0 - alpha[..., None]) * background.astype(np.float32)
-        )
+        gt = rendered["gt"]
         frames = [
             add_noise(
                 np.clip(frame, 0, 255).astype(np.uint8),
@@ -337,10 +460,28 @@ def generate(count: int, split: str) -> None:
             )
             for frame_index, frame in enumerate(clean_frames)
         ]
-        cv2.imwrite(os.path.join(scene_dir, "gt.png"), np.clip(gt, 0, 255).astype(np.uint8))
-        cv2.imwrite(os.path.join(scene_dir, "alpha.png"), np.round(alpha * 255).astype(np.uint8))
-        for frame_index, (frame, clean, coverage) in enumerate(
-            zip(frames, clean_frames, coverages)
+        cv2.imwrite(
+            os.path.join(scene_dir, "gt.png"),
+            np.clip(gt, 0, 255).astype(np.uint8),
+        )
+        cv2.imwrite(
+            os.path.join(scene_dir, "alpha.png"),
+            np.round(alpha * 255).astype(np.uint8),
+        )
+        cv2.imwrite(
+            os.path.join(scene_dir, "foreground_layer.png"),
+            np.clip(foreground, 0, 255).astype(np.uint8),
+        )
+        cv2.imwrite(
+            os.path.join(scene_dir, "background_layer.png"),
+            np.clip(background, 0, 255).astype(np.uint8),
+        )
+        cv2.imwrite(
+            os.path.join(scene_dir, "opacity.png"),
+            np.round(np.clip(extinctions[0], 0, 1) * 255).astype(np.uint8),
+        )
+        for frame_index, (frame, clean, coverage, extinction) in enumerate(
+            zip(frames, clean_frames, coverages, extinctions)
         ):
             cv2.imwrite(os.path.join(scene_dir, f"frame_{frame_index}.png"), frame)
             cv2.imwrite(
@@ -350,6 +491,10 @@ def generate(count: int, split: str) -> None:
             cv2.imwrite(
                 os.path.join(scene_dir, f"coverage_{frame_index}.png"),
                 np.round(np.clip(coverage, 0, 1) * 255).astype(np.uint8),
+            )
+            cv2.imwrite(
+                os.path.join(scene_dir, f"extinction_{frame_index}.png"),
+                np.round(np.clip(extinction, 0, 1) * 255).astype(np.uint8),
             )
         cv2.imwrite(
             os.path.join(scene_dir, "coverage_classes.png"),
@@ -372,6 +517,10 @@ def generate(count: int, split: str) -> None:
         row = {
             "id": sid,
             "stratum": stratum,
+            "optical_regime": OPTICAL_REGIME_BY_STRATUM[stratum],
+            "material_model": material_model,
+            "material_opacity": float(material_opacity),
+            "material_transmittance": float(1.0 - material_opacity),
             "source": os.path.basename(os.path.dirname(source_path)),
             "source_mask_index": int(mask_index),
             "background": os.path.basename(os.path.dirname(background_path)),
@@ -384,7 +533,8 @@ def generate(count: int, split: str) -> None:
         }
         manifest["scenes"].append(row)
         print(
-            f"{sid} {stratum:5s} core={stats['core_fraction']:.3f} "
+            f"{sid} {stratum:5s} opacity={material_opacity:.2f} "
+            f"core={stats['core_fraction']:.3f} "
             f"inner-veil={stats['inner_veil_fraction']:.3f} "
             f"area={area_fraction:.3f}",
             flush=True,
@@ -411,9 +561,30 @@ def scenes(split: str):
         manifest = json.load(handle)
     for row in manifest["scenes"]:
         scene_dir = os.path.join(split_dir, row["id"])
+        material_model = row.get("material_model", "opaque_occluder")
+        material_opacity = float(row.get("material_opacity", 1.0))
+        opacity_path = os.path.join(scene_dir, "opacity.png")
+        opacity = (
+            cv2.imread(opacity_path, 0).astype(np.float32) / 255.0
+            if os.path.exists(opacity_path)
+            else (
+                cv2.imread(
+                    os.path.join(scene_dir, "alpha.png"),
+                    0,
+                ).astype(np.float32)
+                / 255.0
+            )
+            * material_opacity
+        )
         yield {
             "sid": row["id"],
             "stratum": row["stratum"],
+            "optical_regime": row.get(
+                "optical_regime",
+                OPTICAL_REGIME_BY_STRATUM[row["stratum"]],
+            ),
+            "material_model": material_model,
+            "material_opacity": material_opacity,
             "dir": scene_dir,
             "gt": cv2.imread(os.path.join(scene_dir, "gt.png")),
             "alpha": (
@@ -430,6 +601,55 @@ def scenes(split: str):
                 / 255.0
                 for index in (0, 1)
             ],
+            "opacity": opacity,
+            "foreground_layer": (
+                cv2.imread(
+                    os.path.join(scene_dir, "foreground_layer.png")
+                )
+                if os.path.exists(
+                    os.path.join(scene_dir, "foreground_layer.png")
+                )
+                else None
+            ),
+            "background_layer": (
+                cv2.imread(
+                    os.path.join(scene_dir, "background_layer.png")
+                )
+                if os.path.exists(
+                    os.path.join(scene_dir, "background_layer.png")
+                )
+                else None
+            ),
+            "extinction": [
+                (
+                    cv2.imread(
+                        os.path.join(
+                            scene_dir,
+                            f"extinction_{index}.png",
+                        ),
+                        0,
+                    ).astype(np.float32)
+                    / 255.0
+                    if os.path.exists(
+                        os.path.join(
+                            scene_dir,
+                            f"extinction_{index}.png",
+                        )
+                    )
+                    else (
+                        cv2.imread(
+                            os.path.join(
+                                scene_dir,
+                                f"coverage_{index}.png",
+                            ),
+                            0,
+                        ).astype(np.float32)
+                        / 255.0
+                    )
+                    * material_opacity
+                )
+                for index in (0, 1)
+            ],
             "frames": [
                 cv2.imread(os.path.join(scene_dir, f"frame_{index}.png"))
                 for index in (0, 1)
@@ -443,7 +663,7 @@ def main() -> None:
     if len(sys.argv) != 3:
         raise SystemExit(
             "usage: objocc_v2_gen.py COUNT "
-            "{dev|holdout|extension|s12|s16|s19}"
+            "{dev|holdout|extension|s12|s16|s19|s23|t24}"
         )
     generate(int(sys.argv[1]), sys.argv[2])
 

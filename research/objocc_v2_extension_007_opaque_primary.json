@@ -1,0 +1,31 @@
+{
+  "id": "extension_007_opaque_primary_r12",
+  "source_scene": "extension_007",
+  "material_model": "opaque_occluder",
+  "material_opacity": 1.0,
+  "old_defocus_radius": 37.632,
+  "new_defocus_radius": 12.0,
+  "diagnostic_xy": [
+    808,
+    347
+  ],
+  "diagnostic_alpha": 1.0,
+  "old_diagnostic_coverage": 0.7261858582496643,
+  "new_diagnostic_coverage": 0.9999999403953552,
+  "sharp_pixels": 53445,
+  "core_pixels": 40234,
+  "inner_veil_pixels": 13211,
+  "outer_veil_pixels": 13657,
+  "core_fraction": 0.7528113013378239,
+  "inner_veil_fraction": 0.24718869866217608,
+  "comparison_order": [
+    "old near input",
+    "old far input",
+    "new near input",
+    "new far input",
+    "GT",
+    "old coverage classes",
+    "GT",
+    "new coverage classes"
+  ]
+}

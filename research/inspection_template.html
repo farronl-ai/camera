@@ -497,7 +497,7 @@
     tile(
       c.asset,
       `${c.sid} · ${c.stratum}`,
-      `complete core ${(100 * c.core_fraction).toFixed(1)}% · inner partial occlusion ${(100 * c.inner_veil_fraction).toFixed(1)}% · defocus radius ${c.defocus_radius.toFixed(1)} px`
+      c.description || `complete core ${(100 * c.core_fraction).toFixed(1)}% · inner partial occlusion ${(100 * c.inner_veil_fraction).toFixed(1)}% · defocus radius ${c.defocus_radius.toFixed(1)} px`
     )
   ).join("");
 

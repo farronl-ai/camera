@@ -3766,6 +3766,23 @@ def recover_giant_veil(
                 1.0 - phase * phase * (3.0 - 2.0 * phase)
             )
             seam_strength[front_extent] = 0.0
+            low_transition_width = np.where(
+                veil_support,
+                3.0 * spatial_scale,
+                4.0 * spatial_scale,
+            )
+            low_seam_phase = np.clip(
+                edge_distance / np.maximum(low_transition_width, 1e-6),
+                0.0,
+                1.0,
+            )
+            low_seam_strength = 0.12 * (
+                1.0
+                - low_seam_phase
+                * low_seam_phase
+                * (3.0 - 2.0 * low_seam_phase)
+            )
+            low_seam_strength[front_extent] = 0.0
             signed_edge_distance = np.where(
                 veil_support,
                 -edge_distance,
@@ -3815,7 +3832,7 @@ def recover_giant_veil(
             applied_correction -= seam_strength[..., None] * (
                 applied_correction - normal_low
             )
-            inward_anchor = 1.5 * spatial_scale
+            inward_anchor = 3.0 * spatial_scale
             outward_anchor = 4.0 * spatial_scale
             low_inside = cv2.remap(
                 applied_low,
@@ -3845,7 +3862,7 @@ def recover_giant_veil(
                 low_inside * (1.0 - low_phase[..., None])
                 + low_outside * low_phase[..., None]
             )
-            applied_correction += 1.5 * seam_strength[..., None] * (
+            applied_correction += 1.5 * low_seam_strength[..., None] * (
                 low_expected - applied_low
             )
             composed = (

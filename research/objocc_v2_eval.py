@@ -726,6 +726,8 @@ def main() -> None:
         "s19",
         "s23",
         "t24",
+        "s25",
+        "s26",
     }
     if (
         len(sys.argv) != 3

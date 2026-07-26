@@ -4,6 +4,7 @@ import numpy as np
 from focusstack.fusion import fuse_perband
 from focusstack.veil_layers import (
     RADIUS_FRACTION,
+    _adjoint,
     _box_disk_blur,
     _forward_layers,
     _fringe_mask,
@@ -17,6 +18,7 @@ from focusstack.veil_layers import (
     recover_giant_veil,
     refine_owner_candidate,
     select_licensed_candidate,
+    select_one_sided_owner_geometry,
     stable_correction,
 )
 
@@ -75,6 +77,125 @@ def _physical_giant_stack(size=192, *, missing_satellite=False):
         "owner": 0,
     }
     return frames, gt, candidate, satellite
+
+
+def test_runtime_forward_model_never_admits_rear_inside_owned_support():
+    size = 96
+    yy, xx = np.mgrid[:size, :size]
+    alpha = np.zeros((size, size), np.float32)
+    alpha[25:71, 43:53] = 1.0
+    foreground = np.full((size, size, 3), (190, 80, 35), np.float32)
+    checker = ((xx + yy) % 2).astype(np.float32) * 220.0
+    rear_a = np.repeat(checker[..., None], 3, axis=2)
+    rear_b = 255.0 - rear_a
+    model = _prepare_model(
+        alpha,
+        RADIUS_FRACTION * size,
+        _box_disk_blur,
+    )
+
+    frames_a = _forward_layers(foreground, rear_a, model)
+    frames_b = _forward_layers(foreground, rear_b, model)
+    owned = alpha == 1.0
+
+    for frame_a, frame_b in zip(frames_a, frames_b):
+        np.testing.assert_array_equal(frame_a[owned], frame_b[owned])
+    assert model["formation_model"] == "one_sided_opaque_v1"
+
+
+def test_one_sided_forward_and_adjoint_are_consistent():
+    rng = np.random.default_rng(31)
+    size = 72
+    alpha = np.zeros((size, size), np.float32)
+    alpha[20:52, 27:45] = 1.0
+    model = _prepare_model(
+        alpha,
+        RADIUS_FRACTION * size,
+        _box_disk_blur,
+    )
+    near = np.zeros((size, size, 3), np.float32)
+    far = np.zeros_like(near)
+    residuals = [np.zeros_like(near), np.zeros_like(near)]
+    interior = np.s_[15:-15, 15:-15]
+    near[interior] = rng.normal(size=near[interior].shape)
+    far[interior] = rng.normal(size=far[interior].shape)
+    for residual in residuals:
+        residual[interior] = rng.normal(size=residual[interior].shape)
+
+    forward = _forward_layers(near, far, model)
+    adjoint_near, adjoint_far = _adjoint(residuals, model)
+    left = sum(
+        float(np.sum(value * residual, dtype=np.float64))
+        for value, residual in zip(forward, residuals)
+    )
+    right = float(
+        np.sum(near * adjoint_near, dtype=np.float64)
+        + np.sum(far * adjoint_far, dtype=np.float64)
+    )
+
+    np.testing.assert_allclose(left, right, rtol=2e-5, atol=2e-5)
+
+
+def test_one_sided_geometry_selects_focused_owner_mask():
+    frames, _, candidate, _ = _physical_giant_stack()
+    true_mask = candidate["alpha"] > 0
+    eroded = cv2.erode(
+        true_mask.astype(np.uint8),
+        np.ones((7, 7), np.uint8),
+    )
+    false_mask = np.zeros_like(eroded)
+    false_mask[15:55, 10:40] = 1
+    other_observation = cv2.dilate(
+        true_mask.astype(np.uint8),
+        np.ones((5, 5), np.uint8),
+    )
+
+    selected, evidence = select_one_sided_owner_geometry(
+        frames,
+        [
+            np.stack([true_mask, eroded]).astype(np.uint8),
+            np.stack([other_observation, false_mask]),
+        ],
+    )
+
+    assert selected is not None, evidence
+    assert selected["owner"] == 0
+    assert evidence["one_sided_geometry_fired"] is True
+    assert evidence["one_sided_geometry_competitor_margin"] > 0.05
+    np.testing.assert_array_equal(selected["alpha"] >= 0.5, true_mask)
+
+
+def test_one_sided_recovery_hard_selects_confident_foreground_interior():
+    frames, _, candidate, _ = _physical_giant_stack()
+    true_mask = candidate["alpha"] > 0
+    eroded = cv2.erode(
+        true_mask.astype(np.uint8),
+        np.ones((7, 7), np.uint8),
+    )
+    false_mask = np.zeros_like(eroded)
+    false_mask[15:55, 10:40] = 1
+    other_observation = cv2.dilate(
+        true_mask.astype(np.uint8),
+        np.ones((5, 5), np.uint8),
+    )
+    owner_masks = [
+        np.stack([true_mask, eroded]).astype(np.uint8),
+        np.stack([other_observation, false_mask]),
+    ]
+    base = fuse_perband(frames, harden=0.5)
+
+    output, report = recover_giant_veil(
+        frames,
+        base,
+        [candidate],
+        owner_masks_by_frame=owner_masks,
+    )
+
+    assert report["fired"] is True
+    assert report["one_sided_geometry_fired"] is True
+    assert report["owner_front_reconstruction_pixels"] > 0
+    hard_front = np.all(output == frames[0], axis=2) & true_mask
+    assert int(hard_front.sum()) >= report["owner_front_reconstruction_pixels"]
 
 
 def test_candidate_license_uses_semantics_and_forward_evidence():

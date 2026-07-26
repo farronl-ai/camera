@@ -5,6 +5,44 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F65 — Opaque defocus is one-sided ownership, not symmetric alpha blur
+
+The project's primary opaque formation contract now makes the user's invariant
+executable: every latent foreground-owned pixel has exactly zero rear
+throughput in every focal observation. Foreground defocus may carry foreground
+radiance outside its sharp silhouette, but it may never erode that silhouette
+and reveal hidden sharp rear detail inward. Material transmission remains a
+separate regime.
+
+The S25 renderer uses normalized foreground spread and one-sided coverage:
+`N_spread=H(alpha*F)/H(alpha)`, `W=max(alpha,H(alpha))`, and
+`O_far=W*N_spread+(1-W)B`. Hidden-background counterfactual tests prove that
+changing the rear image cannot affect any `alpha=1` observation pixel while a
+nonempty exterior veil remains. The paired runtime forward operator and its
+adjoint now use the same law and pass a numerical inner-product test.
+
+The old mixed-fusion candidate bridge did not reliably find the relevant
+foreground geometry under this new formation. The S25 research path therefore
+tests raw masks from both focal frames directly in the paired formation model.
+It prefers a larger containing silhouette when nested same-object masks are
+within `0.01` observation MAE, because blur's null space can make an incomplete
+mask score microscopically better. Cross-frame corroboration then conservatively
+intersects the selected support before hard owner projection. Rear correction
+remains disjoint from confident foreground support.
+
+On the six-scene S25 development sample, all six direct runs improve MAE and
+MSE; five improve SSIM; exterior-veil MAE improves in all six; and true far
+background remains exact identity in all six. Five improve foreground-core
+MAE. `s25_000` is the one dissent: global MAE improves `-0.0385` and veil MAE
+improves `-0.7238`, but foreground-core MAE regresses `+0.0096` and SSIM changes
+`-0.000283`. Its cross-corroborated mask has very high precision but only about
+`0.635` recall, so the next causal test must separate missing support from
+raw-owner sensor noise. Do not use hidden-background blending as a denoiser.
+
+This is development evidence, not a promoted runtime rule. Auto remains off,
+the S23 inspector remains frozen, the fine-texture tail remains open, and no
+fresh S26 split should be generated until the causal foreground rule freezes.
+
 ## F64 — “Confident foreground” is a local consensus, not a good global mask
 
 The formation reset turned the user's opaque-ownership invariant into a more

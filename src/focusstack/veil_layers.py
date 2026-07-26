@@ -4,7 +4,9 @@ This is the package form of F55's narrow, held-out specialist.  It does not
 repair an already-fused image by amplifying its texture.  Instead it fits the
 two captured focal frames to a two-layer image-formation model:
 
-    O_i = H_near,i(alpha * N) + (1 - H_near,i(alpha)) * H_far,i(S)
+    C_i = H_near,i(alpha)
+    W_i = max(alpha, C_i)
+    O_i = (W_i/C_i) * H_near,i(alpha*N) + (1-W_i) * H_far,i(S)
 
 Only corrections to observed near/far anchors are solved.  A candidate matte
 must first reduce observation-domain error at 512 px and satisfy the frozen
@@ -67,6 +69,16 @@ OWNER_CONSENSUS_MIN_AREA_RATIO = 0.50
 OWNER_CONSENSUS_MAX_AREA_RATIO = 1.50
 OWNER_CONSENSUS_MIN_PROPOSALS = 2
 OWNER_CONSENSUS_VOTE_FRACTION = 0.75
+# Primary opaque geometry is proposed from the original focal frames, not the
+# already-mixed fusion. Candidate masks are compared directly in the paired
+# one-sided formation model. A near-tied, containing mask is preferred because
+# blur's null space can make an incomplete nested mask score a few thousandths
+# better despite omitting observed foreground.
+ONE_SIDED_MASK_MIN_AREA_FRACTION = 0.005
+ONE_SIDED_MASK_MAX_AREA_FRACTION = 0.35
+ONE_SIDED_SAME_OBJECT_MIN_IOU = 0.50
+ONE_SIDED_NEAR_EQUIVALENT_MAE = 0.01
+ONE_SIDED_COMPETITOR_MARGIN = 0.05
 # A rear-focused observation is positive only when decisive rear focus evidence
 # occupies a material fraction of the local neighborhood.  Absence of owner
 # evidence is not rear evidence.  This is the V1/V2 ordered-visibility split:
@@ -144,16 +156,35 @@ def _prepare_model(
 ) -> dict:
     near_radii, far_radii = _radii_for(max_radius)
     alpha3 = np.repeat(alpha[..., None], 3, axis=2)
-    transmission = [
-        1.0 - _blur_channels(alpha3, radii, blur_fn)
+    aperture_spread = [
+        np.clip(_blur_channels(alpha3, radii, blur_fn), 0.0, 1.0)
         for radii in near_radii
     ]
+    coverage = [
+        np.maximum(alpha3, spread)
+        for spread in aperture_spread
+    ]
+    foreground_scale = []
+    for spread, owned_coverage in zip(aperture_spread, coverage):
+        scale = np.zeros_like(spread)
+        np.divide(
+            owned_coverage,
+            spread,
+            out=scale,
+            where=spread > 1e-6,
+        )
+        foreground_scale.append(scale)
+    transmission = [1.0 - owned_coverage for owned_coverage in coverage]
     return {
         "alpha": alpha.astype(np.float32),
         "near_radii": near_radii,
         "far_radii": far_radii,
+        "aperture_spread": aperture_spread,
+        "coverage": coverage,
+        "foreground_scale": foreground_scale,
         "transmission": transmission,
         "blur_fn": blur_fn,
+        "formation_model": "one_sided_opaque_v1",
     }
 
 
@@ -164,12 +195,19 @@ def _forward_layers(
 ) -> list[np.ndarray]:
     premultiplied = model["alpha"][..., None] * near
     return [
-        _blur_channels(premultiplied, near_radii, model["blur_fn"])
+        foreground_scale
+        * _blur_channels(premultiplied, near_radii, model["blur_fn"])
         + transmission
         * _blur_channels(far, far_radii, model["blur_fn"])
-        for near_radii, far_radii, transmission in zip(
+        for (
+            near_radii,
+            far_radii,
+            foreground_scale,
+            transmission,
+        ) in zip(
             model["near_radii"],
             model["far_radii"],
+            model["foreground_scale"],
             model["transmission"],
         )
     ]
@@ -182,16 +220,27 @@ def _adjoint(
     alpha = model["alpha"][..., None]
     near = np.zeros_like(residuals[0], np.float32)
     far = np.zeros_like(residuals[0], np.float32)
-    for residual, near_radii, far_radii, transmission in zip(
+    for (
+        residual,
+        near_radii,
+        far_radii,
+        foreground_scale,
+        transmission,
+    ) in zip(
         residuals,
         model["near_radii"],
         model["far_radii"],
+        model["foreground_scale"],
         model["transmission"],
     ):
         # Both admitted PSFs are symmetric. Reflect-border filtering is only
         # approximately self-adjoint at the outer image border; the candidate
         # support is required to be an interior semantic object.
-        near += alpha * _blur_channels(residual, near_radii, model["blur_fn"])
+        near += alpha * _blur_channels(
+            foreground_scale * residual,
+            near_radii,
+            model["blur_fn"],
+        )
         far += _blur_channels(
             transmission * residual,
             far_radii,
@@ -477,6 +526,276 @@ def _resize_for_model(image: np.ndarray) -> np.ndarray:
     if size == (width, height):
         return image.copy()
     return cv2.resize(image, size, interpolation=cv2.INTER_AREA)
+
+
+def _one_sided_anchor_residual(
+    resized_images: list[np.ndarray],
+    owner: int,
+    alpha: np.ndarray,
+) -> float:
+    """Cheap observation error with the captured focal frames as layer anchors."""
+    ordered = [
+        resized_images[owner].astype(np.float32, copy=False),
+        resized_images[1 - owner].astype(np.float32, copy=False),
+    ]
+    model = _prepare_model(
+        alpha,
+        RADIUS_FRACTION * max(alpha.shape),
+        _box_disk_blur,
+    )
+    predicted = _forward_layers(ordered[0], ordered[1], model)
+    return float(
+        np.mean(
+            [
+                np.abs(prediction - observation).mean()
+                for prediction, observation in zip(predicted, ordered)
+            ]
+        )
+    )
+
+
+def select_one_sided_owner_geometry(
+    images: list[np.ndarray],
+    owner_masks_by_frame: list[np.ndarray] | None,
+) -> tuple[dict | None, dict]:
+    """Select focused opaque geometry before fusion can mix its ownership.
+
+    Every moderately sized raw mask from both focal frames is tested as the
+    front layer under both the observed focus order and the one-sided forward
+    model. The globally best object/order hypothesis wins only when a distinct
+    competitor is measurably worse. Within a near-tied nested same-object
+    family, the largest mask wins: the focused silhouette is positive geometry
+    evidence, while a slightly smaller re-degradation residual can merely be
+    blur-null-space ambiguity.
+    """
+    report = {
+        "one_sided_geometry_fired": False,
+        "one_sided_geometry_reason": "owner_masks_unavailable",
+        "one_sided_geometry_proposal_count": 0,
+    }
+    if (
+        owner_masks_by_frame is None
+        or len(owner_masks_by_frame) != 2
+        or len(images) != 2
+    ):
+        return None, report
+    shape = images[0].shape[:2]
+    if images[1].shape[:2] != shape:
+        report["one_sided_geometry_reason"] = "frame_shape_mismatch"
+        return None, report
+
+    resized_images = [_resize_for_model(image) for image in images]
+    model_height, model_width = resized_images[0].shape[:2]
+    proposals = []
+    for owner, raw_masks in enumerate(owner_masks_by_frame):
+        masks = np.asarray(raw_masks)
+        if masks.ndim != 3 or masks.shape[1:] != shape:
+            continue
+        guide = to_gray_float(images[owner]) / 255.0
+        for mask_index, raw_mask in enumerate(masks):
+            binary = np.asarray(raw_mask) > 0
+            area_fraction = float(binary.mean())
+            if not (
+                ONE_SIDED_MASK_MIN_AREA_FRACTION
+                <= area_fraction
+                <= ONE_SIDED_MASK_MAX_AREA_FRACTION
+            ):
+                continue
+            alpha = np.clip(
+                guided_filter(
+                    guide.astype(np.float32),
+                    binary.astype(np.float32),
+                    2,
+                    1e-4,
+                ),
+                0.0,
+                1.0,
+            )
+            alpha_small = cv2.resize(
+                alpha,
+                (model_width, model_height),
+                interpolation=cv2.INTER_AREA,
+            ).astype(np.float32)
+            residual = _one_sided_anchor_residual(
+                resized_images,
+                owner,
+                alpha_small,
+            )
+            proposals.append(
+                {
+                    "owner": owner,
+                    "mask_index": int(mask_index),
+                    "binary": binary,
+                    "alpha": alpha,
+                    "area_fraction": area_fraction,
+                    "anchor_residual": residual,
+                }
+            )
+    report["one_sided_geometry_proposal_count"] = len(proposals)
+    if len(proposals) < 2:
+        report["one_sided_geometry_reason"] = "insufficient_competition"
+        return None, report
+
+    best = min(proposals, key=lambda proposal: proposal["anchor_residual"])
+
+    def same_object(left: dict, right: dict) -> bool:
+        if left["owner"] != right["owner"]:
+            return False
+        intersection = int((left["binary"] & right["binary"]).sum())
+        union = int((left["binary"] | right["binary"]).sum())
+        smaller = min(
+            int(left["binary"].sum()),
+            int(right["binary"].sum()),
+        )
+        return (
+            intersection / max(union, 1)
+            >= ONE_SIDED_SAME_OBJECT_MIN_IOU
+            or intersection / max(smaller, 1) >= 0.90
+        )
+
+    near_family = [
+        proposal
+        for proposal in proposals
+        if same_object(proposal, best)
+        and proposal["anchor_residual"]
+        <= best["anchor_residual"] + ONE_SIDED_NEAR_EQUIVALENT_MAE
+    ]
+    selected = max(
+        near_family,
+        key=lambda proposal: (
+            proposal["area_fraction"],
+            -proposal["anchor_residual"],
+        ),
+    )
+    competitors = [
+        proposal
+        for proposal in proposals
+        if not same_object(proposal, selected)
+    ]
+    competitor_residual = min(
+        (
+            proposal["anchor_residual"]
+            for proposal in competitors
+        ),
+        default=np.inf,
+    )
+    competitor_margin = competitor_residual - selected["anchor_residual"]
+    report.update(
+        {
+            "one_sided_geometry_owner": int(selected["owner"]),
+            "one_sided_geometry_mask_index": int(
+                selected["mask_index"]
+            ),
+            "one_sided_geometry_anchor_residual": float(
+                selected["anchor_residual"]
+            ),
+            "one_sided_geometry_best_residual": float(
+                best["anchor_residual"]
+            ),
+            "one_sided_geometry_competitor_residual": float(
+                competitor_residual
+            ),
+            "one_sided_geometry_competitor_margin": float(
+                competitor_margin
+            ),
+            "one_sided_geometry_near_family_count": len(near_family),
+            "one_sided_geometry_area_fraction": float(
+                selected["area_fraction"]
+            ),
+        }
+    )
+    if (
+        not np.isfinite(competitor_margin)
+        or competitor_margin <= ONE_SIDED_COMPETITOR_MARGIN
+    ):
+        report["one_sided_geometry_reason"] = "ambiguous_competitor"
+        return None, report
+
+    # The foreground remains geometrically present in both focal observations
+    # under the one-sided opaque contract, even though its radiance is blurred
+    # in one of them. Intersect the focused proposal with the most-overlapping
+    # other-frame semantic observation. This is a conservative shrink: it can
+    # never invent or extend owned support, and it rejects broad attached
+    # background regions that appear in only one segmentation.
+    cross_candidates = []
+    for mask_index, raw_mask in enumerate(
+        np.asarray(owner_masks_by_frame[1 - selected["owner"]])
+    ):
+        other_mask = np.asarray(raw_mask) > 0
+        intersection = int((selected["binary"] & other_mask).sum())
+        containment = intersection / max(
+            int(selected["binary"].sum()),
+            1,
+        )
+        if containment < 0.50:
+            continue
+        iou = intersection / max(
+            int((selected["binary"] | other_mask).sum()),
+            1,
+        )
+        cross_candidates.append(
+            {
+                "mask_index": int(mask_index),
+                "mask": other_mask,
+                "iou": float(iou),
+                "containment": float(containment),
+            }
+        )
+    if not cross_candidates:
+        report["one_sided_geometry_reason"] = (
+            "cross_frame_geometry_uncorroborated"
+        )
+        return None, report
+    cross = max(
+        cross_candidates,
+        key=lambda candidate: (
+            candidate["iou"],
+            candidate["containment"],
+        ),
+    )
+    corroborated = selected["binary"] & cross["mask"]
+    if (
+        float(corroborated.mean())
+        < ONE_SIDED_MASK_MIN_AREA_FRACTION
+    ):
+        report["one_sided_geometry_reason"] = (
+            "cross_frame_geometry_too_small"
+        )
+        return None, report
+    guide = to_gray_float(images[selected["owner"]]) / 255.0
+    corroborated_alpha = np.clip(
+        guided_filter(
+            guide.astype(np.float32),
+            corroborated.astype(np.float32),
+            2,
+            1e-4,
+        ),
+        0.0,
+        1.0,
+    )
+    report.update(
+        {
+            "one_sided_geometry_fired": True,
+            "one_sided_geometry_reason": "formation_separated_owner",
+            "one_sided_geometry_cross_mask_index": int(
+                cross["mask_index"]
+            ),
+            "one_sided_geometry_cross_iou": float(cross["iou"]),
+            "one_sided_geometry_cross_containment": float(
+                cross["containment"]
+            ),
+            "one_sided_geometry_corroborated_pixels": int(
+                corroborated.sum()
+            ),
+        }
+    )
+    return {
+        "alpha": corroborated_alpha,
+        "owner": int(selected["owner"]),
+        "source": "one_sided_owner_frame",
+        "source_mask_index": int(selected["mask_index"]),
+        "feats": np.ones(7, np.float32),
+    }, report
 
 
 def _candidate_evidence(
@@ -1280,9 +1599,6 @@ def recover_giant_veil(
     if len(images) != 2:
         report["reason"] = "requires_two_frames"
         return base, report
-    if not candidates:
-        report["reason"] = "no_candidate"
-        return base, report
     if any(image.shape != base.shape for image in images):
         report["reason"] = "shape_mismatch"
         return base, report
@@ -1290,10 +1606,46 @@ def recover_giant_veil(
         report["reason"] = "native_size_unvalidated"
         return base, report
 
-    selected, selection_report = select_licensed_candidate(images, candidates)
-    report.update(selection_report)
-    if selected is None:
-        return base, report
+    selected, one_sided_report = select_one_sided_owner_geometry(
+        images,
+        owner_masks_by_frame,
+    )
+    report.update(one_sided_report)
+    one_sided_geometry = selected is not None
+    if one_sided_geometry:
+        measured = _candidate_evidence(images, selected)
+        if measured is None:
+            report["reason"] = "one_sided_geometry_evidence_failed"
+            return base, report
+        selected = measured
+        report.update(
+            {
+                "candidate_count": int(
+                    one_sided_report[
+                        "one_sided_geometry_proposal_count"
+                    ]
+                ),
+                "candidate_rank": -1,
+                "forward_before": float(selected["forward_before"]),
+                "forward_after": float(selected["forward_after"]),
+                "forward_ratio": float(
+                    selected["forward_after"]
+                    / max(selected["forward_before"], 1e-6)
+                ),
+                "reason": "one_sided_geometry_licensed",
+            }
+        )
+    else:
+        if not candidates:
+            report["reason"] = "no_candidate"
+            return base, report
+        selected, selection_report = select_licensed_candidate(
+            images,
+            candidates,
+        )
+        report.update(selection_report)
+        if selected is None:
+            return base, report
 
     owner = int(selected["owner"])
     owner_masks = (
@@ -1302,11 +1654,19 @@ def recover_giant_veil(
         and len(owner_masks_by_frame) == len(images)
         else None
     )
-    selected, owner_refinement_report = refine_owner_candidate(
-        images,
-        selected,
-        owner_masks,
-    )
+    if one_sided_geometry:
+        owner_refinement_report = {
+            "owner_refinement_fired": False,
+            "owner_refinement_reason": (
+                "one_sided_owner_geometry_is_primary"
+            ),
+        }
+    else:
+        selected, owner_refinement_report = refine_owner_candidate(
+            images,
+            selected,
+            owner_masks,
+        )
     report.update(owner_refinement_report)
     alpha = np.clip(selected["alpha"].astype(np.float32), 0.0, 1.0)
     owner_support, owner_support_report = complete_owner_support(
@@ -1358,13 +1718,30 @@ def recover_giant_veil(
         report["owner_support_pixels"] = int(owner_support.sum())
     else:
         report["owner_support_consensus_removed_pixels"] = 0
-    front_reconstruction = _owner_front_reconstruction_support(
-        alpha,
-        owner_masks,
-        front_support_report,
-        max_radius,
-        spatial_scale,
-    )
+    if one_sided_geometry:
+        inside_distance = cv2.distanceTransform(
+            (alpha >= 0.5).astype(np.uint8),
+            cv2.DIST_L2,
+            5,
+        )
+        front_reconstruction = inside_distance > max(
+            1.0,
+            spatial_scale,
+        )
+        report["owner_front_reconstruction_reason"] = (
+            "one_sided_confident_interior"
+        )
+    else:
+        front_reconstruction = _owner_front_reconstruction_support(
+            alpha,
+            owner_masks,
+            front_support_report,
+            max_radius,
+            spatial_scale,
+        )
+        report["owner_front_reconstruction_reason"] = (
+            "partial_coverage_parent"
+        )
     front_reconstruction &= front_consensus
     report["owner_front_reconstruction_pixels"] = int(
         front_reconstruction.sum()

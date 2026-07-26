@@ -1,19 +1,21 @@
 # Occlusion formation audit — geometry, veil, and material transmission
 
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
-`NEXT_STEPS_scenerecovery.md`, and F60–F64 in `FINDINGS.md`.
+`NEXT_STEPS_scenerecovery.md`, and F60–F65 in `FINDINGS.md`.
 
 ## User correction and pause checkpoint — supersedes the primary input contract
 
-The current exact-disk renderer still uses aperture-coverage convolution on
-both sides of the sharp silhouette. Even after reweighting S23 and making the
+The historical exact-disk renderer uses aperture-coverage convolution on both
+sides of the sharp silhouette. Even after reweighting S23 and making the
 same-scene `r=12` example, that operator can admit focused rear detail *inside*
-the latent opaque-foreground support. The user has rejected that as the primary
+the latent opaque-foreground support. The user rejected that as the primary
 formation contract for this project. Reducing the CoC merely reduces the
-violation; it is not the fix.
+violation; it is not the fix. The primary S25+ renderer now implements the
+one-sided contract below; the historical model remains only as a named stress
+formation.
 
-When this arc resumes, do not tune recovery or spend another broad run first.
-Replace the primary opaque generator with a one-sided ownership operator:
+The primary opaque generator and paired recovery model use this one-sided
+ownership operator:
 
 1. inside confidently owned latent foreground support, rear throughput is
    exactly zero in every focal observation;
@@ -23,12 +25,10 @@ Replace the primary opaque generator with a one-sided ownership operator:
    reveal sharp rear texture inward;
 4. true material transmission remains a separate, explicitly labeled model.
 
-Then regenerate the inspector's synthetic inputs and regrade the unchanged F64
-recovery package. Existing V2/S23 aperture-mixed scenes remain useful as a named
+Existing V2/S23 aperture-mixed scenes remain useful as a named
 alternative/stress formation model, but they no longer define the primary
-opaque input contract. The user paused the arc here. Runtime F64 code was not
-changed after `ee181b7`; later work was inspector-only plus an isolated cached
-S15 attribution harness.
+opaque input contract. The inspector remains intentionally frozen at the
+previous S23 checkpoint while S25 is unfinished.
 
 ### Resume progress
 
@@ -41,8 +41,21 @@ S15 attribution harness.
 - [x] Generate the first compact six-scene S25 development sample. Every scene
       has saved owned-core fraction `1.0`, owned-inner fraction `0.0`, zero rear
       throughput on every stored `alpha=255` pixel, and a nonempty outward veil.
-- [ ] Pair the runtime forward/adjoint solver with the one-sided operator before
-      interpreting F64 results on S25.
+- [x] Pair the runtime forward/adjoint solver with the one-sided operator,
+      including a numerical adjoint test and a hidden-background
+      counterfactual.
+- [x] Select foreground geometry from original focal frames under the paired
+      formation model, prefer containing near-tied silhouettes, corroborate
+      support across frames, and hard-copy only the eroded, locally supported
+      focused foreground.
+- [ ] Resume on the single remaining S25 dissent: `s25_000` improves global MAE
+      and the exterior veil but has a tiny foreground-core MAE regression
+      (`+0.0096`) and ΔSSIM `-0.000283`. Separate raw owner-frame sensor noise
+      from missed support before changing any established recovery component.
+- [ ] Add explicit foreground-support, semantic-boundary, outer-veil, and
+      far-background audits. Hard ownership means selecting a foreground layer;
+      any foreground denoising must use only foreground-owned observations and
+      may never blend the hidden rear layer inward.
 - [ ] After the recovery rule freezes, generate a fresh S26 validation split;
       regenerate the inspector only once at the end.
 

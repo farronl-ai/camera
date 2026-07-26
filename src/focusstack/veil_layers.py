@@ -3704,10 +3704,32 @@ def recover_giant_veil(
     repaired_base[owner_copy_support] = owner_front_observation[
         owner_copy_support
     ]
+    applied_correction = correction * mask[..., None]
+    if one_sided_geometry:
+        integration_sigma = 3.0 * spatial_scale
+        low_correction = cv2.GaussianBlur(
+            correction,
+            (0, 0),
+            integration_sigma,
+            borderType=cv2.BORDER_REFLECT,
+        )
+        detail_correction = correction - low_correction
+        low_feather = cv2.GaussianBlur(
+            mask,
+            (0, 0),
+            integration_sigma,
+            borderType=cv2.BORDER_REFLECT,
+        )
+        low_mask = mask + (1.0 - mask) * low_feather
+        low_mask[np.asarray(selected["front_extent"], bool)] = 0.0
+        applied_correction = (
+            detail_correction * mask[..., None]
+            + low_correction * low_mask[..., None]
+        )
     output = np.rint(
         np.clip(
             repaired_base.astype(np.float32)
-            + correction * mask[..., None],
+            + applied_correction,
             0,
             255,
         )

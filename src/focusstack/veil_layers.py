@@ -3665,8 +3665,8 @@ def recover_giant_veil(
         # be classified as veil by the original cross-frame intersection.
         front_extent = np.asarray(
             selected.get(
-                "front_veto_extent",
-                selected.get("front_extent", alpha >= 0.5),
+                "front_extent",
+                alpha >= 0.5,
             ),
             bool,
         )

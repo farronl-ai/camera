@@ -572,7 +572,7 @@ def _v2_visibility_cases(selected_sids=None):
             owner,
             estimated_alpha,
             np.asarray(selected["rear_support_alpha"], np.float32),
-            np.asarray(selected["front_veto_extent"], bool),
+            np.asarray(selected["front_extent"], bool),
             fringe_consensus,
             max_radius,
             spatial_scale,

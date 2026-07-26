@@ -158,8 +158,9 @@ comparison table is a real gap, including ours.</p>
   <p><strong>As an algorithm, focusstack is genuinely competitive at the research frontier; as a product, it is
   not shippable today, and the market it would ship into is small, cheap, and being commoditized from below.</strong></p>
   <p>The engine's core fusion (<code>perband</code>) is validated against ground truth in six regimes and its
-  gated contour-reconstruction specialist — plus a demonstrated willingness to withdraw a branch when a
-  harder hallucination audit overturns its gate — has no
+  gated contour-reconstruction specialist plus narrowly licensed joint-layer giant-veil recovery —
+  including a demonstrated withdrawal and ground-up replacement after a harder hallucination audit —
+  has no
   equivalent in any commercial or open-source stacker we found. But: it has no GUI, no RAW support, an 8-bit
   pipeline, no retouching workflow, unresolved deep-stack handheld alignment, and no benchmark against
   Helicon or Zerene outputs — only against our own reimplementations of their algorithm families.
@@ -179,11 +180,11 @@ Python 3 + OpenCV, CPU-only. The scientific core is real and unusually well-evid
     <ul>
       <li><strong>Per-band edge-aware fusion (<code>perband</code>)</strong> — multi-scale decision <em>and</em> halo-free reconstruction; GT-SSIM 0.9918 on Real-MFF (710 real pairs) and 0.9021 at 3072&nbsp;px, beating classical pyramid and guided-blend baselines at both resolutions, with the lead <em>widening</em> under honest occlusion physics.</li>
       <li><strong>Confidence hardening</strong> — one mechanism that rescues thin bright structures and rejects defocus-spread bleed.</li>
-      <li><strong>One gated boundary specialist</strong> (contour reconstruction). The former veil specialist is safety-disabled after a realistic-object/native-resolution audit overturned its narrow held-out result; this is a strength of the evidence process, not a second capability.</li>
+      <li><strong>Two narrow, refusing specialists:</strong> gated contour reconstruction, plus owner-safe joint-layer recovery for exactly two-frame giant veils. The latter is 10/10 positive on exact-package fired scenes across development and two scene-disjoint synthetic holdouts, while refusing all 66 moderate-CoC scenes; it is not validated as a general or real-photo recovery feature.</li>
       <li><strong>GT-calibrated multi-scale metrics</strong> — we fixed the standard Q<sup>AB/F</sup> metric's high-res collapse and validated the composite against ground truth (+0.785/+0.869 Spearman at low/high res).</li>
       <li><strong>Exposure/WB-drift correction, default-on</strong> — recovers −0.025 SSIM of damage to −0.002, provably near-identity on clean stacks.</li>
       <li><strong>Real-data validation</strong> — real fluorescence-microscopy z-stacks (BBBC006) and 13 real handheld phone sweeps, plus a depth-from-focus byproduct (<code>--depth-out</code>).</li>
-      <li><strong>Content-aware focus operators</strong>, an explicit speed/quality tradeoff via <code>--fast</code> (~1.5× at a measured −0.005 to −0.025 GT-SSIM), and an honest research record (54 dated findings incl. rigorous negatives and a shipped-feature withdrawal).</li>
+      <li><strong>Content-aware focus operators</strong>, an explicit speed/quality tradeoff via <code>--fast</code> (~1.5× at a measured −0.005 to −0.025 GT-SSIM), and an honest research record (56 dated findings incl. rigorous negatives, a shipped-feature withdrawal, and its separately validated replacement).</li>
     </ul>
   </div>
   <div class="card gap">
@@ -273,6 +274,17 @@ Python 3 + OpenCV, CPU-only. The scientific core is real and unusually well-evid
       <td><span class="cell part">◐ wavelet method, no GT eval</span></td>
       <td><span class="cell part">◐ classical pyramid</span><span class="note">the family that halos</span></td>
       <td><span class="cell no">✗ halos documented</span></td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Automatic physics-based recovery beyond source selection</td>
+      <td class="us"><span class="cell part">◐ narrow + GT-audited</span><span class="note">contours; two-frame giant veils only; refusal-heavy, synthetic recovery GT</span></td>
+      <td><span class="cell part">◐ retouch workflow</span><span class="note">manual source painting, not published latent-scene recovery validation</span></td>
+      <td><span class="cell part">◐ retouch workflow</span><span class="note">manual source painting, not published latent-scene recovery validation</span></td>
+      <td><span class="cell part">◐ layer editing</span><span class="note">no published recovery validation</span></td>
+      <td><span class="cell part">◐ layer editing</span><span class="note">no published recovery validation</span></td>
+      <td><span class="cell no">✗ not documented</span></td>
+      <td><span class="cell no">✗ not documented</span></td>
+      <td><span class="cell no">✗ not documented</span></td>
     </tr>
     <tr>
       <td class="rowlabel">Retouching / manual source painting</td>
@@ -399,17 +411,22 @@ Where a competitor cell says "no published eval," that is itself the finding: no
 
 <h2 id="diff">3. What is genuinely differentiated</h2>
 <p>Three things in this repo do not exist elsewhere in the focus-stacking market, as far as our research found:</p>
-<h3>3.1 Gated contour correction with evidence-driven refusal</h3>
+<h3>3.1 Gated physical recovery with evidence-driven refusal</h3>
 <p>Every stacker fails at depth boundaries sometimes; the industry's universal answer is <em>manual retouching</em>
 (Zerene's flagship workflow, Helicon's brush tools). Our answer is structural but narrower:
 contour reconstruction behind a gate <em>trained on the actual quality outcome</em> of firing.
-The veil branch originally used the same recipe, but F54 showed that a gate inherits its factory
-and labels' blind spots: the branch is now safety-disabled. No competitor we found publishes this
-kind of automated boundary-correction evidence or a comparable feature-withdrawal audit. This is
-a real research contribution, not a do-no-harm guarantee and not yet a replacement for retouching.</p>
+The first veil branch used the same recipe, but F54 showed that a gate inherits its factory
+and labels' blind spots, so that correction-after-fusion operator remains retired. F56's
+replacement instead solves both captured layers jointly, requires observation-domain improvement,
+keeps only cross-model-consistent components, and vetoes edits where focus evidence says foreground.
+It is 10/10 positive on fired synthetic scenes across development and two scene-disjoint holdouts,
+but only in an intentionally tiny two-frame giant-CoC regime. No competitor we found publishes this
+kind of automated latent-scene-recovery evidence or a comparable withdrawal-and-replacement audit.
+This is a real research contribution, not a general do-no-harm guarantee and not yet a replacement
+for retouching.</p>
 <h3>3.2 GT-calibrated honesty as a feature</h3>
-<p>The evidence culture — six validation regimes, metrics themselves validated against ground truth, negatives
-published (oracle de-veiling loses; spread import doesn't materialize) — is unique in this market. Commercial tools
+<p>The evidence culture — six validation regimes, metrics themselves validated against ground truth, conditional negatives
+published (correction-after-fusion de-veiling loses; spread import doesn't materialize) — is unique in this market. Commercial tools
 compete on reputation and forum lore; academic MFIF papers compete on benchmark tables that rarely survive contact
 with high resolution. A GT-validated, per-regime evidence table is a credibility asset if we ever publish or open-source.</p>
 <h3>3.3 The multi-scale decision insight (perband)</h3>

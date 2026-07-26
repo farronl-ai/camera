@@ -642,7 +642,6 @@ def stable_correction(
     solved_images: Iterable[np.ndarray],
     *,
     correction_sigma: float,
-    return_spread_map: bool = False,
 ) -> tuple[np.ndarray, dict]:
     """Project onto components whose sign survives every admitted model."""
     minimum = None
@@ -682,17 +681,12 @@ def stable_correction(
     same_sign = (minimum > 0) | (maximum < 0)
     retained = np.sign(mean) * minimum_abs * same_sign
     variance = np.maximum(total_square / count - mean * mean, 0)
-    report = {
+    return retained, {
         "model_count": count,
         "stable_fraction": float(same_sign.mean()),
         "ensemble_spread_rms": float(np.sqrt(np.mean(variance))),
         "retained_rms": float(np.sqrt(np.mean(retained * retained))),
     }
-    if return_spread_map:
-        report["_ensemble_spread_map"] = np.sqrt(
-            np.mean(variance, axis=2)
-        )
-    return retained, report
 
 
 def _resize_for_model(image: np.ndarray) -> np.ndarray:
@@ -3625,11 +3619,6 @@ def recover_giant_veil(
         base,
         solve_bank(),
         correction_sigma=0.5 * spatial_scale,
-        return_spread_map=one_sided_geometry,
-    )
-    correction_spread = uncertainty.pop(
-        "_ensemble_spread_map",
-        None,
     )
     report.update(uncertainty)
     if not np.all(np.isfinite(correction)):
@@ -3883,27 +3872,53 @@ def recover_giant_veil(
                 borderType=cv2.BORDER_REFLECT,
             )
             latent_delta = latent_rear_low - composed_low
-            proposal_magnitude = np.sqrt(
-                np.mean(latent_delta * latent_delta, axis=2)
+            counterfactual_magnitudes = []
+            for visibility_blur_fn in (_box_disk_blur, _disk_blur):
+                visibility_model = _prepare_model(
+                    alpha,
+                    max_radius,
+                    visibility_blur_fn,
+                    hard_ownership=front_extent,
+                )
+                observed_delta = visibility_model["transmission"][1] * (
+                    _blur_channels(
+                        latent_delta,
+                        visibility_model["far_radii"][1],
+                        visibility_blur_fn,
+                    )
+                )
+                counterfactual_magnitudes.append(
+                    np.sqrt(
+                        np.mean(
+                            observed_delta * observed_delta,
+                            axis=2,
+                        )
+                    )
+                )
+            counterfactual_magnitude = np.minimum.reduce(
+                counterfactual_magnitudes
             )
-            if correction_spread is None:
-                spread_floor = np.zeros(mask.shape, np.float32)
-            else:
-                spread_floor = cv2.GaussianBlur(
-                    correction_spread,
+            rear_observed = images[1 - owner].astype(np.float32)
+            rear_detail = rear_observed - cv2.GaussianBlur(
+                rear_observed,
+                (0, 0),
+                0.75 * spatial_scale,
+                borderType=cv2.BORDER_REFLECT,
+            )
+            observation_noise = np.sqrt(
+                cv2.GaussianBlur(
+                    np.mean(rear_detail * rear_detail, axis=2),
                     (0, 0),
                     integration_sigma,
                     borderType=cv2.BORDER_REFLECT,
                 )
-            veil_magnitude = np.sqrt(
-                np.mean(low_correction * low_correction, axis=2)
             )
             detection_floor = np.maximum(
                 1.0,
-                spread_floor + 0.08 * np.sqrt(veil_magnitude),
+                observation_noise,
             )
             censored_phase = np.clip(
-                (detection_floor - proposal_magnitude)
+                (detection_floor - counterfactual_magnitude)
                 / np.maximum(0.5 * detection_floor, 1e-6),
                 0.0,
                 1.0,
@@ -3917,7 +3932,7 @@ def recover_giant_veil(
                 * censored_weight[..., None]
                 * latent_delta
             )
-            report["latent_background_censored_fraction"] = float(
+            report["latent_background_counterfactual_fraction"] = float(
                 (
                     (censored_weight > 0.0)
                     & (low_seam_strength > 0.0)

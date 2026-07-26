@@ -534,6 +534,7 @@ def test_one_sided_rear_mask_never_crosses_true_foreground():
     assert report["rear_mask_presence_reason"] in {
         "reverse_reblur_exceeds_noise_floor",
         "insufficient_rear_noise_reference",
+        "geometry_licensed_full_veil",
     }
 
 

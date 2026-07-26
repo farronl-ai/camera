@@ -3233,7 +3233,7 @@ def _one_sided_rear_application_mask(
     suppresses the very exterior veil this operator is meant to recover and
     leaves an uncorrected seam around the silhouette.
     """
-    ownership, ownership_evidence = _ordered_visibility_gate(
+    _, ownership_evidence = _ordered_visibility_gate(
         images,
         owner,
         alpha,
@@ -3241,10 +3241,9 @@ def _one_sided_rear_application_mask(
     )
     mask = (
         _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
-        * ownership
         * fringe_consensus.astype(np.float32)
     )
-    rear_support_ownership, rear_support_evidence = (
+    _, rear_support_evidence = (
         _ordered_visibility_gate(
             images,
             owner,
@@ -3258,7 +3257,6 @@ def _one_sided_rear_application_mask(
             max_radius,
             2.0 * spatial_scale,
         )
-        * rear_support_ownership
     )
     before_corroboration = int((mask > 1e-4).sum())
     mask *= (rear_support_mask > 1e-4).astype(np.float32)
@@ -3269,9 +3267,9 @@ def _one_sided_rear_application_mask(
     mask[front_veto] = 0.0
 
     (
-        direction_score,
         _,
-        reverse_reblur_residual,
+        _,
+        _,
         directional_report,
     ) = _directional_defocus_evidence(
         images,
@@ -3285,39 +3283,13 @@ def _one_sided_rear_application_mask(
     directional_boundary_limit = 0.0
     directional_removed = 0
 
-    # Rear focus alone is not proof that foreground veil is present.  A pure
-    # rear pixel is accurately mapped back to the owner frame by the reverse
-    # reblur, leaving only the sensor-noise floor.  Require an unexplained
-    # residual twice the robust lower-tail floor before rear synthesis can
-    # alter that pixel.
-    rear_reference = reverse_reblur_residual[
-        direction_score <= -ONE_SIDED_DIRECTIONAL_REAR_VETO_MARGIN
-    ]
-    minimum_reference_pixels = max(
-        32,
-        int(round(0.0001 * mask.size)),
-    )
-    if rear_reference.size >= minimum_reference_pixels:
-        noise_floor = float(
-            np.percentile(
-                rear_reference,
-                ONE_SIDED_REAR_PRESENCE_NOISE_QUANTILE,
-            )
-        )
-        presence_threshold = (
-            ONE_SIDED_REAR_PRESENCE_NOISE_MULTIPLIER * noise_floor
-        )
-        rear_presence = reverse_reblur_residual >= presence_threshold
-        presence_reason = "reverse_reblur_exceeds_noise_floor"
-    else:
-        noise_floor = None
-        presence_threshold = None
-        rear_presence = np.zeros(mask.shape, bool)
-        presence_reason = "insufficient_rear_noise_reference"
-    presence_removed = int(
-        ((mask > 1e-4) & ~rear_presence).sum()
-    )
-    mask[~rear_presence] = 0.0
+    # Once the paired geometry licenses a veil, its footprint is geometric;
+    # background texture only changes how well the inverse is constrained.
+    # Do not punch holes in the veil merely because the rear is low-frequency.
+    noise_floor = None
+    presence_threshold = None
+    presence_reason = "geometry_licensed_full_veil"
+    presence_removed = 0
     low_weight_removed = int(
         ((mask > 0.0) & (mask < ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT)).sum()
     )

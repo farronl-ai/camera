@@ -8,6 +8,7 @@ from focusstack.veil_layers import (
     _box_disk_blur,
     _forward_layers,
     _fringe_mask,
+    _one_sided_rear_application_mask,
     _owner_geometry_consensus,
     _owner_front_reconstruction_support,
     _ordered_visibility_gate,
@@ -194,8 +195,63 @@ def test_one_sided_recovery_hard_selects_confident_foreground_interior():
     assert report["fired"] is True
     assert report["one_sided_geometry_fired"] is True
     assert report["owner_front_reconstruction_pixels"] > 0
-    hard_front = np.all(output == frames[0], axis=2) & true_mask
+    expected_front = cv2.fastNlMeansDenoisingColored(
+        frames[0],
+        None,
+        2.0,
+        2.0,
+        3,
+        7,
+    )
+    hard_front = np.all(output == expected_front, axis=2) & true_mask
     assert int(hard_front.sum()) >= report["owner_front_reconstruction_pixels"]
+    assert (
+        report["front_observation_source"]
+        == "focused_owner_nlm_foreground_only"
+    )
+    assert report["rear_mask_front_veto_removed_pixels"] >= 0
+
+
+def test_one_sided_rear_mask_never_crosses_true_foreground():
+    frames, _, candidate, _ = _physical_giant_stack()
+    true_mask = candidate["alpha"] > 0
+    eroded = cv2.erode(
+        true_mask.astype(np.uint8),
+        np.ones((7, 7), np.uint8),
+    )
+    other_observation = cv2.dilate(
+        true_mask.astype(np.uint8),
+        np.ones((5, 5), np.uint8),
+    )
+    false_mask = np.zeros_like(eroded)
+    false_mask[15:55, 10:40] = 1
+    owner_masks = [
+        np.stack([true_mask, eroded]).astype(np.uint8),
+        np.stack([other_observation, false_mask]),
+    ]
+    selected, evidence = select_one_sided_owner_geometry(
+        frames,
+        owner_masks,
+    )
+    assert selected is not None, evidence
+    consensus = np.ones(true_mask.shape, bool)
+
+    rear_mask, report = _one_sided_rear_application_mask(
+        frames,
+        selected["owner"],
+        selected["alpha"],
+        selected["rear_support_alpha"],
+        selected["front_extent"],
+        consensus,
+        RADIUS_FRACTION * max(true_mask.shape),
+        1.0,
+    )
+
+    assert not np.any((rear_mask > 1e-4) & true_mask)
+    assert (
+        report["rear_mask_after_geometry_corroboration_pixels"]
+        >= report["rear_mask_active_pixels"]
+    )
 
 
 def test_candidate_license_uses_semantics_and_forward_evidence():

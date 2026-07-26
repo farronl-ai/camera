@@ -30,10 +30,15 @@ from focusstack.focus import content_aware_energies  # noqa: E402
 from focusstack.fusion import fuse_perband, guided_filter  # noqa: E402
 from focusstack.io import to_gray_float  # noqa: E402
 from focusstack.veil_layers import (  # noqa: E402
+    MODEL_SIDE,
+    RADIUS_FRACTION,
     REAR_EVIDENCE_DENSITY,
     VISIBILITY_COVERAGE_FLOOR,
     VISIBILITY_COVERAGE_RAMP,
+    _one_sided_rear_application_mask,
+    _owner_geometry_consensus,
     recover_giant_veil,
+    select_one_sided_owner_geometry,
 )
 
 import metrics as M  # noqa: E402
@@ -77,12 +82,16 @@ def _mae(image: np.ndarray, gt: np.ndarray, support: np.ndarray) -> float | None
 def _partitions(scene: dict, base: np.ndarray, output: np.ndarray) -> dict:
     alpha = scene["alpha"]
     coverage = scene["coverage"][1]
-    sharp = alpha >= 0.95
+    changed = np.any(output != base, axis=2)
+    base_error = np.abs(
+        base.astype(np.float32) - scene["gt"].astype(np.float32)
+    ).mean(axis=2)
+    output_error = np.abs(
+        output.astype(np.float32) - scene["gt"].astype(np.float32)
+    ).mean(axis=2)
     partitions = {
-        "complete_coverage_core": sharp & (coverage >= 0.95),
-        "inner_partial_occlusion": (
-            sharp & (coverage > 0.05) & (coverage < 0.95)
-        ),
+        "owned_foreground_core": alpha >= 0.95,
+        "foreground_boundary": (alpha > 0.05) & (alpha < 0.95),
         "outer_veil": (alpha < 0.05) & (coverage > 0.05),
         "far_background": coverage <= 0.05,
     }
@@ -91,8 +100,171 @@ def _partitions(scene: dict, base: np.ndarray, output: np.ndarray) -> dict:
             "pixels": int(mask.sum()),
             "mae_base": _mae(base, scene["gt"], mask),
             "mae_output": _mae(output, scene["gt"], mask),
+            "changed_pixels": int((changed & mask).sum()),
+            "changed_closer": int(
+                (changed & mask & (output_error < base_error)).sum()
+            ),
+            "changed_worse": int(
+                (changed & mask & (output_error > base_error)).sum()
+            ),
         }
         for name, mask in partitions.items()
+    }
+
+
+def _boundary_pixels(mask: np.ndarray) -> np.ndarray:
+    eroded = cv2.erode(
+        np.asarray(mask, np.uint8),
+        np.ones((3, 3), np.uint8),
+    )
+    return np.asarray(mask, bool) & ~(eroded > 0)
+
+
+def _boundary_distance_summary(
+    predicted: np.ndarray,
+    truth: np.ndarray,
+) -> dict:
+    predicted_boundary = _boundary_pixels(predicted)
+    truth_boundary = _boundary_pixels(truth)
+    if not np.any(predicted_boundary) or not np.any(truth_boundary):
+        return {
+            "predicted_to_gt_mean_px": None,
+            "predicted_to_gt_p95_px": None,
+            "gt_to_predicted_mean_px": None,
+            "gt_to_predicted_p95_px": None,
+        }
+    distance_to_truth = cv2.distanceTransform(
+        (~truth_boundary).astype(np.uint8),
+        cv2.DIST_L2,
+        5,
+    )
+    distance_to_prediction = cv2.distanceTransform(
+        (~predicted_boundary).astype(np.uint8),
+        cv2.DIST_L2,
+        5,
+    )
+    predicted_distances = distance_to_truth[predicted_boundary]
+    truth_distances = distance_to_prediction[truth_boundary]
+    return {
+        "predicted_to_gt_mean_px": float(predicted_distances.mean()),
+        "predicted_to_gt_p95_px": float(
+            np.percentile(predicted_distances, 95)
+        ),
+        "gt_to_predicted_mean_px": float(truth_distances.mean()),
+        "gt_to_predicted_p95_px": float(
+            np.percentile(truth_distances, 95)
+        ),
+    }
+
+
+def _one_sided_geometry_audit(
+    scene: dict,
+    owner_masks: list[np.ndarray],
+    selected_geometry: tuple[dict | None, dict] | None = None,
+) -> dict:
+    """Use factory GT only to grade discrete front/rear ownership decisions."""
+    if selected_geometry is None:
+        selected, report = select_one_sided_owner_geometry(
+            scene["frames"],
+            owner_masks,
+        )
+    else:
+        selected, report = selected_geometry
+    if selected is None:
+        return {
+            "evaluated": False,
+            "reason": report["one_sided_geometry_reason"],
+        }
+    alpha = np.clip(
+        np.asarray(selected["alpha"], np.float32),
+        0.0,
+        1.0,
+    )
+    predicted_front = np.asarray(
+        selected.get("front_extent", alpha >= 0.5),
+        bool,
+    )
+    true_front = scene["alpha"] >= 0.5
+    intersection = int((predicted_front & true_front).sum())
+    union = int((predicted_front | true_front).sum())
+    false_front = predicted_front & ~true_front
+    missed_front = ~predicted_front & true_front
+
+    spatial_scale = max(
+        1.0,
+        max(true_front.shape) / MODEL_SIDE,
+    )
+    max_radius = RADIUS_FRACTION * max(true_front.shape)
+    front_consensus, fringe_consensus, _ = _owner_geometry_consensus(
+        alpha,
+        owner_masks[int(selected["owner"])],
+        max_radius,
+        spatial_scale,
+    )
+    inside_distance = cv2.distanceTransform(
+        (alpha >= 0.5).astype(np.uint8),
+        cv2.DIST_L2,
+        5,
+    )
+    hard_front = (
+        inside_distance > max(1.0, spatial_scale)
+    ) & front_consensus
+    rear_mask, rear_report = _one_sided_rear_application_mask(
+        scene["frames"],
+        int(selected["owner"]),
+        alpha,
+        np.asarray(selected["rear_support_alpha"], np.float32),
+        predicted_front,
+        fringe_consensus,
+        max_radius,
+        spatial_scale,
+        float(selected.get("front_veto_model_pixels", 3.0)),
+    )
+    rear_active = rear_mask > 1e-4
+    alpha_gt = scene["alpha"]
+    coverage = scene["coverage"][1]
+    gt_regions = {
+        "owned_foreground_core": alpha_gt >= 0.95,
+        "foreground_boundary": (
+            (alpha_gt > 0.05) & (alpha_gt < 0.95)
+        ),
+        "outer_veil": (
+            (alpha_gt < 0.05) & (coverage > 0.05)
+        ),
+        "far_background": coverage <= 0.05,
+    }
+    return {
+        "evaluated": True,
+        "owner": int(selected["owner"]),
+        "front_extent_pixels": int(predicted_front.sum()),
+        "front_gt_pixels": int(true_front.sum()),
+        "front_true_pixels": intersection,
+        "front_false_pixels": int(false_front.sum()),
+        "front_missed_pixels": int(missed_front.sum()),
+        "front_precision": float(
+            intersection / max(int(predicted_front.sum()), 1)
+        ),
+        "front_recall": float(
+            intersection / max(int(true_front.sum()), 1)
+        ),
+        "front_iou": float(intersection / max(union, 1)),
+        "hard_front_pixels": int(hard_front.sum()),
+        "hard_front_true_core_pixels": int(
+            (hard_front & gt_regions["owned_foreground_core"]).sum()
+        ),
+        "hard_front_false_pixels": int(
+            (hard_front & ~true_front).sum()
+        ),
+        "rear_active_pixels": int(rear_active.sum()),
+        "rear_overlap_by_gt_region": {
+            name: int((rear_active & mask).sum())
+            for name, mask in gt_regions.items()
+        },
+        "boundary_distance": _boundary_distance_summary(
+            predicted_front,
+            true_front,
+        ),
+        "runtime_rear_mask_report": rear_report,
     }
 
 
@@ -557,14 +729,14 @@ def oracle(split: str) -> None:
                 for row in fired
             ),
             "core_mae_positive": sum(
-                row["metrics"]["partitions"]["complete_coverage_core"][
+                row["metrics"]["partitions"]["owned_foreground_core"][
                     "mae_output"
                 ]
-                <= row["metrics"]["partitions"]["complete_coverage_core"][
+                <= row["metrics"]["partitions"]["owned_foreground_core"][
                     "mae_base"
                 ]
                 for row in fired
-                if row["metrics"]["partitions"]["complete_coverage_core"][
+                if row["metrics"]["partitions"]["owned_foreground_core"][
                     "mae_base"
                 ]
                 is not None
@@ -579,7 +751,7 @@ def oracle(split: str) -> None:
 
 
 def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
-    """Grade S12's asymmetric visibility rule without replacing F60 evidence."""
+    """Grade discrete ownership, bounds, and one-sided rear recovery."""
     rows = []
     for scene in scenes(split):
         base = fuse_perband(scene["frames"], harden=0.5)
@@ -592,6 +764,7 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
                 }
             ]
             owner_masks = None
+            selected_geometry = None
         else:
             candidates = candidates_with_features(scene, topk=4)
             owner_masks = [
@@ -603,11 +776,16 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
                 )
                 for frame_index in range(2)
             ]
+            selected_geometry = select_one_sided_owner_geometry(
+                scene["frames"],
+                owner_masks,
+            )
         output, report = recover_giant_veil(
             scene["frames"],
             base,
             candidates,
             owner_masks_by_frame=owner_masks,
+            one_sided_selection=selected_geometry,
         )
         row = {
             "sid": scene["sid"],
@@ -616,6 +794,12 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
             "report": report,
             "metrics": _score(scene, base, output),
         }
+        if owner_masks is not None:
+            row["geometry_audit"] = _one_sided_geometry_audit(
+                scene,
+                owner_masks,
+                selected_geometry,
+            )
         rows.append(row)
         metrics = row["metrics"]
         partition_deltas = {
@@ -637,8 +821,8 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
 
     fired = [row for row in rows if row["report"]["fired"]]
     partition_names = (
-        "complete_coverage_core",
-        "inner_partial_occlusion",
+        "owned_foreground_core",
+        "foreground_boundary",
         "outer_veil",
         "far_background",
     )
@@ -676,9 +860,13 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
         else "ordered_visibility"
     )
     payload = {
-        "factory": "objocc_v2_exact_disk",
+        "factory": (
+            "one_sided_opaque_v1"
+            if split in {"s25", "s26"}
+            else "objocc_v2_exact_disk"
+        ),
         "split": split,
-        "pipeline": "f64_consensus_front_first_ordered_visibility",
+        "pipeline": "f66_discrete_front_rear_ownership",
         "oracle_fields": ["alpha", "owner"] if oracle_alpha else [],
         "owner_support": not oracle_alpha,
         "rear_evidence_density": REAR_EVIDENCE_DENSITY,
@@ -707,6 +895,48 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
                 all_partitions_nonregressing
             ),
             "partition_summary": partition_summary,
+            "rear_zero_owned_core": sum(
+                row.get("geometry_audit", {})
+                .get("rear_overlap_by_gt_region", {})
+                .get("owned_foreground_core")
+                == 0
+                for row in fired
+                if row.get("geometry_audit", {}).get("evaluated")
+            ),
+            "rear_zero_foreground_boundary": sum(
+                row.get("geometry_audit", {})
+                .get("rear_overlap_by_gt_region", {})
+                .get("foreground_boundary")
+                == 0
+                for row in fired
+                if row.get("geometry_audit", {}).get("evaluated")
+            ),
+            "rear_zero_far_background": sum(
+                row.get("geometry_audit", {})
+                .get("rear_overlap_by_gt_region", {})
+                .get("far_background")
+                == 0
+                for row in fired
+                if row.get("geometry_audit", {}).get("evaluated")
+            ),
+            "mean_front_iou": (
+                float(
+                    np.mean(
+                        [
+                            row["geometry_audit"]["front_iou"]
+                            for row in fired
+                            if row.get("geometry_audit", {}).get(
+                                "evaluated"
+                            )
+                        ]
+                    )
+                )
+                if any(
+                    row.get("geometry_audit", {}).get("evaluated")
+                    for row in fired
+                )
+                else None
+            ),
         },
     }
     path = os.path.join(HERE, f"objocc_v2_{split}_{suffix}.json")

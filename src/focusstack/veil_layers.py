@@ -79,6 +79,29 @@ ONE_SIDED_MASK_MAX_AREA_FRACTION = 0.35
 ONE_SIDED_SAME_OBJECT_MIN_IOU = 0.50
 ONE_SIDED_NEAR_EQUIVALENT_MAE = 0.01
 ONE_SIDED_COMPETITOR_MARGIN = 0.05
+# The focused semantic mask is only a seed. Reflective or internally varied
+# opaque objects are allowed to contain appearance regions that a segmenter
+# calls "background." Complete the discrete silhouette from focal ordering and
+# the focused RGB observation at model resolution. Rear recovery remains
+# independently bounded by the conservative cross-frame intersection.
+ONE_SIDED_FRONT_COMPLETION_ITERATIONS = 1
+ONE_SIDED_FRONT_COMPLETION_MIN_COMPONENT_FRACTION = 0.001
+ONE_SIDED_FRONT_COMPLETION_MIN_AREA_RATIO = 0.50
+ONE_SIDED_FRONT_COMPLETION_MAX_AREA_RATIO = 1.50
+# Three model pixels cover ordinary segmentation resampling and the guided
+# matte's antialiased transition. A completion whose boundary moves by about
+# three quarters of the admitted CoC radius is weakly observed and receives
+# one additional model pixel. This closed five reachable GT edge pixels on the
+# causal carpet without suppressing the mirror's legitimate exterior veil.
+# The veto is not a dilation used to infer new foreground radiance.
+ONE_SIDED_FRONT_VETO_MODEL_PIXELS = 3.0
+ONE_SIDED_UNCERTAIN_FRONT_VETO_MODEL_PIXELS = 4.0
+ONE_SIDED_UNCERTAIN_BOUNDARY_COC_FRACTION = 0.75
+# Hard ownership selects a foreground-only observation, not its sensor noise.
+# The lightest effective NLM setting preserves fine foreground texture. The
+# causal mirror admitted h={2,3,4,5,7}; the rail then distinguished h=2 from
+# h=3 by flipping its SSIM dissent while further improving direct error.
+ONE_SIDED_FRONT_DENOISE_H = 2.0
 # A rear-focused observation is positive only when decisive rear focus evidence
 # occupies a material fraction of the local neighborhood.  Absence of owner
 # evidence is not rear evidence.  This is the V1/V2 ordered-visibility split:
@@ -554,6 +577,227 @@ def _one_sided_anchor_residual(
     )
 
 
+def _filled_external_components(
+    mask: np.ndarray,
+    min_area: int,
+) -> np.ndarray:
+    """Fill internal semantic holes without joining separate components."""
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(
+        np.asarray(mask, np.uint8),
+        8,
+    )
+    filled = np.zeros(mask.shape, np.uint8)
+    for label in range(1, count):
+        if int(stats[label, cv2.CC_STAT_AREA]) < min_area:
+            continue
+        contours, _ = cv2.findContours(
+            (labels == label).astype(np.uint8),
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        cv2.drawContours(filled, contours, -1, 1, cv2.FILLED)
+    return filled > 0
+
+
+def _boundary_pixels_for_completion(mask: np.ndarray) -> np.ndarray:
+    eroded = cv2.erode(
+        np.asarray(mask, np.uint8),
+        np.ones((3, 3), np.uint8),
+    )
+    return np.asarray(mask, bool) & ~(eroded > 0)
+
+
+def _complete_one_sided_front_silhouette(
+    images: list[np.ndarray],
+    owner: int,
+    focused_mask: np.ndarray,
+    corroborated_mask: np.ndarray,
+) -> tuple[np.ndarray, dict]:
+    """Complete a focused opaque silhouette from semantics and focal order.
+
+    The cross-frame intersection is a high-precision seed, not the final
+    object. Intersecting full masks can punch holes through mirrors, windows,
+    patterned fabric, and other opaque foreground whose internal appearance is
+    segmented differently after defocus. GrabCut supplies only spatial/color
+    regularization here: definite foreground comes from the corroborated
+    semantic interior, the probable region comes from the focused mask plus
+    locally connected focused-owner wins, and definite background lies beyond
+    one admitted CoC radius. The result is still rejected if it changes the
+    selected mask's area implausibly.
+    """
+    shape = focused_mask.shape
+    resized_images = [_resize_for_model(image) for image in images]
+    model_height, model_width = resized_images[0].shape[:2]
+    size = (model_width, model_height)
+    focused_small = (
+        cv2.resize(
+            focused_mask.astype(np.uint8),
+            size,
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    )
+    corroborated_small = (
+        cv2.resize(
+            corroborated_mask.astype(np.uint8),
+            size,
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    )
+    radius = max(
+        2,
+        int(round(RADIUS_FRACTION * max(model_height, model_width))),
+    )
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE,
+        (2 * radius + 1, 2 * radius + 1),
+    )
+    neighborhood = (
+        cv2.dilate(focused_small.astype(np.uint8), kernel) > 0
+    )
+
+    energies = np.stack(
+        content_aware_energies(
+            [to_gray_float(image) for image in images]
+        ),
+        axis=0,
+    )
+    owner_wins = np.argmax(energies, axis=0) == owner
+    owner_wins_small = (
+        cv2.resize(
+            owner_wins.astype(np.uint8),
+            size,
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    )
+    probable_seed = focused_small | (owner_wins_small & neighborhood)
+    probable_front = _filled_external_components(
+        probable_seed,
+        max(
+            2,
+            int(
+                round(
+                    ONE_SIDED_FRONT_COMPLETION_MIN_COMPONENT_FRACTION
+                    * model_height
+                    * model_width
+                )
+            ),
+        ),
+    )
+    definite_front = (
+        cv2.erode(
+            corroborated_small.astype(np.uint8),
+            np.ones((3, 3), np.uint8),
+        )
+        > 0
+    )
+    if not np.any(definite_front):
+        definite_front = (
+            cv2.erode(
+                focused_small.astype(np.uint8),
+                np.ones((3, 3), np.uint8),
+            )
+            > 0
+        )
+    if not np.any(definite_front) or np.all(neighborhood):
+        return focused_mask.copy(), {
+            "one_sided_front_completion_fired": False,
+            "one_sided_front_completion_reason": "invalid_graph_seeds",
+        }
+
+    labels = np.full(
+        (model_height, model_width),
+        cv2.GC_PR_BGD,
+        np.uint8,
+    )
+    labels[probable_front] = cv2.GC_PR_FGD
+    labels[~neighborhood] = cv2.GC_BGD
+    labels[definite_front] = cv2.GC_FGD
+    try:
+        cv2.setRNGSeed(1234)
+        cv2.grabCut(
+            resized_images[owner],
+            labels,
+            None,
+            np.zeros((1, 65), np.float64),
+            np.zeros((1, 65), np.float64),
+            ONE_SIDED_FRONT_COMPLETION_ITERATIONS,
+            cv2.GC_INIT_WITH_MASK,
+        )
+    except cv2.error:
+        return focused_mask.copy(), {
+            "one_sided_front_completion_fired": False,
+            "one_sided_front_completion_reason": "graph_optimization_failed",
+        }
+    completed_small = np.isin(
+        labels,
+        (cv2.GC_FGD, cv2.GC_PR_FGD),
+    )
+    completed = (
+        cv2.resize(
+            completed_small.astype(np.uint8),
+            (shape[1], shape[0]),
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    )
+    completed_boundary = _boundary_pixels_for_completion(completed_small)
+    focused_boundary = _boundary_pixels_for_completion(focused_small)
+    if np.any(completed_boundary) and np.any(focused_boundary):
+        distance_to_focused = cv2.distanceTransform(
+            (~focused_boundary).astype(np.uint8),
+            cv2.DIST_L2,
+            5,
+        )
+        boundary_disagreement_p95 = float(
+            np.percentile(
+                distance_to_focused[completed_boundary],
+                95,
+            )
+        )
+    else:
+        boundary_disagreement_p95 = 0.0
+    focused_area = int(focused_mask.sum())
+    completed_area = int(completed.sum())
+    area_ratio = completed_area / max(focused_area, 1)
+    retained_corroboration = float(
+        (completed & corroborated_mask).sum()
+        / max(int(corroborated_mask.sum()), 1)
+    )
+    if (
+        not (
+            ONE_SIDED_FRONT_COMPLETION_MIN_AREA_RATIO
+            <= area_ratio
+            <= ONE_SIDED_FRONT_COMPLETION_MAX_AREA_RATIO
+        )
+        or retained_corroboration < 0.95
+    ):
+        return focused_mask.copy(), {
+            "one_sided_front_completion_fired": False,
+            "one_sided_front_completion_reason": (
+                "completed_geometry_unstable"
+            ),
+            "one_sided_front_completion_area_ratio": float(area_ratio),
+            "one_sided_front_completion_retained_corroboration": (
+                retained_corroboration
+            ),
+        }
+    return completed, {
+        "one_sided_front_completion_fired": True,
+        "one_sided_front_completion_reason": "focal_pair_graph_cut",
+        "one_sided_front_completion_pixels": completed_area,
+        "one_sided_front_completion_area_ratio": float(area_ratio),
+        "one_sided_front_completion_retained_corroboration": (
+            retained_corroboration
+        ),
+        "one_sided_front_completion_boundary_disagreement_p95_model_px": (
+            boundary_disagreement_p95
+        ),
+    }
+
+
 def select_one_sided_owner_geometry(
     images: list[np.ndarray],
     owner_masks_by_frame: list[np.ndarray] | None,
@@ -762,11 +1006,56 @@ def select_one_sided_owner_geometry(
             "cross_frame_geometry_too_small"
         )
         return None, report
-    guide = to_gray_float(images[selected["owner"]]) / 255.0
+    owner = int(selected["owner"])
+    completed, completion_report = _complete_one_sided_front_silhouette(
+        images,
+        owner,
+        selected["binary"],
+        corroborated,
+    )
+    report.update(completion_report)
+    boundary_disagreement_p95 = float(
+        completion_report.get(
+            "one_sided_front_completion_boundary_disagreement_p95_model_px",
+            0.0,
+        )
+    )
+    uncertain_boundary_threshold = (
+        ONE_SIDED_UNCERTAIN_BOUNDARY_COC_FRACTION
+        * RADIUS_FRACTION
+        * MODEL_SIDE
+    )
+    front_veto_model_pixels = (
+        ONE_SIDED_UNCERTAIN_FRONT_VETO_MODEL_PIXELS
+        if boundary_disagreement_p95
+        >= uncertain_boundary_threshold
+        else ONE_SIDED_FRONT_VETO_MODEL_PIXELS
+    )
+    report.update(
+        {
+            "one_sided_front_veto_model_pixels": float(
+                front_veto_model_pixels
+            ),
+            "one_sided_front_veto_uncertain_boundary_threshold": float(
+                uncertain_boundary_threshold
+            ),
+        }
+    )
+    guide = to_gray_float(images[owner]) / 255.0
     corroborated_alpha = np.clip(
         guided_filter(
             guide.astype(np.float32),
             corroborated.astype(np.float32),
+            2,
+            1e-4,
+        ),
+        0.0,
+        1.0,
+    )
+    completed_alpha = np.clip(
+        guided_filter(
+            guide.astype(np.float32),
+            completed.astype(np.float32),
             2,
             1e-4,
         ),
@@ -790,8 +1079,11 @@ def select_one_sided_owner_geometry(
         }
     )
     return {
-        "alpha": corroborated_alpha,
-        "owner": int(selected["owner"]),
+        "alpha": completed_alpha,
+        "rear_support_alpha": corroborated_alpha,
+        "front_extent": completed,
+        "front_veto_model_pixels": front_veto_model_pixels,
+        "owner": owner,
         "source": "one_sided_owner_frame",
         "source_mask_index": int(selected["mask_index"]),
         "feats": np.ones(7, np.float32),
@@ -1582,12 +1874,106 @@ def _ordered_visibility_gate(
     }
 
 
+def _one_sided_rear_application_mask(
+    images: list[np.ndarray],
+    owner: int,
+    alpha: np.ndarray,
+    rear_support_alpha: np.ndarray,
+    front_extent: np.ndarray,
+    fringe_consensus: np.ndarray,
+    max_radius: float,
+    spatial_scale: float,
+    front_veto_model_pixels: float = (
+        ONE_SIDED_FRONT_VETO_MODEL_PIXELS
+    ),
+) -> tuple[np.ndarray, dict]:
+    """Build a rear mask that cannot cross plausible opaque ownership.
+
+    Completed geometry owns the layer model. The conservative cross-frame
+    matte independently certifies the rear footprint. Finally, a discrete
+    dilation around every plausible front pixel vetoes the rear mask. These
+    are intentionally separate claims: uncertainty about hard foreground
+    copying must resolve to identity, never to permission for rear synthesis.
+    """
+    ownership, ownership_evidence = _ordered_visibility_gate(
+        images,
+        owner,
+        alpha,
+        spatial_scale,
+    )
+    mask = (
+        _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
+        * ownership
+        * fringe_consensus.astype(np.float32)
+    )
+    rear_support_ownership, rear_support_evidence = (
+        _ordered_visibility_gate(
+            images,
+            owner,
+            rear_support_alpha,
+            spatial_scale,
+        )
+    )
+    rear_support_mask = (
+        _fringe_mask(
+            rear_support_alpha,
+            max_radius,
+            2.0 * spatial_scale,
+        )
+        * rear_support_ownership
+    )
+    before_corroboration = int((mask > 1e-4).sum())
+    mask *= (rear_support_mask > 1e-4).astype(np.float32)
+    after_corroboration = int((mask > 1e-4).sum())
+
+    veto_radius = max(
+        1,
+        int(
+            round(
+                front_veto_model_pixels * spatial_scale
+            )
+        ),
+    )
+    veto_kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE,
+        (2 * veto_radius + 1, 2 * veto_radius + 1),
+    )
+    front_veto = (
+        cv2.dilate(
+            np.asarray(front_extent, np.uint8),
+            veto_kernel,
+        )
+        > 0
+    )
+    veto_removed = int(((mask > 1e-4) & front_veto).sum())
+    mask[front_veto] = 0.0
+    return mask, {
+        **ownership_evidence,
+        "rear_support_ordered_visibility_fraction": (
+            rear_support_evidence["ordered_visibility_fraction"]
+        ),
+        "rear_mask_before_geometry_corroboration_pixels": (
+            before_corroboration
+        ),
+        "rear_mask_after_geometry_corroboration_pixels": (
+            after_corroboration
+        ),
+        "one_sided_front_veto_pixels": int(front_veto.sum()),
+        "one_sided_front_veto_model_pixels": float(
+            front_veto_model_pixels
+        ),
+        "rear_mask_front_veto_removed_pixels": veto_removed,
+        "rear_mask_active_pixels": int((mask > 1e-4).sum()),
+    }
+
+
 def recover_giant_veil(
     images: list[np.ndarray],
     base: np.ndarray,
     candidates: list[dict],
     *,
     owner_masks_by_frame: list[np.ndarray] | None = None,
+    one_sided_selection: tuple[dict | None, dict] | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Recover one licensed giant veil or return ``base`` byte-for-byte."""
     report = {
@@ -1606,10 +1992,13 @@ def recover_giant_veil(
         report["reason"] = "native_size_unvalidated"
         return base, report
 
-    selected, one_sided_report = select_one_sided_owner_geometry(
-        images,
-        owner_masks_by_frame,
-    )
+    if one_sided_selection is None:
+        selected, one_sided_report = select_one_sided_owner_geometry(
+            images,
+            owner_masks_by_frame,
+        )
+    else:
+        selected, one_sided_report = one_sided_selection
     report.update(one_sided_report)
     one_sided_geometry = selected is not None
     if one_sided_geometry:
@@ -1669,6 +2058,14 @@ def recover_giant_veil(
         )
     report.update(owner_refinement_report)
     alpha = np.clip(selected["alpha"].astype(np.float32), 0.0, 1.0)
+    rear_support_alpha = np.clip(
+        np.asarray(
+            selected.get("rear_support_alpha", alpha),
+            np.float32,
+        ),
+        0.0,
+        1.0,
+    )
     owner_support, owner_support_report = complete_owner_support(
         images,
         selected,
@@ -1772,26 +2169,76 @@ def recover_giant_veil(
         report["reason"] = "nonfinite_consensus"
         return base, report
 
-    ownership, ownership_evidence = _ordered_visibility_gate(
-        images,
-        owner,
-        alpha,
-        spatial_scale,
-    )
-    report.update(ownership_evidence)
-    mask = (
-        _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
-        * ownership
-        * fringe_consensus.astype(np.float32)
-    )
+    if one_sided_geometry:
+        # Front completion may legitimately add reflective interiors or weak
+        # boundary pieces that were absent from the defocused-frame semantic
+        # mask. It owns the foreground model and hard front selection. Rear
+        # synthesis is more irreversible, so its footprint must independently
+        # be classified as veil by the original cross-frame intersection.
+        front_extent = np.asarray(
+            selected.get("front_extent", alpha >= 0.5),
+            bool,
+        )
+        mask, rear_mask_report = _one_sided_rear_application_mask(
+            images,
+            owner,
+            alpha,
+            rear_support_alpha,
+            front_extent,
+            fringe_consensus,
+            max_radius,
+            spatial_scale,
+            float(
+                selected.get(
+                    "front_veto_model_pixels",
+                    ONE_SIDED_FRONT_VETO_MODEL_PIXELS,
+                )
+            ),
+        )
+        report.update(rear_mask_report)
+    else:
+        ownership, ownership_evidence = _ordered_visibility_gate(
+            images,
+            owner,
+            alpha,
+            spatial_scale,
+        )
+        report.update(ownership_evidence)
+        mask = (
+            _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
+            * ownership
+            * fringe_consensus.astype(np.float32)
+        )
     owner_copy_support = owner_support | front_reconstruction
     mask[owner_copy_support] = 0.0
+    if one_sided_geometry and np.any(owner_copy_support):
+        front_observation = cv2.fastNlMeansDenoisingColored(
+            images[owner],
+            None,
+            ONE_SIDED_FRONT_DENOISE_H,
+            ONE_SIDED_FRONT_DENOISE_H,
+            3,
+            7,
+        )
+        report.update(
+            {
+                "front_observation_source": (
+                    "focused_owner_nlm_foreground_only"
+                ),
+                "front_observation_denoise_h": (
+                    ONE_SIDED_FRONT_DENOISE_H
+                ),
+            }
+        )
+    else:
+        front_observation = images[owner]
+        report["front_observation_source"] = "focused_owner_raw"
     if not np.any(mask > 1e-4):
         if not np.any(owner_copy_support):
             report["reason"] = "empty_fringe"
             return base, report
         output = base.copy()
-        output[owner_copy_support] = images[owner][owner_copy_support]
+        output[owner_copy_support] = front_observation[owner_copy_support]
         report.update(
             {
                 "fired": True,
@@ -1804,11 +2251,16 @@ def recover_giant_veil(
         )
         return output, report
     repaired_base = base.copy()
-    repaired_base[owner_copy_support] = images[owner][owner_copy_support]
-    output = np.clip(
-        repaired_base.astype(np.float32) + correction * mask[..., None],
-        0,
-        255,
+    repaired_base[owner_copy_support] = front_observation[
+        owner_copy_support
+    ]
+    output = np.rint(
+        np.clip(
+            repaired_base.astype(np.float32)
+            + correction * mask[..., None],
+            0,
+            255,
+        )
     ).astype(np.uint8)
     report.update(
         {

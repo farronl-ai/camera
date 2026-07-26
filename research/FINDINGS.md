@@ -5,6 +5,57 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F66 — Foreground completion and rear permission are different decisions
+
+The remaining S25 foreground-core dissent was not sensor noise and was not a
+failure of the two-layer inverse. On `s25_000`, the cross-frame semantic
+intersection had precision `0.999` but recall only `0.635`. The hard foreground
+copy improved every true-core pixel it touched. The entire core regression came
+from the rear/veil correction entering true foreground omitted by that
+intersection. Intersecting masks from two focal appearances is therefore a
+valid conservative rear license but an invalid foreground silhouette: it can
+punch large holes through mirrors, patterned fabric, and other opaque objects.
+
+F66 separates three claims:
+
+1. a formation-scored focused mask chooses the front object and owner;
+2. a seeded focal-pair graph cut completes its discrete silhouette using the
+   focused RGB observation and focus ordering;
+3. rear correction is permitted only where both the completed silhouette and
+   the original cross-frame intersection classify a pixel as exterior veil,
+   after a separate plausible-front veto.
+
+The hard front is copied from a light NLM estimate (`h=2`) of the focused owner
+frame only. The rear observation is never an input to that denoiser. The
+plausible-front veto is three model pixels for ordinary boundaries and four
+only when completion moves the focused semantic boundary by at least `0.75`
+CoC radii at model scale. This closes five reachable antialiased-edge pixels on
+the causal carpet without suppressing the mirror's legitimate exterior veil.
+Final float correction is rounded to nearest rather than truncated.
+
+The evaluator now reports foreground precision/recall/IoU, bidirectional
+boundary distance, hard-front false support, changed closer/worse counts for
+GT core/boundary/veil/background, and the exact rear-mask overlap with each
+physical region. On the frozen six-scene S25 development cohort:
+
+- rear overlap with GT foreground core: zero in 6/6;
+- rear overlap with GT antialiased foreground boundary: zero in 6/6;
+- rear overlap with GT far background: zero in 6/6;
+- MAE/MSE, owned-core MAE, and exterior-veil MAE improve in 6/6;
+- far-background MAE delta is exactly zero in 6/6;
+- mean completed-silhouette IoU is `0.9647`;
+- SSIM improves in 5/6; `s25_003` is `-0.000150` while its MAE, MSE, core,
+  and veil all improve and no rear pixel crosses foreground.
+
+Two tiny antialiased-boundary MAE dissents remain (`+0.0059`, `+0.0192`) from
+focused-front selection over physically mixed edge samples, not background
+reconstruction. Erasing large regions of correct foreground to optimize those
+few thousandths was rejected. The strict smooth-veil false-texture proxy still
+charges any nonzero reconstruction on all six; spectral smoothing reduces the
+charge but cannot close it without discarding the real direct veil win. Keep it
+visible as a diagnostic, not a synthesis veto. S25 shaped the rule; only fresh
+S26 can promote it. Runtime auto remains off and the inspector remains frozen.
+
 ## F65 — Opaque defocus is one-sided ownership, not symmetric alpha blur
 
 The project's primary opaque formation contract now makes the user's invariant

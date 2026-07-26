@@ -1,7 +1,7 @@
 # Occlusion formation audit — geometry, veil, and material transmission
 
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
-`NEXT_STEPS_scenerecovery.md`, and F60–F65 in `FINDINGS.md`.
+`NEXT_STEPS_scenerecovery.md`, and F60–F66 in `FINDINGS.md`.
 
 ## User correction and pause checkpoint — supersedes the primary input contract
 
@@ -48,14 +48,21 @@ previous S23 checkpoint while S25 is unfinished.
       formation model, prefer containing near-tied silhouettes, corroborate
       support across frames, and hard-copy only the eroded, locally supported
       focused foreground.
-- [ ] Resume on the single remaining S25 dissent: `s25_000` improves global MAE
-      and the exterior veil but has a tiny foreground-core MAE regression
-      (`+0.0096`) and ΔSSIM `-0.000283`. Separate raw owner-frame sensor noise
-      from missed support before changing any established recovery component.
-- [ ] Add explicit foreground-support, semantic-boundary, outer-veil, and
+- [x] Resolve the `s25_000` dissent causally. The conservative mask
+      intersection had only `0.635` foreground recall, so the rear solver
+      entered missed true foreground. Focal-pair graph-cut completion raises
+      its silhouette IoU to `0.982`; the hard front uses only an NLM-denoised
+      focused-owner observation, while rear correction requires the original
+      cross-frame geometry and a separate front veto.
+- [x] Add explicit foreground-support, semantic-boundary, outer-veil, and
       far-background audits. Hard ownership means selecting a foreground layer;
       any foreground denoising must use only foreground-owned observations and
       may never blend the hidden rear layer inward.
+- [x] Freeze the compact S25 development rule. All six runs have zero rear-mask
+      overlap with GT foreground core, GT antialiased boundary, and far
+      background. All six improve MAE/MSE, foreground core, and exterior veil,
+      with exact far-background identity. Five improve SSIM; `s25_003` changes
+      `-0.000150` while improving direct errors and preserving ownership.
 - [ ] After the recovery rule freezes, generate a fresh S26 validation split;
       regenerate the inspector only once at the end.
 

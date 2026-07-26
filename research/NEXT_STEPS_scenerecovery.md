@@ -139,19 +139,21 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       hypotheses. S23 rerun: 7/7 SSIM/MAE/MSE and all-partition positive,
       far background exact for every fire, 65 refusals identity. S23 is
       development evidence; do not spend another large split until S15 freezes.
-- [ ] **S18: one-sided opaque ownership.** 🔶 PAUSED CHECKPOINT / F65. The S25+
+- [ ] **S18: one-sided opaque ownership.** 🔶 FROZEN DEV / F66. The S25+
       primary generator and paired forward/adjoint model now guarantee zero
       rear throughput throughout latent opaque foreground support while
       retaining foreground-only outward spread. Raw focal-frame masks are
       evaluated under that formation, near-tied containing silhouettes are
       preferred, cross-frame corroboration suppresses false ownership, and
-      hard owner projection is disjoint from rear correction. Current compact
-      evidence: 6/6 MAE/MSE and exterior-veil wins, exact far-background
-      identity, 5/6 SSIM/core wins. Resume only on `s25_000`: distinguish missed
-      foreground support from raw-owner sensor noise; never use the hidden rear
-      layer to smooth an opaque foreground. Add explicit GT boundary/support
-      audits, freeze causally, then create fresh S26. Regenerate the inspector
-      once, at the end; the solid S23 inspector is still preserved.
+      hard owner projection is disjoint from rear correction. Focal-pair
+      silhouette completion repairs the mirror holes; foreground-only NLM
+      avoids copying sensor noise; the original intersection remains an
+      independent rear license. Explicit GT audits show zero rear overlap with
+      foreground core, antialiased edge, and far background in 6/6. All six
+      improve MAE/MSE/core/veil with exact far identity; mean silhouette IoU is
+      0.9647 and 5/6 improve SSIM. S25 shaped and froze the rule. Generate and
+      grade genuinely fresh S26 next. Regenerate the inspector once, at the
+      end; the solid S23 inspector is still preserved.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

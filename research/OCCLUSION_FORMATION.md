@@ -3,6 +3,19 @@
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
 `NEXT_STEPS_scenerecovery.md`, and F60–F67 in `FINDINGS.md`.
 
+## 2026-07-26 negative-geometry preservation checkpoint
+
+A rear-focused patch cannot subtract support unless the enclosing foreground
+object is itself cross-frame corroborated.  The minimum containment is `0.75`.
+Below it, focal/segmentation disagreement is ambiguity and possible opaque
+support wins.  This restores the historical V1 false carve to zero rear overlap
+without changing the legitimate S28 arch (`0.894` containment).
+
+S27 preserves every physical partition 6/6; S25 preserves zero rear overlap in
+all protected regions and improves all primary partitions, with one inherited
+`+0.00584` ordinary-boundary dissent already smaller than its prior value.
+S29 is the newly seeded post-rule verdict.
+
 ## 2026-07-26 focused-owner source checkpoint
 
 Foreground radiance remains a discrete focused-owner observation after

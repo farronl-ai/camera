@@ -43,6 +43,7 @@ Run:
     python research/objocc_v2_gen.py 36 s26
     python research/objocc_v2_gen.py 36 s27
     python research/objocc_v2_gen.py 36 s28
+    python research/objocc_v2_gen.py 12 s29
 """
 from __future__ import annotations
 
@@ -90,13 +91,13 @@ PRIMARY_OPAQUE_SCHEDULE = (
 # all-veil opaque stress.
 TRANSMISSIVE_SCHEDULE = ("primary", "primary", "boundary")
 TRANSMISSIVE_OPACITIES = (0.35, 0.55, 0.75)
-ONE_SIDED_OPAQUE_SPLITS = {"s25", "s26", "s27", "s28"}
-HARD_OWNERSHIP_OPAQUE_SPLITS = {"s27", "s28"}
+ONE_SIDED_OPAQUE_SPLITS = {"s25", "s26", "s27", "s28", "s29"}
+HARD_OWNERSHIP_OPAQUE_SPLITS = {"s27", "s28", "s29"}
 # A primary solid-opaque cohort must not turn a segmenter's internal omission
 # into an optical aperture. Tiny enclosed speckles are repaired; a mask with a
 # substantial enclosed region is topologically ambiguous and belongs in a
 # later explicit aperture/transmission cohort instead.
-SOLID_OPAQUE_MASK_SPLITS = {"s27", "s28"}
+SOLID_OPAQUE_MASK_SPLITS = {"s27", "s28", "s29"}
 SOLID_OPAQUE_MAX_ENCLOSED_HOLE_FRACTION = 0.005
 
 
@@ -504,6 +505,7 @@ def generate(count: int, split: str) -> None:
         "s26",
         "s27",
         "s28",
+        "s29",
     }
     if split not in supported_splits:
         raise ValueError(
@@ -532,6 +534,7 @@ def generate(count: int, split: str) -> None:
         "s26": 33001,
         "s27": 36001,
         "s28": 39001,
+        "s29": 42001,
     }[split]
     if is_transmissive:
         stratum_schedule = TRANSMISSIVE_SCHEDULE
@@ -548,7 +551,9 @@ def generate(count: int, split: str) -> None:
             "primary_one_sided_opaque_development"
             if split == "s25"
             else (
-                "primary_one_sided_opaque_validation"
+                "primary_one_sided_opaque_post_rule_validation"
+                if split == "s29"
+                else "primary_one_sided_opaque_validation"
                 if split == "s28"
                 else "primary_one_sided_opaque_post_freeze"
                 if split in {"s26", "s27"}
@@ -1032,7 +1037,7 @@ def main() -> None:
     if len(sys.argv) != 3:
         raise SystemExit(
             "usage: objocc_v2_gen.py COUNT "
-            "{dev|holdout|extension|s12|s16|s19|s23|t24|s25|s26|s27|s28}"
+            "{dev|holdout|extension|s12|s16|s19|s23|t24|s25|s26|s27|s28|s29}"
         )
     generate(int(sys.argv[1]), sys.argv[2])
 

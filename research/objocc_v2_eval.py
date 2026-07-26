@@ -33,6 +33,7 @@ from focusstack.veil_layers import (  # noqa: E402
     MODEL_SIDE,
     ONE_SIDED_FRONT_LOW_TEXTURE_MEAN_GRADIENT,
     ONE_SIDED_FRONT_PRESERVE_EDGE_GRADIENT,
+    ONE_SIDED_REAR_OPENING_MIN_CROSS_CONTAINMENT,
     ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT,
     RADIUS_FRACTION,
     REAR_EVIDENCE_DENSITY,
@@ -797,7 +798,7 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
     )
     resume_enabled = os.environ.get("OBJ_OCC_RESUME") == "1"
     resume_key = (
-        f"f72_discrete_opaque_ownership:{split}:"
+        f"f74_corroborated_opaque_ownership:{split}:"
         f"{'oracle' if oracle_alpha else 'semantic'}"
     )
     resume_path = os.path.join(
@@ -935,13 +936,13 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
     payload = {
         "factory": (
             "one_sided_opaque_v2"
-            if split in {"s27", "s28"}
+            if split in {"s27", "s28", "s29"}
             else "one_sided_opaque_v1"
             if split in {"s25", "s26"}
             else "objocc_v2_exact_disk"
         ),
         "split": split,
-        "pipeline": "f72_discrete_opaque_ownership",
+        "pipeline": "f74_corroborated_opaque_ownership",
         "oracle_fields": ["alpha", "owner"] if oracle_alpha else [],
         "owner_support": not oracle_alpha,
         "rear_evidence_density": REAR_EVIDENCE_DENSITY,
@@ -949,6 +950,9 @@ def ordered_visibility_audit(split: str, *, oracle_alpha: bool) -> None:
         "visibility_coverage_ramp": VISIBILITY_COVERAGE_RAMP,
         "rear_min_application_weight": (
             ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT
+        ),
+        "rear_opening_min_cross_containment": (
+            ONE_SIDED_REAR_OPENING_MIN_CROSS_CONTAINMENT
         ),
         "front_low_texture_mean_gradient": (
             ONE_SIDED_FRONT_LOW_TEXTURE_MEAN_GRADIENT
@@ -1062,6 +1066,7 @@ def main() -> None:
         "s26",
         "s27",
         "s28",
+        "s29",
     }
     if (
         len(sys.argv) != 3

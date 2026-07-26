@@ -1,12 +1,16 @@
 {
   "factory": "one_sided_opaque_v2",
   "split": "s27",
-  "pipeline": "f69_discrete_hard_ownership_forward",
+  "pipeline": "f74_corroborated_opaque_ownership",
   "oracle_fields": [],
   "owner_support": true,
   "rear_evidence_density": 0.2,
   "visibility_coverage_floor": 0.1,
   "visibility_coverage_ramp": 0.1,
+  "rear_min_application_weight": 0.075,
+  "rear_opening_min_cross_containment": 0.75,
+  "front_low_texture_mean_gradient": 16.0,
+  "front_preserve_edge_gradient": 30.0,
   "thresholds_retuned": false,
   "scene_count": 6,
   "fired_count": 6,
@@ -31,6 +35,14 @@
         "one_sided_geometry_competitor_margin": 6.895873069763184,
         "one_sided_geometry_near_family_count": 1,
         "one_sided_geometry_area_fraction": 0.22616520634403936,
+        "one_sided_rear_opening_fired": false,
+        "one_sided_rear_opening_reason": "no_qualified_component",
+        "one_sided_rear_opening_candidate_components": 0,
+        "one_sided_rear_opening_seed_pixels": 0,
+        "one_sided_rear_opening_graph_fired": false,
+        "one_sided_rear_opening_graph_reason": "no_rear_seed",
+        "one_sided_rear_opening_graph_regions": 0,
+        "one_sided_rear_opening_graph_pixels": 0,
         "one_sided_front_completion_fired": true,
         "one_sided_front_completion_reason": "focal_pair_graph_cut",
         "one_sided_front_completion_pixels": 416277,
@@ -57,6 +69,8 @@
         "one_sided_focused_graph_satellite_pixels": 0,
         "one_sided_native_satellite_fragment_regions": 0,
         "one_sided_native_satellite_fragment_pixels": 0,
+        "one_sided_native_main_fragment_regions": 0,
+        "one_sided_native_main_fragment_pixels": 0,
         "one_sided_focused_graph_noise_floor": 2.836292028427124,
         "one_sided_focused_graph_presence_threshold": 5.672584056854248,
         "one_sided_focused_graph_refinement_fired": true,
@@ -117,44 +131,50 @@
         "rear_mask_reverse_reblur_presence_threshold": 5.672584056854248,
         "rear_mask_presence_noise_quantile": 10.0,
         "rear_mask_presence_noise_multiplier": 2.0,
-        "rear_mask_active_pixels": 14792,
-        "front_observation_source": "focused_owner_nlm_foreground_only",
+        "rear_mask_min_application_weight": 0.075,
+        "rear_mask_low_weight_removed_pixels": 6950,
+        "rear_mask_active_pixels": 7860,
         "front_observation_denoise_h": 2.0,
+        "front_observation_mean_gradient": 162.69009399414062,
+        "front_observation_low_texture_threshold": 16.0,
+        "front_observation_preserve_edge_gradient": 30.0,
+        "front_observation_preserved_edge_pixels": 399686,
+        "front_observation_source": "focused_owner_edge_preserving_nlm_foreground_only",
         "owner": 0,
-        "changed_pixels": 445449
+        "changed_pixels": 370831
       },
       "metrics": {
         "ssim_base": 0.9722527265548706,
-        "ssim_output": 0.9719663262367249,
-        "d_ssim": -0.00028640031814575195,
+        "ssim_output": 0.9721085429191589,
+        "d_ssim": -0.00014418363571166992,
         "mae_base": 3.3298559188842773,
-        "mae_output": 3.111081838607788,
-        "d_mae": -0.21877408027648926,
+        "mae_output": 3.1695773601531982,
+        "d_mae": -0.1602785587310791,
         "mse_base": 30.888992309570312,
-        "mse_output": 28.521968841552734,
-        "changed_pixels": 445449,
-        "changed_closer": 299992,
-        "changed_worse": 105224,
+        "mse_output": 28.958728790283203,
+        "changed_pixels": 370831,
+        "changed_closer": 263233,
+        "changed_worse": 87010,
         "false_texture_base": 1.9089635610580444,
-        "false_texture_output": 1.9224148988723755,
-        "d_false_texture": 0.013451337814331055,
+        "false_texture_output": 1.9225155115127563,
+        "d_false_texture": 0.013551950454711914,
         "false_texture_pixels": 19028,
         "partitions": {
           "hard_owned_foreground": {
             "pixels": 454788,
             "mae_base": 3.1041040420532227,
-            "mae_output": 2.338153123855591,
-            "changed_pixels": 436348,
-            "changed_closer": 291165,
-            "changed_worse": 105057
+            "mae_output": 2.563201665878296,
+            "changed_pixels": 363297,
+            "changed_closer": 255970,
+            "changed_worse": 86843
           },
           "owned_foreground_core": {
             "pixels": 451727,
             "mae_base": 3.0427558422088623,
-            "mae_output": 2.2716145515441895,
-            "changed_pixels": 436348,
-            "changed_closer": 291165,
-            "changed_worse": 105057
+            "mae_output": 2.498188018798828,
+            "changed_pixels": 363297,
+            "changed_closer": 255970,
+            "changed_worse": 86843
           },
           "hard_owned_soft_edge": {
             "pixels": 3064,
@@ -175,9 +195,9 @@
           "outer_veil": {
             "pixels": 98817,
             "mae_base": 13.428800582885742,
-            "mae_output": 13.036463737487793,
-            "changed_pixels": 9101,
-            "changed_closer": 8827,
+            "mae_output": 13.048175811767578,
+            "changed_pixels": 7534,
+            "changed_closer": 7263,
             "changed_worse": 167
           },
           "far_background": {
@@ -207,13 +227,13 @@
         "hard_front_missed_core_pixels": 13086,
         "hard_front_false_pixels": 0,
         "cross_frame_satellite_pixels": 0,
-        "rear_active_pixels": 14792,
+        "rear_active_pixels": 7860,
         "rear_overlap_by_gt_region": {
           "hard_owned_foreground": 0,
           "owned_foreground_core": 0,
           "hard_owned_soft_edge": 0,
           "foreground_boundary": 0,
-          "outer_veil": 14792,
+          "outer_veil": 7860,
           "far_background": 0
         },
         "boundary_distance": {
@@ -249,7 +269,9 @@
           "rear_mask_reverse_reblur_presence_threshold": 5.672584056854248,
           "rear_mask_presence_noise_quantile": 10.0,
           "rear_mask_presence_noise_multiplier": 2.0,
-          "rear_mask_active_pixels": 14792
+          "rear_mask_min_application_weight": 0.075,
+          "rear_mask_low_weight_removed_pixels": 6950,
+          "rear_mask_active_pixels": 7860
         }
       }
     },
@@ -273,6 +295,14 @@
         "one_sided_geometry_competitor_margin": 1.5460809469223022,
         "one_sided_geometry_near_family_count": 1,
         "one_sided_geometry_area_fraction": 0.1011517842610677,
+        "one_sided_rear_opening_fired": false,
+        "one_sided_rear_opening_reason": "no_qualified_component",
+        "one_sided_rear_opening_candidate_components": 0,
+        "one_sided_rear_opening_seed_pixels": 0,
+        "one_sided_rear_opening_graph_fired": false,
+        "one_sided_rear_opening_graph_reason": "no_rear_seed",
+        "one_sided_rear_opening_graph_regions": 0,
+        "one_sided_rear_opening_graph_pixels": 0,
         "one_sided_front_completion_fired": true,
         "one_sided_front_completion_reason": "focal_pair_graph_cut",
         "one_sided_front_completion_pixels": 237978,
@@ -299,6 +329,8 @@
         "one_sided_focused_graph_satellite_pixels": 0,
         "one_sided_native_satellite_fragment_regions": 0,
         "one_sided_native_satellite_fragment_pixels": 0,
+        "one_sided_native_main_fragment_regions": 0,
+        "one_sided_native_main_fragment_pixels": 0,
         "one_sided_focused_graph_noise_floor": 2.475512742996216,
         "one_sided_focused_graph_presence_threshold": 4.951025485992432,
         "one_sided_focused_graph_refinement_fired": false,
@@ -359,49 +391,55 @@
         "rear_mask_reverse_reblur_presence_threshold": 4.951025485992432,
         "rear_mask_presence_noise_quantile": 10.0,
         "rear_mask_presence_noise_multiplier": 2.0,
-        "rear_mask_active_pixels": 8361,
-        "front_observation_source": "focused_owner_nlm_foreground_only",
+        "rear_mask_min_application_weight": 0.075,
+        "rear_mask_low_weight_removed_pixels": 1310,
+        "rear_mask_active_pixels": 7090,
         "front_observation_denoise_h": 2.0,
+        "front_observation_mean_gradient": 92.99760437011719,
+        "front_observation_low_texture_threshold": 16.0,
+        "front_observation_preserve_edge_gradient": 30.0,
+        "front_observation_preserved_edge_pixels": 171229,
+        "front_observation_source": "focused_owner_edge_preserving_nlm_foreground_only",
         "owner": 0,
-        "changed_pixels": 224509
+        "changed_pixels": 166757
       },
       "metrics": {
         "ssim_base": 0.966292679309845,
-        "ssim_output": 0.9663912653923035,
-        "d_ssim": 9.85860824584961e-05,
+        "ssim_output": 0.9664703011512756,
+        "d_ssim": 0.00017762184143066406,
         "mae_base": 2.3904008865356445,
-        "mae_output": 2.337254524230957,
-        "d_mae": -0.0531463623046875,
+        "mae_output": 2.345327138900757,
+        "d_mae": -0.045073747634887695,
         "mse_base": 11.611651420593262,
-        "mse_output": 10.572460174560547,
-        "changed_pixels": 224509,
-        "changed_closer": 125813,
-        "changed_worse": 67594,
+        "mse_output": 10.626121520996094,
+        "changed_pixels": 166757,
+        "changed_closer": 99738,
+        "changed_worse": 47376,
         "false_texture_base": 1.5888844728469849,
-        "false_texture_output": 1.5917637348175049,
-        "d_false_texture": 0.0028792619705200195,
+        "false_texture_output": 1.5917835235595703,
+        "d_false_texture": 0.0028990507125854492,
         "false_texture_pixels": 48977,
         "partitions": {
           "hard_owned_foreground": {
             "pixels": 240623,
             "mae_base": 2.6707005500793457,
-            "mae_output": 2.3797740936279297,
-            "changed_pixels": 218227,
-            "changed_closer": 120322,
-            "changed_worse": 66913
+            "mae_output": 2.4585180282592773,
+            "changed_pixels": 160635,
+            "changed_closer": 94405,
+            "changed_worse": 46696
           },
           "owned_foreground_core": {
             "pixels": 238864,
             "mae_base": 2.613142251968384,
-            "mae_output": 2.3201181888580322,
-            "changed_pixels": 218220,
-            "changed_closer": 120317,
-            "changed_worse": 66911
+            "mae_output": 2.399451971054077,
+            "changed_pixels": 160628,
+            "changed_closer": 94400,
+            "changed_worse": 46694
           },
           "hard_owned_soft_edge": {
             "pixels": 1760,
             "mae_base": 10.482196807861328,
-            "mae_output": 10.476136207580566,
+            "mae_output": 10.474810600280762,
             "changed_pixels": 7,
             "changed_closer": 5,
             "changed_worse": 2
@@ -409,7 +447,7 @@
           "foreground_boundary": {
             "pixels": 3274,
             "mae_base": 8.529220581054688,
-            "mae_output": 8.525961875915527,
+            "mae_output": 8.525249481201172,
             "changed_pixels": 7,
             "changed_closer": 5,
             "changed_worse": 2
@@ -417,10 +455,10 @@
           "outer_veil": {
             "pixels": 61020,
             "mae_base": 5.8032612800598145,
-            "mae_output": 4.895618915557861,
-            "changed_pixels": 6282,
-            "changed_closer": 5491,
-            "changed_worse": 681
+            "mae_output": 4.897219657897949,
+            "changed_pixels": 6122,
+            "changed_closer": 5333,
+            "changed_worse": 680
           },
           "far_background": {
             "pixels": 2056138,
@@ -449,13 +487,13 @@
         "hard_front_missed_core_pixels": 7271,
         "hard_front_false_pixels": 0,
         "cross_frame_satellite_pixels": 0,
-        "rear_active_pixels": 8361,
+        "rear_active_pixels": 7090,
         "rear_overlap_by_gt_region": {
           "hard_owned_foreground": 0,
           "owned_foreground_core": 0,
           "hard_owned_soft_edge": 0,
           "foreground_boundary": 0,
-          "outer_veil": 8361,
+          "outer_veil": 7090,
           "far_background": 0
         },
         "boundary_distance": {
@@ -491,7 +529,9 @@
           "rear_mask_reverse_reblur_presence_threshold": 4.951025485992432,
           "rear_mask_presence_noise_quantile": 10.0,
           "rear_mask_presence_noise_multiplier": 2.0,
-          "rear_mask_active_pixels": 8361
+          "rear_mask_min_application_weight": 0.075,
+          "rear_mask_low_weight_removed_pixels": 1310,
+          "rear_mask_active_pixels": 7090
         }
       }
     },
@@ -515,6 +555,14 @@
         "one_sided_geometry_competitor_margin": 0.923259973526001,
         "one_sided_geometry_near_family_count": 1,
         "one_sided_geometry_area_fraction": 0.04177411397298177,
+        "one_sided_rear_opening_fired": false,
+        "one_sided_rear_opening_reason": "no_qualified_component",
+        "one_sided_rear_opening_candidate_components": 0,
+        "one_sided_rear_opening_seed_pixels": 0,
+        "one_sided_rear_opening_graph_fired": false,
+        "one_sided_rear_opening_graph_reason": "no_rear_seed",
+        "one_sided_rear_opening_graph_regions": 0,
+        "one_sided_rear_opening_graph_pixels": 0,
         "one_sided_front_completion_fired": true,
         "one_sided_front_completion_reason": "focal_pair_graph_cut",
         "one_sided_front_completion_pixels": 66717,
@@ -558,6 +606,8 @@
         "one_sided_focused_graph_satellite_pixels": 233,
         "one_sided_native_satellite_fragment_regions": 2,
         "one_sided_native_satellite_fragment_pixels": 89,
+        "one_sided_native_main_fragment_regions": 0,
+        "one_sided_native_main_fragment_pixels": 0,
         "one_sided_focused_graph_noise_floor": 2.5049309730529785,
         "one_sided_focused_graph_presence_threshold": 5.009861946105957,
         "one_sided_focused_graph_refinement_fired": true,
@@ -618,68 +668,74 @@
         "rear_mask_reverse_reblur_presence_threshold": 5.009861946105957,
         "rear_mask_presence_noise_quantile": 10.0,
         "rear_mask_presence_noise_multiplier": 2.0,
-        "rear_mask_active_pixels": 9277,
-        "front_observation_source": "focused_owner_nlm_foreground_only",
+        "rear_mask_min_application_weight": 0.075,
+        "rear_mask_low_weight_removed_pixels": 1783,
+        "rear_mask_active_pixels": 7494,
         "front_observation_denoise_h": 2.0,
+        "front_observation_mean_gradient": 38.598182678222656,
+        "front_observation_low_texture_threshold": 16.0,
+        "front_observation_preserve_edge_gradient": 30.0,
+        "front_observation_preserved_edge_pixels": 24454,
+        "front_observation_source": "focused_owner_edge_preserving_nlm_foreground_only",
         "owner": 0,
-        "changed_pixels": 72037
+        "changed_pixels": 69764
       },
       "metrics": {
         "ssim_base": 0.9665077328681946,
-        "ssim_output": 0.9664637446403503,
-        "d_ssim": -4.398822784423828e-05,
+        "ssim_output": 0.9664686322212219,
+        "d_ssim": -3.910064697265625e-05,
         "mae_base": 2.674818277359009,
-        "mae_output": 2.56461501121521,
-        "d_mae": -0.11020326614379883,
+        "mae_output": 2.5727779865264893,
+        "d_mae": -0.10204029083251953,
         "mse_base": 21.10256004333496,
-        "mse_output": 18.864505767822266,
-        "changed_pixels": 72037,
-        "changed_closer": 48495,
-        "changed_worse": 19922,
+        "mse_output": 18.92407989501953,
+        "changed_pixels": 69764,
+        "changed_closer": 44678,
+        "changed_worse": 21035,
         "false_texture_base": 1.6543116569519043,
-        "false_texture_output": 1.6730945110321045,
-        "d_false_texture": 0.018782854080200195,
+        "false_texture_output": 1.6734141111373901,
+        "d_false_texture": 0.01910245418548584,
         "false_texture_pixels": 14661,
         "partitions": {
           "hard_owned_foreground": {
             "pixels": 68210,
             "mae_base": 3.877847909927368,
-            "mae_output": 2.153002977371216,
-            "changed_pixels": 64670,
-            "changed_closer": 42262,
-            "changed_worse": 18886
+            "mae_output": 2.3370327949523926,
+            "changed_pixels": 62632,
+            "changed_closer": 38683,
+            "changed_worse": 19995
           },
           "owned_foreground_core": {
             "pixels": 67270,
             "mae_base": 3.6871860027313232,
-            "mae_output": 1.9773153066635132,
-            "changed_pixels": 64348,
-            "changed_closer": 42043,
-            "changed_worse": 18791
+            "mae_output": 2.163470506668091,
+            "changed_pixels": 62310,
+            "changed_closer": 38468,
+            "changed_worse": 19897
           },
           "hard_owned_soft_edge": {
             "pixels": 940,
             "mae_base": 17.522340774536133,
-            "mae_output": 14.725886344909668,
+            "mae_output": 14.757801055908203,
             "changed_pixels": 322,
-            "changed_closer": 219,
-            "changed_worse": 95
+            "changed_closer": 215,
+            "changed_worse": 98
           },
           "foreground_boundary": {
             "pixels": 2167,
             "mae_base": 15.976157188415527,
-            "mae_output": 14.88386344909668,
+            "mae_output": 14.904937744140625,
             "changed_pixels": 502,
-            "changed_closer": 296,
-            "changed_worse": 196
+            "changed_closer": 290,
+            "changed_worse": 202
           },
           "outer_veil": {
             "pixels": 43393,
             "mae_base": 15.125496864318848,
-            "mae_output": 13.83623218536377,
-            "changed_pixels": 7187,
-            "changed_closer": 6156,
-            "changed_worse": 935
+            "mae_output": 13.842470169067383,
+            "changed_pixels": 6952,
+            "changed_closer": 5920,
+            "changed_worse": 936
           },
           "far_background": {
             "pixels": 1460034,
@@ -708,13 +764,13 @@
         "hard_front_missed_core_pixels": 2844,
         "hard_front_false_pixels": 455,
         "cross_frame_satellite_pixels": 2016,
-        "rear_active_pixels": 9277,
+        "rear_active_pixels": 7494,
         "rear_overlap_by_gt_region": {
           "hard_owned_foreground": 0,
           "owned_foreground_core": 0,
           "hard_owned_soft_edge": 0,
           "foreground_boundary": 0,
-          "outer_veil": 9277,
+          "outer_veil": 7494,
           "far_background": 0
         },
         "boundary_distance": {
@@ -750,7 +806,9 @@
           "rear_mask_reverse_reblur_presence_threshold": 5.009861946105957,
           "rear_mask_presence_noise_quantile": 10.0,
           "rear_mask_presence_noise_multiplier": 2.0,
-          "rear_mask_active_pixels": 9277
+          "rear_mask_min_application_weight": 0.075,
+          "rear_mask_low_weight_removed_pixels": 1783,
+          "rear_mask_active_pixels": 7494
         }
       }
     },
@@ -774,6 +832,14 @@
         "one_sided_geometry_competitor_margin": 4.502650022506714,
         "one_sided_geometry_near_family_count": 2,
         "one_sided_geometry_area_fraction": 0.1781285603841146,
+        "one_sided_rear_opening_fired": false,
+        "one_sided_rear_opening_reason": "no_qualified_component",
+        "one_sided_rear_opening_candidate_components": 0,
+        "one_sided_rear_opening_seed_pixels": 0,
+        "one_sided_rear_opening_graph_fired": false,
+        "one_sided_rear_opening_graph_reason": "no_rear_seed",
+        "one_sided_rear_opening_graph_regions": 0,
+        "one_sided_rear_opening_graph_pixels": 0,
         "one_sided_front_completion_fired": true,
         "one_sided_front_completion_reason": "focal_pair_graph_cut",
         "one_sided_front_completion_pixels": 281088,
@@ -800,6 +866,8 @@
         "one_sided_focused_graph_satellite_pixels": 0,
         "one_sided_native_satellite_fragment_regions": 0,
         "one_sided_native_satellite_fragment_pixels": 0,
+        "one_sided_native_main_fragment_regions": 0,
+        "one_sided_native_main_fragment_pixels": 0,
         "one_sided_focused_graph_noise_floor": 2.518979549407959,
         "one_sided_focused_graph_presence_threshold": 5.037959098815918,
         "one_sided_focused_graph_refinement_fired": false,
@@ -860,44 +928,50 @@
         "rear_mask_reverse_reblur_presence_threshold": 5.037959098815918,
         "rear_mask_presence_noise_quantile": 10.0,
         "rear_mask_presence_noise_multiplier": 2.0,
-        "rear_mask_active_pixels": 3992,
-        "front_observation_source": "focused_owner_nlm_foreground_only",
+        "rear_mask_min_application_weight": 0.075,
+        "rear_mask_low_weight_removed_pixels": 2162,
+        "rear_mask_active_pixels": 1837,
         "front_observation_denoise_h": 2.0,
+        "front_observation_mean_gradient": 48.736637115478516,
+        "front_observation_low_texture_threshold": 16.0,
+        "front_observation_preserve_edge_gradient": 30.0,
+        "front_observation_preserved_edge_pixels": 74602,
+        "front_observation_source": "focused_owner_edge_preserving_nlm_foreground_only",
         "owner": 0,
-        "changed_pixels": 182267
+        "changed_pixels": 159528
       },
       "metrics": {
         "ssim_base": 0.9569733738899231,
-        "ssim_output": 0.9545156359672546,
-        "d_ssim": -0.002457737922668457,
+        "ssim_output": 0.9549984335899353,
+        "d_ssim": -0.001974940299987793,
         "mae_base": 2.638472318649292,
-        "mae_output": 2.5928163528442383,
-        "d_mae": -0.04565596580505371,
+        "mae_output": 2.5923736095428467,
+        "d_mae": -0.04609870910644531,
         "mse_base": 18.97176742553711,
-        "mse_output": 18.408527374267578,
-        "changed_pixels": 182267,
-        "changed_closer": 99163,
-        "changed_worse": 66163,
+        "mse_output": 18.39988136291504,
+        "changed_pixels": 159528,
+        "changed_closer": 89872,
+        "changed_worse": 52506,
         "false_texture_base": 1.6087708473205566,
-        "false_texture_output": 1.6116195917129517,
-        "d_false_texture": 0.0028487443923950195,
+        "false_texture_output": 1.6116641759872437,
+        "d_false_texture": 0.0028933286666870117,
         "false_texture_pixels": 45780,
         "partitions": {
           "hard_owned_foreground": {
             "pixels": 281761,
             "mae_base": 2.6645326614379883,
-            "mae_output": 2.4455740451812744,
-            "changed_pixels": 180097,
-            "changed_closer": 97043,
-            "changed_worse": 66122
+            "mae_output": 2.442450523376465,
+            "changed_pixels": 157703,
+            "changed_closer": 88097,
+            "changed_worse": 52465
           },
           "owned_foreground_core": {
             "pixels": 279801,
             "mae_base": 2.6267504692077637,
-            "mae_output": 2.4062576293945312,
-            "changed_pixels": 180097,
-            "changed_closer": 97043,
-            "changed_worse": 66122
+            "mae_output": 2.4031128883361816,
+            "changed_pixels": 157703,
+            "changed_closer": 88097,
+            "changed_worse": 52465
           },
           "hard_owned_soft_edge": {
             "pixels": 1962,
@@ -918,9 +992,9 @@
           "outer_veil": {
             "pixels": 65074,
             "mae_base": 9.879101753234863,
-            "mae_output": 9.72364330291748,
-            "changed_pixels": 2170,
-            "changed_closer": 2120,
+            "mae_output": 9.726460456848145,
+            "changed_pixels": 1825,
+            "changed_closer": 1775,
             "changed_worse": 41
           },
           "far_background": {
@@ -950,13 +1024,13 @@
         "hard_front_missed_core_pixels": 98656,
         "hard_front_false_pixels": 0,
         "cross_frame_satellite_pixels": 0,
-        "rear_active_pixels": 3992,
+        "rear_active_pixels": 1837,
         "rear_overlap_by_gt_region": {
           "hard_owned_foreground": 0,
           "owned_foreground_core": 0,
           "hard_owned_soft_edge": 0,
           "foreground_boundary": 0,
-          "outer_veil": 3992,
+          "outer_veil": 1837,
           "far_background": 0
         },
         "boundary_distance": {
@@ -992,7 +1066,9 @@
           "rear_mask_reverse_reblur_presence_threshold": 5.037959098815918,
           "rear_mask_presence_noise_quantile": 10.0,
           "rear_mask_presence_noise_multiplier": 2.0,
-          "rear_mask_active_pixels": 3992
+          "rear_mask_min_application_weight": 0.075,
+          "rear_mask_low_weight_removed_pixels": 2162,
+          "rear_mask_active_pixels": 1837
         }
       }
     },
@@ -1016,6 +1092,14 @@
         "one_sided_geometry_competitor_margin": 0.3097958564758301,
         "one_sided_geometry_near_family_count": 1,
         "one_sided_geometry_area_fraction": 0.03524158619068287,
+        "one_sided_rear_opening_fired": false,
+        "one_sided_rear_opening_reason": "no_qualified_component",
+        "one_sided_rear_opening_candidate_components": 0,
+        "one_sided_rear_opening_seed_pixels": 0,
+        "one_sided_rear_opening_graph_fired": false,
+        "one_sided_rear_opening_graph_reason": "no_rear_seed",
+        "one_sided_rear_opening_graph_regions": 0,
+        "one_sided_rear_opening_graph_pixels": 0,
         "one_sided_front_completion_fired": true,
         "one_sided_front_completion_reason": "focal_pair_graph_cut",
         "one_sided_front_completion_pixels": 63324,
@@ -1042,6 +1126,8 @@
         "one_sided_focused_graph_satellite_pixels": 0,
         "one_sided_native_satellite_fragment_regions": 0,
         "one_sided_native_satellite_fragment_pixels": 0,
+        "one_sided_native_main_fragment_regions": 0,
+        "one_sided_native_main_fragment_pixels": 0,
         "one_sided_focused_graph_noise_floor": 2.476840019226074,
         "one_sided_focused_graph_presence_threshold": 4.953680038452148,
         "one_sided_focused_graph_refinement_fired": false,
@@ -1102,44 +1188,50 @@
         "rear_mask_reverse_reblur_presence_threshold": 4.953680038452148,
         "rear_mask_presence_noise_quantile": 10.0,
         "rear_mask_presence_noise_multiplier": 2.0,
-        "rear_mask_active_pixels": 8909,
-        "front_observation_source": "focused_owner_nlm_foreground_only",
+        "rear_mask_min_application_weight": 0.075,
+        "rear_mask_low_weight_removed_pixels": 4485,
+        "rear_mask_active_pixels": 4437,
         "front_observation_denoise_h": 2.0,
+        "front_observation_mean_gradient": 195.94276428222656,
+        "front_observation_low_texture_threshold": 16.0,
+        "front_observation_preserve_edge_gradient": 30.0,
+        "front_observation_preserved_edge_pixels": 56869,
+        "front_observation_source": "focused_owner_edge_preserving_nlm_foreground_only",
         "owner": 0,
-        "changed_pixels": 64085
+        "changed_pixels": 59769
       },
       "metrics": {
         "ssim_base": 0.9569908380508423,
-        "ssim_output": 0.9568786025047302,
-        "d_ssim": -0.00011223554611206055,
+        "ssim_output": 0.956894040107727,
+        "d_ssim": -9.679794311523438e-05,
         "mae_base": 2.711000680923462,
-        "mae_output": 2.6541569232940674,
-        "d_mae": -0.05684375762939453,
+        "mae_output": 2.6502010822296143,
+        "d_mae": -0.060799598693847656,
         "mse_base": 17.75224494934082,
-        "mse_output": 16.956829071044922,
-        "changed_pixels": 64085,
-        "changed_closer": 44407,
-        "changed_worse": 15671,
+        "mse_output": 16.928424835205078,
+        "changed_pixels": 59769,
+        "changed_closer": 46219,
+        "changed_worse": 10284,
         "false_texture_base": 1.7326740026474,
-        "false_texture_output": 1.746935486793518,
-        "d_false_texture": 0.014261484146118164,
+        "false_texture_output": 1.7466975450515747,
+        "d_false_texture": 0.014023542404174805,
         "false_texture_pixels": 23321,
         "partitions": {
           "hard_owned_foreground": {
             "pixels": 63711,
             "mae_base": 4.4001922607421875,
-            "mae_output": 3.099344491958618,
-            "changed_pixels": 59268,
-            "changed_closer": 39853,
-            "changed_worse": 15499
+            "mae_output": 2.980484962463379,
+            "changed_pixels": 55593,
+            "changed_closer": 42306,
+            "changed_worse": 10112
           },
           "owned_foreground_core": {
             "pixels": 62890,
             "mae_base": 4.250330924987793,
-            "mae_output": 2.9325010776519775,
-            "changed_pixels": 59268,
-            "changed_closer": 39853,
-            "changed_worse": 15499
+            "mae_output": 2.8120899200439453,
+            "changed_pixels": 55593,
+            "changed_closer": 42306,
+            "changed_worse": 10112
           },
           "hard_owned_soft_edge": {
             "pixels": 821,
@@ -1160,9 +1252,9 @@
           "outer_veil": {
             "pixels": 40961,
             "mae_base": 15.08749008178711,
-            "mae_output": 14.655241966247559,
-            "changed_pixels": 4817,
-            "changed_closer": 4554,
+            "mae_output": 14.669221878051758,
+            "changed_pixels": 4176,
+            "changed_closer": 3913,
             "changed_worse": 172
           },
           "far_background": {
@@ -1192,13 +1284,13 @@
         "hard_front_missed_core_pixels": 3551,
         "hard_front_false_pixels": 0,
         "cross_frame_satellite_pixels": 0,
-        "rear_active_pixels": 8909,
+        "rear_active_pixels": 4437,
         "rear_overlap_by_gt_region": {
           "hard_owned_foreground": 0,
           "owned_foreground_core": 0,
           "hard_owned_soft_edge": 0,
           "foreground_boundary": 0,
-          "outer_veil": 8909,
+          "outer_veil": 4437,
           "far_background": 0
         },
         "boundary_distance": {
@@ -1234,7 +1326,9 @@
           "rear_mask_reverse_reblur_presence_threshold": 4.953680038452148,
           "rear_mask_presence_noise_quantile": 10.0,
           "rear_mask_presence_noise_multiplier": 2.0,
-          "rear_mask_active_pixels": 8909
+          "rear_mask_min_application_weight": 0.075,
+          "rear_mask_low_weight_removed_pixels": 4485,
+          "rear_mask_active_pixels": 4437
         }
       }
     },
@@ -1258,6 +1352,14 @@
         "one_sided_geometry_competitor_margin": 10.078206539154053,
         "one_sided_geometry_near_family_count": 2,
         "one_sided_geometry_area_fraction": 0.010860866970486112,
+        "one_sided_rear_opening_fired": false,
+        "one_sided_rear_opening_reason": "no_qualified_component",
+        "one_sided_rear_opening_candidate_components": 0,
+        "one_sided_rear_opening_seed_pixels": 0,
+        "one_sided_rear_opening_graph_fired": false,
+        "one_sided_rear_opening_graph_reason": "no_rear_seed",
+        "one_sided_rear_opening_graph_regions": 0,
+        "one_sided_rear_opening_graph_pixels": 0,
         "one_sided_front_completion_fired": true,
         "one_sided_front_completion_reason": "focal_pair_graph_cut",
         "one_sided_front_completion_pixels": 18981,
@@ -1284,6 +1386,8 @@
         "one_sided_focused_graph_satellite_pixels": 0,
         "one_sided_native_satellite_fragment_regions": 0,
         "one_sided_native_satellite_fragment_pixels": 0,
+        "one_sided_native_main_fragment_regions": 0,
+        "one_sided_native_main_fragment_pixels": 0,
         "one_sided_focused_graph_noise_floor": 2.797542095184326,
         "one_sided_focused_graph_presence_threshold": 5.595084190368652,
         "one_sided_focused_graph_refinement_fired": false,
@@ -1344,49 +1448,55 @@
         "rear_mask_reverse_reblur_presence_threshold": 5.595084190368652,
         "rear_mask_presence_noise_quantile": 10.0,
         "rear_mask_presence_noise_multiplier": 2.0,
-        "rear_mask_active_pixels": 6009,
-        "front_observation_source": "focused_owner_nlm_foreground_only",
+        "rear_mask_min_application_weight": 0.075,
+        "rear_mask_low_weight_removed_pixels": 2891,
+        "rear_mask_active_pixels": 3122,
         "front_observation_denoise_h": 2.0,
+        "front_observation_mean_gradient": 52.10205841064453,
+        "front_observation_low_texture_threshold": 16.0,
+        "front_observation_preserve_edge_gradient": 30.0,
+        "front_observation_preserved_edge_pixels": 5935,
+        "front_observation_source": "focused_owner_edge_preserving_nlm_foreground_only",
         "owner": 0,
-        "changed_pixels": 13210
+        "changed_pixels": 12478
       },
       "metrics": {
         "ssim_base": 0.9720768332481384,
-        "ssim_output": 0.9719862937927246,
-        "d_ssim": -9.053945541381836e-05,
+        "ssim_output": 0.9719853401184082,
+        "d_ssim": -9.149312973022461e-05,
         "mae_base": 2.717404365539551,
-        "mae_output": 2.676006555557251,
-        "d_mae": -0.041397809982299805,
+        "mae_output": 2.677471399307251,
+        "d_mae": -0.039932966232299805,
         "mse_base": 17.610271453857422,
-        "mse_output": 16.84648895263672,
-        "changed_pixels": 13210,
-        "changed_closer": 13097,
-        "changed_worse": 79,
+        "mse_output": 16.863122940063477,
+        "changed_pixels": 12478,
+        "changed_closer": 12308,
+        "changed_worse": 108,
         "false_texture_base": 1.9460941553115845,
-        "false_texture_output": 1.952847957611084,
-        "d_false_texture": 0.006753802299499512,
+        "false_texture_output": 1.951438069343567,
+        "d_false_texture": 0.005343914031982422,
         "false_texture_pixels": 4850,
         "partitions": {
           "hard_owned_foreground": {
             "pixels": 18420,
             "mae_base": 9.504977226257324,
-            "mae_output": 6.496579647064209,
+            "mae_output": 6.614314079284668,
             "changed_pixels": 9364,
-            "changed_closer": 9275,
-            "changed_worse": 76
+            "changed_closer": 9218,
+            "changed_worse": 105
           },
           "owned_foreground_core": {
             "pixels": 17365,
             "mae_base": 8.836990356445312,
-            "mae_output": 5.654438495635986,
+            "mae_output": 5.779402732849121,
             "changed_pixels": 9349,
-            "changed_closer": 9260,
-            "changed_worse": 76
+            "changed_closer": 9203,
+            "changed_worse": 105
           },
           "hard_owned_soft_edge": {
             "pixels": 1055,
             "mae_base": 20.499841690063477,
-            "mae_output": 20.35797691345215,
+            "mae_output": 20.356712341308594,
             "changed_pixels": 15,
             "changed_closer": 15,
             "changed_worse": 0
@@ -1394,7 +1504,7 @@
           "foreground_boundary": {
             "pixels": 2112,
             "mae_base": 19.864269256591797,
-            "mae_output": 19.79340171813965,
+            "mae_output": 19.792770385742188,
             "changed_pixels": 15,
             "changed_closer": 15,
             "changed_worse": 0
@@ -1402,9 +1512,9 @@
           "outer_veil": {
             "pixels": 28298,
             "mae_base": 15.753138542175293,
-            "mae_output": 15.12278938293457,
-            "changed_pixels": 3846,
-            "changed_closer": 3822,
+            "mae_output": 15.137748718261719,
+            "changed_pixels": 3114,
+            "changed_closer": 3090,
             "changed_worse": 3
           },
           "far_background": {
@@ -1434,13 +1544,13 @@
         "hard_front_missed_core_pixels": 8016,
         "hard_front_false_pixels": 0,
         "cross_frame_satellite_pixels": 0,
-        "rear_active_pixels": 6009,
+        "rear_active_pixels": 3122,
         "rear_overlap_by_gt_region": {
           "hard_owned_foreground": 0,
           "owned_foreground_core": 0,
           "hard_owned_soft_edge": 0,
           "foreground_boundary": 0,
-          "outer_veil": 6009,
+          "outer_veil": 3122,
           "far_background": 0
         },
         "boundary_distance": {
@@ -1476,7 +1586,9 @@
           "rear_mask_reverse_reblur_presence_threshold": 5.595084190368652,
           "rear_mask_presence_noise_quantile": 10.0,
           "rear_mask_presence_noise_multiplier": 2.0,
-          "rear_mask_active_pixels": 6009
+          "rear_mask_min_application_weight": 0.075,
+          "rear_mask_low_weight_removed_pixels": 2891,
+          "rear_mask_active_pixels": 3122
         }
       }
     }
@@ -1491,32 +1603,32 @@
       "hard_owned_foreground": {
         "evaluated": 6,
         "nonregressing": 6,
-        "mean_delta_mae": -1.2183210452397664,
-        "worst_delta_mae": -0.21895861625671387
+        "mean_delta_mae": -1.1377254327138264,
+        "worst_delta_mae": -0.21218252182006836
       },
       "owned_foreground_core": {
         "evaluated": 6,
         "nonregressing": 6,
-        "mean_delta_mae": -1.2491517663002014,
-        "worst_delta_mae": -0.22049283981323242
+        "mean_delta_mae": -1.1669066349665325,
+        "worst_delta_mae": -0.21369028091430664
       },
       "hard_owned_soft_edge": {
         "evaluated": 6,
         "nonregressing": 6,
-        "mean_delta_mae": -0.49072996775309247,
+        "mean_delta_mae": -0.4858425458272298,
         "worst_delta_mae": 0.0
       },
       "foreground_boundary": {
         "evaluated": 6,
         "nonregressing": 6,
-        "mean_delta_mae": -0.19440333048502603,
+        "mean_delta_mae": -0.1911149024963379,
         "worst_delta_mae": 0.0
       },
       "outer_veil": {
         "evaluated": 6,
         "nonregressing": 6,
-        "mean_delta_mae": -0.6345499356587728,
-        "worst_delta_mae": -0.1554584503173828
+        "mean_delta_mae": -0.6259987354278564,
+        "worst_delta_mae": -0.15264129638671875
       },
       "far_background": {
         "evaluated": 6,

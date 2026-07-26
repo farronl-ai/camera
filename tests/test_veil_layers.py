@@ -207,6 +207,30 @@ def test_one_sided_geometry_selects_focused_owner_mask():
     np.testing.assert_array_equal(selected["alpha"] >= 0.5, true_mask)
 
 
+def test_rear_opening_requires_strong_cross_frame_object_corroboration():
+    frames, _, candidate, _ = _physical_giant_stack()
+    true_mask = candidate["alpha"] > 0
+    weak_other = true_mask.copy()
+    occupied_x = np.where(true_mask)[1]
+    cutoff = int(np.quantile(occupied_x, 0.65))
+    weak_other[:, cutoff + 1 :] = False
+
+    selected, evidence = select_one_sided_owner_geometry(
+        frames,
+        [
+            np.stack([true_mask]).astype(np.uint8),
+            np.stack([weak_other]).astype(np.uint8),
+        ],
+    )
+
+    assert selected is not None, evidence
+    assert evidence["one_sided_geometry_cross_containment"] < 0.75
+    assert evidence["one_sided_rear_opening_fired"] is False
+    assert evidence["one_sided_rear_opening_reason"] == (
+        "weak_cross_frame_object_corroboration"
+    )
+
+
 def test_rear_focal_evidence_carves_exterior_connected_opening():
     size = 512
     yy, xx = np.mgrid[:size, :size]

@@ -139,7 +139,7 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       hypotheses. S23 rerun: 7/7 SSIM/MAE/MSE and all-partition positive,
       far background exact for every fire, 65 refusals identity. S23 is
       development evidence; do not spend another large split until S15 freezes.
-- [ ] **S18: one-sided opaque ownership.** 🔶 ACTIVE DEV / F73. The S25+
+- [ ] **S18: one-sided opaque ownership.** 🔶 ACTIVE DEV / F74. The S25+
       primary generator and paired forward/adjoint model now guarantee zero
       rear throughput throughout latent opaque foreground support while
       retaining foreground-only outward spread. Raw focal-frame masks are
@@ -189,9 +189,13 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       and textured focused-owner observations without ever mixing the rear
       frame, while restoring high-gradient owner contours byte-for-byte. Full
       S28 has ten fires and two exact refusals; all ten improve MAE/MSE and
-      every physical partition with exact far identity. S28 shaped the final
-      source rule, so run S27/S25 preservation and a newly frozen post-rule
-      split; only then rebuild the inspector once.
+      every physical partition with exact far identity. Historical preservation
+      then showed that negative ownership is unsafe when the enclosing object
+      itself has weak cross-frame support. F74 requires 0.75 object containment:
+      the false S25 carve is refused with zero protected-region rear overlap,
+      while the 0.894-correlated S28 arch is unchanged. S27/S25 preservation is
+      complete. S28 shaped the rules, so freeze and validate S29; only then
+      rebuild the inspector once.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

@@ -127,6 +127,11 @@ ONE_SIDED_HARD_GRAPH_MAX_OTHER_SEMANTIC_FRACTION = 0.0
 ONE_SIDED_REAR_OPENING_MIN_COMPONENT_FRACTION = 0.01
 ONE_SIDED_REAR_OPENING_MIN_DOMINANCE = 0.50
 ONE_SIDED_REAR_OPENING_MAX_DIRECTION_SCORE = -0.30
+# Negative evidence is meaningful only inside a foreground object whose
+# existence is itself strongly corroborated across the focal pair.  With weak
+# whole-object overlap, ordinary defocus/segmentation disagreement can look
+# like a rear opening and must not be allowed to erase possible opaque support.
+ONE_SIDED_REAR_OPENING_MIN_CROSS_CONTAINMENT = 0.75
 ONE_SIDED_REAR_OPENING_GRAPH_MIN_REAR_FRACTION = 0.75
 ONE_SIDED_REAR_OPENING_GRAPH_MIN_DOMINANT_FRACTION = 0.40
 ONE_SIDED_REAR_OPENING_GRAPH_MAX_DIRECTION_SCORE = 0.0
@@ -2026,13 +2031,33 @@ def select_one_sided_owner_geometry(
         )
         return None, report
     owner = int(selected["owner"])
-    rear_opening_seeds, rear_opening_report = (
-        _focused_rear_opening_seeds(
-            images,
-            owner,
-            selected["binary"],
+    if (
+        cross["containment"]
+        >= ONE_SIDED_REAR_OPENING_MIN_CROSS_CONTAINMENT
+    ):
+        rear_opening_seeds, rear_opening_report = (
+            _focused_rear_opening_seeds(
+                images,
+                owner,
+                selected["binary"],
+            )
         )
-    )
+    else:
+        rear_opening_seeds = np.zeros(
+            selected["binary"].shape,
+            bool,
+        )
+        rear_opening_report = {
+            "one_sided_rear_opening_fired": False,
+            "one_sided_rear_opening_reason": (
+                "weak_cross_frame_object_corroboration"
+            ),
+            "one_sided_rear_opening_candidate_components": 0,
+            "one_sided_rear_opening_seed_pixels": 0,
+        }
+    rear_opening_report[
+        "one_sided_rear_opening_min_cross_containment"
+    ] = ONE_SIDED_REAR_OPENING_MIN_CROSS_CONTAINMENT
     report.update(rear_opening_report)
     (
         rear_opening_seeds,

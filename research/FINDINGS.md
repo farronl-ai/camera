@@ -5,6 +5,31 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F74 — Negative ownership requires a corroborated object
+
+Historical V1 preservation found a specific failure in the new negative
+geometry rule: `s25_000` had only `0.640` cross-frame containment, yet its
+defocus/segmentation disagreement resembled a rear opening.  Subtracting that
+region let 533 GT hard-foreground pixels enter the rear application mask.
+Rear-opening evidence is now considered only after the enclosing foreground
+object reaches `0.75` cross-frame containment.  Below that threshold,
+uncertainty protects possible opaque support; it does not license rear
+synthesis.
+
+This is not a legacy exception.  The causal false case is refused and returns
+to zero rear overlap in every protected region while improving every physical
+partition.  The legitimate `s28_002` arch has `0.894` containment, still
+activates, and is numerically unchanged.  A new integration test exercises the
+weak-corroboration refusal.
+
+S27 preservation remains 6/6 for MAE/MSE and all physical partitions with zero
+protected-region rear overlap and exact far identity.  S25 remains 6/6 for
+MAE/MSE, hard/core/soft-edge/veil/far, and zero protected-region rear overlap.
+Its one `+0.00584` boundary dissent in `s25_001` is an inherited V1 result
+already reduced from the previous `+0.01177`; global SSIM/MAE/MSE, hard/core,
+and veil all improve there.  It is recorded rather than used to weaken the V2
+opaque rule.  Freeze S29 with a new seed for the post-rule verdict.
+
 ## F73 — Focused-owner radiance stays a single observation
 
 The first complete S28 run exposed two source-attribution regressions without

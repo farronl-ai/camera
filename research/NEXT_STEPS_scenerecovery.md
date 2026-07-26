@@ -107,12 +107,13 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       still not real optics.
 - [ ] **S15: fine-band causal localization.** The seven current research fires
       improve global/direct and every physical-partition MAE but raise the
-      GT-credited smooth-veil fine-band error. F62's front-first ordering reduces
-      the seven current tails to +0.0014…+0.0096 but does not close them. Map those
-      pixels against coverage slope, support boundary, quantization, channel,
-      and solver disagreement. Prefer local identity or analytic shrinkage over
-      thresholding the aggregate metric. Require a new post-rule fire with a
-      non-positive complement tail before considering auto re-enable.
+      GT-credited smooth-veil fine-band error. F64's consensus-qualified
+      front-first ordering reduces the seven current tails to
+      +0.0011…+0.0042 but does not close them. Map those pixels against coverage
+      slope, support boundary, quantization, channel, and solver disagreement.
+      Prefer local identity or analytic shrinkage over thresholding the aggregate
+      metric. Require a new post-rule fire with a non-positive complement tail
+      before considering auto re-enable.
 - [ ] **S16: formation taxonomy and transmission.** 🔶 ACTIVE; S15 runtime
       promotion is paused. Preserve V2's brute-aperture-verified opaque renderer,
       but stop pooling substantial-core, slender/all-veil, truly transmissive,
@@ -122,6 +123,15 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       scalar-transmission factory with saved foreground/background/opacity
       latents. Re-evaluate F62 by regime before further gate tuning. Design and
       invariants: `OCCLUSION_FORMATION.md`.
+- [x] **S17: local opaque-owner confidence.** ✅ F64. A whole-mask forward win
+      cannot certify each pixel. On the new 36-primary/24-boundary/12-all-veil
+      S23 cohort, one primary fire exposed 18,331 far-background changes despite
+      0.940 alpha IoU. Comparable owner proposals now require a 75% local
+      supermajority for hard front copy and independently for their PSF fringe;
+      parent novel support is clamped, satellites remain separate licensed
+      hypotheses. S23 rerun: 7/7 SSIM/MAE/MSE and all-partition positive,
+      far background exact for every fire, 65 refusals identity. S23 is
+      development evidence; do not spend another large split until S15 freezes.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

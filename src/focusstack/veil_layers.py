@@ -56,6 +56,17 @@ OWNER_REFINEMENT_MIN_IOU = 0.70
 OWNER_REFINEMENT_MIN_SEED_CONTAINMENT = 0.75
 OWNER_REFINEMENT_MIN_AREA_RATIO = 0.50
 OWNER_REFINEMENT_MAX_AREA_RATIO = 1.50
+# A single globally licensed silhouette may still carry a spatially coherent
+# false extension. When the owner-frame bridge supplies several same-object,
+# comparable-area proposals, irreversible front copy and its optical influence
+# require local corroboration from at least 75% of them. One-proposal cases keep
+# their independently forward-licensed behavior; consensus is a conservative
+# shrink, never a new source of support.
+OWNER_CONSENSUS_MIN_IOU = 0.50
+OWNER_CONSENSUS_MIN_AREA_RATIO = 0.50
+OWNER_CONSENSUS_MAX_AREA_RATIO = 1.50
+OWNER_CONSENSUS_MIN_PROPOSALS = 2
+OWNER_CONSENSUS_VOTE_FRACTION = 0.75
 # A rear-focused observation is positive only when decisive rear focus evidence
 # occupies a material fraction of the local neighborhood.  Absence of owner
 # evidence is not rear evidence.  This is the V1/V2 ordered-visibility split:
@@ -1038,6 +1049,97 @@ def _owner_front_reconstruction_support(
     )
 
 
+def _owner_geometry_consensus(
+    alpha: np.ndarray,
+    owner_masks: np.ndarray | None,
+    max_radius: float,
+    spatial_scale: float,
+) -> tuple[np.ndarray, np.ndarray, dict]:
+    """Corroborate irreversible owner geometry across same-object proposals.
+
+    Candidate and replacement licenses are whole-hypothesis tests. They cannot
+    prove that every pixel of a mostly correct semantic mask is foreground.
+    Multiple comparable owner-frame proposals expose that local uncertainty.
+    Their supermajority licenses hard front selection; a supermajority of their
+    independently predicted PSF bands licenses the rear correction footprint.
+
+    With fewer than two associated proposals this function is identity. That
+    preserves the already validated one-proposal path instead of mistaking a
+    lack of duplicate segmentations for counter-evidence.
+    """
+    shape = alpha.shape
+    identity = np.ones(shape, bool)
+    report = {
+        "owner_consensus_active": False,
+        "owner_consensus_proposal_count": 0,
+        "owner_consensus_vote_fraction": (
+            OWNER_CONSENSUS_VOTE_FRACTION
+        ),
+        "owner_consensus_front_fraction": 1.0,
+        "owner_consensus_fringe_fraction": 1.0,
+    }
+    if owner_masks is None:
+        return identity, identity, report
+    masks = np.asarray(owner_masks)
+    if masks.ndim != 3 or masks.shape[1:] != shape:
+        return identity, identity, report
+    reference = np.asarray(alpha, np.float32) >= 0.5
+    reference_area = int(reference.sum())
+    if reference_area == 0:
+        return identity, identity, report
+
+    associated = []
+    for raw_mask in masks:
+        mask = np.asarray(raw_mask) > 0
+        area = int(mask.sum())
+        if area == 0:
+            continue
+        intersection = int((mask & reference).sum())
+        iou = intersection / max(int((mask | reference).sum()), 1)
+        area_ratio = area / reference_area
+        if (
+            iou >= OWNER_CONSENSUS_MIN_IOU
+            and OWNER_CONSENSUS_MIN_AREA_RATIO
+            <= area_ratio
+            <= OWNER_CONSENSUS_MAX_AREA_RATIO
+        ):
+            associated.append(mask)
+    report["owner_consensus_proposal_count"] = len(associated)
+    if len(associated) < OWNER_CONSENSUS_MIN_PROPOSALS:
+        return identity, identity, report
+
+    votes = np.mean(np.stack(associated, axis=0), axis=0)
+    front_consensus = votes >= OWNER_CONSENSUS_VOTE_FRACTION
+    fringe_votes = np.mean(
+        np.stack(
+            [
+                _fringe_mask(
+                    mask.astype(np.float32),
+                    max_radius,
+                    2.0 * spatial_scale,
+                )
+                > 0.0
+                for mask in associated
+            ],
+            axis=0,
+        ),
+        axis=0,
+    )
+    fringe_consensus = fringe_votes >= OWNER_CONSENSUS_VOTE_FRACTION
+    report.update(
+        {
+            "owner_consensus_active": True,
+            "owner_consensus_front_fraction": float(
+                front_consensus.mean()
+            ),
+            "owner_consensus_fringe_fraction": float(
+                fringe_consensus.mean()
+            ),
+        }
+    )
+    return front_consensus, fringe_consensus, report
+
+
 def _ownership_gate(
     images: list[np.ndarray],
     owner: int,
@@ -1223,6 +1325,39 @@ def recover_giant_veil(
     # native pixel wide; validated 512-side research cases are unchanged.
     spatial_scale = max(1.0, max(base.shape[:2]) / MODEL_SIDE)
     max_radius = RADIUS_FRACTION * max(base.shape[:2])
+    (
+        front_consensus,
+        fringe_consensus,
+        consensus_report,
+    ) = _owner_geometry_consensus(
+        alpha,
+        owner_masks,
+        max_radius,
+        spatial_scale,
+    )
+    report.update(consensus_report)
+    if consensus_report["owner_consensus_active"]:
+        satellite_support = np.zeros(alpha.shape, bool)
+        for mask_index, kind in zip(
+            owner_support_report.get("owner_support_mask_indices", []),
+            owner_support_report.get("owner_support_kinds", []),
+        ):
+            if (
+                kind == "satellite"
+                and owner_masks is not None
+                and 0 <= int(mask_index) < len(owner_masks)
+            ):
+                satellite_support |= (
+                    np.asarray(owner_masks[int(mask_index)]) > 0
+                )
+        support_before = int(owner_support.sum())
+        owner_support &= front_consensus | satellite_support
+        report["owner_support_consensus_removed_pixels"] = (
+            support_before - int(owner_support.sum())
+        )
+        report["owner_support_pixels"] = int(owner_support.sum())
+    else:
+        report["owner_support_consensus_removed_pixels"] = 0
     front_reconstruction = _owner_front_reconstruction_support(
         alpha,
         owner_masks,
@@ -1230,6 +1365,7 @@ def recover_giant_veil(
         max_radius,
         spatial_scale,
     )
+    front_reconstruction &= front_consensus
     report["owner_front_reconstruction_pixels"] = int(
         front_reconstruction.sum()
     )
@@ -1269,6 +1405,7 @@ def recover_giant_veil(
     mask = (
         _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
         * ownership
+        * fringe_consensus.astype(np.float32)
     )
     owner_copy_support = owner_support | front_reconstruction
     mask[owner_copy_support] = 0.0

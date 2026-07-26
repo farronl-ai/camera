@@ -59,22 +59,25 @@ OPTICAL_REGIME_BY_STRATUM = {
     "solid": "substantial_coverage_core",
     "mixed": "boundary_dominant_partial_coverage",
     "thin": "all_veil_geometry_stress",
+    "primary": "substantial_coverage_core",
+    "boundary": "boundary_dominant_partial_coverage",
+    "all_veil": "all_veil_geometry_stress",
 }
 # The first post-audit opaque cohort represents the ordinary target more
 # heavily while retaining boundary and all-veil stress. Earlier splits keep the
 # equal-cycle schedule that generated their frozen evidence.
 PRIMARY_OPAQUE_SCHEDULE = (
-    "solid",
-    "solid",
-    "mixed",
-    "solid",
-    "mixed",
-    "thin",
+    "primary",
+    "primary",
+    "boundary",
+    "primary",
+    "boundary",
+    "all_veil",
 )
 # Transmission is isolated from the most severe geometry at first. Varying
 # opacity then tests material separation without making every scene also an
 # all-veil opaque stress.
-TRANSMISSIVE_SCHEDULE = ("solid", "solid", "mixed")
+TRANSMISSIVE_SCHEDULE = ("primary", "primary", "boundary")
 TRANSMISSIVE_OPACITIES = (0.35, 0.55, 0.75)
 
 
@@ -248,6 +251,12 @@ def coverage_classification(
 
 def _stratum_matches(stratum: str, stats: dict) -> bool:
     core = stats["core_fraction"]
+    if stratum == "primary":
+        return core >= 0.75 and stats["core_pixels"] >= 5000
+    if stratum == "boundary":
+        return 0.25 <= core < 0.60 and stats["core_pixels"] >= 1500
+    if stratum == "all_veil":
+        return core < 0.15 and stats["inner_veil_pixels"] >= 2500
     if stratum == "solid":
         return core >= 0.55 and stats["core_pixels"] >= 2500
     if stratum == "mixed":
@@ -394,6 +403,9 @@ def generate(count: int, split: str) -> None:
             "solid": (0.22, 0.85),
             "mixed": (0.20, 0.65),
             "thin": (0.18, 0.48),
+            "primary": (0.30, 0.95),
+            "boundary": (0.20, 0.65),
+            "all_veil": (0.18, 0.48),
         }[stratum]
         scale = float(rng.uniform(*scale_range))
         foreground_crop, alpha_crop = _prepare_object(
@@ -417,7 +429,11 @@ def generate(count: int, split: str) -> None:
         alpha[py:py + oh, px:px + ow] = alpha_crop
         foreground[py:py + oh, px:px + ow] = foreground_crop
         area_fraction = float((alpha >= 0.5).mean())
-        min_area_fraction = 0.007 if stratum == "thin" else 0.025
+        min_area_fraction = (
+            0.007
+            if stratum in {"thin", "all_veil"}
+            else 0.025
+        )
         if not min_area_fraction <= area_fraction <= 0.28:
             continue
 

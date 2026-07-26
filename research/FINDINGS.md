@@ -5,6 +5,58 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F64 — “Confident foreground” is a local consensus, not a good global mask
+
+The formation reset turned the user's opaque-ownership invariant into a more
+representative judge. S23 contains 72 opaque scenes but no longer cycles the old
+regimes equally: 36 primary scenes require at least 75% complete aperture
+coverage, 24 are named boundary-dominant cases, and 12 are named all-veil
+stress. The frozen F62 package fires seven times, all in the primary regime.
+Before changing the rule, all seven improved MAE/MSE and opaque core/inner
+veil/outer veil, but `s23_007` lost SSIM (−0.001348) and changed 18,331 true
+far-background pixels (+0.0762 MAE). The pooled direct win was not accepted.
+
+The cause was the definition of “confident.” The focused-owner replacement mask
+had excellent global geometry (true IoU 0.940, precision 0.969, recall 0.969)
+and a large captured-frame fit win, yet its residual false extension still put
+about 10,000 far-background pixels into the hard owner-copy path. A whole-mask
+forward license cannot certify every local pixel. The inverse solver was not
+the primary cause; it was faithfully honoring a locally wrong discrete owner
+decision.
+
+F64 keeps the discrete choice and strengthens its evidence. When at least two
+comparable same-object owner masks exist (IoU≥0.50, area ratio 0.5–1.5), hard
+front selection requires at least 75% local proposal agreement. The rear
+correction footprint independently requires the same supermajority across the
+PSF-predicted fringe of each proposal. Forward-licensed satellites remain
+separate hypotheses; parent-silhouette novel support is consensus-clamped.
+With only one associated proposal, the prior physically licensed behavior is
+byte-preserved rather than treating missing duplicate segmentations as
+counter-evidence.
+
+On the causal case this changes:
+
+- SSIM `−0.001348 → +0.000378`;
+- MAE remains positive at `−0.0472`;
+- complete opaque core stays exact identity;
+- inner partial and outer veil improve `−0.274` and `−0.570` MAE;
+- far-background delta becomes exactly `0.0`;
+- fine-texture delta shrinks `+0.00505 → +0.00113`.
+
+The one necessary full S23 regression then yields seven fires with 7/7 positive
+SSIM/MAE/MSE, 7/7 nonregressing on all four physical partitions, and exact
+far-background identity for every fire. All 65 refusals remain identity; all
+24 boundary-dominant and 12 all-veil scenes refuse. Mean fired ΔSSIM is
++0.001476 and ΔMAE is −0.1123. The strict fine-texture complement remains open
+on 7/7 (`+0.00113…+0.00418`, mean `+0.00307`).
+
+S23 exposed and shaped the rule, so it is development evidence. Do not generate
+another large split until the remaining fine-tail mechanism is frozen. Use
+`s23_007` plus the prior seven fires as the compact sentinel set meanwhile.
+
+**Shipping action:** `VEIL_AUTO_ENABLED=False`. Local semantic consensus is
+integrated, but positive fine-tail evidence still blocks runtime activation.
+
 ## F63 — Aperture partial coverage is not material transparency
 
 The corrected `extension_007` note triggered a forward-foundation audit before

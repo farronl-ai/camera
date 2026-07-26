@@ -1,7 +1,7 @@
 # Occlusion formation audit — geometry, veil, and material transmission
 
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
-`NEXT_STEPS_scenerecovery.md`, and F60–F62 in `FINDINGS.md`.
+`NEXT_STEPS_scenerecovery.md`, and F60–F64 in `FINDINGS.md`.
 
 ## Why this note exists
 
@@ -131,11 +131,16 @@ or validate the primary physical operator.
 
 - [x] Audit V2 equation and brute-aperture unit test.
 - [x] Numerically classify the reported `extension_007` point.
-- [ ] Add unambiguous material-model and optical-regime metadata.
-- [ ] Reweight/generate primary opaque-core and named all-veil stress cohorts.
-- [ ] Add a scalar-transmission factory with saved latent layers.
-- [ ] Add formation-specific tests and inspector panels.
-- [ ] Re-evaluate F62 by regime before returning to S15.
+- [x] Add unambiguous material-model and optical-regime metadata.
+- [x] Reweight/generate primary opaque-core and named all-veil stress cohorts.
+- [x] Require local owner-mask supermajority before irreversible opaque copy or
+      its PSF footprint; S23's causal far-background leak is repaired.
+- [x] Add a scalar-transmission renderer/factory path with saved latent layers.
+- [x] Add formation-specific tests and the same-scene opaque inspector panel.
+- [x] Re-evaluate F62 by regime before returning to S15: all seven S23 fires
+      occur in the primary opaque cohort; boundary/all-veil cohorts refuse.
+- [ ] Generate the compact transmissive development cohort and establish its
+      oracle layer-separation ceiling.
 - [ ] Build an oracle-transmission ceiling, then attempt blind model routing and
       opacity/layer estimation from captured focal transformations.
 

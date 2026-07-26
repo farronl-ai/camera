@@ -426,6 +426,7 @@ def _v2_visibility_cases():
         RADIUS_FRACTION,
         _fringe_mask,
         _owner_front_reconstruction_support,
+        _owner_geometry_consensus,
         _ordered_visibility_gate,
         complete_owner_support,
         recover_giant_veil,
@@ -534,13 +535,36 @@ def _v2_visibility_cases():
             owner_masks[owner],
         )
         spatial_scale = max(1.0, max(base.shape[:2]) / MODEL_SIDE)
+        max_radius = RADIUS_FRACTION * max(base.shape[:2])
+        (
+            front_consensus,
+            fringe_consensus,
+            consensus_report,
+        ) = _owner_geometry_consensus(
+            estimated_alpha,
+            owner_masks[owner],
+            max_radius,
+            spatial_scale,
+        )
+        if consensus_report["owner_consensus_active"]:
+            satellite_support = np.zeros(estimated_alpha.shape, bool)
+            for mask_index, kind in zip(
+                support_report.get("owner_support_mask_indices", []),
+                support_report.get("owner_support_kinds", []),
+            ):
+                if kind == "satellite":
+                    satellite_support |= (
+                        owner_masks[owner][int(mask_index)] > 0
+                    )
+            owner_support &= front_consensus | satellite_support
         front_reconstruction = _owner_front_reconstruction_support(
             estimated_alpha,
             owner_masks[owner],
             {**support_report, **refinement_report},
-            RADIUS_FRACTION * max(base.shape[:2]),
+            max_radius,
             spatial_scale,
         )
+        front_reconstruction &= front_consensus
         if (
             int(owner_support.sum()) != report["owner_support_pixels"]
             or support_report["owner_support_accepted_count"]
@@ -558,10 +582,11 @@ def _v2_visibility_cases():
         application_mask = (
             _fringe_mask(
                 estimated_alpha,
-                RADIUS_FRACTION * max(base.shape[:2]),
+                max_radius,
                 2.0 * spatial_scale,
             )
             * ordered_visibility
+            * fringe_consensus.astype(np.float32)
         )
         owner_copy_support = owner_support | front_reconstruction
         application_mask[owner_copy_support] = 0.0
@@ -1469,8 +1494,8 @@ def fig_inspection():
         "schema": 6,
         "title": "focusstack owner inspection lab",
         "generated_from": (
-            "F62 front-first exact-disk audits plus current default-pipeline "
-            "runs on ordinary real photographic stacks"
+            "F64 consensus-qualified front-first exact-disk audits plus current "
+            "default-pipeline runs on ordinary real photographic stacks"
         ),
         "oracle_warning": (
             "Ground truth, true alpha, error maps, and GT metrics exist only for "
@@ -1480,10 +1505,11 @@ def fig_inspection():
             "quality verdicts. The giant-veil auto path remains safety-disabled."
         ),
         "case_selection": (
-            "All seven current F62 fires are shown: two diagnosed extension cases, "
-            "the S12 validation fire, the repaired S16 counterexample, and all three "
-            "fires from the genuinely post-final 72-scene S19 split. Legacy V1 deep "
-            "cases are no longer included."
+            "Seven prior physical-stress sentinels are shown after the F64 local-"
+            "consensus change: two diagnosed extension cases, the S12 validation "
+            "fire, the repaired S16 counterexample, and all three fires from the "
+            "genuinely post-final 72-scene S19 split. Legacy V1 deep cases are no "
+            "longer included."
         ),
         "normal_selection": (
             "Six ordinary real-photo stacks show the actual default pipeline: four "

@@ -7,6 +7,7 @@ from focusstack.veil_layers import (
     _box_disk_blur,
     _forward_layers,
     _fringe_mask,
+    _owner_geometry_consensus,
     _owner_front_reconstruction_support,
     _ordered_visibility_gate,
     _ownership_gate,
@@ -332,6 +333,52 @@ def test_owner_frame_parent_silhouette_completes_opaque_foreground():
     )
     assert report["owner_front_reconstruction_pixels"] == int(front.sum())
     assert np.array_equal(output[front], frames[0][front])
+
+
+def test_owner_geometry_consensus_rejects_disputed_mask_extension():
+    size = 192
+    yy, xx = np.mgrid[:size, :size]
+    alpha = (
+        (xx - size / 2) ** 2 + (yy - size / 2) ** 2
+        < (size * 0.25) ** 2
+    ).astype(np.float32)
+    masks = []
+    for index in range(4):
+        mask = alpha > 0
+        if index == 0:
+            mask = mask.copy()
+            mask[20:45, 15:35] = True
+        masks.append(mask)
+
+    front, fringe, evidence = _owner_geometry_consensus(
+        alpha,
+        np.stack(masks).astype(np.uint8),
+        RADIUS_FRACTION * size,
+        1.0,
+    )
+
+    assert evidence["owner_consensus_active"] is True
+    assert evidence["owner_consensus_proposal_count"] == 4
+    assert np.all(front[alpha > 0])
+    assert not np.any(front[20:45, 15:35])
+    assert not np.any(fringe[20:45, 15:35])
+
+
+def test_owner_geometry_consensus_is_identity_with_one_proposal():
+    size = 96
+    alpha = np.zeros((size, size), np.float32)
+    alpha[20:76, 20:76] = 1.0
+    front, fringe, evidence = _owner_geometry_consensus(
+        alpha,
+        alpha[None].astype(np.uint8),
+        RADIUS_FRACTION * size,
+        1.0,
+    )
+
+    assert evidence["owner_consensus_active"] is False
+    assert evidence["owner_consensus_proposal_count"] == 1
+    assert np.all(front)
+    assert np.all(fringe)
 
 
 def test_owner_frame_fragment_without_physical_support_is_refused():

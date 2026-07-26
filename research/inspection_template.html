@@ -440,7 +440,7 @@
 
   <section id="cases">
     <p class="eyebrow">Deep inspection · current physical-stress cases</p>
-    <h2>All seven current F62 fires; no legacy reproductions</h2>
+    <h2>Current front-first sentinels after local consensus; no legacy reproductions</h2>
     <p class="section-intro" id="case-selection"></p>
     <div id="case-list"></div>
   </section>
@@ -614,7 +614,7 @@
     const p = c.diagnostic_point;
     const hasOwnerSupport = m.owner_support_pixels > 0;
     const hasFrontReconstruction = (m.front_reconstruction_pixels || 0) > 0;
-    const outputName = "Current front-first research output";
+    const outputName = "Current consensus-qualified front-first research output";
     const supportSub = hasOwnerSupport
       ? `${(r.owner_support_kinds || []).join(" + ")} · GT precision ${m.owner_support_precision.toFixed(3)} · fit Δ ${Number(r.owner_support_forward_improvement).toFixed(3)} · local ${Number(r.owner_support_local_forward_improvement_ratio || 0).toFixed(3)}`
       : "No owner-only fragment passed the runtime physical gate";

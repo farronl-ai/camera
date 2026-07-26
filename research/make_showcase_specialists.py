@@ -14,9 +14,14 @@ Figures use the same conventions as make_showcase.py (docs/img/*.jpg, JPEG q85):
       artifact: [base | former output | amplified difference] at the wire edge.
 
 Crops are disagreement-guided (eyetool discipline), never hand-picked.
-Run:  python research/make_showcase_specialists.py [recon|veil|fence|all]
+  inspection/ — an audit workbench with complete inputs, shipped output,
+      GT-only diagnostics, edit/error maps, and two automatically selected crops
+      for five representative joint-layer cases.
+
+Run:  python research/make_showcase_specialists.py [recon|veil|fence|inspection|all]
 """
 from __future__ import annotations
+import json
 import os
 import sys
 
@@ -34,6 +39,8 @@ from focusstack.reconstruct import (contamination_band, reconstruct_band,  # noq
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 IMG = os.path.join(REPO, "docs", "img")
+INSPECTION_IMG = os.path.join(IMG, "inspection")
+INSPECTION_MANIFEST = os.path.join(REPO, "docs", "inspection_manifest.json")
 os.makedirs(IMG, exist_ok=True)
 
 
@@ -68,6 +75,355 @@ def crop_at(imgs, center, half, zoom):
     sl = (slice(y0, y0 + 2 * half), slice(x0, x0 + 2 * half))
     return [cv2.resize(im[sl], None, fx=zoom, fy=zoom,
                        interpolation=cv2.INTER_NEAREST) for im in imgs]
+
+
+def _write_image(path, image, *, max_side=1200, quality=91):
+    """Write a browser-sized diagnostic while retaining native coordinates."""
+    height, width = image.shape[:2]
+    scale = min(1.0, max_side / max(height, width))
+    if scale < 1.0:
+        image = cv2.resize(
+            image,
+            (round(width * scale), round(height * scale)),
+            interpolation=cv2.INTER_AREA,
+        )
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    extension = os.path.splitext(path)[1].lower()
+    params = [cv2.IMWRITE_JPEG_QUALITY, quality] if extension in (".jpg", ".jpeg") else []
+    if not cv2.imwrite(path, image, params):
+        raise RuntimeError(f"could not write {path}")
+
+
+def _mask_image(mask):
+    """Perceptually useful monochrome mask without pretending it is RGB data."""
+    gray = np.uint8(np.clip(mask, 0.0, 1.0) * 255.0)
+    return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+
+
+def _error_delta_map(base, output, gt):
+    """Green means closer to GT; magenta means farther; gray means unchanged."""
+    base_error = np.abs(base.astype(np.float32) - gt.astype(np.float32)).mean(2)
+    output_error = np.abs(output.astype(np.float32) - gt.astype(np.float32)).mean(2)
+    delta = base_error - output_error
+    changed = np.any(output != base, axis=2)
+    support = np.abs(delta[changed])
+    scale = float(np.quantile(support, 0.98)) if support.size else 1.0
+    strength = np.clip(np.abs(delta) / max(scale, 1e-3), 0.0, 1.0)[..., None]
+    neutral = np.full((*delta.shape, 3), (42, 42, 42), np.float32)
+    better = np.full_like(neutral, (68, 196, 82))
+    worse = np.full_like(neutral, (196, 66, 210))
+    color = np.where((delta >= 0)[..., None], better, worse)
+    image = neutral * (1.0 - strength) + color * strength
+    image[~changed] = (24, 24, 24)
+    return np.uint8(np.clip(image, 0, 255)), scale
+
+
+def _outcome_map(base, output, gt):
+    """Discrete map of changed pixels: green closer, magenta worse, blue tied."""
+    base_error = np.abs(base.astype(np.float32) - gt.astype(np.float32)).sum(2)
+    output_error = np.abs(output.astype(np.float32) - gt.astype(np.float32)).sum(2)
+    changed = np.any(output != base, axis=2)
+    image = np.full((*base_error.shape, 3), (24, 24, 24), np.uint8)
+    image[changed & (output_error < base_error)] = (68, 196, 82)
+    image[changed & (output_error > base_error)] = (196, 66, 210)
+    image[changed & (output_error == base_error)] = (210, 145, 60)
+    return image
+
+
+def _region_mae(image, gt, region):
+    if not np.any(region):
+        return float("nan")
+    return float(
+        np.abs(image.astype(np.float32) - gt.astype(np.float32))[region].mean()
+    )
+
+
+def _alpha_scores(estimated, truth):
+    predicted = estimated >= 0.5
+    actual = truth >= 0.5
+    intersection = int((predicted & actual).sum())
+    union = int((predicted | actual).sum())
+    predicted_n = int(predicted.sum())
+    actual_n = int(actual.sum())
+    return {
+        "iou": intersection / max(union, 1),
+        "precision": intersection / max(predicted_n, 1),
+        "recall": intersection / max(actual_n, 1),
+        "estimated_pixels": predicted_n,
+        "true_pixels": actual_n,
+    }
+
+
+def _crop_strip(images, center, half=120, zoom=2):
+    """Same native crop from [frame0, frame1, base, output, GT, delta]."""
+    return hstack(*crop_at(images, center, half, zoom))
+
+
+def _inspection_ledger():
+    sources = (
+        ("development", "veillayers_p10_composed_owner_safe_dev.json"),
+        ("holdout-1", "veillayers_p10_composed_owner_safe_holdout.json"),
+        ("holdout-2", "veillayers_p10_composed_owner_safe_second_holdout.json"),
+    )
+    ledger = []
+    for split, filename in sources:
+        with open(os.path.join(HERE, filename), encoding="utf-8") as handle:
+            audit = json.load(handle)
+        for row in audit["rows"]:
+            evidence = row["report"]["veil_evidence"]
+            ledger.append(
+                {
+                    "sid": row["sid"],
+                    "index": row["index"],
+                    "split": split,
+                    "dg": row["dg"],
+                    "d_global_mae": row["d_global_mae"],
+                    "d_global_mse": row["d_global_mse"],
+                    "d_psnr": row["d_psnr"],
+                    "de_fringe": row["de_fringe"],
+                    "d_false_texture": row["d_false_texture"],
+                    "changed_closer": row["changed_closer"],
+                    "changed_worse": row["changed_worse"],
+                    "forward_ratio": evidence["forward_ratio"],
+                    "stable_fraction": evidence["stable_fraction"],
+                    "owner_veto_mean": evidence["owner_veto_mean"],
+                    "changed_pixels": evidence["changed_pixels"],
+                }
+            )
+    return ledger, [source[1] for source in sources]
+
+
+def fig_inspection():
+    """Build the owner-facing inspection dataset from the shipped veil operator."""
+    from t2_candidates import candidates_with_features
+    from t2_confidence import scenes
+    from veilband import fringe_mask as true_fringe_mask
+    from veilship import false_texture_error
+    from focusstack.veil_layers import (
+        MODEL_SIDE,
+        RADIUS_FRACTION,
+        _fringe_mask,
+        _ownership_gate,
+        recover_giant_veil,
+        select_licensed_candidate,
+    )
+
+    # Deliberately includes adverse/weak cases, not only the strongest pictures.
+    selections = {
+        72: (
+            "development · false-texture stress",
+            "Largest disclosed false-texture-index tail in the licensed set.",
+        ),
+        75: (
+            "development · weakest SSIM win",
+            "Smallest positive GT-SSIM delta: a near-boundary license stress case.",
+        ),
+        114: (
+            "holdout 1 · representative fire",
+            "Fresh holdout used in the compact showcase; retained here with every input.",
+        ),
+        122: (
+            "holdout 1 · ownership stress",
+            "Weak holdout whose earlier matte leak motivated focus-ownership protection.",
+        ),
+        147: (
+            "holdout 2 · untouched confirmation",
+            "Only licensed fire in the second scene-disjoint untouched holdout.",
+        ),
+    }
+    all_scenes = list(scenes())
+    cases = []
+    for index, (role, why) in selections.items():
+        sc = all_scenes[index]
+        print(f"  inspection {sc['sid']}: running shipped recovery")
+        base = fuse_perband(sc["frames"], harden=0.5)
+        candidates = candidates_with_features(sc, topk=4)
+        output, report = recover_giant_veil(sc["frames"], base, candidates)
+        if not report["fired"]:
+            raise RuntimeError(f"{sc['sid']} unexpectedly refused: {report}")
+
+        selected, selection_report = select_licensed_candidate(sc["frames"], candidates)
+        if selected is None:
+            raise RuntimeError(f"{sc['sid']} lost licensed candidate: {selection_report}")
+        owner = int(selected["owner"])
+        estimated_alpha = np.clip(selected["alpha"].astype(np.float32), 0.0, 1.0)
+        spatial_scale = max(base.shape[:2]) / MODEL_SIDE
+        ownership, _ = _ownership_gate(
+            sc["frames"],
+            owner,
+            estimated_alpha,
+            spatial_scale,
+        )
+        estimated_fringe = _fringe_mask(
+            estimated_alpha,
+            RADIUS_FRACTION * max(base.shape[:2]),
+            2.0 * spatial_scale,
+        )
+        application_mask = estimated_fringe * ownership
+        changed = np.any(output != base, axis=2)
+        true_fringe = true_fringe_mask(sc["alpha"], sc["max_r"])
+        true_foreground = sc["alpha"] >= 0.5
+        true_background = ~true_foreground & ~true_fringe
+
+        error_map, error_scale = _error_delta_map(base, output, sc["gt"])
+        outcome_map = _outcome_map(base, output, sc["gt"])
+        edit_map = _amplify_diff(output, base, gain=8.0)
+        heat_edit = _disagreement(base, output)
+        base_error = np.abs(base.astype(np.float32) - sc["gt"].astype(np.float32)).mean(2)
+        output_error = np.abs(output.astype(np.float32) - sc["gt"].astype(np.float32)).mean(2)
+        heat_worse = np.maximum(output_error - base_error, 0.0) * changed
+        edit_center = _top_regions(heat_edit, 1, 120)[0]
+        worse_center = _top_regions(heat_worse, 1, 120)[0]
+
+        case_dir = os.path.join(INSPECTION_IMG, sc["sid"])
+        assets = {
+            "frame0": "frame0.jpg",
+            "frame1": "frame1.jpg",
+            "base": "base.jpg",
+            "output": "output.jpg",
+            "gt": "gt.jpg",
+            "estimated_alpha": "estimated_alpha.png",
+            "true_alpha": "true_alpha.png",
+            "application_mask": "application_mask.png",
+            "protected": "protected.png",
+            "edit_x8": "edit_x8.jpg",
+            "error_delta": "error_delta.jpg",
+            "outcomes": "outcomes.png",
+            "crop_edit": "crop_edit.jpg",
+            "crop_worse": "crop_worse.jpg",
+        }
+        images = {
+            "frame0": sc["frames"][0],
+            "frame1": sc["frames"][1],
+            "base": base,
+            "output": output,
+            "gt": sc["gt"],
+            "estimated_alpha": _mask_image(estimated_alpha),
+            "true_alpha": _mask_image(sc["alpha"]),
+            "application_mask": _mask_image(application_mask),
+            "protected": _mask_image(1.0 - ownership),
+            "edit_x8": edit_map,
+            "error_delta": error_map,
+            "outcomes": outcome_map,
+            "crop_edit": _crop_strip(
+                [*sc["frames"], base, output, sc["gt"], error_map],
+                edit_center,
+            ),
+            "crop_worse": _crop_strip(
+                [*sc["frames"], base, output, sc["gt"], error_map],
+                worse_center,
+            ),
+        }
+        for key, filename in assets.items():
+            max_side = 3200 if key.startswith("crop_") else 1600
+            quality = 93 if key in {"frame0", "frame1", "base", "output", "gt"} else 90
+            _write_image(
+                os.path.join(case_dir, filename),
+                images[key],
+                max_side=max_side,
+                quality=quality,
+            )
+            assets[key] = f"img/inspection/{sc['sid']}/{filename}"
+
+        base_f = base.astype(np.float32)
+        output_f = output.astype(np.float32)
+        gt_f = sc["gt"].astype(np.float32)
+        base_mae = float(np.abs(base_f - gt_f).mean())
+        output_mae = float(np.abs(output_f - gt_f).mean())
+        base_mse = float(np.mean((base_f - gt_f) ** 2))
+        output_mse = float(np.mean((output_f - gt_f) ** 2))
+        ft_base, ft_pixels = false_texture_error(
+            base, sc["gt"], sc["alpha"], sc["max_r"]
+        )
+        ft_output, _ = false_texture_error(
+            output, sc["gt"], sc["alpha"], sc["max_r"]
+        )
+        alpha_scores = _alpha_scores(estimated_alpha, sc["alpha"])
+        metrics = {
+            "ssim_base": M.ref_ssim(base, sc["gt"]),
+            "ssim_output": M.ref_ssim(output, sc["gt"]),
+            "d_ssim": M.ref_ssim(output, sc["gt"]) - M.ref_ssim(base, sc["gt"]),
+            "mae_base": base_mae,
+            "mae_output": output_mae,
+            "d_mae": output_mae - base_mae,
+            "mse_base": base_mse,
+            "mse_output": output_mse,
+            "d_mse": output_mse - base_mse,
+            "d_psnr": float(
+                10.0 * np.log10(max(base_mse, 1e-12) / max(output_mse, 1e-12))
+            ),
+            "fringe_mae_base": _region_mae(base, sc["gt"], true_fringe),
+            "fringe_mae_output": _region_mae(output, sc["gt"], true_fringe),
+            "foreground_mae_base": _region_mae(base, sc["gt"], true_foreground),
+            "foreground_mae_output": _region_mae(output, sc["gt"], true_foreground),
+            "far_background_mae_base": _region_mae(base, sc["gt"], true_background),
+            "far_background_mae_output": _region_mae(
+                output, sc["gt"], true_background
+            ),
+            "false_texture_base": ft_base,
+            "false_texture_output": ft_output,
+            "d_false_texture": ft_output - ft_base,
+            "false_texture_pixels": ft_pixels,
+            "changed_pixels": int(changed.sum()),
+            "changed_fraction": float(changed.mean()),
+            "changed_closer": int((changed & (output_error < base_error)).sum()),
+            "changed_worse": int((changed & (output_error > base_error)).sum()),
+            "changed_on_true_foreground": int((changed & true_foreground).sum()),
+            "changed_outside_true_fringe": int((changed & ~true_fringe).sum()),
+            "application_coverage": float((application_mask > 1e-4).mean()),
+            "error_map_scale_gray": error_scale,
+            "estimated_alpha": alpha_scores,
+        }
+        cases.append(
+            {
+                "sid": sc["sid"],
+                "index": index,
+                "role": role,
+                "why": why,
+                "native_width": int(base.shape[1]),
+                "native_height": int(base.shape[0]),
+                "owner": owner,
+                "edit_center": [int(edit_center[1]), int(edit_center[0])],
+                "worse_center": [int(worse_center[1]), int(worse_center[0])],
+                "assets": assets,
+                "metrics": metrics,
+                "report": {
+                    key: value
+                    for key, value in report.items()
+                    if isinstance(value, (str, bool, int, float))
+                },
+            }
+        )
+        print(
+            f"    ΔSSIM={metrics['d_ssim']:+.6f} "
+            f"ΔMAE={metrics['d_mae']:+.4f} "
+            f"closer/worse={metrics['changed_closer']}/{metrics['changed_worse']}"
+        )
+
+    ledger, sources = _inspection_ledger()
+    manifest = {
+        "schema": 1,
+        "title": "focusstack owner inspection lab",
+        "generated_from": "shipped focusstack.veil_layers.recover_giant_veil",
+        "oracle_warning": (
+            "Ground truth, true alpha, error maps, and GT metrics are audit-only. "
+            "They are never inputs to the shipped recovery."
+        ),
+        "case_selection": (
+            "Adversarial/diagnostic selection: weakest licensed win, largest "
+            "false-texture tail, ownership stress, and two scene-disjoint holdouts."
+        ),
+        "audit_sources": sources,
+        "ledger": ledger,
+        "cases": cases,
+    }
+    with open(INSPECTION_MANIFEST, "w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=2)
+        handle.write("\n")
+    print(
+        f"  wrote {os.path.relpath(INSPECTION_MANIFEST, REPO)} "
+        f"({len(cases)} deep cases, {len(ledger)} ledger rows)"
+    )
 
 
 def fig_recon():
@@ -272,4 +628,6 @@ if __name__ == "__main__":
         fig_joint()
     if which in ("fence", "all"):
         fig_fence()
+    if which in ("inspection", "all"):
+        fig_inspection()
     print("done")

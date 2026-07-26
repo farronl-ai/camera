@@ -9,6 +9,10 @@ whole scene in focus.
 > 📸 **[Progress Showcase](docs/SHOWCASE.md)** — the engine explained visually:
 > real before/after photos with zooms, the intuition and the math behind each
 > idea, the evidence across every validated regime, and the road ahead.
+>
+> 🔬 **[Owner Inspection Lab](docs/INSPECTION.html)** — the engineering view:
+> every input frame, base/output slider, masks, GT-only error maps, exact regional
+> metrics, adversarial crops, and copyable coordinate-tagged feedback notes.
 
 ## How it works
 

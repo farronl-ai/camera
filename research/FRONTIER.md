@@ -156,6 +156,16 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     product capture with physical target geometry or controlled occluder removal.
     Real stacks without latent-scene truth can audit refusal/artifacts and forward
     fit, but cannot certify recovered texture.
+  - **19i (spawned by F57): support-tail projection** — the owner inspection lab
+    shows foreground MAE still worsens on all five diagnostic fires
+    (+0.022..+0.870 gray/channel), despite every global/direct package verdict
+    improving. Semantic alpha IoU is 0.823..0.926 and off-hard-fringe edit support
+    remains substantial. First experiment: turn the selected top-4 matte bank and
+    focus-dominance field into continuous support uncertainty; retain outer-fringe
+    correction only where independent observed background evidence is positive.
+    Grade foreground/fringe/far-background partitions and maximum-regression maps,
+    not SSIM. Preserve the current output as an identity candidate so tail control
+    cannot weaken refusal.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

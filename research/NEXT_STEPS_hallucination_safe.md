@@ -110,6 +110,14 @@ Required evidence is a lattice:
       without author trailers. The historical Claude artifact URL cannot be
       republished from this Codex environment; `research/report.html` is current
       locally and `report.py` is the committed source.
+- [x] **S7 — owner inspection lab.** Added a reproducible engineering workbench
+      with all original frames, unamplified base/output sliders, runtime masks,
+      GT-only alpha/error aids, exact package and regional metrics, automatically
+      selected maximum-edit/regression crops, and native-coordinate feedback
+      notes. The deep adverse selection exposed a remaining support tail:
+      foreground MAE worsens on all five inspected fires even though every global
+      direct measure improves. Logged as F57 / FRONTIER 19i rather than hidden by
+      the completed F56 checkpoint.
 
 ## Blind-radius result: point estimation is the wrong abstraction
 

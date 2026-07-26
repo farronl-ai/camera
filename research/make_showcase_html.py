@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import json
 
 try:
     import latex2mathml.converter as l2m
@@ -26,6 +27,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 TEMPLATE = os.path.join(HERE, "showcase_template.html")
 OUT = os.path.join(REPO, "docs", "SHOWCASE.html")
+INSPECTION_TEMPLATE = os.path.join(HERE, "inspection_template.html")
+INSPECTION_MANIFEST = os.path.join(REPO, "docs", "inspection_manifest.json")
+INSPECTION_OUT = os.path.join(REPO, "docs", "INSPECTION.html")
 
 
 def main() -> None:
@@ -53,6 +57,25 @@ def main() -> None:
         f.write(out)
     print(f"wrote {os.path.relpath(OUT, REPO)}  "
           f"({counts['display']} display, {counts['inline']} inline equations)")
+
+    if not os.path.exists(INSPECTION_MANIFEST):
+        print("inspection manifest absent; run make_showcase_specialists.py inspection")
+        return
+    with open(INSPECTION_TEMPLATE, encoding="utf-8") as f:
+        inspection = f.read()
+    with open(INSPECTION_MANIFEST, encoding="utf-8") as f:
+        manifest = json.load(f)
+    embedded = json.dumps(manifest, separators=(",", ":")).replace("</", "<\\/")
+    token = "__INSPECTION_MANIFEST__"
+    if inspection.count(token) != 1:
+        sys.exit("inspection template must contain exactly one manifest token")
+    inspection = inspection.replace(token, embedded)
+    with open(INSPECTION_OUT, "w", encoding="utf-8") as f:
+        f.write(inspection)
+    print(
+        f"wrote {os.path.relpath(INSPECTION_OUT, REPO)} "
+        f"({len(manifest['cases'])} deep cases, {len(manifest['ledger'])} ledger rows)"
+    )
 
 
 if __name__ == "__main__":

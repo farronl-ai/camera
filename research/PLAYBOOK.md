@@ -249,6 +249,13 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    SSIM-only dissent concealed direct-error wins; P9's holdout MSE dissent exposed a
    real foreground-support leak. Keep every vote, map where each error changes, repair
    the mechanism if the tail has physical structure, and rerun the entire lattice.
+6f. **Global metric unanimity can still hide a consistent physical-partition
+   regression** (F57). The owner lab found foreground MAE worsening on all five
+   diagnostic fires even though SSIM, global MAE/MSE, PSNR, and fringe L1 all
+   improve. Every synthesis checkpoint must report foreground, target fringe,
+   and far-background partitions; changed support outside each; and the
+   maximum-regression crop. “All metrics pass” is not closure until the metrics
+   cover the physical regions the operator can damage.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

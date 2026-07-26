@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>focusstack — owner inspection lab</title>
+<style>
+  :root {
+    --bg: #090c11;
+    --panel: #111722;
+    --panel-2: #171f2c;
+    --line: rgba(255,255,255,.10);
+    --ink: #edf0f4;
+    --dim: #9ba6b5;
+    --faint: #6f7a89;
+    --gold: #e7b35b;
+    --cyan: #78c9e2;
+    --green: #6fd184;
+    --magenta: #d76de3;
+    --red: #ed7e86;
+    --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 18% -10%, rgba(120,201,226,.10), transparent 31rem),
+      radial-gradient(circle at 82% 0, rgba(231,179,91,.10), transparent 34rem),
+      var(--bg);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+  a { color: var(--cyan); }
+  code, .mono { font-family: var(--mono); }
+  code {
+    padding: .1em .35em;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: rgba(255,255,255,.04);
+  }
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .75rem clamp(1rem, 3vw, 2.5rem);
+    border-bottom: 1px solid var(--line);
+    background: rgba(9,12,17,.88);
+    backdrop-filter: blur(12px);
+  }
+  nav a { text-decoration: none; }
+  nav .brand { color: var(--gold); font-family: var(--mono); font-weight: 700; }
+  nav .links { display: flex; gap: 1rem; font-size: .85rem; }
+  header, main, footer { width: min(1500px, calc(100% - 2rem)); margin-inline: auto; }
+  header { padding: clamp(3.5rem, 9vw, 7rem) 0 3rem; }
+  .eyebrow {
+    color: var(--gold);
+    font: 700 .75rem/1.2 var(--mono);
+    letter-spacing: .22em;
+    text-transform: uppercase;
+  }
+  h1 {
+    max-width: 15ch;
+    margin: .7rem 0 1rem;
+    font-size: clamp(2.4rem, 7vw, 5.8rem);
+    line-height: .98;
+    letter-spacing: -.055em;
+  }
+  .lede { max-width: 70ch; color: var(--dim); font-size: clamp(1rem, 2vw, 1.25rem); }
+  .oracle {
+    max-width: 85ch;
+    margin: 1.5rem 0 0;
+    padding: 1rem 1.2rem;
+    border-left: 4px solid var(--magenta);
+    background: rgba(215,109,227,.08);
+    color: #e9c8ee;
+  }
+  section { margin: 3.5rem 0 5rem; }
+  h2 { margin: 0 0 .8rem; font-size: clamp(1.6rem, 3vw, 2.4rem); }
+  h3 { margin: 0; }
+  .section-intro { max-width: 78ch; color: var(--dim); }
+  .summary-grid, .legend-grid, .metric-grid, .source-grid, .diagnostic-grid {
+    display: grid;
+    gap: .85rem;
+  }
+  .summary-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 1.5rem; }
+  .legend-grid { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-top: 1.2rem; }
+  .summary, .legend, .metric, .tile, .evidence, .feedback {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(17,23,34,.88);
+  }
+  .summary, .legend { padding: 1rem 1.1rem; }
+  .summary .value { color: var(--gold); font: 700 1.6rem/1 var(--mono); }
+  .summary .label, .legend p { margin: .45rem 0 0; color: var(--dim); font-size: .86rem; }
+  .legend strong { display: block; margin-bottom: .25rem; }
+  .swatch { display: inline-block; width: .75rem; height: .75rem; margin-right: .35rem; border-radius: 2px; }
+  .better { color: var(--green); }
+  .worse { color: var(--magenta); }
+  .warn { color: var(--red); }
+  .table-wrap {
+    overflow-x: auto;
+    margin-top: 1.3rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+  }
+  table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: .82rem; }
+  th {
+    position: sticky;
+    top: 0;
+    padding: .7rem .8rem;
+    color: var(--faint);
+    background: #151c27;
+    font: 700 .68rem/1.3 var(--mono);
+    letter-spacing: .08em;
+    text-align: right;
+    text-transform: uppercase;
+  }
+  th:first-child, th:nth-child(2), td:first-child, td:nth-child(2) { text-align: left; }
+  td { padding: .65rem .8rem; border-top: 1px solid rgba(255,255,255,.06); text-align: right; }
+  tbody tr:hover { background: rgba(120,201,226,.045); }
+  details.case {
+    margin: 1.2rem 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(13,18,26,.94);
+  }
+  details.case[open] { border-color: rgba(120,201,226,.28); }
+  summary.case-head {
+    display: grid;
+    grid-template-columns: minmax(9rem, .7fr) minmax(16rem, 2fr) auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 1.1rem 1.3rem;
+    cursor: pointer;
+    list-style: none;
+  }
+  summary.case-head::-webkit-details-marker { display: none; }
+  summary.case-head::after { content: "+"; color: var(--gold); font: 700 1.4rem var(--mono); }
+  details[open] summary.case-head::after { content: "−"; }
+  .case-id { color: var(--gold); font: 700 1rem var(--mono); }
+  .case-role { color: var(--ink); font-weight: 650; }
+  .case-why { color: var(--dim); font-size: .84rem; }
+  .case-body { padding: 0 1.3rem 1.5rem; border-top: 1px solid var(--line); }
+  .case-body h4 {
+    margin: 2rem 0 .65rem;
+    color: var(--gold);
+    font: 700 .75rem/1.3 var(--mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .metric-grid { grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); margin: 1.2rem 0; }
+  .metric { padding: .8rem .9rem; }
+  .metric .name { color: var(--faint); font: .68rem/1.25 var(--mono); text-transform: uppercase; }
+  .metric .value { margin-top: .3rem; font: 700 1.05rem/1.2 var(--mono); }
+  .metric .sub { margin-top: .25rem; color: var(--dim); font-size: .72rem; }
+  .compare {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #050608;
+    touch-action: pan-y;
+  }
+  .compare img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
+  .compare .after { clip-path: inset(0 50% 0 0); }
+  .compare .divider {
+    position: absolute;
+    top: 0; bottom: 0; left: 50%;
+    width: 2px;
+    background: rgba(255,255,255,.92);
+    box-shadow: 0 0 0 1px rgba(0,0,0,.35);
+    pointer-events: none;
+  }
+  .compare input {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: ew-resize;
+  }
+  .compare-label {
+    position: absolute;
+    top: .65rem;
+    padding: .25rem .5rem;
+    border-radius: 5px;
+    background: rgba(0,0,0,.72);
+    font: 700 .7rem var(--mono);
+    pointer-events: none;
+  }
+  .compare-label.left { left: .65rem; }
+  .compare-label.right { right: .65rem; }
+  .source-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .diagnostic-grid { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .tile { overflow: hidden; }
+  .tile a { display: block; border: 0; }
+  .tile img { display: block; width: 100%; height: auto; background: #050608; }
+  .tile .caption { padding: .65rem .75rem .8rem; }
+  .tile .caption strong { display: block; font-size: .85rem; }
+  .tile .caption span { color: var(--dim); font-size: .75rem; }
+  .probe-img { cursor: crosshair; }
+  .probe-readout {
+    margin: .7rem 0 0;
+    color: var(--cyan);
+    font: .78rem var(--mono);
+  }
+  .crop {
+    display: block;
+    width: 100%;
+    margin: .7rem 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .crop-key { color: var(--dim); font-size: .78rem; }
+  .crop-scroll { overflow-x: auto; }
+  .crop-scroll a { border: 0; }
+  .crop-scroll img { min-width: 1200px; }
+  .evidence { overflow: hidden; margin-top: 1rem; }
+  .evidence table { min-width: 660px; }
+  .feedback { margin-top: 1.3rem; padding: 1rem; }
+  .feedback-grid { display: grid; grid-template-columns: minmax(180px, .5fr) 1.5fr; gap: .8rem; }
+  label { display: block; color: var(--dim); font-size: .76rem; }
+  select, textarea, button {
+    width: 100%;
+    margin-top: .3rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    background: #0c1119;
+    font: inherit;
+  }
+  select, button { min-height: 2.7rem; padding: .55rem .7rem; }
+  textarea { min-height: 6rem; padding: .7rem; resize: vertical; }
+  button {
+    width: auto;
+    margin-top: .8rem;
+    padding-inline: 1rem;
+    border-color: rgba(120,201,226,.4);
+    color: #dff6fc;
+    cursor: pointer;
+  }
+  button:hover { background: #142331; }
+  .copy-status { margin-left: .7rem; color: var(--green); font-size: .78rem; }
+  .definition-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: .55rem 1rem;
+    max-width: 90ch;
+  }
+  .definition-list dt { color: var(--gold); font: .78rem var(--mono); }
+  .definition-list dd { margin: 0; color: var(--dim); font-size: .88rem; }
+  footer { padding: 2rem 0 4rem; border-top: 1px solid var(--line); color: var(--faint); font-size: .8rem; }
+  @media (max-width: 760px) {
+    nav .links { display: none; }
+    summary.case-head { grid-template-columns: 1fr auto; }
+    .case-why { grid-column: 1 / -1; }
+    .feedback-grid { grid-template-columns: 1fr; }
+    .definition-list { grid-template-columns: 1fr; }
+    .definition-list dd { margin-bottom: .6rem; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="#top">focusstack / inspection</a>
+  <div class="links">
+    <a href="#read">How to read</a>
+    <a href="#ledger">All cases</a>
+    <a href="#cases">Deep inspection</a>
+    <a href="#definitions">Definitions</a>
+    <a href="SHOWCASE.html">Showcase</a>
+  </div>
+</nav>
+
+<header id="top">
+  <p class="eyebrow">Owner workbench · falsification first</p>
+  <h1>See exactly what changed.</h1>
+  <p class="lede">This is the engineering view of the current giant-veil recovery: every
+  camera input, base fusion, shipped output, licensed mask, protected region, GT-only
+  error diagnostic, and exact score. It deliberately includes weak and suspicious cases
+  so missed behavior has somewhere to become visible.</p>
+  <p class="oracle" id="oracle-warning"></p>
+  <div class="summary-grid" id="summary"></div>
+</header>
+
+<main>
+  <section id="read">
+    <p class="eyebrow">How to read the page</p>
+    <h2>Runtime evidence and audit evidence are kept separate</h2>
+    <p class="section-intro">The recovery sees only the two frames, semantic candidate,
+    and focus/forward-model evidence. Ground truth unlocks diagnostics after the fact;
+    it never helps choose the output. Click any image to open its native-size,
+    high-quality browser rendition; exact metrics are computed from the lossless arrays.
+    Click an output image to record a native-resolution coordinate for a feedback note.</p>
+    <div class="legend-grid">
+      <div class="legend"><strong>Base → output slider</strong><p>Drag horizontally. This is
+      the unamplified result, which is the only honest severity view.</p></div>
+      <div class="legend"><strong>Signed edit ×8</strong><p>Neutral gray is no edit. Color
+      localizes direction and structure; amplification must not be read as severity.</p></div>
+      <div class="legend"><strong>Error delta</strong><p><span class="swatch" style="background:#6fd184"></span>closer
+      to GT; <span class="swatch" style="background:#d76de3"></span>farther from GT. Intensity
+      is normalized per scene.</p></div>
+      <div class="legend"><strong>Outcome map</strong><p>Each changed pixel is classified
+      exactly against GT. Dark pixels were byte-identical to the base.</p></div>
+      <div class="legend"><strong>Estimated vs true α</strong><p>Estimated α is runtime
+      semantic evidence. True α is factory-only and exposes matte misses or leaks.</p></div>
+      <div class="legend"><strong>Protected map</strong><p>Bright areas are suppressed by
+      proposed foreground support or independent focus-owner evidence.</p></div>
+    </div>
+  </section>
+
+  <section id="ledger">
+    <p class="eyebrow">Exact-package ledger</p>
+    <h2>All ten licensed fires, including the uncomfortable columns</h2>
+    <p class="section-intro">Direct errors improve on every row. The false-texture-index
+    delta remains slightly positive on every row and is therefore shown as a warning,
+    not hidden by the aggregate win. Click a scene ID to jump to a deep case when one is
+    available.</p>
+    <div class="table-wrap"><table id="ledger-table"></table></div>
+  </section>
+
+  <section id="cases">
+    <p class="eyebrow">Deep inspection</p>
+    <h2>Five diagnostic cases with every original frame</h2>
+    <p class="section-intro" id="case-selection"></p>
+    <div id="case-list"></div>
+  </section>
+
+  <section id="definitions">
+    <p class="eyebrow">Metric dictionary</p>
+    <h2>What the numbers do—and do not—claim</h2>
+    <dl class="definition-list">
+      <dt>ΔSSIM</dt><dd>Output SSIM minus base SSIM. Positive is better, but SSIM can
+      underweight localized physical mistakes.</dd>
+      <dt>ΔMAE / ΔMSE</dt><dd>Output error minus base error against GT. Negative is better;
+      these direct errors prevent a structural metric from carrying the verdict alone.</dd>
+      <dt>ΔPSNR</dt><dd>PSNR improvement derived from MSE. Positive is better.</dd>
+      <dt>Fringe MAE</dt><dd>Per-channel absolute error inside the GT-defined defocus fringe.
+      This is oracle-localized and cannot be measured on ordinary captures.</dd>
+      <dt>False texture</dt><dd>GT-credited finest-band error on smooth true-background
+      fringe pixels. Positive delta is a warning even when global metrics improve.</dd>
+      <dt>Forward ratio</dt><dd>Observation-domain residual after/before the 512px physical
+      fit. Lower is better; the license requires &lt;0.85, but forward fit alone is not truth.</dd>
+      <dt>Stable fraction</dt><dd>Fraction of RGB components with matching correction sign
+      across three regularizers and two plausible PSFs. It is consensus, not correctness.</dd>
+      <dt>Changed closer/worse</dt><dd>GT class of each changed pixel. Counts expose whether
+      a small global win hides a spatially coherent regression.</dd>
+      <dt>α IoU / precision / recall</dt><dd>GT-only segmentation audit of the selected
+      semantic matte. Low recall can reveal missed foreground; low precision can reveal leaks.</dd>
+    </dl>
+  </section>
+</main>
+
+<footer>
+  Generated from the shipped <code>focusstack.veil_layers.recover_giant_veil</code>
+  path. Visual assets retain native factory dimensions (JPEG renderings for photographs);
+  every metric comes from the lossless arrays. Raw values are embedded here and also available in
+  <a href="inspection_manifest.json">inspection_manifest.json</a>.
+</footer>
+
+<script id="inspection-data" type="application/json">__INSPECTION_MANIFEST__</script>
+<script>
+(function () {
+  "use strict";
+  const data = JSON.parse(document.getElementById("inspection-data").textContent);
+  const byId = Object.fromEntries(data.cases.map(c => [c.sid, c]));
+  document.getElementById("oracle-warning").textContent = data.oracle_warning;
+  document.getElementById("case-selection").textContent = data.case_selection;
+
+  const n = data.ledger.length;
+  const minSsim = Math.min(...data.ledger.map(r => r.dg));
+  const closer = data.ledger.reduce((s, r) => s + r.changed_closer, 0);
+  const worse = data.ledger.reduce((s, r) => s + r.changed_worse, 0);
+  const maxFt = Math.max(...data.ledger.map(r => r.d_false_texture));
+  const summaries = [
+    [n + "/" + n, "licensed fires improve all direct measures"],
+    [signed(minSsim, 6), "weakest GT-SSIM delta"],
+    [(closer / Math.max(worse, 1)).toFixed(2) + "×", "changed pixels closer / worse"],
+    ["+" + maxFt.toFixed(3), "largest false-texture tail (gray)"],
+    [data.cases.length, "deep visual audits"],
+  ];
+  document.getElementById("summary").innerHTML = summaries.map(([v, l]) =>
+    `<div class="summary"><div class="value">${v}</div><div class="label">${l}</div></div>`
+  ).join("");
+
+  const columns = [
+    ["scene", "sid"], ["split", "split"], ["ΔSSIM", "dg"], ["ΔMAE", "d_global_mae"],
+    ["ΔMSE", "d_global_mse"], ["ΔPSNR", "d_psnr"], ["Δfringe L1", "de_fringe"],
+    ["Δfalse texture", "d_false_texture"], ["closer", "changed_closer"],
+    ["worse", "changed_worse"], ["forward ratio", "forward_ratio"],
+    ["stable", "stable_fraction"], ["owner veto", "owner_veto_mean"]
+  ];
+  const ledgerHead = `<thead><tr>${columns.map(c => `<th>${c[0]}</th>`).join("")}</tr></thead>`;
+  const ledgerBody = data.ledger.map(row => {
+    const cells = columns.map(([label, key]) => {
+      let value = row[key];
+      let klass = "";
+      if (key === "sid") {
+        value = byId[value] ? `<a href="#${value}">${value}</a>` : value;
+      } else if (typeof value === "number") {
+        if (["changed_closer", "changed_worse"].includes(key)) value = value.toLocaleString();
+        else if (["forward_ratio", "stable_fraction", "owner_veto_mean"].includes(key)) value = value.toFixed(3);
+        else value = signed(value, key === "dg" ? 6 : 3);
+        if (["dg", "d_psnr"].includes(key)) klass = row[key] > 0 ? "better" : "worse";
+        if (["d_global_mae", "d_global_mse", "de_fringe"].includes(key)) klass = row[key] < 0 ? "better" : "worse";
+        if (key === "d_false_texture") klass = row[key] <= 0 ? "better" : "warn";
+      }
+      return `<td class="${klass}">${value}</td>`;
+    }).join("");
+    return `<tr>${cells}</tr>`;
+  }).join("");
+  document.getElementById("ledger-table").innerHTML = ledgerHead + `<tbody>${ledgerBody}</tbody>`;
+
+  const list = document.getElementById("case-list");
+  data.cases.forEach((c, index) => list.insertAdjacentHTML("beforeend", caseHtml(c, index === 0)));
+  wireInteractions();
+
+  function signed(value, digits) {
+    const n = Number(value);
+    return (n >= 0 ? "+" : "") + n.toFixed(digits);
+  }
+  function deltaClass(value, positiveGood) {
+    return (positiveGood ? value >= 0 : value <= 0) ? "better" : "worse";
+  }
+  function metric(name, value, sub, klass) {
+    return `<div class="metric"><div class="name">${name}</div><div class="value ${klass || ""}">${value}</div><div class="sub">${sub || ""}</div></div>`;
+  }
+  function tile(src, title, note, extraClass) {
+    return `<div class="tile"><a href="${src}" target="_blank"><img loading="lazy" class="${extraClass || ""}" src="${src}" alt="${title}"></a><div class="caption"><strong>${title}</strong><span>${note}</span></div></div>`;
+  }
+  function evidenceRow(name, value, interpretation, klass) {
+    return `<tr><td>${name}</td><td class="mono ${klass || ""}">${value}</td><td>${interpretation}</td></tr>`;
+  }
+  function caseHtml(c, open) {
+    const m = c.metrics, r = c.report, a = c.assets;
+    const closerRatio = m.changed_closer / Math.max(m.changed_worse, 1);
+    const alpha = m.estimated_alpha;
+    return `
+    <details class="case" id="${c.sid}" ${open ? "open" : ""}>
+      <summary class="case-head">
+        <div><div class="case-id">${c.sid}</div><div class="case-role">${c.role}</div></div>
+        <div class="case-why">${c.why}</div>
+      </summary>
+      <div class="case-body" data-case="${c.sid}" data-x="" data-y="">
+        <div class="metric-grid">
+          ${metric("ΔSSIM", signed(m.d_ssim, 6), `${m.ssim_base.toFixed(6)} → ${m.ssim_output.toFixed(6)}`, deltaClass(m.d_ssim, true))}
+          ${metric("ΔMAE", signed(m.d_mae, 4), `${m.mae_base.toFixed(3)} → ${m.mae_output.toFixed(3)}`, deltaClass(m.d_mae, false))}
+          ${metric("ΔMSE", signed(m.d_mse, 3), `${m.mse_base.toFixed(2)} → ${m.mse_output.toFixed(2)}`, deltaClass(m.d_mse, false))}
+          ${metric("ΔPSNR", signed(m.d_psnr, 3) + " dB", "MSE-derived", deltaClass(m.d_psnr, true))}
+          ${metric("closer / worse", m.changed_closer.toLocaleString() + " / " + m.changed_worse.toLocaleString(), closerRatio.toFixed(2) + "× ratio", closerRatio >= 1 ? "better" : "worse")}
+          ${metric("false texture Δ", signed(m.d_false_texture, 3), `${m.false_texture_base.toFixed(3)} → ${m.false_texture_output.toFixed(3)} gray`, m.d_false_texture <= 0 ? "better" : "warn")}
+          ${metric("estimated α IoU", alpha.iou.toFixed(3), `P ${alpha.precision.toFixed(3)} · R ${alpha.recall.toFixed(3)}`, alpha.iou >= .8 ? "better" : "warn")}
+          ${metric("changed support", (100*m.changed_fraction).toFixed(2) + "%", `${m.changed_pixels.toLocaleString()} pixels`, "")}
+        </div>
+
+        <h4>Unamplified result</h4>
+        <div class="compare" style="aspect-ratio:${c.native_width}/${c.native_height}">
+          <img src="${a.base}" alt="${c.sid} base fusion">
+          <img class="after" src="${a.output}" alt="${c.sid} shipped output">
+          <span class="compare-label left">base</span><span class="compare-label right">output</span>
+          <div class="divider"></div>
+          <input type="range" min="0" max="100" value="50" aria-label="Compare base and output">
+        </div>
+
+        <h4>Every image input and the GT audit target</h4>
+        <div class="source-grid">
+          ${tile(a.frame0, "Input frame 0" + (c.owner === 0 ? " · selected owner" : ""), "Original captured formation input.")}
+          ${tile(a.frame1, "Input frame 1" + (c.owner === 1 ? " · selected owner" : ""), "Original captured formation input.")}
+          ${tile(a.base, "Base perband fusion", "Generalist result before specialist recovery.")}
+          ${tile(a.output, "Shipped recovery output", "Click to record a native coordinate.", "probe-img")}
+          ${tile(a.gt, "Physical ground truth · audit only", "Never visible to routing, fitting, or output.")}
+        </div>
+        <div class="probe-readout">coordinate probe: click the output image</div>
+
+        <h4>What licensed the edit, and what the edit did</h4>
+        <div class="diagnostic-grid">
+          ${tile(a.estimated_alpha, "Estimated semantic α · runtime", "Selected after observation-domain reranking.")}
+          ${tile(a.true_alpha, "True α · GT-only", "Factory diagnostic for matte precision and recall.")}
+          ${tile(a.application_mask, "Final application mask · runtime", "Estimated fringe × owner-safe gate.")}
+          ${tile(a.protected, "Protected from recovery · runtime", "Estimated foreground plus focus-owner veto.")}
+          ${tile(a.edit_x8, "Signed edit ×8", "Locator only; use the slider for severity.")}
+          ${tile(a.error_delta, "Continuous GT error delta", `Green better, magenta worse; saturation ≈ ${m.error_map_scale_gray.toFixed(2)} gray.`)}
+          ${tile(a.outcomes, "Discrete changed-pixel outcome", "Green closer, magenta worse, dark unchanged.")}
+        </div>
+
+        <h4>Automatically selected native crops</h4>
+        <p class="crop-key">Each strip is: frame 0 · frame 1 · base · output · GT · error delta.
+        Nearest-neighbor enlargement preserves pixel structure.</p>
+        <div class="crop-scroll"><a href="${a.crop_edit}" target="_blank"><img class="crop" loading="lazy" src="${a.crop_edit}" alt="${c.sid} maximal edit crop"></a></div>
+        <p class="crop-key">Largest edit neighborhood centered at (${c.edit_center[0]}, ${c.edit_center[1]}).</p>
+        <div class="crop-scroll"><a href="${a.crop_worse}" target="_blank"><img class="crop" loading="lazy" src="${a.crop_worse}" alt="${c.sid} maximal regression crop"></a></div>
+        <p class="crop-key">Largest locally worse neighborhood centered at (${c.worse_center[0]}, ${c.worse_center[1]}).</p>
+
+        <h4>Regional GT audit and package evidence</h4>
+        <div class="evidence table-wrap"><table><thead><tr><th>measure</th><th>exact value</th><th>reading</th></tr></thead><tbody>
+          ${evidenceRow("True-fringe MAE", `${m.fringe_mae_base.toFixed(3)} → ${m.fringe_mae_output.toFixed(3)}`, "Direct error where true defocus contamination exists.", m.fringe_mae_output < m.fringe_mae_base ? "better" : "worse")}
+          ${evidenceRow("True-foreground MAE", `${m.foreground_mae_base.toFixed(3)} → ${m.foreground_mae_output.toFixed(3)}`, "Owner damage check.", m.foreground_mae_output <= m.foreground_mae_base ? "better" : "worse")}
+          ${evidenceRow("Far-background MAE", `${m.far_background_mae_base.toFixed(3)} → ${m.far_background_mae_output.toFixed(3)}`, "Checks spill beyond the true fringe.", m.far_background_mae_output <= m.far_background_mae_base ? "better" : "worse")}
+          ${evidenceRow("Changed on true foreground", m.changed_on_true_foreground.toLocaleString(), "A support count, not proof of damage.", m.changed_on_true_foreground === 0 ? "better" : "warn")}
+          ${evidenceRow("Changed outside true fringe", m.changed_outside_true_fringe.toLocaleString(), "GT-only support spill diagnostic.", m.changed_outside_true_fringe === 0 ? "better" : "warn")}
+          ${evidenceRow("Forward residual ratio", Number(r.forward_ratio).toFixed(4), "Runtime license requires < 0.85.", r.forward_ratio < .85 ? "better" : "worse")}
+          ${evidenceRow("Consensus stable fraction", Number(r.stable_fraction).toFixed(4), "Same-sign components across six inverse models.", "")}
+          ${evidenceRow("Ensemble spread RMS", Number(r.ensemble_spread_rms).toFixed(3), "Model-family disagreement before minimum-consensus projection.", "")}
+          ${evidenceRow("Owner-veto mean", Number(r.owner_veto_mean).toFixed(4), "Average independent focus-owner suppression.", "")}
+          ${evidenceRow("Selected semantic rank", String(r.candidate_rank), "Rank after physical reranking (0-based).", "")}
+        </tbody></table></div>
+
+        <div class="feedback">
+          <strong>Make a reproducible feedback note</strong>
+          <div class="feedback-grid">
+            <label>Issue class
+              <select class="issue">
+                <option>missed veil / under-correction</option>
+                <option>halo or ringing</option>
+                <option>copied texture / hallucination</option>
+                <option>foreground damage</option>
+                <option>mask leak or miss</option>
+                <option>color or brightness shift</option>
+                <option>license should have refused</option>
+                <option>other idea</option>
+              </select>
+            </label>
+            <label>Observation or proposed experiment
+              <textarea class="note" placeholder="What do you see? What region or physical assumption should we test next?"></textarea>
+            </label>
+          </div>
+          <button class="copy-note" type="button">Copy diagnostic note</button><span class="copy-status"></span>
+        </div>
+      </div>
+    </details>`;
+  }
+
+  function wireInteractions() {
+    document.querySelectorAll("#ledger-table a[href^='#scene_']").forEach(link => {
+      link.addEventListener("click", () => {
+        const target = document.querySelector(link.getAttribute("href"));
+        if (target) target.open = true;
+      });
+    });
+    document.querySelectorAll(".compare").forEach(compare => {
+      const range = compare.querySelector("input");
+      const after = compare.querySelector(".after");
+      const divider = compare.querySelector(".divider");
+      const update = () => {
+        const v = Number(range.value);
+        after.style.clipPath = `inset(0 ${100-v}% 0 0)`;
+        divider.style.left = v + "%";
+      };
+      range.addEventListener("input", update);
+      update();
+    });
+    document.querySelectorAll(".case-body").forEach(body => {
+      const c = byId[body.dataset.case];
+      const probe = body.querySelector(".probe-img");
+      const readout = body.querySelector(".probe-readout");
+      probe.addEventListener("click", event => {
+        event.preventDefault();
+        const rect = probe.getBoundingClientRect();
+        const x = Math.max(0, Math.min(c.native_width - 1, Math.round((event.clientX - rect.left) / rect.width * c.native_width)));
+        const y = Math.max(0, Math.min(c.native_height - 1, Math.round((event.clientY - rect.top) / rect.height * c.native_height)));
+        body.dataset.x = x;
+        body.dataset.y = y;
+        readout.textContent = `native coordinate: x=${x}, y=${y} · ${c.native_width}×${c.native_height}`;
+      });
+      body.querySelector(".copy-note").addEventListener("click", async () => {
+        const issue = body.querySelector(".issue").value;
+        const note = body.querySelector(".note").value.trim() || "[add observation]";
+        const coord = body.dataset.x ? `x=${body.dataset.x}, y=${body.dataset.y}` : "coordinate not selected";
+        const text = [
+          `focusstack inspection: ${c.sid} (${c.role})`,
+          `region: ${coord}`,
+          `issue: ${issue}`,
+          `observation: ${note}`,
+          `checkpoint: ΔSSIM ${signed(c.metrics.d_ssim, 6)}, ΔMAE ${signed(c.metrics.d_mae, 4)}, changed closer/worse ${c.metrics.changed_closer}/${c.metrics.changed_worse}, false-texture Δ ${signed(c.metrics.d_false_texture, 3)}`,
+        ].join("\n");
+        const status = body.querySelector(".copy-status");
+        try {
+          await navigator.clipboard.writeText(text);
+          status.textContent = "copied";
+        } catch (_) {
+          window.prompt("Copy diagnostic note:", text);
+          status.textContent = "ready";
+        }
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>

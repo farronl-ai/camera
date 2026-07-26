@@ -252,6 +252,14 @@ locator, not a severity view. On this scene, global MAE improves 10.087 → 9.91
 GT-SSIM +0.00093. The smooth-region false-texture index changes +0.013 gray at the
 contour, disclosed rather than rounded to zero.*
 
+For inspection rather than presentation, open the
+**[Owner Inspection Lab](INSPECTION.html)**. It includes every original frame for
+five deliberately diagnostic fires (the weakest licensed win, the worst
+false-texture tail, the ownership stress case, and two untouched holdouts), a
+base/output slider, runtime masks, GT-only error maps, exact regional metrics,
+automatically selected regression crops, and a structured coordinate-tagged
+feedback tool. Its ledger includes all ten licensed package fires.
+
 The contour specialist sits behind an **outcome-trained gate**: candidates are
 scored by a model trained on factory scenes where the ground truth is known,
 predicting *the actual quality change of firing*. F54 also demonstrated the limit of

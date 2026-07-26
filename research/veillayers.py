@@ -18,6 +18,7 @@ Run:
     cd research
     ../.venv/bin/python veillayers.py p0
     ../.venv/bin/python veillayers.py p1
+    ../.venv/bin/python veillayers.py p2
 """
 from __future__ import annotations
 
@@ -224,6 +225,51 @@ def apply_to_fringe(
     return np.uint8(np.clip(output, 0, 255))
 
 
+def stable_correction(
+    base: np.ndarray,
+    solved: list[np.ndarray],
+    correction_sigma: float = 0.5,
+) -> tuple[np.ndarray, dict]:
+    """Keep only the correction shared by a regularization ensemble.
+
+    An inverse-problem component that changes sign when the physically
+    reasonable regularization strength changes is not licensed by the
+    observations. Stable components retain the smallest ensemble magnitude,
+    making this a conservative projection rather than an averaging prior.
+    """
+    corrections = []
+    for image in solved:
+        correction = image.astype(np.float32) - base.astype(np.float32)
+        if correction_sigma > 0:
+            correction = cv2.GaussianBlur(
+                correction,
+                (0, 0),
+                correction_sigma,
+                borderType=cv2.BORDER_REFLECT,
+            )
+        corrections.append(correction)
+    bank = np.stack(corrections, axis=0)
+    same_sign = (np.min(bank, axis=0) > 0) | (np.max(bank, axis=0) < 0)
+    mean = np.mean(bank, axis=0)
+    correction = np.sign(mean) * np.min(np.abs(bank), axis=0) * same_sign
+    return correction, {
+        "stable_fraction": float(same_sign.mean()),
+        "ensemble_spread_rms": float(np.sqrt(np.mean(np.var(bank, axis=0)))),
+        "retained_rms": float(np.sqrt(np.mean(correction * correction))),
+    }
+
+
+def apply_correction_to_fringe(
+    base: np.ndarray,
+    correction: np.ndarray,
+    sc: dict,
+) -> np.ndarray:
+    support = fringe_mask(sc["alpha"], sc["max_r"]) & (sc["alpha"] < 0.5)
+    mask = cv2.GaussianBlur(support.astype(np.float32), (0, 0), 2.0)
+    output = base.astype(np.float32) + correction * mask[..., None]
+    return np.uint8(np.clip(output, 0, 255))
+
+
 def score(output: np.ndarray, base: np.ndarray, sc: dict) -> dict:
     fringe = fringe_mask(sc["alpha"], sc["max_r"])
     error = np.abs(output.astype(np.float32) - sc["gt"].astype(np.float32)).sum(2)
@@ -392,10 +438,84 @@ def cmd_p1() -> None:
     )
 
 
+def cmd_p2() -> None:
+    """Full-factory audit of regularization-stable correction components."""
+    configs = ((2.0, 0.02), (8.0, 0.05), (32.0, 0.10))
+    correction_sigma = 0.5
+    rows = []
+    for index, original in enumerate(scenes()):
+        sc = resize_oracle(original)
+        base = fuse_perband(sc["frames"], harden=0.5)
+        solved = []
+        evidence_bank = []
+        for smooth_lambda, anchor_lambda in configs:
+            image, evidence = solve_layers(
+                sc["frames"],
+                sc["alpha"],
+                sc["max_r"],
+                smooth_lambda=smooth_lambda,
+                anchor_lambda=anchor_lambda,
+            )
+            solved.append(image)
+            evidence_bank.append(evidence)
+        correction, uncertainty = stable_correction(
+            base, solved, correction_sigma=correction_sigma
+        )
+        output = apply_correction_to_fringe(base, correction, sc)
+        outcome = score(output, base, sc)
+        row = {
+            "index": index,
+            "sid": sc["sid"],
+            "regime": sc["regime"],
+            **outcome,
+            **uncertainty,
+            "forward_before": evidence_bank[1]["forward_before"],
+            "forward_after": evidence_bank[1]["forward_after"],
+            "far_correction_rms": evidence_bank[1]["far_correction_rms"],
+        }
+        rows.append(row)
+        print(
+            f"{sc['sid']} dg={outcome['dg']:+.5f} "
+            f"dfr={outcome['de_fringe']:+.2f} "
+            f"dft={outcome['d_false_texture']:+.3f} "
+            f"stable={uncertainty['stable_fraction']:.3f}",
+            flush=True,
+        )
+    aggregate = {
+        key: summarize(rows, key)
+        for key in (
+            "dg",
+            "de_fringe",
+            "d_false_texture",
+            "stable_fraction",
+            "ensemble_spread_rms",
+            "retained_rms",
+        )
+    }
+    payload = {
+        "max_side": MAX_SIDE,
+        "configs": configs,
+        "correction_sigma": correction_sigma,
+        "rows": rows,
+        "aggregate": aggregate,
+    }
+    path = os.path.join(HERE, "veillayers_p2_consensus.json")
+    with open(path, "w") as handle:
+        json.dump(payload, handle, indent=2)
+    print(json.dumps(aggregate, indent=2), flush=True)
+    print(f"-> {path}", flush=True)
+    print(
+        "DOCTRINE: disagreement across defensible inverse solutions is "
+        "uncertainty; only stable evidence may alter the image.",
+        flush=True,
+    )
+
+
 def main() -> None:
-    if len(sys.argv) != 2 or sys.argv[1] not in {"p0", "p1"}:
-        raise SystemExit("usage: veillayers.py {p0|p1}")
-    {"p0": cmd_p0, "p1": cmd_p1}[sys.argv[1]]()
+    commands = {"p0": cmd_p0, "p1": cmd_p1, "p2": cmd_p2}
+    if len(sys.argv) != 2 or sys.argv[1] not in commands:
+        raise SystemExit("usage: veillayers.py {p0|p1|p2}")
+    commands[sys.argv[1]]()
 
 
 if __name__ == "__main__":

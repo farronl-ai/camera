@@ -182,13 +182,23 @@ pattern; the tail is concentrated at the high-contrast contour. In contrast,
 class has therefore passed the “worth continuing” test but not the strict
 every-scene property.
 
-Immediate next experiment: treat sensitivity to regularization/model choices as
-inverse-problem uncertainty. Retain only correction components stable across a
-small physically plausible solve ensemble, then test whether this removes the
-weak-scene and false-texture tails without erasing the P1 gain. Do not train a
-statistical gate around the two oracle misses until this analytic uncertainty
-control is exhausted. Blind mattes/radii, native resolution, real-stack
-identity, and package integration remain untouched.
+P2 treats sensitivity to regularization as inverse-problem uncertainty. Three
+solves (`smooth/anchor={2/.02,8/.05,32/.10}`) vote per component; a correction
+is retained only when all signs agree, at the smallest ensemble magnitude.
+Across all 100 oracle scenes this makes global GT-SSIM strictly positive:
+mean +0.00383, worst +0.000053. `scene_31` also flips to a −0.24 gray
+true-fringe improvement. One small fringe tail remains (`scene_40`, +0.35 gray
+despite +0.00029 global); mean fringe improvement is −6.85 gray. False-texture
+mean/tail improve from P1 to −0.0243/+0.0654 gray but do not become uniformly
+nonpositive.
+
+The consensus is a mechanism improvement, not a learned gate: uncertainty
+changes the operator itself. `scene_40` is now a refusal candidate because its
+benefit is microscopic and the expanded property is mixed. Do not tune away
+strong-scene gains to force this row. Next rung is semantic matte + true radius,
+using scene-disjoint outcomes later to learn refusal only after the input error
+distribution is visible. Blind radius, native resolution, real-stack identity,
+and package integration remain untouched.
 
 ## Doctrine
 

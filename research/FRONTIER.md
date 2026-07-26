@@ -119,11 +119,13 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     formation equations simultaneously for foreground premultiplication and sharp
     background, then render the all-focus scene. Full P1 is the first positive
     realistic-object ceiling: mean +0.00408 GT-SSIM, 99/100 positive, worst
-    −0.000067, mean fringe error −7.48 gray; false-texture improves on average
-    but has a +0.092 gray tail. It proves the model class is materially better
-    than correction-after-fusion, not that it is safe. Next: regularization-
-    ensemble uncertainty, then refusal. No blind work until the oracle worst
-    case and false-texture complement clear.
+    −0.000067, mean fringe error −7.48 gray. P2's regularization-consensus
+    projection closes the global tail (100/100 positive, mean +0.00383, worst
+    +0.000053) and improves the false-texture tail to +0.065 gray, but one
+    +0.35-gray fringe miss remains. It proves the model class is materially
+    better than correction-after-fusion, not that it is safe. Next: semantic
+    matte + true-radius audit, then scene-disjoint refusal. Blind radius follows
+    only if the semantic-input ceiling survives.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

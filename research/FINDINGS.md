@@ -34,6 +34,17 @@ realistic-object ceiling after F54, not a promotion: analytic solver-uncertainty
 control, blind inputs, native resolution, refusal, and real identity tests remain
 open.
 
+P2 then converts regularization sensitivity into an analytic uncertainty
+projection: solve at three defensible strengths, keep only components whose sign
+agrees, and use the smallest magnitude. This closes the global oracle tail:
+**100/100 GT-SSIM positive**, mean +0.00383, worst +0.000053. It fixes
+`scene_31`'s fringe miss; only `scene_40` retains a small +0.35 gray fringe loss
+alongside +0.00029 global. False-texture mean/tail improve to
+−0.0243/+0.0654 gray. The remaining positive false-texture cases are localized
+boundary-frequency discrepancies, not the broad pattern extension visible in
+F53, but remain part of the audit. This is evidence that solver disagreement is
+useful uncertainty, while forward residual alone is not.
+
 ## SYNTHESIS — current best understanding (read this instead of F1–F23 in sequence)
 
 **The mission (2026-07-22).** The goal has graduated: produce the image TRUE TO THE

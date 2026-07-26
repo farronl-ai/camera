@@ -3810,6 +3810,17 @@ def recover_giant_veil(
                 composed * (1.0 - absolute_strength[..., None])
                 + absolute_blend * absolute_strength[..., None]
             )
+            low_frequency_absolute = cv2.GaussianBlur(
+                composed,
+                (0, 0),
+                1.75 * spatial_scale,
+                borderType=cv2.BORDER_REFLECT,
+            )
+            composed = (
+                composed * (1.0 - absolute_strength[..., None])
+                + low_frequency_absolute
+                * absolute_strength[..., None]
+            )
     output = np.rint(np.clip(composed, 0, 255)).astype(np.uint8)
     report.update(
         {

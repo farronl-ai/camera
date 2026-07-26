@@ -312,7 +312,7 @@ def fuse_decision(
     radius: int | None = None,
     eps: float = 1e-3,
     smooth_ksize: int | None = None,
-    harden: float = 0.0,
+    harden: float = 0.5,
     weight_scale: float = 1.0,
     return_weights: bool = False,
 ):
@@ -348,7 +348,7 @@ def fuse_blend(
     radius: int | None = None,
     eps: float = 1e-3,
     smooth_ksize: int | None = None,
-    harden: float = 0.0,
+    harden: float = 0.5,
     weight_scale: float = 1.0,
     return_weights: bool = False,
 ):
@@ -502,7 +502,7 @@ def fuse_perband(
     if boundary is not None:
         b_pyr = _gaussian_pyramid(np.clip(boundary.astype(np.float32), 0.0, 1.0), levels)
 
-    # Optional veil correction (F40/F41): `veil_D` is the forward-simulated haze
+    # RETIRED RESEARCH-ONLY surface (F40/F41): `veil_D` is the forward-simulated haze
     # field of the frame at `veil_far_idx`; haze enters the output only through
     # that frame's per-band weights, so we subtract w_far * L_k(D) at EVERY band
     # (subtraction of a simulated field has no division -> no F27 amplification).
@@ -516,10 +516,10 @@ def fuse_perband(
             fidx = veil_far_idx if veil_far_idx >= 0 else n - 1
             d_pyrs = {fidx: _laplacian_pyramid(veil_D.astype(np.float32), levels)}
 
-    # Experimental remnant-recovery models are deliberately a separate opt-in
-    # path. Each carries the channel-specific forward fields required to avoid
-    # turning model mismatch or foreground premultiplication into false detail.
-    # Runtime outcome/refusal gating happens before this function.
+    # RETIRED RESEARCH-ONLY surface (F51-F54). These post-fusion remnant models
+    # are kept for exact negative-result reproduction; auto enhancement never
+    # calls them. The shipped successor solves captured layers jointly in
+    # veil_layers.py and does not pass through this fusion hook.
     veil_states = []
     for model in veil_models or []:
         fidx = int(model["far_idx"])

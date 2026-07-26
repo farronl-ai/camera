@@ -5,6 +5,59 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F56 — Owner evidence closes the matte null space; narrow joint veil recovery ships
+
+The P8 package candidate exposed one last benchmark disagreement on fresh-holdout
+`scene_122`: SSIM, global MAE, fringe L1, and the number of changed pixels closer
+to GT improved, but global MSE/PSNR worsened slightly. Spatial decomposition—not
+metric voting—located the squared-error tail inside **true foreground pixels omitted
+by the semantic matte**. The joint solver still re-rendered the observations well:
+blur's null space had simply allowed those foreground pixels to be explained as far
+background. Regularizer and PSF consensus cannot detect a model-support error shared
+by every solve.
+
+The fix uses an independent observed remnant already present in the stack. Focus
+dominance identifies pixels decisively owned by the near-focused frame; a
+resolution-scaled smooth veto attenuates the recovery there, and the final mask is
+strictly zero on the proposed foreground. On `scene_122`, this flips MSE from
++0.726 to −1.107, PSNR from −0.040 to +0.061 dB, raises SSIM from +0.000062
+to +0.000262, and improves fringe L1 from −1.40 to −1.77 gray. This is an
+identifiability repair, not a benchmark filter: the same operator also flips both
+formerly SSIM-dissenting development rows positive.
+
+P9 audits the exact package entry point, including 512 px physical candidate
+reranking, the frozen semantic/forward license, fixed 3.5%-image CoC, three
+regularizers, two PSF families, scaled native priors, ownership projection, and
+identity refusal:
+
+- development: **7/7 fires positive on SSIM, MAE, MSE/PSNR, and fringe L1**;
+  mean deltas +0.00095 SSIM, −0.114 MAE, −4.49 MSE, +0.249 dB, −3.33 fringe;
+- first scene-disjoint holdout: **2/2 positive on every direct measure**;
+- second untouched 25-scene holdout: **1/1 positive on every direct measure**
+  (+0.00113 SSIM, −0.150 MAE, −6.11 MSE, +0.396 dB, −4.99 fringe);
+- the two holdouts fire on **0/24 moderate-CoC scenes**. Across development and
+  both holdouts, the fixed giant hypothesis refuses all 66 moderate scenes.
+
+The smooth-region false-texture index remains a small positive boundary-frequency
+tail (+0.007 to +0.017 gray), so it is reported rather than called zero. Automated
+worst-disagreement panels with GT show corrections localized to the physical contour,
+moving toward scene truth without the broad pattern extension that triggered F53.
+The shipped scope is deliberately narrow: exactly two frames, max side <=1600,
+bridge available, licensed candidate, giant CoC only; otherwise byte-identical
+identity. The old correction-after-fusion function remains only for research
+reproduction and is unreachable from auto enhancement.
+
+P10 closes composition rather than assuming specialist independence. Running all
+ten licensed scenes through the public `focusstack.enhance.enhance` entry point with
+their real cached bridge outputs fires joint recovery 10/10 and contour
+reconstruction 0/10, reproducing every P9 score exactly. A real 14-frame
+MobileDepth zero-motion sweep reports `requires_two_frames`, launches no bridge or
+veil solve, leaves the contour gate silent, and is byte-identical. A clean wheel
+build contains the solver plus both bridge scripts. Public `fuse_blend` /
+`fuse_decision` harden defaults were also corrected to the validated 0.5 used by
+CLI and pipeline; retired fusion hooks and the ungated boundary flag now say
+reproduction-only.
+
 ## F55 (P0) — Joint two-layer inversion escapes F54's model-class failure
 The replacement solves both captured-frame equations simultaneously for sharp
 foreground/background layers, estimates corrections around observed owner/far
@@ -164,7 +217,7 @@ formation model and must be GATED on evidence the model holds — it regresses o
 Canny; DA-V2 sees through defocus and camouflage) stands as a validated data product;
 orthogonality of evidence channels is a design requirement, not a nicety (F30–F32).
 
-**Routing & gates (F44–F47) — the fifth pillar.** Specialists compose; none replaces
+**Routing & gates (F44–F56) — the fifth pillar.** Specialists compose; none replaces
 the generalists. Each specialist is paired with its REGIME and its MATTE CLASS
 (edge-stamping reconstruction needs ~px-precision C3 mattes on thin structures;
 field-subtracting veil correction needs region-precision mask mattes on wide
@@ -177,10 +230,13 @@ with features/data and is proportional to effect size (margins eat small-effect
 recall first). No-ref source-similarity metrics CANNOT audit synthesis corrections
 (F45) — GT-trained gates are the only valid audit until a synthesis-aware no-ref
 signal exists. F54 strengthened the rule: a gate inherits the blind spots of its
-labels and factory, so the veil gate is now disabled; contour reconstruction remains
-the only live enhancement specialist.
+labels and factory, so the historical veil gate/operator remains retired. F56's
+replacement is independently licensed by semantic boundary evidence plus
+observation-domain improvement; it also projects the correction away from pixels
+whose captured focus evidence assigns them to the foreground. Contour reconstruction
+and this narrow giant-veil solver are the two live enhancement specialists.
 
-**Scene recovery (F51–F54, FRONTIER 19).** The first multiplicative veil result was
+**Scene recovery (F51–F56, FRONTIER 19).** The first multiplicative veil result was
 a NARROW ORACLE-FACTORY win, not a general mechanism. F54's realistic-object audit
 overturned the promotion thesis: even true matte + true radius can lose badly on
 natural object/background combinations, while semantic-matte + true-radius hybrid
@@ -189,12 +245,18 @@ removal fix two real artifacts but not the model-class error. The core deficit l
 assumes the far remnant is the only surviving background evidence; actual fusion
 already admits frequency-dependent background evidence from other frames. A direct
 evidence-accounting replacement also fails because separating that contribution at
-the matte boundary is itself ill-conditioned. **Multiplicative veil gain is therefore
-research-only and the shipped subtraction veil branch is safety-disabled**: its four
-native-resolution fires are microscopic and fail the expanded worst-case/fringe/
-false-texture property. The general lessons that survive are in-loop weight-aware
-placement, analytic noise calibration, and—most importantly—null-space/false-texture
-auditing before any scene-recovery claim.
+the matte boundary is itself ill-conditioned. **Multiplicative gain and the historical
+subtraction branch remain retired**: their four native-resolution fires are
+microscopic and fail the expanded worst-case/fringe/false-texture property. Their
+successor does not repair fusion: it jointly solves both
+captured formation equations for observed foreground/background layer corrections.
+Regularizer + cross-PSF component consensus, a frozen physical candidate license,
+fixed giant-CoC refusal, and focus-ownership projection yield 10/10 exact-package
+fires positive across development plus two scene-disjoint holdouts, with 0/66
+moderate fires. The key remaining limitation is recall/scope, not permission to
+invent: two frames, <=1600 px, giant CoC, semantic bridge, licensed candidate only.
+The general lessons are joint evidence accounting, analytic uncertainty, and—
+most importantly—null-space/false-texture auditing before any scene-recovery claim.
 Stack gaps (F52): where NO frame is sharp, one Wiener FFT at the known disk scale
 recovers +0.054 gap-SSIM (worst +0.034, off-gap zero); RL's iteration knob hits
 Lucy's noise-fitting turnover; radius error degrades gracefully (±15% keeps most).

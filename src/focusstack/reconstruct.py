@@ -21,8 +21,9 @@ max-over-frames edges + focus-winner discontinuities).
 
 Scope (v1): the strongest-single-occluder model per ribbon component — owner via
 majority focus-winner; for N>2 frames the most-defocused frame at the support
-serves as the background source. Default OFF in the pipeline; enable with
---reconstruct-boundaries.
+serves as the background source. The ungated whole-image stage is a deprecated
+F36 reproduction surface (`--reconstruct-boundaries`); the same contour mechanism
+ships only behind the outcome gate in `--enhance auto`.
 """
 
 from __future__ import annotations

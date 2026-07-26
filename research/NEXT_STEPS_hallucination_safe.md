@@ -81,20 +81,27 @@ Required evidence is a lattice:
       from observed flat-region high-pass residuals. Result: noise estimation
       works; the hybrid fails realistic oracle scenes, so gate training would
       learn around a broken model and was stopped.
-- [ ] **S3 — replacement outcome gate.** Train only after the replacement
-      operator has a positive realistic-object oracle ceiling. Then use regime-matched
-      objects-as-occluders scenes spanning moderate, giant, chromatic, and
-      never-fire regimes. Features must include radius-fit confidence,
-      forward-model residual change, layer-solver uncertainty, correction
-      magnitude, and the GT-free false-texture proxy. Margin is set from harmful training outcomes
-      and verified on a scene-disjoint holdout.
-- [x] **S4 — package safety.** `--enhance auto` no longer calls the veil branch
-      or semantic bridge; it reports the safety disable and retains contour
-      reconstruction. Identity/refusal is the shipped veil behavior.
-- [ ] **S5 — verification.** Add focused unit tests for channel-specific
+- [x] **S3 — replacement admission/refusal.** The replacement did not need an
+      opaque learned gate: top-4 semantic candidates are reranked by
+      observation-domain error, then a frozen score/purity/area-fit/forward-ratio
+      license admits only the fixed giant-CoC regime. Regularizer/PSF consensus
+      and focus-ownership projection act component-wise. It survives two
+      scene-disjoint holdouts and refuses all 66 moderate scenes.
+- [x] **S4 — package safety.** `--enhance auto` calls the semantic bridge only for
+      exactly two frames, then runs the joint-layer specialist only on a licensed
+      giant-CoC candidate. Nonlicensed, N-frame, >1600 px, missing-bridge, invalid,
+      and kill-switch paths are byte-identical identity. The retired subtraction/
+      gain branch remains unreachable.
+- [x] **S5 — verification.** Add focused unit tests for channel-specific
       modeling, unsupported-texture refusal, kill-switch identity, and gate
-      shape. Run the full test suite plus factory holdout, off-regime families,
-      composed specialists, mobiledepth refusal checks, and eye panels.
+      shape. Result: 39 tests pass; exact-package P9 is 7/7 development, 2/2
+      first holdout, and 1/1 second holdout positive on SSIM plus direct physical
+      errors; both holdouts reject all 24 moderate scenes. Worst-disagreement
+      eye panels show contour-localized movement toward GT without pattern
+      extension. P10 runs all ten through full `enhance()`: joint 10/10, contour
+      0/10, scores identical. A real 14-frame MobileDepth sweep refuses before
+      the bridge and remains byte-identical. The built wheel includes the solver
+      and semantic bridge scripts.
 - [ ] **S6 — checkpoint close.** Distribute findings to SYNTHESIS, PLAYBOOK,
       DEVSTYLE, and FRONTIER; refresh outward-facing docs if a capability ships;
       run the F49/F50 drift sweep; clean-tree/origin/test audit; commit and push
@@ -288,8 +295,32 @@ resolution-scaled priors, and box/disk PSF consensus. Keep identity for every
 other case and preserve a kill switch.
 
 Current native six-solve PSF-consensus cost is ~15 s per fired 1536 px scene and
-~1.1 GB process RSS in this audit; bridge/candidate cost is separate. This is
-acceptable only for explicit `--enhance auto`, not the base fusion path.
+~1.1 GB process RSS in the P8 research harness; bridge/candidate cost is separate.
+The exact package streams the six solutions and measures 19.8 s / 751 MB peak RSS
+on `scene_114` when loaded in production shape. This is acceptable only for
+explicit `--enhance auto`, not the base fusion path.
+
+### F56 final package checkpoint — ownership evidence closes the remaining leak
+
+P8's fresh `scene_122` fire initially presented a true post-doctrine disagreement:
+SSIM, MAE, fringe L1, and closer-pixel counts improved, while MSE/PSNR worsened.
+Region partitioning found the squared-error tail inside true foreground omitted by
+the semantic matte. The forward model and every inverse configuration agreed
+because blur's null space can explain that missing foreground as far background.
+
+The replacement application mask now uses a second captured cue: decisively
+near-owner focus evidence is smoothed into a veto, and estimated foreground is
+strictly identity. This changes `scene_122` from +0.726 MSE / −0.040 dB to
+−1.107 / +0.061 dB while improving its other measures. The exact package then
+passes every fired development and holdout row on SSIM, MAE, MSE/PSNR, and fringe
+L1. Small positive false-texture-index deltas (+0.007..+0.017 gray) remain
+explicitly recorded; disagreement-guided GT panels locate them at the contour and
+show no F53-style extension.
+
+The result is shippable as a **narrow specialist**, not a universal de-veiler:
+two frames, <=1600 px, a bridge-detected licensed object, and a fixed 3.5% giant
+CoC hypothesis. FRONTIER 19g/19h inherit general CoC/N-frame/tiling and real
+optical truth. The old correction-after-fusion operator remains retired.
 
 ## Doctrine
 

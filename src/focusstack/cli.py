@@ -77,8 +77,9 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=1.0,
         help="Compute the (smooth) fusion weights at this fraction of resolution "
-        "then upsample — a high-res speedup (default 1.0 = full). 0.5 is ~quality-"
-        "neutral; focus/confidence stay full-res so thin structures are preserved.",
+        "then upsample — a high-res speedup (default 1.0 = full). Focus/confidence "
+        "stay full-res so thin structures are preserved; quality still needs "
+        "regime-specific validation below 1.0.",
     )
     p.add_argument(
         "--fast",
@@ -100,10 +101,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["auto", "off"],
         default="auto",
         help="Gated specialist enhancement (default auto): contour reconstruction "
-        "fires only where its outcome-trained gate predicts a win. Wide-occluder "
-        "veil correction is safety-disabled after native-resolution false-texture "
-        "auditing. Identity when the contour gate stays silent. 'off' disables. "
-        "perband method only.",
+        "fires only where its outcome-trained gate predicts a win. On exactly "
+        "two frames, an optional semantic bridge may also admit the narrow "
+        "owner-safe joint-layer specialist for physically licensed giant veils; "
+        "all other veil cases are identity. 'off' disables both. perband method "
+        "only.",
     )
     p.add_argument(
         "--reconstruct-boundaries",

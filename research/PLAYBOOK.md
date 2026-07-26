@@ -203,7 +203,7 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
 10. **Ops for long labelers**: flush caches and print progress PER UNIT, not at the
     end — monitorability and interruption-safety are part of the method.
 
-## Scene-recovery arc additions (F51–F54)
+## Scene-recovery arc additions (F51–F56)
 1. **Do not infer a scene deficit after fusion unless every contributing transfer
    function is modeled.** The historical veil law `coef = G − w_far` corrected the
    far remnant but ignored scale-dependent background evidence already admitted from
@@ -238,6 +238,17 @@ global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
    Before promotion: cross model families, run native resolution, report tails, pair
    every selective metric with its complement, and include identity/refusal as a
    candidate. A learned gate cannot rescue a negative realistic oracle ceiling.
+6d. **Forward fit cannot detect support errors shared by every inverse model** (F56).
+   A semantic matte that omits true foreground can still achieve excellent
+   re-degradation by explaining those pixels as background inside blur's null space.
+   Partition metric disagreements spatially by physical ownership. Then add an
+   independent observation: focus dominance vetoes recovery where the captured stack
+   decisively assigns the pixel to the foreground owner. Regularizer/PSF consensus
+   handles solver uncertainty; it does not substitute for support uncertainty.
+6e. **Metric disagreement is a localization request, not a referendum.** P8's
+   SSIM-only dissent concealed direct-error wins; P9's holdout MSE dissent exposed a
+   real foreground-support leak. Keep every vote, map where each error changes, repair
+   the mechanism if the tail has physical structure, and rerun the entire lattice.
 7. **Early stopping IS a regularizer with a measurable turnover** — RL fidelity
    peaks then falls while contrast still rises (k=40 worst < 0): a rising internal
    number while GT fidelity falls is the noise-fitting signature.

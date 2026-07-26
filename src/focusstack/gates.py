@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import numpy as np
 
+# RETIRED F47/F54 gate, retained only by research reproduction scripts. Runtime
+# auto enhancement uses the transparent joint-layer license in veil_layers.py.
 VEIL_GATE = {
     "w": np.array([-2.49457080e-04, -2.19535286e-04, -1.44496502e-04, -7.50545005e-05, -2.14791595e-04,
          -6.56292395e-05, -1.50317683e-05, -5.94075864e-05,  3.94020230e-04, -1.29995067e-04,

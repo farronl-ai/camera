@@ -14,7 +14,7 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 2 | **Real N-frame optical data** (BBBC006 microscopy z-stacks) | Real optical defocus. | ✅ F25: got 4 real 3-plane stacks; perband visibly sharpest, pyramid softens/halos nuclei. Microscopy domain covered; macro/photographic real still open (2b). |
 | 2b | **Real photographic/macro deep stacks** | Microscopy ≠ everyday photography content; the photographic real-optical gap persists (MFFW/UHD blocked). | 🔶 DATA IN: `research/REAL_DATA.md`. `mobiledepth` in-tree (13 real phone sweeps, N=12–41, no AiF GT); `iphone12`/Learn2Refocus (N=9, 4K, +pseudo-GT) documented; `araujo` scripted. Photographic gap NARROWED; true macro/product still open. |
 | 3 | **Occlusion-boundary physics (α-matte)** | Real depth edges mix fg/bg semi-transparently. | ✅ F25: built layered α-matte defocus generator; re-ranked — perband crown WIDENS (blend worst under honest occlusion). Synthetic conclusions not artifacts. Fusion itself is still occlusion-UNAWARE (3b). |
-| 3b | **Occlusion-AWARE fusion** | Matte inversion (de-veiling). | ❌ F27/F54: thin-structure inversion loses; the F51 large-occluder exception fails on realistic objects even with true matte/radius. Correction-after-fusion is retired. Reopen only as joint multi-frame two-layer inversion with a positive realistic-object oracle ceiling. |
+| 3b | **Occlusion-AWARE scene recovery** | Joint layer inversion (de-veiling beyond camera-mix). | 🔶 F56: a narrow two-frame giant-CoC joint solver now ships (10/10 exact-package fires positive; 0/66 moderate fires). Correction-after-fusion remains retired. General CoC, N>2, >1600 px, and real-truth validation remain open in 19g/19h. |
 | 4 | **Per-band Q_ABF metric** | Fix Q_ABF's high-res collapse structurally. | ✅ F26: q_abf_ms (mean-pool) recovers +0.11→+0.78 at high-res; new composite best at BOTH regimes (+0.785/+0.869). Adopted. |
 | 5 | **Depth map byproduct** | Free feature from the fusion decision. | ✅ F26: --depth-out shipped; r=0.59 on textured pixels (texture-only observability — documented limitation). |
 | 6 | **Exposure/WB drift between frames** | Real capture drifts brightness/color. | ✅ F28: drift costs −0.025 SSIM; per-frame gain to stack-median means (mean is blur-invariant) recovers to −0.002; near-identity gate passed → default-ON (--no-normalize-exposure). lit-scan 2026-07: EDMF (Sensors 2024) = 1000 REAL phone pairs with genuine exposure differences, public — the in-the-wild test F28 never had (→ L9). |
@@ -29,9 +29,9 @@ Status: ⬜ unexplored · 🔶 probing · ✅ resolved/promoted · ❌ blocked (
 | 15 | **UHD-MFF & MFFW datasets** | Real+hard benchmarks; not publicly downloadable at last check. Re-probe occasionally. | ❌ lit-scan 2026-07 re-probe: UHD-MFF paper now published (ECCV 2026, learnable-LUT method; 150 real 4K pairs + 1800 synthetic) and official repo `github.com/zyb5/UHD-MFF` EXISTS but is a code stub — no data yet (MIT, author contact in README; watch it). MFFW still ResearchGate-only. Meanwhile three downloadable alternates landed: WHU-MFM (L3), MattingMFIF 4K (L6), EDMF (L9). |
 
 | 16 | **Boundary Engine (E-phase)** | True object boundaries + near-side occlusion tags from stack evidence ∪ learned appearance; additive integration into guided/perband/harden. THE current push — plan: NEXT_STEPS_boundary.md. Relates to 3b/10/12. | 🔶 E4 done as rigorous negative (F33): decision-side integration cannot fix boundary error — it is coefficient-contamination (reconstruction physics). Boundary engine (fused F=0.55) stands as data product. Successor lever: matte-aware / supersampled boundary RECONSTRUCTION (16b). |
-| 16b | **Matte-aware boundary reconstruction** | The hard-lines lever per F33. | 🔶 F34/F35/F36: ceiling −22%; buildable C3 −16% + global WIN on matte-model data; regresses off-model → shipped default-OFF experimental (--reconstruct-boundaries). |
-| 16d | **Weight-scaled in-loop veil correction** | F54 overturned the narrow-factory validation: realistic object scenes fail even with oracle matte/radius; native shipped fires are microscopic and fail fringe/false-texture tails. Auto branch safety-disabled. Successor is joint two-layer inversion, not correction-after-fusion. | ❌ |
-| 16e | **Semantic matte input** | F42: stack-seeded semantic matting proves the blind chain (1 scene fully wins, no oracle) but lands only ~2/8; no self-gate signal separates. F43: mask matting v1 blocked by benchmark pathology (pastiche blobs aren't objects; bokeh spoofs objectness) — NEXT: objects-as-occluders generator (FastSAM cutouts = occluders with true silhouette GT), then re-run selection + per-component confidence + iphone12 GT (manual download required — Sync.com blocks scripts). | 🔶 |
+| 16b | **Matte-aware boundary reconstruction** | The hard-lines lever per F33. | 🔶 F34/F35/F36: ceiling −22%; buildable C3 −16% + global WIN on matte-model data; regresses off-model → mechanism ships behind the contour gate; ungated `--reconstruct-boundaries` is deprecated reproduction-only. |
+| 16d | **Weight-scaled in-loop veil correction** | F54 overturned the narrow-factory validation: realistic object scenes fail even with oracle matte/radius; native fires are microscopic and fail fringe/false-texture tails. Operator retired; successor is joint two-layer inversion, not correction-after-fusion. | ❌ |
+| 16e | **Semantic matte input** | F56: top-4 semantic candidates + physical forward reranking + focus-ownership projection now license a high-precision giant-veil subset. General matte recall/boundary precision remains open; current shipped coverage is deliberately low. | 🔶 narrow ship |
 | 16c | **Reconstruction applicability gating** | Fire only where the matte model holds. | 🔶 F38: plane-step ribbon (raw-winner median + energy floor) shipped — strongest on-model result (−16% e2, +global, all scenes), real-data neutral + fire moved to silhouettes. REMAINING: F39 killed veil-side licensing (thin structures have no strong veil — category mismatch); next license is SILHOUETTE-side (owner-frame contour sharpness + plane gap); iphone12 GT verdicts gate promotion. |
 
 Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEPS_breadth.md).
@@ -39,15 +39,19 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
 ## E-arc close ledger (2026-07-20)
 - **16c reconstruction gate: ✅ LOCKED** (F47) — home regime (thin + C3 mattes), held
   5/30 fired all-positive mean +0.0083. Real-data promotion awaits iphone12 GT.
-- **16d veil correction: ❌ RETIRED / SAFETY-DISABLED** (F54) — the earlier
+- **16d correction-after-fusion veil correction: ❌ RETIRED** (F54) — the earlier
   held 2/2 property was a benchmark blind spot. Native expanded audit breaks the
-  global/fringe/false-texture property; `--enhance auto` no longer calls the branch.
+  global/fringe/false-texture property; auto enhancement never calls that operator.
+- **19f joint-layer successor: ✅ NARROW SHIP** (F56) — exactly two frames, licensed
+  giant CoC, max side <=1600. It solves the captured layers jointly and is a distinct
+  operator, not a re-enable of 16d.
 - **16e semantic matte: 🔶 resolved by regime-matching** (F46) — mask mattes serve the
   veil specialist; C3 serves reconstruction; SAM-quality matting for GENERAL scenes
   remains the recall-growth lever.
 - **16f: ✅ SHIPPED, RESCOPED (F48/F54)** — `--enhance auto` retains gated contour
-  reconstruction. The veil half and its bridge call are safety-disabled after the
-  expanded audit overturned the original composed-stage claim.
+  reconstruction. F54 removed the old veil half; F56 adds a separately validated
+  joint-layer giant-veil specialist whose bridge call occurs only on two-frame auto
+  enhancement and whose nonlicensed paths remain identity.
 - **17a (Farron, 2026-07-22): the pseudo-GT ceiling** — external "GT" benchmarks
   (iphone12 = Helicon output) inherit the toolmaker's ceiling: selection-made
   references CONTAIN the veil, so they score veil removal as ERROR. Consequence:
@@ -101,7 +105,7 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   true-radius mean −0.00319/worst −0.03041, and true-matte + true-radius spot checks
   still lose to −0.032. The operator assumes the far remnant is the only surviving
   background evidence and double-restores structure already contributed by other
-  frames. Auto subtraction was separately safety-disabled because its four native
+  frames. Auto subtraction was separately retired because its four native
   fires are microscopic and fail expanded fringe/false-texture tails.
   Retired/redirected sub-frontiers:
   - **19b: gate retrain on HYBRID outcomes** (F47 recipe) — required for ship: off-regime
@@ -115,7 +119,7 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
   - **19e (from F53, user-caught): chromatic veil model + false-texture instrument** —
     per-channel D and pm-residual removal fix real terms but do not cure the
     model-class error. The false-texture index permanently joins the bench.
-  - **19f (F54 replacement, 🔶 F55 P0): joint two-layer inversion** — solve all focal-frame
+  - **19f (F54 replacement, ✅ F56 NARROW SHIP): joint two-layer inversion** — solve all focal-frame
     formation equations simultaneously for foreground premultiplication and sharp
     background, then render the all-focus scene. Full P1 is the first positive
     realistic-object ceiling: mean +0.00408 GT-SSIM, 99/100 positive, worst
@@ -136,8 +140,22 @@ Near-term execution order: 1 → 2 (parallel) → 3 → 4 → 5 (plan: NEXT_STEP
     2/2 positive and all 9 fringe errors improved, but two development global
     SSIM tails remain. P8 cross-PSF consensus keeps fresh native 2/2 positive;
     the two dissenting dev SSIM rows improve global MAE/MSE/PSNR and changed-
-    pixel fidelity, with no visual pattern extension. Narrow packaging is
-    licensed; every non-giant/nonlicensed case remains identity.
+    pixel fidelity, with no visual pattern extension. F56 then localized a fresh
+    holdout MSE tail to true foreground omitted by the semantic matte: forward fit
+    had absorbed the support error into blur's null space. A smooth focus-ownership
+    veto closes that leak. The exact package is now 7/7 development, 2/2 first
+    holdout, and 1/1 second untouched holdout positive on SSIM, MAE, MSE/PSNR, and
+    fringe L1; it refuses all 66 moderate scenes. Shipped scope is two frames,
+    3.5%-image giant CoC, max side <=1600, bridge + licensed candidate; everything
+    else is identity.
+  - **19g (spawned by F56): generalize without weakening refusal** — N>2 joint layer
+    equations, a bounded CoC bank wider than the fixed giant model, >1600 px tiled/
+    multigrid solving, and multiple disjoint occluders. Each axis needs its own
+    factory/holdout; do not extrapolate the narrow license.
+  - **19h (spawned by F56): real optical truth for recovery** — first-party macro/
+    product capture with physical target geometry or controlled occluder removal.
+    Real stacks without latent-scene truth can audit refusal/artifacts and forward
+    fit, but cannot certify recovered texture.
 - **20 (NEW, opened by the MISSION framework): stack-gap recovery** — regions where
   NO frame is sharp (focus gaps in the sweep): the best selection is still blurred
   there; scene recovery admits mild remnant-anchored deconvolution (known defocus

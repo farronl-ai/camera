@@ -35,6 +35,11 @@ For restoration/synthesis, one GT factory is also a mirage: vary the MODEL CLASS
 per-scene tails, and audit the complement of every selective metric. F54 showed an
 all-positive oracle result can reverse to −0.032 on a more realistic factory; a gate
 cannot promote an operator whose cross-family oracle ceiling is negative.
+When full-reference metrics disagree, do not settle it by hierarchy or majority
+alone: localize each metric's changed-error tail by physical region/ownership first.
+F56's SSIM dissent was benign contour sensitivity, while its MSE dissent exposed a
+real matte-support leak; the same disagreement procedure must be allowed to acquit
+or indict the method depending on mechanism.
 
 ## 3. Honesty norms (non-negotiable, they produced every breakthrough here)
 

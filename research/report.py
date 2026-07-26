@@ -169,14 +169,15 @@ figure{{margin:1rem 0}}figcaption{{font-size:.85rem;color:var(--muted);margin-bo
   </tbody></table>
   </div>
 
-  <h2>Specialist layer (E-arc, F30&ndash;F48) &mdash; routing + gated corrections</h2>
+  <h2>Specialist + scene-recovery layer (F30&ndash;F56) &mdash; physics + refusal</h2>
   <div class="card">
   <table><thead><tr><th>milestone</th><th>outcome</th></tr></thead><tbody>
     <tr><td>Boundary physics settled</td><td>Residual hard-edge error is <b>coefficient contamination</b> &mdash; unfixable by any decision scheme (even oracle decisions lose); fixable only by re-rendering. (F33)</td></tr>
     <tr><td>Contour reconstruction (thin occluders)</td><td>Sharp-matte re-composite: boundary error &minus;16%, global up, on-model &mdash; the buildable version reaches 73% of the oracle ceiling. (F35)</td></tr>
-    <tr><td>Veil correction (wide occluders)</td><td>Forward-modeled haze subtracted <i>inside</i> the per-band fusion, weight-scaled per band; no division anywhere. Oracle: fringe &minus;18..&minus;37%, global up everywhere. (F40/F41)</td></tr>
+    <tr><td>Correction-after-fusion veil path</td><td><b>Retired after user-caught hallucination.</b> Realistic-object/native audits overturned the narrow blob-factory win even with oracle matte/radius. (F53/F54)</td></tr>
     <tr><td>Outcome-trained gates</td><td>Unified recipe: regime-matched matte &rarr; features incl. matte-edge quality &rarr; ridge on the <i>actual</i> outcome from factory GT &rarr; property-driven fire margin. Held-out fires: 18/19 positive. (F44&ndash;F47)</td></tr>
-    <tr><td><code>--enhance auto</code> shipped</td><td>Composed stage is the pipeline default: 75 unseen scenes &mdash; wins to +0.020, worst &minus;0.0033 (2 documented outliers); real photos 13/14 byte-identical, 1 benign fence-wire fire (eye-verified). Identity when gates silent or bridge absent. (F48)</td></tr>
+    <tr><td>Owner-safe joint giant-veil recovery</td><td>Solves both captured layers, physically reranks semantic mattes, retains cross-regularizer/PSF consensus, and vetoes foreground focus ownership. Exact package: 7/7 development + 3/3 across two scene-disjoint holdouts improve SSIM, MAE, MSE/PSNR, and fringe L1; 0/66 moderate scenes fire. (F55/F56)</td></tr>
+    <tr><td><code>--enhance auto</code> shipped</td><td>Contour reconstruction plus the narrow two-frame, &le;1600 px giant-veil solver. Missing bridge, N&ne;2, unlicensed matte, non-giant scale, oversized input, and kill-switch paths are identity. (F48/F56)</td></tr>
     <tr><td>Rigorous negatives that redirected</td><td>No-ref metrics cannot audit synthesis corrections (F45); semantic models need natural benchmark content (F43); specialists firing cross-regime fail exactly as theory predicts (F46).</td></tr>
   </tbody></table>
   <p class="muted">Frontier now: gate recall growth, a synthesis-aware no-reference metric,

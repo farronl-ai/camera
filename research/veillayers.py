@@ -27,10 +27,13 @@ Run:
     ../.venv/bin/python veillayers.py p6h
     ../.venv/bin/python veillayers.py p7
     ../.venv/bin/python veillayers.py p8
+    ../.venv/bin/python veillayers.py p9
+    ../.venv/bin/python veillayers.py p10
 """
 from __future__ import annotations
 
 import json
+import importlib
 import os
 import sys
 import time
@@ -50,6 +53,8 @@ from veilship import false_texture_error  # noqa: E402
 from focusstack.fusion import fuse_perband  # noqa: E402
 from focusstack.reconstruct import _disk_blur as production_disk_blur  # noqa: E402
 from focusstack.veil_layers import recover_giant_veil  # noqa: E402
+
+package_enhance = importlib.import_module("focusstack.enhance")
 
 
 MAX_SIDE = 512
@@ -1091,6 +1096,105 @@ def cmd_p9() -> None:
     )
 
 
+def run_composed_package_audit(
+    bank_filename: str,
+    output_filename: str,
+) -> None:
+    """Audit recovery after composition with the live contour specialist."""
+    bank = json.load(open(os.path.join(HERE, bank_filename)))
+    licensed_indices = set()
+    for scene_row in bank["scenes"]:
+        if not scene_row["candidates"]:
+            continue
+        selected = min(
+            scene_row["candidates"],
+            key=lambda row: row["forward_after"],
+        )
+        if candidate_is_licensed(selected):
+            licensed_indices.add(int(scene_row["index"]))
+
+    rows = []
+    original_bridge = package_enhance.run_bridge
+    try:
+        for index, sc in enumerate(scenes()):
+            if index not in licensed_indices:
+                continue
+            base = fuse_perband(sc["frames"], harden=0.5)
+            pass1 = os.path.join(sc["dir"], "pass1.png")
+
+            def cached_bridge(kind, *_args, **_kwargs):
+                suffix = ".depth.npy" if kind == "depth" else ".masks.npy"
+                path = pass1 + suffix
+                return path if os.path.exists(path) else None
+
+            package_enhance.run_bridge = cached_bridge
+            started = time.perf_counter()
+            output, report = package_enhance.enhance(sc["frames"], base)
+            outcome = score(output, base, sc)
+            row = {
+                "index": index,
+                "sid": sc["sid"],
+                "regime": float(sc["max_r"] / max(sc["gt"].shape[:2])),
+                "elapsed_seconds": time.perf_counter() - started,
+                **outcome,
+                "report": report,
+            }
+            rows.append(row)
+            print(
+                f"{sc['sid']} veil={report['veil_fired']} "
+                f"recon={report['recon_fired']} dg={outcome['dg']:+.5f} "
+                f"dMAE={outcome['d_global_mae']:+.3f} "
+                f"dMSE={outcome['d_global_mse']:+.3f} "
+                f"dfr={outcome['de_fringe']:+.2f}",
+                flush=True,
+            )
+    finally:
+        package_enhance.run_bridge = original_bridge
+
+    keys = (
+        "dg",
+        "de_fringe",
+        "d_global_mae",
+        "d_global_mse",
+        "d_psnr",
+        "d_false_texture",
+    )
+    payload = {
+        "source_bank": bank_filename,
+        "entry_point": "focusstack.enhance.enhance",
+        "cached_bridge_outputs": True,
+        "licensed_scenes": len(licensed_indices),
+        "rows": rows,
+        "aggregate": {key: summarize(rows, key) for key in keys},
+    }
+    path = os.path.join(HERE, output_filename)
+    with open(path, "w") as handle:
+        json.dump(payload, handle, indent=2)
+    print(f"licensed={len(licensed_indices)} -> {path}", flush=True)
+
+
+def cmd_p10() -> None:
+    """Full auto-enhance composition audit on all licensed joint-layer fires."""
+    run_composed_package_audit(
+        "veillayers_p6_fixed_giant_dev.json",
+        "veillayers_p10_composed_owner_safe_dev.json",
+    )
+    run_composed_package_audit(
+        "veillayers_p6_fixed_giant_holdout.json",
+        "veillayers_p10_composed_owner_safe_holdout.json",
+    )
+    run_composed_package_audit(
+        "veillayers_p9_second_holdout_bank.json",
+        "veillayers_p10_composed_owner_safe_second_holdout.json",
+    )
+    print(
+        "DOCTRINE: a specialist is not shipped in isolation; the composed auto "
+        "entry point must preserve its physical-error result and identity/refusal "
+        "contracts after every other live stage.",
+        flush=True,
+    )
+
+
 def main() -> None:
     commands = {
         "p0": cmd_p0,
@@ -1105,10 +1209,11 @@ def main() -> None:
         "p7": cmd_p7,
         "p8": cmd_p8,
         "p9": cmd_p9,
+        "p10": cmd_p10,
     }
     if len(sys.argv) != 2 or sys.argv[1] not in commands:
         raise SystemExit(
-            "usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7|p8|p9}"
+            "usage: veillayers.py {p0|p1|p2|p3|p4|p4h|p5|p6|p6h|p7|p8|p9|p10}"
         )
     commands[sys.argv[1]]()
 

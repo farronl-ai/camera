@@ -96,11 +96,13 @@ def test_perband_fuses_sharper_than_inputs():
 
 def test_harden_runs_and_preserves_sharpness():
     # Defocus-spread rejection (harden>0) must still fuse sharper than inputs,
-    # and harden=0 must be identical to the default path (no regression).
+    # and the library default must match the validated package default.
     _, a, b = _two_region_stack()
     default = fuse_blend([a, b])
+    validated = fuse_blend([a, b], harden=0.5)
     off = fuse_blend([a, b], harden=0.0)
-    assert np.array_equal(default, off)  # off == default path
+    assert np.array_equal(default, validated)
+    assert not np.array_equal(default, off)
     hardened = fuse_blend([a, b], harden=0.8)
     assert hardened.shape == a.shape
     assert _sharpness(hardened).mean() > _sharpness(a).mean()

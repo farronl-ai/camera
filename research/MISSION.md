@@ -61,7 +61,7 @@ The dividing line for every synthesis method admitted into this engine:
 
 | Prior conclusion / area | Status under the new goal |
 |---|---|
-| F27: de-veiling by inversion loses | **REOPENED / NOT SHIPPABLE** (F54) — F51's hybrid win was conditional on the simple wideocc oracle factory; realistic object scenes lose even with true matte/radius. Multiplicative gain is research-only and auto veil subtraction is safety-disabled pending a different identifiable model |
+| F27: de-veiling by inversion loses | **CONDITIONALLY REOPENED / NARROW SHIP** (F56) — correction-after-fusion remains retired, but joint two-frame layer inversion now ships only for a physically licensed giant-CoC subset. Exact-package fires are 10/10 positive across development + two holdouts; all 66 moderate scenes refuse. General/multi-frame de-veiling remains open |
 | F33: selection cannot fix boundary contamination | **STRENGTHENED** — the theorem that motivates the whole framework |
 | F45: no-ref metrics cannot audit synthesis | stands; the constructive path is the observation-domain audit (L1) |
 | Metric composite (q_abf_ms+q_ssim) | **RESCOPED** — valid for the selection floor only; must never steer or veto synthesis work |

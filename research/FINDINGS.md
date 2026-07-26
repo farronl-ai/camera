@@ -5,6 +5,51 @@ with conceptual reasoning and visual inspection (metrics guide, don't decide).
 
 ---
 
+## F72 — Rear openings are negative geometry; opaque fragments are hard choices
+
+S28's failures separated into three causal evidence classes, so the repair does
+not replace F70's solver, regularizers, or six-model consensus.
+
+1. `s28_002`'s broad false foreground is an exterior-connected rear opening
+   already partly present in the best semantic proposal.  A component is
+   admitted as negative geometry only when it occupies at least 1% of the
+   proposed front, decisively focuses in the other frame, transforms in the
+   rear direction, and touches the proposal exterior.  The rear-focused image
+   graph then expands only from that proven seed over connected rear-directed
+   regions.  In this branch the carved focused proposal is authoritative:
+   GrabCut and satellite completion cannot re-add the rejected rear.  IoU rises
+   `0.80293 -> 0.88630`, precision `0.81236 -> 0.93435`.
+2. `s28_006`'s missed 55×5 strip is the opposite case: a compact native graph
+   region 3–5 model pixels from the silhouette, front-directed under reblur,
+   and strongly present despite disappearing from semantic/focus votes.  Its
+   focused-owner pixels are a discrete foreground observation, so the region
+   is hard-selected directly rather than broadened by GrabCut.  It removes all
+   165 hard-owned rear-mask pixels and raises IoU
+   `0.99129 -> 0.99183`.
+3. `s28_005` and `s28_011` were sub-quantization rear-mask tails.  An explicit
+   minimum application weight of `0.075` removes their hard-edge/far-background
+   speckles while retaining 98.1% of admitted outer-veil correction mass.
+
+The full geometry audit now preserves S27 exactly (mean IoU `0.97766`) and gives
+S28 mean IoU `0.96367` over ten evaluated scenes; the two uncorroborated scenes
+still refuse.  Both cohorts have zero rear application in hard ownership,
+opaque core, hard soft edge, ordinary boundary, and far background.  A
+deterministic synthetic arch test proves that the rear-opening graph expands
+inside the opening without eroding opaque support; 67/67 tests pass.
+
+Five causal reconstructions (`s28_000/002/005/006/011`) all improve MAE, MSE,
+hard ownership, core, hard soft edge, boundary, and outer veil, with exact far
+identity.  Three improve SSIM.  The two SSIM dissents (`005 -0.000742`,
+`011 -0.000127`) nevertheless improve MAE by `0.1764/0.0859`, core MAE by
+`5.86/5.38`, boundary MAE by `1.44/1.01`, and veil MAE by `2.20/1.11`.
+GT-side visual inspection shows corrections localized to the occluders and
+their veils, without renewed rear bleed.  Common SSIM is therefore diagnostic,
+not a veto.
+
+This is a causal checkpoint, not final promotion.  Run the complete S28 solve,
+preservation cohorts, then a newly frozen post-rule split before the one-time
+inspector rebuild.
+
 ## F71 — Fresh formation passes; fresh ownership does not
 
 F70 was frozen before generating S28.  The twelve-scene S28 cohort uses the

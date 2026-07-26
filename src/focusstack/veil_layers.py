@@ -117,6 +117,19 @@ ONE_SIDED_HARD_GRAPH_MIN_OWNER_FRACTION = 1.0
 ONE_SIDED_HARD_GRAPH_MIN_DOMINANT_FRACTION = 0.80
 ONE_SIDED_HARD_GRAPH_MIN_DIRECTION_SCORE = 0.50
 ONE_SIDED_HARD_GRAPH_MAX_OTHER_SEMANTIC_FRACTION = 0.0
+# A semantic foreground proposal can bridge an exterior-connected rear
+# opening (for example, the arch beneath a solid object).  Global forward fit
+# cannot disambiguate that error because blur can absorb the rear patch into
+# the foreground layer.  A material, connected region that decisively chooses
+# the other focal plane and transforms in the rear direction is independent
+# negative geometry evidence.  It becomes a definite-background GrabCut seed;
+# it never paints rear radiance or directly defines the completed boundary.
+ONE_SIDED_REAR_OPENING_MIN_COMPONENT_FRACTION = 0.01
+ONE_SIDED_REAR_OPENING_MIN_DOMINANCE = 0.50
+ONE_SIDED_REAR_OPENING_MAX_DIRECTION_SCORE = -0.30
+ONE_SIDED_REAR_OPENING_GRAPH_MIN_REAR_FRACTION = 0.75
+ONE_SIDED_REAR_OPENING_GRAPH_MIN_DOMINANT_FRACTION = 0.40
+ONE_SIDED_REAR_OPENING_GRAPH_MAX_DIRECTION_SCORE = 0.0
 # A cross-frame-proven satellite can have tiny detached dark fragments that
 # disappear at 512 px. Inspect only a bounded native-resolution annulus outside
 # its ordinary contour/veil ring. A fragment is hard foreground when both
@@ -131,6 +144,18 @@ ONE_SIDED_SATELLITE_FRAGMENT_MIN_DISTANCE_MODEL_PIXELS = 3.0
 ONE_SIDED_SATELLITE_FRAGMENT_MAX_DISTANCE_MODEL_PIXELS = 5.0
 ONE_SIDED_SATELLITE_FRAGMENT_MIN_SEMANTIC_FRACTION = 0.80
 ONE_SIDED_SATELLITE_FRAGMENT_PRESENCE_MULTIPLIER = 2.5
+# A larger fragment can disappear from every semantic proposal while remaining
+# directly visible as a compact native-resolution region.  Admit only a very
+# narrow size/distance band that downsampling cannot represent, and require
+# front-directed transformation plus the same strong presence evidence used by
+# cross-frame satellite fragments.
+ONE_SIDED_MAIN_FRAGMENT_MIN_AREA_MODEL_PIXELS = 20.0
+ONE_SIDED_MAIN_FRAGMENT_MAX_AREA_MODEL_PIXELS = 40.0
+ONE_SIDED_MAIN_FRAGMENT_MIN_DISTANCE_MODEL_PIXELS = 3.0
+ONE_SIDED_MAIN_FRAGMENT_MAX_DISTANCE_MODEL_PIXELS = 5.0
+ONE_SIDED_MAIN_FRAGMENT_MAX_SPAN_MODEL_PIXELS = 7.0
+ONE_SIDED_MAIN_FRAGMENT_MIN_DIRECTION_SCORE = 0.30
+ONE_SIDED_MAIN_FRAGMENT_PRESENCE_MULTIPLIER = 2.5
 # Once a satellite is independently established as opaque foreground, a narrow
 # uncertainty annulus may deny rear synthesis around fragments too small for a
 # hard source decision. This is rear-veto-only; it never expands copy support.
@@ -147,6 +172,12 @@ ONE_SIDED_DIRECTIONAL_REAR_VETO_MARGIN = 0.30
 ONE_SIDED_REAR_PRESENCE_NOISE_QUANTILE = 10.0
 ONE_SIDED_REAR_PRESENCE_NOISE_MULTIPLIER = 2.0
 ONE_SIDED_DIRECTIONAL_BOUNDARY_EXTENSION_MODEL_PIXELS = 2.0
+# Sub-quantization mask tails can survive several continuous gates while
+# carrying too little correction mass to make a stable image decision.  They
+# produced isolated far-background edits even though 98% of the admitted veil
+# mass lay above this floor.  Zero them explicitly instead of letting rounding
+# decide whether a nominally untouched rear pixel changes.
+ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT = 0.075
 # Detached foreground fragments are admitted only as positive geometry seen in
 # both focal frames.  This is deliberately stricter than the historical
 # forward-fit satellite bridge: the owner proposal must be almost entirely
@@ -1188,8 +1219,74 @@ def _focused_graph_ownership_seeds(
             native_fragment_regions += 1
         native_fragment_extension[crop] = fragment_crop
         native_fragment_extension &= ~completed
+    native_main_fragment_extension = np.zeros(completed.shape, bool)
+    native_main_fragment_regions = 0
+    distance_to_completed = cv2.distanceTransform(
+        (~completed).astype(np.uint8),
+        cv2.DIST_L2,
+        5,
+    )
+    native_main_graph = cv2.ximgproc.segmentation.createGraphSegmentation(
+        sigma=ONE_SIDED_HARD_GRAPH_SIGMA,
+        k=ONE_SIDED_HARD_GRAPH_K,
+        min_size=ONE_SIDED_SATELLITE_FRAGMENT_GRAPH_MIN_SIZE,
+    )
+    native_main_labels = native_main_graph.processImage(images[owner])
+    minimum_main_area = max(
+        2,
+        int(
+            round(
+                ONE_SIDED_MAIN_FRAGMENT_MIN_AREA_MODEL_PIXELS
+                * spatial_scale
+                * spatial_scale
+            )
+        ),
+    )
+    maximum_main_area = max(
+        minimum_main_area,
+        int(
+            round(
+                ONE_SIDED_MAIN_FRAGMENT_MAX_AREA_MODEL_PIXELS
+                * spatial_scale
+                * spatial_scale
+            )
+        ),
+    )
+    for label in range(int(native_main_labels.max()) + 1):
+        region = native_main_labels == label
+        area = int(region.sum())
+        if not minimum_main_area <= area <= maximum_main_area:
+            continue
+        nearest = float(distance_to_completed[region].min())
+        farthest = float(distance_to_completed[region].max())
+        if (
+            not (
+                ONE_SIDED_MAIN_FRAGMENT_MIN_DISTANCE_MODEL_PIXELS
+                * spatial_scale
+                <= nearest
+                <= ONE_SIDED_MAIN_FRAGMENT_MAX_DISTANCE_MODEL_PIXELS
+                * spatial_scale
+            )
+            or farthest
+            > (
+                ONE_SIDED_MAIN_FRAGMENT_MAX_SPAN_MODEL_PIXELS
+                * spatial_scale
+            )
+            or float(completed[region].mean()) > 0.5
+            or float(direction_score[region].mean())
+            < ONE_SIDED_MAIN_FRAGMENT_MIN_DIRECTION_SCORE
+            or float(np.median(reverse_reblur_residual[region]))
+            < (
+                ONE_SIDED_MAIN_FRAGMENT_PRESENCE_MULTIPLIER
+                * presence_threshold
+            )
+        ):
+            continue
+        native_main_fragment_extension |= region
+        native_main_fragment_regions += 1
     satellite_extension |= native_fragment_extension
-    seeds |= native_fragment_extension
+    satellite_extension |= native_main_fragment_extension
+    seeds |= native_fragment_extension | native_main_fragment_extension
     return seeds, satellite_extension, {
         "one_sided_focused_graph_seed_reason": (
             "connected_focal_regions"
@@ -1210,6 +1307,12 @@ def _focused_graph_ownership_seeds(
         ),
         "one_sided_native_satellite_fragment_pixels": int(
             native_fragment_extension.sum()
+        ),
+        "one_sided_native_main_fragment_regions": (
+            native_main_fragment_regions
+        ),
+        "one_sided_native_main_fragment_pixels": int(
+            native_main_fragment_extension.sum()
         ),
         "one_sided_focused_graph_noise_floor": noise_floor,
         "one_sided_focused_graph_presence_threshold": presence_threshold,
@@ -1459,6 +1562,254 @@ def _complete_one_sided_front_silhouette(
     }
 
 
+def _focused_rear_opening_seeds(
+    images: list[np.ndarray],
+    owner: int,
+    focused_mask: np.ndarray,
+) -> tuple[np.ndarray, dict]:
+    """Find a large, exterior-connected rear opening inside a front proposal.
+
+    This is deliberately not a generic hole detector.  The seed must be
+    observed in the focal stack: a connected component inside the semantic
+    proposal must decisively choose the other frame, point in the rear focal
+    direction, occupy at least one percent of the proposed foreground, and
+    touch its exterior boundary.  The returned pixels are only negative seeds
+    for edge localization by the existing completion graph.
+    """
+    focused = np.asarray(focused_mask, bool)
+    empty = np.zeros(focused.shape, bool)
+    report = {
+        "one_sided_rear_opening_fired": False,
+        "one_sided_rear_opening_reason": "no_qualified_component",
+        "one_sided_rear_opening_candidate_components": 0,
+        "one_sided_rear_opening_seed_pixels": 0,
+    }
+    if len(images) != 2 or any(image.shape[:2] != focused.shape for image in images):
+        report["one_sided_rear_opening_reason"] = "frame_shape_mismatch"
+        return empty, report
+    focused_area = int(focused.sum())
+    if focused_area == 0:
+        report["one_sided_rear_opening_reason"] = "empty_front_proposal"
+        return empty, report
+
+    energies = np.stack(
+        content_aware_energies(
+            [to_gray_float(image) for image in images]
+        ),
+        axis=0,
+    )
+    winner = np.argmax(energies, axis=0)
+    ordered = np.sort(energies, axis=0)
+    dominance = np.clip(
+        (ordered[-1] - ordered[-2]) / (ordered[-1] + 1e-6),
+        0.0,
+        1.0,
+    )
+    informative = ordered[-1] > np.median(ordered[-1])
+    rear_evidence = (
+        focused
+        & informative
+        & (winner == 1 - owner)
+        & (dominance >= ONE_SIDED_REAR_OPENING_MIN_DOMINANCE)
+    )
+    component_count, labels, stats, _ = cv2.connectedComponentsWithStats(
+        rear_evidence.astype(np.uint8),
+        8,
+    )
+    spatial_scale = max(1.0, max(focused.shape) / MODEL_SIDE)
+    direction_score, _, _, _ = _directional_defocus_evidence(
+        images,
+        owner,
+        RADIUS_FRACTION * max(focused.shape),
+        spatial_scale,
+    )
+    inside_distance = cv2.distanceTransform(
+        focused.astype(np.uint8),
+        cv2.DIST_L2,
+        5,
+    )
+    minimum_area = max(
+        32,
+        int(
+            np.ceil(
+                ONE_SIDED_REAR_OPENING_MIN_COMPONENT_FRACTION
+                * focused_area
+            )
+        ),
+    )
+    accepted = []
+    for label in range(1, component_count):
+        area = int(stats[label, cv2.CC_STAT_AREA])
+        if area < minimum_area:
+            continue
+        component = labels == label
+        report["one_sided_rear_opening_candidate_components"] += 1
+        if (
+            float(inside_distance[component].min()) > 1.0
+            or float(direction_score[component].mean())
+            > ONE_SIDED_REAR_OPENING_MAX_DIRECTION_SCORE
+        ):
+            continue
+        accepted.append(component)
+    if not accepted:
+        return empty, report
+    seeds = np.logical_or.reduce(accepted)
+    report.update(
+        {
+            "one_sided_rear_opening_fired": True,
+            "one_sided_rear_opening_reason": (
+                "connected_decisive_rear_observation"
+            ),
+            "one_sided_rear_opening_seed_pixels": int(seeds.sum()),
+        }
+    )
+    return seeds, report
+
+
+def _expand_focused_rear_opening(
+    images: list[np.ndarray],
+    owner: int,
+    focused_mask: np.ndarray,
+    rear_seeds: np.ndarray,
+) -> tuple[np.ndarray, dict]:
+    """Expand proven rear seeds over rear-focused, edge-respecting regions."""
+    focused = np.asarray(focused_mask, bool)
+    seeds = np.asarray(rear_seeds, bool) & focused
+    report = {
+        "one_sided_rear_opening_graph_fired": False,
+        "one_sided_rear_opening_graph_reason": "no_rear_seed",
+        "one_sided_rear_opening_graph_regions": 0,
+        "one_sided_rear_opening_graph_pixels": int(seeds.sum()),
+    }
+    if not np.any(seeds):
+        return seeds, report
+    if not (
+        hasattr(cv2, "ximgproc")
+        and hasattr(cv2.ximgproc, "segmentation")
+    ):
+        report["one_sided_rear_opening_graph_reason"] = (
+            "opencv_ximgproc_unavailable"
+        )
+        return seeds, report
+
+    resized_images = [_resize_for_model(image) for image in images]
+    model_height, model_width = resized_images[0].shape[:2]
+    model_size = (model_width, model_height)
+    focused_small = (
+        cv2.resize(
+            focused.astype(np.uint8),
+            model_size,
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    )
+    seeds_small = (
+        cv2.resize(
+            seeds.astype(np.uint8),
+            model_size,
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    )
+    energies = np.stack(
+        content_aware_energies(
+            [to_gray_float(image) for image in resized_images]
+        ),
+        axis=0,
+    )
+    winner = np.argmax(energies, axis=0)
+    ordered = np.sort(energies, axis=0)
+    dominance = np.clip(
+        (ordered[-1] - ordered[-2]) / (ordered[-1] + 1e-6),
+        0.0,
+        1.0,
+    )
+    spatial_scale = max(1.0, max(focused.shape) / MODEL_SIDE)
+    direction_score, _, _, _ = _directional_defocus_evidence(
+        images,
+        owner,
+        RADIUS_FRACTION * max(focused.shape),
+        spatial_scale,
+    )
+    direction_small = cv2.resize(
+        direction_score,
+        model_size,
+        interpolation=cv2.INTER_AREA,
+    )
+    graph = cv2.ximgproc.segmentation.createGraphSegmentation(
+        sigma=ONE_SIDED_HARD_GRAPH_SIGMA,
+        k=ONE_SIDED_HARD_GRAPH_K,
+        min_size=ONE_SIDED_HARD_GRAPH_MIN_SIZE,
+    )
+    labels = graph.processImage(resized_images[1 - owner])
+    qualified = {}
+    for label in range(int(labels.max()) + 1):
+        region = labels == label
+        if int(region.sum()) < ONE_SIDED_HARD_GRAPH_MIN_SIZE:
+            continue
+        if (
+            float((winner[region] == 1 - owner).mean())
+            < ONE_SIDED_REAR_OPENING_GRAPH_MIN_REAR_FRACTION
+            or float(
+                (
+                    (winner[region] == 1 - owner)
+                    & (dominance[region] >= 0.15)
+                ).mean()
+            )
+            < ONE_SIDED_REAR_OPENING_GRAPH_MIN_DOMINANT_FRACTION
+            or float(direction_small[region].mean())
+            > ONE_SIDED_REAR_OPENING_GRAPH_MAX_DIRECTION_SCORE
+        ):
+            continue
+        qualified[int(label)] = region
+
+    connected = seeds_small.copy()
+    accepted_labels: set[int] = set()
+    adjacency_kernel = np.ones((3, 3), np.uint8)
+    while True:
+        neighborhood = (
+            cv2.dilate(
+                connected.astype(np.uint8),
+                adjacency_kernel,
+            )
+            > 0
+        )
+        additions = [
+            label
+            for label, region in qualified.items()
+            if label not in accepted_labels
+            and np.any(region & neighborhood)
+        ]
+        if not additions:
+            break
+        for label in additions:
+            connected |= qualified[label]
+            accepted_labels.add(label)
+    expanded_small = connected & focused_small
+    expanded = (
+        cv2.resize(
+            expanded_small.astype(np.uint8),
+            (focused.shape[1], focused.shape[0]),
+            interpolation=cv2.INTER_NEAREST,
+        )
+        > 0
+    ) & focused
+    expanded |= seeds
+    report.update(
+        {
+            "one_sided_rear_opening_graph_fired": True,
+            "one_sided_rear_opening_graph_reason": (
+                "rear_focal_regions_connected_to_seed"
+            ),
+            "one_sided_rear_opening_graph_regions": len(
+                accepted_labels
+            ),
+            "one_sided_rear_opening_graph_pixels": int(expanded.sum()),
+        }
+    )
+    return expanded, report
+
+
 def select_one_sided_owner_geometry(
     images: list[np.ndarray],
     owner_masks_by_frame: list[np.ndarray] | None,
@@ -1668,16 +2019,66 @@ def select_one_sided_owner_geometry(
         )
         return None, report
     owner = int(selected["owner"])
+    rear_opening_seeds, rear_opening_report = (
+        _focused_rear_opening_seeds(
+            images,
+            owner,
+            selected["binary"],
+        )
+    )
+    report.update(rear_opening_report)
     (
-        completed,
-        possible_front,
-        completion_report,
-    ) = _complete_one_sided_front_silhouette(
+        rear_opening_seeds,
+        rear_opening_graph_report,
+    ) = _expand_focused_rear_opening(
         images,
         owner,
         selected["binary"],
-        corroborated,
+        rear_opening_seeds,
     )
+    report.update(rear_opening_graph_report)
+    focused_geometry = selected["binary"] & ~rear_opening_seeds
+    corroborated &= focused_geometry
+    if (
+        float(corroborated.mean())
+        < ONE_SIDED_MASK_MIN_AREA_FRACTION
+    ):
+        report["one_sided_geometry_reason"] = (
+            "rear_opening_removed_corroboration"
+        )
+        return None, report
+    rear_opening_active = bool(
+        rear_opening_graph_report[
+            "one_sided_rear_opening_graph_fired"
+        ]
+    )
+    if rear_opening_active:
+        completed = focused_geometry.copy()
+        possible_front = focused_geometry.copy()
+        completion_report = {
+            "one_sided_front_completion_fired": False,
+            "one_sided_front_completion_reason": (
+                "rear_opening_graph_is_authoritative"
+            ),
+            "one_sided_front_completion_pixels": int(completed.sum()),
+            "one_sided_possible_front_pixels": int(
+                possible_front.sum()
+            ),
+            "one_sided_front_completion_boundary_disagreement_p95_model_px": (
+                0.0
+            ),
+        }
+    else:
+        (
+            completed,
+            possible_front,
+            completion_report,
+        ) = _complete_one_sided_front_silhouette(
+            images,
+            owner,
+            focused_geometry,
+            corroborated,
+        )
     report.update(completion_report)
     boundary_completion_report = completion_report
     satellite_support, satellite_report = _cross_frame_satellite_support(
@@ -1686,6 +2087,15 @@ def select_one_sided_owner_geometry(
         completed,
         RADIUS_FRACTION * max(shape),
     )
+    if rear_opening_active:
+        satellite_report["one_sided_satellite_rear_opening_removed_pixels"] = (
+            int(satellite_report["one_sided_satellite_pixels"])
+        )
+        satellite_report["one_sided_satellite_rear_opening_role"] = (
+            "refused_hard_support"
+        )
+        satellite_support = np.zeros_like(satellite_support)
+        satellite_report["one_sided_satellite_pixels"] = 0
     completed |= satellite_support
     possible_front |= satellite_support
     corroborated |= satellite_support
@@ -1743,19 +2153,56 @@ def select_one_sided_owner_geometry(
         max(1.0, max(shape) / MODEL_SIDE),
     )
     report.update(graph_seed_report)
+    strict_native_main_fragment = bool(
+        graph_seed_report.get(
+            "one_sided_native_main_fragment_pixels",
+            0,
+        )
+        and not graph_seed_report.get(
+            "one_sided_focused_graph_seed_regions",
+            0,
+        )
+        and not graph_seed_report.get(
+            "one_sided_native_satellite_fragment_pixels",
+            0,
+        )
+    )
     satellite_support |= satellite_graph_extension
     if np.any(graph_seeds):
         seeded_front = completed | graph_seeds
-        (
-            graph_refined,
-            graph_possible_front,
-            graph_refinement_report,
-        ) = _complete_one_sided_front_silhouette(
-            images,
-            owner,
-            seeded_front,
-            seeded_front,
-        )
+        if rear_opening_active or strict_native_main_fragment:
+            graph_refined = (
+                seeded_front | satellite_support
+            ) & ~rear_opening_seeds
+            graph_possible_front = graph_refined.copy()
+            graph_refinement_report = {
+                "one_sided_front_completion_fired": False,
+                "one_sided_front_completion_reason": (
+                    "rear_opening_uses_strict_focused_graph"
+                    if rear_opening_active
+                    else "native_fragment_is_direct_graph_region"
+                ),
+                "one_sided_front_completion_pixels": int(
+                    graph_refined.sum()
+                ),
+                "one_sided_possible_front_pixels": int(
+                    graph_possible_front.sum()
+                ),
+                "one_sided_front_completion_boundary_disagreement_p95_model_px": (
+                    0.0
+                ),
+            }
+        else:
+            (
+                graph_refined,
+                graph_possible_front,
+                graph_refinement_report,
+            ) = _complete_one_sided_front_silhouette(
+                images,
+                owner,
+                seeded_front,
+                seeded_front,
+            )
         graph_refined |= graph_seeds | satellite_support
         graph_possible_front |= graph_refined
         completed = graph_refined
@@ -2814,6 +3261,10 @@ def _one_sided_rear_application_mask(
         ((mask > 1e-4) & ~rear_presence).sum()
     )
     mask[~rear_presence] = 0.0
+    low_weight_removed = int(
+        ((mask > 0.0) & (mask < ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT)).sum()
+    )
+    mask[mask < ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT] = 0.0
     return mask, {
         **ownership_evidence,
         **directional_report,
@@ -2855,6 +3306,10 @@ def _one_sided_rear_application_mask(
         "rear_mask_presence_noise_multiplier": (
             ONE_SIDED_REAR_PRESENCE_NOISE_MULTIPLIER
         ),
+        "rear_mask_min_application_weight": (
+            ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT
+        ),
+        "rear_mask_low_weight_removed_pixels": low_weight_removed,
         "rear_mask_active_pixels": int((mask > 1e-4).sum()),
     }
 

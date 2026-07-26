@@ -3,6 +3,22 @@
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
 `NEXT_STEPS_scenerecovery.md`, and F60–F67 in `FINDINGS.md`.
 
+## 2026-07-26 inverse checkpoint after fresh failures
+
+F72 closes the four S28 geometry failure classes without changing the preserved
+numerical solver.  A material exterior-connected region that decisively chooses
+the rear focal plane is negative ownership evidence; rear-frame graph
+connectivity expands that seed, and neither GrabCut nor satellites may re-add
+it.  Conversely, a bounded native graph fragment that transforms frontward and
+has strong reverse-reblur presence is a direct focused-foreground observation,
+so it is hard-selected.  Rear-mask weights below `0.075` are unstable
+sub-quantization tails and return to exact identity.
+
+The resulting S27/S28 geometry audits have zero rear application in hard
+ownership, core, hard soft edge, boundary, and far background.  Five causal
+S28 outputs improve every physical partition and retain exact far identity.
+Full split and post-rule validation remain; the inspector stays frozen.
+
 ## 2026-07-26 fresh split checkpoint
 
 S28 is the first frozen split generated after F70.  Its twelve-scene direct

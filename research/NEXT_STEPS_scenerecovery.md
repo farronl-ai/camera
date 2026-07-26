@@ -139,7 +139,7 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       hypotheses. S23 rerun: 7/7 SSIM/MAE/MSE and all-partition positive,
       far background exact for every fire, 65 refusals identity. S23 is
       development evidence; do not spend another large split until S15 freezes.
-- [ ] **S18: one-sided opaque ownership.** 🔶 ACTIVE DEV / F70. The S25+
+- [ ] **S18: one-sided opaque ownership.** 🔶 ACTIVE DEV / F72. The S25+
       primary generator and paired forward/adjoint model now guarantee zero
       rear throughput throughout latent opaque foreground support while
       retaining foreground-only outward spread. Raw focal-frame masks are
@@ -180,8 +180,15 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       satellites with a bounded native graph stage. Compact S27 improves direct
       and every physical partition 6/6; rear overlap is zero in all protected
       regions and far background is exact. S25 preservation remains intact.
-      Freeze F70 and generate a genuinely unseen V2 split next; only after that
-      validation may the one-time final inspector be rebuilt.
+      Fresh S28 proves V2 formation 12/12 but exposed a semantic rear opening,
+      a missed native fragment, and sub-quantization rear tails. F72 carves only
+      exterior-connected rear-focused graph regions, hard-selects only bounded
+      front-directed native fragments, and zeros rear weights below 0.075.
+      S27 geometry is unchanged; S27/S28 now have zero rear application in
+      hard/core/soft-edge/boundary/far regions. Five causal S28 solves improve
+      every physical partition with exact far identity. Run full S28,
+      preservation cohorts, and a newly frozen post-rule split; only then
+      rebuild the inspector once.
 
 ## Guardrails (doctrine)
 No steering by q_abf_ms/q_ssim composite or any no-ref source-similarity (F45);

@@ -3,12 +3,15 @@ import numpy as np
 
 from focusstack.fusion import fuse_perband
 from focusstack.veil_layers import (
+    ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT,
     RADIUS_FRACTION,
     _adjoint,
     _box_disk_blur,
     _cross_frame_satellite_support,
     _forward_layers,
     _fringe_mask,
+    _focused_rear_opening_seeds,
+    _expand_focused_rear_opening,
     _one_sided_rear_application_mask,
     _owner_geometry_consensus,
     _owner_front_reconstruction_support,
@@ -203,6 +206,72 @@ def test_one_sided_geometry_selects_focused_owner_mask():
     np.testing.assert_array_equal(selected["alpha"] >= 0.5, true_mask)
 
 
+def test_rear_focal_evidence_carves_exterior_connected_opening():
+    size = 512
+    yy, xx = np.mgrid[:size, :size]
+    rear = 90.0 + 80.0 * np.sin(xx / 2.1) * np.sin(yy / 2.7)
+    background = np.stack(
+        [
+            rear,
+            120.0 + 70.0 * np.sin(xx / 2.3),
+            145.0 + 65.0 * np.sin(yy / 2.5),
+        ],
+        axis=2,
+    ).astype(np.float32)
+    proposal = np.zeros((size, size), bool)
+    proposal[70:420, 60:450] = True
+    opening = (
+        (
+            ((xx - 256) ** 2 + (yy - 250) ** 2 < 100**2)
+            & (yy > 175)
+        )
+        | (
+            (xx > 210)
+            & (xx < 302)
+            & (yy >= 250)
+            & (yy < 421)
+        )
+    )
+    hard_ownership = proposal & ~opening
+    foreground = np.full(
+        (size, size, 3),
+        (220.0, 210.0, 200.0),
+        np.float32,
+    )
+    model = _prepare_model(
+        hard_ownership.astype(np.float32),
+        RADIUS_FRACTION * size,
+        _box_disk_blur,
+        hard_ownership=hard_ownership,
+    )
+    frames = [
+        np.uint8(np.clip(frame, 0, 255))
+        for frame in _forward_layers(
+            foreground,
+            background,
+            model,
+        )
+    ]
+
+    seeds, seed_report = _focused_rear_opening_seeds(
+        frames,
+        0,
+        proposal,
+    )
+    expanded, graph_report = _expand_focused_rear_opening(
+        frames,
+        0,
+        proposal,
+        seeds,
+    )
+
+    assert seed_report["one_sided_rear_opening_fired"] is True
+    assert graph_report["one_sided_rear_opening_graph_fired"] is True
+    assert np.all(seeds <= opening)
+    assert np.all(expanded <= opening)
+    assert int(expanded.sum()) > int(seeds.sum())
+
+
 def test_one_sided_recovery_hard_selects_confident_foreground_interior():
     frames, _, candidate, _ = _physical_giant_stack()
     true_mask = candidate["alpha"] > 0
@@ -394,6 +463,10 @@ def test_one_sided_rear_mask_never_crosses_true_foreground():
     )
 
     assert not np.any((rear_mask > 1e-4) & true_mask)
+    assert np.all(
+        rear_mask[rear_mask > 0]
+        >= ONE_SIDED_REAR_MIN_APPLICATION_WEIGHT
+    )
     assert (
         report["rear_mask_after_geometry_corroboration_pixels"]
         >= report["rear_mask_active_pixels"]

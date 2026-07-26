@@ -3,6 +3,33 @@
 Status: active design note, 2026-07-26. Read with `MISSION.md`,
 `NEXT_STEPS_scenerecovery.md`, and F60–F64 in `FINDINGS.md`.
 
+## User correction and pause checkpoint — supersedes the primary input contract
+
+The current exact-disk renderer still uses aperture-coverage convolution on
+both sides of the sharp silhouette. Even after reweighting S23 and making the
+same-scene `r=12` example, that operator can admit focused rear detail *inside*
+the latent opaque-foreground support. The user has rejected that as the primary
+formation contract for this project. Reducing the CoC merely reduces the
+violation; it is not the fix.
+
+When this arc resumes, do not tune recovery or spend another broad run first.
+Replace the primary opaque generator with a one-sided ownership operator:
+
+1. inside confidently owned latent foreground support, rear throughput is
+   exactly zero in every focal observation;
+2. foreground defocus may spread foreground radiance outward beyond that
+   support, producing the exterior veil;
+3. the blur operator must not symmetrically erode/open the opaque support and
+   reveal sharp rear texture inward;
+4. true material transmission remains a separate, explicitly labeled model.
+
+Then regenerate the inspector's synthetic inputs and regrade the unchanged F64
+recovery package. Existing V2/S23 aperture-mixed scenes remain useful as a named
+alternative/stress formation model, but they no longer define the primary
+opaque input contract. The user paused the arc here. Runtime F64 code was not
+changed after `ee181b7`; later work was inspector-only plus an isolated cached
+S15 attribution harness.
+
 ## Why this note exists
 
 The inspection at `extension_007` native `(1048,216)` raised the right

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """S15 — causally attribute the remaining finest-band complement tail.
 
-The current seven F62 fires improve every physical partition but retain a small
+The current F64 fires improve every physical partition but retain a small
 positive GT-credited error on smooth true-background veil pixels. This harness
-reconstructs the exact package components, asserts byte identity with
+reconstructs the exact package components, including local owner consensus,
+asserts byte identity with
 ``recover_giant_veil``, then separates:
 
 1. focused-owner front reconstruction;
@@ -17,6 +18,7 @@ the captured frames, semantic proposals, focus ownership, and forward model.
 
 Run:
     .venv/bin/python research/veil_fineband.py attribute
+    .venv/bin/python research/veil_fineband.py attribute s23_007
 """
 from __future__ import annotations
 
@@ -44,6 +46,7 @@ from focusstack.veil_layers import (  # noqa: E402
     _fringe_mask,
     _ordered_visibility_gate,
     _owner_front_reconstruction_support,
+    _owner_geometry_consensus,
     _ownership_gate,
     complete_owner_support,
     recover_giant_veil,
@@ -55,9 +58,10 @@ from focusstack.veil_layers import (  # noqa: E402
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CACHE = os.path.join(HERE, "data", "objocc_v2", "fineband_cache_f62")
-OUTPUT = os.path.join(HERE, "objocc_v2_f62_fineband_attribution.json")
+CACHE = os.path.join(HERE, "data", "objocc_v2", "fineband_cache_f64")
+OUTPUT = os.path.join(HERE, "objocc_v2_f64_fineband_attribution.json")
 CASES = (
+    ("s23", "s23_007"),
     ("extension", "extension_007"),
     ("extension", "extension_034"),
     ("s12", "s12_025"),
@@ -68,16 +72,16 @@ CASES = (
 )
 
 
-def _load_cases() -> list[dict]:
+def _load_cases(case_specs: tuple[tuple[str, str], ...] = CASES) -> list[dict]:
     by_split = {
         split: {scene["sid"]: scene for scene in scenes(split)}
-        for split in {split for split, _ in CASES}
+        for split in {split for split, _ in case_specs}
     }
-    return [by_split[split][sid] for split, sid in CASES]
+    return [by_split[split][sid] for split, sid in case_specs]
 
 
 def _components(scene: dict) -> dict:
-    """Rebuild exact F62 arrays once, caching only ignored research data."""
+    """Rebuild exact F64 arrays once, caching only ignored research data."""
     os.makedirs(CACHE, exist_ok=True)
     cache_path = os.path.join(CACHE, f"{scene['sid']}.npz")
     if os.path.exists(cache_path):
@@ -116,6 +120,25 @@ def _components(scene: dict) -> dict:
     )
     spatial_scale = max(1.0, max(base.shape[:2]) / MODEL_SIDE)
     max_radius = RADIUS_FRACTION * max(base.shape[:2])
+    (
+        front_consensus,
+        fringe_consensus,
+        consensus_report,
+    ) = _owner_geometry_consensus(
+        alpha,
+        owner_masks,
+        max_radius,
+        spatial_scale,
+    )
+    if consensus_report["owner_consensus_active"]:
+        satellite_support = np.zeros(alpha.shape, bool)
+        for mask_index, kind in zip(
+            support_report.get("owner_support_mask_indices", []),
+            support_report.get("owner_support_kinds", []),
+        ):
+            if kind == "satellite":
+                satellite_support |= owner_masks[int(mask_index)] > 0
+        owner_support &= front_consensus | satellite_support
     front_reconstruction = _owner_front_reconstruction_support(
         alpha,
         owner_masks,
@@ -123,6 +146,7 @@ def _components(scene: dict) -> dict:
         max_radius,
         spatial_scale,
     )
+    front_reconstruction &= front_consensus
     owner_copy = owner_support | front_reconstruction
     ordered = [images[owner], images[1 - owner]]
 
@@ -154,6 +178,7 @@ def _components(scene: dict) -> dict:
     mask = (
         _fringe_mask(alpha, max_radius, 2.0 * spatial_scale)
         * ownership
+        * fringe_consensus.astype(np.float32)
     )
     mask[owner_copy] = 0.0
     repaired_base = base.copy()
@@ -396,7 +421,10 @@ def _compact_metrics(metrics: dict) -> dict:
     }
 
 
-def attribute() -> None:
+def attribute(
+    case_specs: tuple[tuple[str, str], ...] = CASES,
+    output_path: str = OUTPUT,
+) -> None:
     rows = []
     variant_specs = {
         "front_only": (0.0, 1.0),
@@ -433,7 +461,8 @@ def attribute() -> None:
         "rear_applied_blur_14_reclip",
         "rear_applied_blur_28_reclip",
     )
-    for scene in _load_cases():
+    selected_scenes = _load_cases(case_specs)
+    for scene in selected_scenes:
         arrays = _components(scene)
         base = arrays["base"]
         repaired = arrays["repaired_base"]
@@ -447,7 +476,8 @@ def attribute() -> None:
             0.7,
             borderType=cv2.BORDER_REFLECT,
         )
-        coverage = scene["coverage"][1]
+        owner = int(arrays["owner"])
+        coverage = scene["coverage"][1 - owner]
         coverage_slope = cv2.magnitude(
             cv2.Sobel(coverage, cv2.CV_32F, 1, 0, ksize=3),
             cv2.Sobel(coverage, cv2.CV_32F, 0, 1, ksize=3),
@@ -488,7 +518,6 @@ def attribute() -> None:
             )
             variants[name] = _compact_metrics(metrics)
 
-        owner = int(arrays["owner"])
         spatial_scale = max(1.0, max(base.shape[:2]) / MODEL_SIDE)
         max_radius = RADIUS_FRACTION * max(base.shape[:2])
         front_gate, _ = _ownership_gate(
@@ -762,18 +791,18 @@ def attribute() -> None:
             ),
         }
     payload = {
-        "experiment": "S15_f62_fineband_causal_attribution",
+        "experiment": "S15_f64_fineband_causal_attribution",
         "runtime_changed": False,
         "case_count": len(rows),
-        "cases": [scene["sid"] for scene in _load_cases()],
+        "cases": [scene["sid"] for scene in selected_scenes],
         "rows": rows,
         "variant_summary": variant_summary,
     }
-    with open(OUTPUT, "w", encoding="utf-8") as handle:
+    with open(output_path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
         handle.write("\n")
     print(json.dumps(variant_summary, indent=2), flush=True)
-    print(f"wrote {OUTPUT}", flush=True)
+    print(f"wrote {output_path}", flush=True)
     print(
         "DOCTRINE: GT graded causal counterfactuals; no public benchmark or "
         "source-similarity score selected a runtime rule.",
@@ -782,9 +811,19 @@ def attribute() -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 2 or sys.argv[1] != "attribute":
-        raise SystemExit("usage: veil_fineband.py attribute")
-    attribute()
+    if len(sys.argv) not in {2, 3} or sys.argv[1] != "attribute":
+        raise SystemExit("usage: veil_fineband.py attribute [scene_id]")
+    if len(sys.argv) == 2:
+        attribute()
+        return
+    sid = sys.argv[2]
+    selected = tuple(item for item in CASES if item[1] == sid)
+    if not selected:
+        raise SystemExit(
+            f"scene_id must be one of {[item[1] for item in CASES]}"
+        )
+    stem, extension = os.path.splitext(OUTPUT)
+    attribute(selected, f"{stem}_{sid}{extension}")
 
 
 if __name__ == "__main__":

@@ -114,6 +114,13 @@ c_k calibrated — zero blind estimation (FRONTIER 19 post-gain lever 1).
       Prefer local identity or analytic shrinkage over thresholding the aggregate
       metric. Require a new post-rule fire with a non-positive complement tail
       before considering auto re-enable.
+      **PAUSED / subordinate to input repair:** a single cached F64 attribution
+      on `s23_007` found front copy `+0.000229`, float rear correction another
+      `+0.000620`, and uint8 truncation another `+0.000276` false-texture error.
+      An inward-only support taper reduced but did not close the tail. Do not
+      promote that experiment or continue S15 until the one-sided opaque
+      formation contract in `OCCLUSION_FORMATION.md` is implemented and F64 is
+      regraded.
 - [ ] **S16: formation taxonomy and transmission.** 🔶 ACTIVE; S15 runtime
       promotion is paused. Preserve V2's brute-aperture-verified opaque renderer,
       but stop pooling substantial-core, slender/all-veil, truly transmissive,

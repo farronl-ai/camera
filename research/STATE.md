@@ -38,16 +38,16 @@ real sweeps roughly halves to quarters; the zero-motion sentinel is left alone.
 
 ## What is not solved, and the order to attack it
 
-**Breathing first.** Focus breathing is a real 14% magnification on the kitchen
-sweep (bottle width 138 → 160 px raw, still 140 → 154 after the global affine). Per-
-bin TRANSLATION cannot express it, since a scale error moves an off-centre object's
-two edges by different amounts. It is upstream of everything else: the region
-machinery separates objects correctly when the geometry is representable (factory
-IoU 79%, object in one region) and fragments the kitchen bottle only because a
-magnifying object needs different translations across its extent. A crude 40%
-breathing removal already lifts bottle IoU 14.8% → 23.8% and coverage 22% → 42%
-(F88). Fix it at the global stage — its per-frame magnification is a clean monotone
-signal — then re-measure before changing the region machinery further.
+**A per-region SCALE term first (F90 corrects F87/F88).** The residual magnification after the global affine is depth-DEPENDENT (near 1.085
+vs far 1.032 in the same aligned frames), so it is forward camera translation, not
+breathing — the affine already absorbs genuine breathing (residual ~1.000 on a
+factory with 2.5%/frame applied). **No global stage can remove it.** Give regions a
+radial scale term: one kitchen region's p90 residual falls 18.45 → 2.75 px with
+similarity instead of translation. Scale must be in the region model from the START
+of the split iteration, because a region must be object-sized before its scale is
+measurable (the bottle's 55%-of-frame region fits scale ≈1.000 while the bottle needs
+~1.08) — which is also what dissolves the "objects need motion, motion needs objects"
+circularity.
 
 **Then regions.** Residual-driven splitting recovers the bottle (+2.5 → +18.8 px,
 artifact visibly gone) but regresses the factory, and no tile-confidence floor serves

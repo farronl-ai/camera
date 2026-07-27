@@ -46,6 +46,10 @@ NEAR_FOCUS_FRAME = 1
 FAR_FOCUS_FRAME = 4
 BLUR_PER_STEP = 1.15
 PAD = 60
+# Focus breathing: refocusing changes magnification. Real and large — 14% across a
+# 12-frame phone macro sweep — and depth-INDEPENDENT, which is exactly what makes it
+# separable from parallax and impossible for a per-depth translation to express.
+BREATHING_PER_FRAME = 0.0
 
 
 def _disk(radius: float) -> np.ndarray | None:
@@ -92,8 +96,11 @@ def build_stack() -> tuple[list[np.ndarray], np.ndarray, np.ndarray]:
     cv2.rectangle(alpha, (PAD + 60, PAD + 70), (PAD + 300, PAD + 330), 1.0, -1)
     cv2.circle(alpha, (PAD + 400, PAD + 140), 70, 1.0, -1)
 
-    def viewpoint(layer: np.ndarray, shift: float) -> np.ndarray:
-        matrix = np.float32([[1, 0, -shift], [0, 1, 0]])
+    def viewpoint(layer: np.ndarray, shift: float, scale: float = 1.0) -> np.ndarray:
+        # Magnification about the frame centre (breathing), then the viewpoint shift.
+        cx, cy = (canvas[1] - 1) / 2.0, (canvas[0] - 1) / 2.0
+        matrix = np.float32([[scale, 0, cx * (1 - scale) - shift],
+                             [0, scale, cy * (1 - scale)]])
         return cv2.warpAffine(layer, matrix, (canvas[1], canvas[0]),
                               flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
 
@@ -103,16 +110,19 @@ def build_stack() -> tuple[list[np.ndarray], np.ndarray, np.ndarray]:
     frames = []
     for k in range(FRAMES):
         step = k - REFERENCE
-        near_alpha = viewpoint(alpha, step * NEAR_SHIFT_PER_FRAME)
+        breathe = 1.0 + BREATHING_PER_FRAME * step
+        near_alpha = viewpoint(alpha, step * NEAR_SHIFT_PER_FRAME, breathe)
         near_radius = abs(k - NEAR_FOCUS_FRAME) * BLUR_PER_STEP
         far_radius = abs(k - FAR_FOCUS_FRAME) * BLUR_PER_STEP
         # Blur the matte with its own layer, so the occlusion boundary defocuses
         # the way a real foreground edge does instead of staying razor sharp.
         blurred_alpha = _defocus(near_alpha, near_radius)[..., None]
         composited = (
-            _defocus(viewpoint(foreground, step * NEAR_SHIFT_PER_FRAME).astype(np.float32),
+            _defocus(viewpoint(foreground, step * NEAR_SHIFT_PER_FRAME,
+                               breathe).astype(np.float32),
                      near_radius) * blurred_alpha
-            + _defocus(viewpoint(background, step * FAR_SHIFT_PER_FRAME).astype(np.float32),
+            + _defocus(viewpoint(background, step * FAR_SHIFT_PER_FRAME,
+                                 breathe).astype(np.float32),
                        far_radius) * (1.0 - blurred_alpha)
         )
         frames.append(np.clip(crop(composited), 0, 255).astype(np.uint8))

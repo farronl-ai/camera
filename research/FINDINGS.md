@@ -5,6 +5,50 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F90 — The residual magnification is forward camera translation, not breathing
+
+F87/F88 concluded that focus breathing survives the global affine and prescribed
+fixing it at the global stage. **The prescription was wrong**, and the measurement
+that refutes it is simple: breathing is depth-INDEPENDENT, so if the residual were
+breathing it would magnify near and far content equally.
+
+In the aligned kitchen stack, object-level magnification measured with the validated
+edge fit:
+
+| frame | bottle (near) | far background |
+|---|---:|---:|
+| 7 | 1.0085 | 1.0025 |
+| 8 | 1.0406 | 1.0122 |
+| 9 | 1.0790 | 1.0240 |
+| 10 | 1.0845 | 1.0319 |
+
+Near magnifies 2.6–3.3× more than far. That is depth-scaled magnification, which is
+the forward-translation (`t_z`) term of camera motion — the hand drifting toward the
+scene — not the lens breathing.
+
+Confirmed from the other side by adding a breathing axis to the analytic factory
+(`BREATHING_PER_FRAME`): with a true 2.5%/frame magnification applied, the residual
+scale measured after the global affine is 1.0013…0.9994. The affine absorbs genuine
+breathing essentially completely, on the factory and on the kitchen (residual
+±1.5%). What it cannot absorb is the part that varies with depth.
+
+**Consequence: no global stage can fix this**, which retires the F88 next-step. The
+per-region model needs a radial SCALE term, and the evidence is direct — fitting one
+kitchen region with similarity instead of translation drops its p90 tile residual
+from 18.45 px to 2.75 px (frame 9) and 7.75 px to 0.64 px (frame 11).
+
+**And the region must be object-sized before its scale is measurable.** The bottle's
+region covers 55% of the frame and fits scale ≈1.0004 while the bottle itself needs
+~1.08 — the same majority problem that defeats its translation. So scale belongs in
+the region model from the start of the split iteration rather than being added after
+objects are found. That is what dissolves the apparent circularity in F88 ("objects
+need motion, motion needs objects"): the iteration converges only if each round's
+model can represent what the object is actually doing.
+
+Method note: the first comparison of translation against similarity was invalid
+because the two residuals were computed on different tile geometries (48 px vs
+40 px). Same model, same tiles, or the numbers are not an A/B.
+
 ## F81–F89 — Alignment arc: parallax, disocclusion, and object geometry
 
 One arc, consolidated. Nine findings, six of which overturned a claim made earlier
@@ -459,9 +503,9 @@ and explicit region selection. Legacy formation cohorts were removed.
 - N-frame recovery, multiple occluders, broad CoC range, >1600 px solving, and
   real macro/product truth are open.
 - The formation-state handoff is not yet explicit in the pipeline API.
-- Focus breathing is the dominant unsolved real-handheld limitation: 14% residual
-  magnification on the kitchen sweep, only partly removed by the global affine, and
-  not expressible by the per-bin translation model (F87/F88).
+- Depth-dependent magnification (forward camera translation) is the dominant
+  unsolved real-handheld limitation. It is not removable globally and needs a
+  per-region scale term on object-sized regions (F90, correcting F87/F88).
 - Object-level region grouping is measured but unpromoted: it recovers the kitchen
   bottle and regresses the analytic factory (F85/F86).
 - The per-region two-frame architecture and its stitch stage are unbuilt.

@@ -50,9 +50,20 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   inverse depth; refocusing independently changes magnification (14% measured on a
   phone macro sweep). A global affine compromises between them. **Applies to every
   handheld stack; not to a rail or a locked-down camera.**
-- **Breathing is upstream of object grouping.** Per-bin translation cannot express a
-  residual scale, so a magnifying object fragments under motion clustering. Fix
-  breathing before blaming any region machinery.
+- **The residual magnification after a global affine is depth-DEPENDENT, so it is
+  forward camera translation, not breathing** (F90). Measured in the aligned kitchen
+  stack: a near object magnifies 1.085 while the far background magnifies 1.032 in
+  the same frames; true breathing is depth-independent and the affine already
+  absorbs it (residual scale ~1.000 on a GT factory with 2.5%/frame breathing
+  applied). **Consequence: no global stage can remove it.** The per-region model
+  needs a radial SCALE term — translation-only left 18.45 px of p90 residual in one
+  kitchen region that a similarity fit reduced to 2.75 px.
+- **A region must be object-sized before its scale can be measured.** A region
+  covering 55% of the frame fits scale ≈1.000 while the object inside it needs
+  ~1.08, for the same majority reason that defeats its translation. Scale must
+  therefore be in the region model from the START of the split iteration, not added
+  afterwards — that is what breaks the apparent circularity between "objects need
+  motion" and "motion needs objects".
 - **A depth bin is a range, not an object.** ECC over a region follows its majority.
   Group by measured motion; use depth only as a seed; cut bin edges at
   depth-histogram valleys, never quantiles.
@@ -144,6 +155,7 @@ skip it or state which condition has changed.
 | Median-stabilizing the depth map before the step test | Worsened silhouette concentration (2.81× → 2.07×) | a different stabilizer with its own evidence |
 | Connected-coherence gating of region splits | No effect; the spurious regions are coherent, not confetti | never for this purpose |
 | Tuning the tile-confidence floor to serve both scenes | No value serves both (0.05 vs 0.35 trade directly) | replace with the physical test (residual proportional to frame motion) |
+| Removing residual magnification at the GLOBAL stage | Cannot work — it is depth-dependent (forward translation), and a true global breathing component is already absorbed by the affine | never globally; belongs in the per-region model as a scale term |
 | Contrast-over-gradient as a blur estimator | Saturates by 2 px of blur, swamped by texture | never — use distance from the object's focal frame |
 | Pseudo-GT or source similarity as latent-scene truth | Ceiling-limited and blind to correct synthesis | real captured latent truth |
 | Blind generative / diffusion de-occlusion fill | Not remnant-auditable | never under the current mission |

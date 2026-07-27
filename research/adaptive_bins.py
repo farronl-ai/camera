@@ -57,6 +57,77 @@ MAX_PIECES_PER_GROUP = 3
 MIN_COHERENT_FRACTION = 0.6
 
 
+def fit_similarity(reference, moving, mask, tile=40):
+    """Scale AND translation for one region, from its own tile displacements.
+
+    Translation alone cannot express what a near region actually does: the camera
+    drifts forward as well as sideways, and forward motion magnifies content in
+    proportion to inverse depth (measured on the kitchen bottle: near 1.085 versus
+    far 1.032 in the same aligned frames). A region undergoing magnification that
+    is fitted with a translation is fitted wrongly everywhere except its centre,
+    which is what makes a motion-clustered object fragment.
+    """
+    h, w = reference.shape
+    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+    window = cv2.createHanningWindow((tile, tile), cv2.CV_64F)
+    A, y, wt = [], [], []
+    for py in range(0, h - tile, tile // 2):
+        for px in range(0, w - tile, tile // 2):
+            box = (slice(py, py + tile), slice(px, px + tile))
+            if mask[box].mean() < 0.75:
+                continue
+            patch = reference[box]
+            if float(patch.std()) < 0.02:
+                continue
+            (dx, dy), response = cv2.phaseCorrelate(
+                np.ascontiguousarray(patch.astype(np.float64)),
+                np.ascontiguousarray(moving[box].astype(np.float64)), window)
+            if response < 0.12:
+                continue
+            ux, uy = px + tile / 2.0 - cx, py + tile / 2.0 - cy
+            A.append([ux, 1.0, 0.0]); y.append(dx); wt.append(response)
+            A.append([uy, 0.0, 1.0]); y.append(dy); wt.append(response)
+    if len(A) < 8:
+        return None
+    A = np.asarray(A, float); y = np.asarray(y, float)
+    w0 = np.asarray(wt, float); weight = w0.copy()
+    for _ in range(4):
+        root = np.sqrt(weight)[:, None]
+        sol, *_ = np.linalg.lstsq(A * root, y * root.ravel(), rcond=None)
+        res = np.abs(A @ sol - y)
+        cut = max(float(np.median(res)) * 2.0, 1e-6)
+        weight = w0 * np.minimum(1.0, cut / np.maximum(res, 1e-9))
+    return float(sol[0]), float(sol[1]), float(sol[2])   # scale, tx, ty
+
+
+def residual_after_similarity(reference, moving, mask, model, tile=40):
+    """Per-tile residual once the region's own scale+translation is removed."""
+    h, w = reference.shape
+    cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+    scale, tx, ty = model
+    grid_x, grid_y = np.meshgrid(np.arange(w, dtype=np.float32),
+                                 np.arange(h, dtype=np.float32))
+    map_x = (grid_x + scale * (grid_x - cx) + tx).astype(np.float32)
+    map_y = (grid_y + scale * (grid_y - cy) + ty).astype(np.float32)
+    warped = cv2.remap(moving, map_x, map_y, cv2.INTER_LINEAR,
+                       borderMode=cv2.BORDER_REPLICATE)
+    window = cv2.createHanningWindow((tile, tile), cv2.CV_64F)
+    out = []
+    for py in range(0, h - tile, tile):
+        for px in range(0, w - tile, tile):
+            box = (slice(py, py + tile), slice(px, px + tile))
+            if mask[box].mean() < 0.6:
+                continue
+            patch = reference[box]
+            if float(patch.std()) < 0.02:
+                continue
+            (dx, dy), response = cv2.phaseCorrelate(
+                np.ascontiguousarray(patch.astype(np.float64)),
+                np.ascontiguousarray(warped[box].astype(np.float64)), window)
+            out.append((px + tile // 2, py + tile // 2, float(dx), float(dy), response))
+    return out
+
+
 def fit_translation(reference, moving, mask):
     """Best single translation for one region, or None if it will not converge."""
     if mask.sum() < 500:

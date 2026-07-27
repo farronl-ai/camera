@@ -1,8 +1,162 @@
 # focusstack — Expert Playbook (LOADME)
 
-Distilled from building this engine end-to-end. Read this + `FINDINGS.md` (F1–F16)
-+ the root `README.md` to start at expert level. This is methodology and hard-won
-nuance; `FINDINGS.md` is the dated experimental log.
+**This file is the project's primary intellectual property: the domain theory, the
+conditions under which each concept applies, and the conclusions that were paid for
+with failed experiments. Read §0 before doing any technical work here.**
+
+How to read it. §0 is what is TRUE and when it applies — start there, act on it, and
+do not re-derive it. §0b says which tool to reach for in which situation. Everything
+after that is PROVENANCE: how each conclusion was established, kept because a rule
+without its conditions becomes a trap, and because knowing *why* a negative failed is
+what lets you recognise when its conditions no longer hold. `FINDINGS.md` is the
+dated log; this file is the distillate.
+
+The standing danger this structure exists to prevent: a session that re-runs an
+already-settled experiment, or that applies a true rule outside the regime where it
+was shown true.
+
+---
+
+## §0. What is true, and when it applies
+
+Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
+*condition* matters as much as the claim.
+
+### Focus measurement
+- Focus is high-frequency energy; defocus is a low-pass. **Always.**
+- Signed Laplacian cancels on smooth low-contrast surfaces; `mod_laplacian`
+  (`|I_xx|+|I_yy|`) does not. **Route by local contrast** (`content_aware`) rather
+  than choosing globally — but expect only ~+0.002 GT-SSIM from operator routing.
+  The visible wins are structural, not operator choice.
+- Pool responses over a window: single-pixel focus is sparse and noise-sensitive.
+
+### Fusion
+- The decision must be **multi-scale, edge-aware, and hardened**; reconstruction must
+  be **multi-band**. `fuse_perband` has all four and is the default at every
+  resolution tested.
+- Scale-adaptivity belongs in the STRUCTURE, not in a tuned number: decide per pyramid
+  band with a fixed small window, and the effective scale grows with the band
+  automatically. **Applies whenever a window size seems to need tuning by resolution.**
+- Cap any window to its band's size (a window ≈ the band degenerates the guided filter
+  to a global mean), and never plain-average the base band (it imports low-frequency
+  defocus spread).
+- `harden` is one mechanism for two problems — defocus-spread rejection and
+  thin-structure preservation. **Use where one frame is confidently sharpest; keep
+  soft blending where ambiguous.**
+
+### Registration and scene geometry (the newest and least-explored area)
+- **Parallax and focus breathing are superimposed and cannot be fitted by one warp.**
+  A hand pivots the device, not the entrance pupil, so displacement scales with
+  inverse depth; refocusing independently changes magnification (14% measured on a
+  phone macro sweep). A global affine compromises between them. **Applies to every
+  handheld stack; not to a rail or a locked-down camera.**
+- **Breathing is upstream of object grouping.** Per-bin translation cannot express a
+  residual scale, so a magnifying object fragments under motion clustering. Fix
+  breathing before blaming any region machinery.
+- **A depth bin is a range, not an object.** ECC over a region follows its majority.
+  Group by measured motion; use depth only as a seed; cut bin edges at
+  depth-histogram valleys, never quantiles.
+- **Object integrity is a MERGE rule**: regions whose fitted motion agrees across the
+  sweep are one object. Merging past ~2 px merges real depth planes and collapses.
+- **Blend coordinates, not warped images** — one source location per output pixel, so
+  a multi-stage correction still costs one interpolation. A field may transport
+  content freely; it must never stretch it.
+- **Textureless interiors take their motion from edges.** Correlate gradient profiles,
+  integrate along the edge, trust only the normal component, and measure near the
+  object's focal plane then propagate along the sweep.
+- **Interior edges make "is this one object?" falsifiable.** Two edges are exactly
+  determined — solvable, never testable.
+
+### Occlusion and boundaries
+- **Disocclusion earns a hard mask; veiling does not.** If the observation does not
+  exist (parallax uncovered the scene), refuse the pixel. If it exists but is a
+  mixture (a defocused occluder spreading over its surround), down-weight it softly —
+  a hard mask loses in every regime tested, including the one built to favour it.
+  **This distinction generalises: ask which of the two any new boundary evidence
+  describes before choosing a mechanism.**
+- Near a defocused silhouette BOTH sides are compromised, by different mechanisms:
+  missing correspondence behind, matte mixing in front.
+- Foreground blur spreads foreground outward; it never pulls hidden rear detail
+  inward. Ownership is discrete and ordered, never a symmetric blend.
+- Absence of foreground evidence is not positive rear visibility.
+
+### Evaluation (where most self-deception happens)
+- **With true GT, GT-referenced fidelity is the verdict.** Without it, no-reference
+  metrics are weak instruments with named blind spots:
+  - **globally**: usable for ranking (`0.3·Q_ABF + 0.7·Q_SSIM`, Spearman +0.72);
+  - **per-tile/region**: Q_ABF *anti-correlates* — use Q_SSIM alone;
+  - **for an alignment change**: unusable, because they score against sources that
+    alignment itself moves;
+  - **for synthesis/restoration**: unusable, because success means deviating from
+    every source;
+  - **on smooth content**: blind.
+- A metric's exclusion filter is a blind spot in disguise; build its complement.
+- Aggregates hide localized defects; a global mean rated three fusion methods equal
+  while one had a visible halo.
+- **Validate a measuring instrument against a known answer before believing it** — a
+  broken instrument does not look broken, it looks like data.
+- Clean/near-ceiling data is a mirage; re-check on the method's designed weakness.
+- Test a stage with input only it must handle: alignment cannot be tested on frames
+  that differ by one global transform.
+
+### Physical modelling
+- Real defocus is a DISK (circle of confusion), not a Gaussian. Gaussian synthetic
+  defocus is too easy and hides scene-dependence.
+- Every resample softens; compose transforms and resample once.
+- Solve the formation, not the fused image. Formation quantities come from the
+  original observations, never from a fused base.
+- A forward fit cannot detect a support error shared by every inverse model.
+
+## §0b. Which tool, when
+
+| Situation | Reach for | Not for |
+|---|---|---|
+| Edge-aware smoothing without a detector | guided filter (`out=a·guide+b`) | cases where the guide is noisier than the signal (weak-guide trap) |
+| Smooth, low-contrast content | `mod_laplacian` | textured content (use Laplacian) |
+| Any resolution, general fusion | `fuse_perband` | — |
+| Brightness-varying frames, needs texture | ECC | textureless regions (guard on gradient) |
+| Shift measurement, subpixel, cheap | phase correlation | shifts beyond ~¼ of the patch — it saturates silently |
+| Object motion where interiors are flat | edge-integrated gradient-profile correlation | intensity profiles (defocus biases them outward) |
+| Testing alignment | analytic parallax factory (`parallax_gen.py`) | any stack differing by one global transform |
+| Ranking whole outputs, no GT | composite `0.3·Q_ABF+0.7·Q_SSIM` | per-tile decisions, alignment A/B, synthesis audit |
+| Local/per-region no-GT scoring | Q_SSIM alone | the composite |
+| Deciding a boundary mechanism | "is the observation absent, or mixed?" | applying one mechanism to both |
+| Unknown-size discovery | oracle ladder first, estimators second | building estimators before the ceiling is known |
+
+## §0c. Settled — do not re-run without a changed condition
+
+Each of these cost real experiments. They are closed, not forgotten: the *condition*
+column is what would make one a live hypothesis again. If you find yourself designing
+an experiment that appears here, read the provenance section first and then either
+skip it or state which condition has changed.
+
+| Question | Verdict | Reopens if |
+|---|---|---|
+| Q_MI as a fusion quality metric | Anti-correlates with truth; rewards ghosting/speckle | never, for this purpose |
+| Correction applied after fusion | Cannot recover identifiable layer state; retired | never — solve the layer equations jointly instead |
+| Symmetric foreground/background blending at an occlusion | Violates ordered visibility | never |
+| A more flexible single global warp for depth-dependent parallax | Mathematically cannot fit near and far together | never — the two motions are separable only with depth |
+| Raising the per-bin correction acceptance cap alone | Does nothing; the correction is never *proposed* | only alongside a splitting scheme that proposes it |
+| Parametric depth→displacement (linear in the depth proxy) | Loses to nonparametric bins (0.9313 vs 0.9565) — the focus index is monotone but not affine in inverse depth | a calibrated inverse-depth map, not the raw index |
+| Joint motion/depth/calibration estimator as the default | Best registration of any variant, but invents motion on a still stack | a better observation model (its rigid+depth model explains only 25–50% of tile shifts) |
+| One-sided disocclusion refusal (spare the occluder) | Loses to two-sided; a defocused occluder's own matte mixes background onto its boundary | a mechanism that separates matte mixing from disocclusion on the front side |
+| Veiling as a hard mask | Loses in every regime including the one built to favour it | never as a hard mask; it is legitimate as a soft weight |
+| Median-stabilizing the depth map before the step test | Worsened silhouette concentration (2.81× → 2.07×) | a different stabilizer with its own evidence |
+| Connected-coherence gating of region splits | No effect; the spurious regions are coherent, not confetti | never for this purpose |
+| Tuning the tile-confidence floor to serve both scenes | No value serves both (0.05 vs 0.35 trade directly) | replace with the physical test (residual proportional to frame motion) |
+| Contrast-over-gradient as a blur estimator | Saturates by 2 px of blur, swamped by texture | never — use distance from the object's focal frame |
+| Pseudo-GT or source similarity as latent-scene truth | Ceiling-limited and blind to correct synthesis | real captured latent truth |
+| Blind generative / diffusion de-occlusion fill | Not remnant-auditable | never under the current mission |
+| Semantic models on synthetic blob content | Pastiche fragments under SAM; bokeh spoofs objectness | benchmarks built from real objects |
+
+**Standing exception, and it matters:** a rigorous negative is a statement about its
+TEST CONDITIONS, not about the idea. At each checkpoint, sweep this table for
+conditions that have since changed — pipelines, factories and metrics evolve, and
+F27 was correctly reopened exactly this way.
+
+---
+
+---
 
 ## I. Methodology (generalizes beyond images)
 
@@ -249,6 +403,14 @@ spread rejection; `--fast` trades measured quality for speed. `.venv` (3.14) for
 the engine, `.venv312` for torch. Before any
 "it works": isolate-test the stage, check hard data + eyes, distrust clean-data and
 global-metric verdicts, use Q_SSIM (not the composite) for local decisions.
+
+---
+
+# Provenance — how each conclusion was established
+
+Below is kept deliberately. A rule without its conditions becomes a trap, and a
+negative whose conditions have changed is a hypothesis again (see the closing note).
+Read for the *why* behind a §0 line, or before reopening anything settled.
 
 ## E-phase additions (boundary/reconstruction arc)
 - **Oracle ladders turn mystery negatives into understood ones** — each rung removes

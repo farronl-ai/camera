@@ -91,7 +91,11 @@ for exactly two frames ≤1600 px (F56), so a stitched composite is outside it.
 3. `FINDINGS.md` — load-bearing scientific conclusions and retired approaches.
 4. `OCCLUSION_FORMATION.md` — renderer/inverse physical contract.
 5. `FRONTIER.md` — prioritized open work and literature anchors.
-6. `DEVSTYLE.md` and `PLAYBOOK.md` only when planning a longer research loop.
+6. `DEVSTYLE.md` when planning a longer research loop.
+
+`PLAYBOOK.md` §0 (what is true / which tool when / what is settled) is not optional
+for technical work — it is the distilled domain theory, and §0c lists experiments
+already run and closed. Reading it is cheaper than repeating them.
 
 ## Live code
 

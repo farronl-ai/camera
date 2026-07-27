@@ -4,8 +4,10 @@ Purpose: `PLAYBOOK.md` carries the domain knowledge (MFIF theory, traps, environ
 THIS file carries the **working style** — the methodology, personality, and cadence that
 produced this project's results, so any session on ANY model (Opus, Fable, or later)
 starts in the same expert flow and improves from there.
-**Read order for a new session:** MISSION.md (the goal + framework) → DEVSTYLE → PLAYBOOK → FINDINGS.md (SYNTHESIS section)
-→ FRONTIER.md → STATE.md (current checkpoint and next move).
+**Read order for a new session:** MISSION.md (the goal + framework) → **PLAYBOOK §0
+(what is true, which tool when, what is settled — the technical core)** → DEVSTYLE
+(this file) → FINDINGS.md → FRONTIER.md → STATE.md (current checkpoint and next move).
+If time is short, PLAYBOOK §0 and STATE are the two that prevent wasted work.
 
 ## 1. The core loop (every investigation runs this shape)
 
@@ -100,7 +102,15 @@ in ways that were more informative than being right.
 - FRONTIER.md = living inventory of unexplored directions with status. Probing a
   frontier should SPAWN new sub-frontiers (1b, 2b, 3b...); if the file stops changing,
   that itself is the warning sign. Never let a clean theory end the project.
-- Memory: durable lessons → memory playbook; project state → project memory.
+- **The REPO is the durable record; per-session memory is only a personal index.**
+  Anything worth remembering for focused, informed development is worth exactly as
+  much to the next session — which may be a different model, a different agent, or
+  the user reading the files directly, none of whom can see one session's private
+  memory. So: a lesson goes into `PLAYBOOK.md` (theory, conditions, settled
+  questions) or `DEVSTYLE.md` (method) FIRST, and only then into personal memory as
+  a pointer. If a claim exists solely in memory, it is effectively lost. The test
+  for this file set is simple — **a competent session with no memory at all should
+  be able to work at full speed from the repo alone.**
 - Tests green before every commit; add a test with every promoted feature.
 
 ## 6. Personality
@@ -147,7 +157,10 @@ the session. That is what this file is for.
 
 ## 9. New-session quick start
 
-1. Read this file, PLAYBOOK.md, FINDINGS SYNTHESIS, FRONTIER.md, current NEXT_STEPS.
+1. **For any technical work, read `PLAYBOOK.md` §0/§0b/§0c FIRST** — what is true,
+   which tool when, and what is already settled. That file is the project's IP and
+   exists so a session does not re-derive a conclusion or re-run a closed experiment.
+   Then this file (working style), FINDINGS (the dated log), FRONTIER, STATE.
 2. `cd camera && .venv/bin/pytest -q` — confirm green baseline.
 3. Pick up the current phase plan (or the top ⬜ FRONTIER item if between phases).
 4. Run the core loop (§1). Commit with evidence. Log findings. Update frontier.

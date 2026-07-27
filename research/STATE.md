@@ -4,113 +4,85 @@ Last compacted: 2026-07-26.
 
 ## Current answer
 
-The narrow two-frame one-sided opaque recovery path is enabled in
-`--enhance auto`. Preserve the F78 output at commit `bf99365`: on the inspection
-page, the right side of `s29_010` is the user-validated near-perfect
-transmission-boundary result.
-
-The core fix is formation-aware rear inversion:
+**Recovery (F78).** The narrow two-frame one-sided opaque path is enabled in
+`--enhance auto`. Preserve the output at commit `bf99365`: on the inspection page,
+the right side of `s29_010` is the user-validated transmission-boundary result. The
+core fix is formation-aware rear inversion,
 
 ```text
 B_direct = (O_rear - V_front) / T_rear
 ```
 
 with local two-frame PSF selection, a 10% aperture-coverage contour,
-component-specific below-noise extrapolation, and contour-relative integration.
-Do not replace it with generic seam smoothing.
+component-specific below-noise extrapolation and contour-relative integration. Do
+not replace it with generic seam smoothing.
 
-For ordinary N-frame stacks, F79 now detects fragmented, low-confidence local
-focus ownership. Unstable stacks snap one shared guided decision to coherent
-hard frame regions before multiband reconstruction; stable stacks retain full
-per-band selection. Fine details are never softly double-imaged, while coarse
-decision transitions remain feathered. This does not affect the two-frame F78
-path.
+**N-frame fusion (F79).** Fragmented, low-confidence focus ownership routes to one
+shared guided decision snapped to coherent hard frame regions before multiband
+reconstruction; stable stacks keep full per-band selection. Two-frame stacks and the
+F78 path are unaffected. This remains the safe fusion fallback.
 
-F80 makes the alignment contract explicit: only the scene footprint observed
-by every frame may reach fusion. `align_stack` warps validity masks, intersects
-them across all N frames, and crops all aligned images to the largest all-valid
-rectangle. Never reintroduce reflected/replicated warp borders as image data.
+**Alignment (F80–F82), shipped and default on.** Three separate contracts, and they
+must stay separate:
+- only the scene footprint observed by every frame may reach fusion — validity masks
+  warped, intersected, cropped to the largest all-valid rectangle (F80);
+- a depth-aware pass after the global warp — bins at depth-histogram VALLEYS, one
+  translation-only ECC correction each, blended into one dense field, relaxed where
+  it would stretch content, resampled exactly once (F81);
+- per-pixel refusal of scene that parallax uncovered, carried into fusion as a
+  `usable` mask, derived from MEASURED per-bin displacement and sized by a radius
+  ladder (F82).
 
-F81 answers the remaining kitchen geometry — true depth-dependent parallax,
-because handheld rotation pivots the device rather than the lens entrance pupil
-and the camera centre therefore translates. `align_stack` now runs a depth-aware
-second pass after the global warp: depth bins cut at depth-histogram valleys,
-one translation-only ECC correction per bin, blended into a single dense field,
-relaxed wherever it would stretch rather than transport content, and resampled
-exactly once. Do not answer this with a more flexible single global warp, and do
-not replace valley edges with quantiles — that puts a seam through the middle of
-an object. F79's coherent source route stays as the safe fusion fallback.
+Analytic factory: 0.8754 → 0.9660 → 0.9785 GT-SSIM. Near-content residual on the
+real sweeps roughly halves to quarters; the zero-motion sentinel is left alone.
 
-F82 adds the second half: parallax uncovers scene, so `align_stack` also
-returns per-pixel `usable` masks and fusion refuses those pixels. This is
-separate from F80's rectangular crop and must stay separate. Derive the ribbon
-from the MEASURED per-bin displacement, never from the smoothed applied field,
-and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
+## What is not solved, and the order to attack it
 
-Object motion is now solvable to sub-pixel on the kitchen bottle (F89):
-interior edges between two candidate edges make "one object" falsifiable and
-separate translation from magnification, then a LINEAR fit over the frames near
-the object's focal plane extrapolates to the blurred frames (+18.88 vs +19.2
-truth, against +2.3 from the depth-bin fit). Measure where the evidence is, not
-where the object is most defocused.
+**Breathing first.** Focus breathing is a real 14% magnification on the kitchen
+sweep (bottle width 138 → 160 px raw, still 140 → 154 after the global affine). Per-
+bin TRANSLATION cannot express it, since a scale error moves an off-centre object's
+two edges by different amounts. It is upstream of everything else: the region
+machinery separates objects correctly when the geometry is representable (factory
+IoU 79%, object in one region) and fragments the kitchen bottle only because a
+magnifying object needs different translations across its extent. A crude 40%
+breathing removal already lifts bottle IoU 14.8% → 23.8% and coverage 22% → 42%
+(F88). Fix it at the global stage — its per-frame magnification is a clean monotone
+signal — then re-measure before changing the region machinery further.
 
-Order of work is settled by F88: fix breathing FIRST, then revisit regions. The
-region machinery separates objects correctly when the geometry is representable
-(factory IoU 79%, object in one region) and fragments the kitchen bottle only
-because a magnifying object needs different translations across its extent under
-a translation-only model. A crude 40% breathing removal already takes the bottle
-from IoU 14.8% to 23.8% and coverage 22% to 42%.
+**Then regions.** Residual-driven splitting recovers the bottle (+2.5 → +18.8 px,
+artifact visibly gone) but regresses the factory, and no tile-confidence floor serves
+both scenes. Do not tune that threshold — replace it with the physical test: a real
+object's residual scales with each frame's motion and holds its direction, a bad
+phase correlation does not. Promotion also needs `_REFINE_MIN_BIN_FRACTION` and the
+acceptance cap relaxed together, since a small region asking a large correction is
+exactly what they reject. Object integrity is a MERGE rule; keep the tolerance ≤2 px
+or genuinely different depth planes merge and the result collapses.
 
-Focus breathing is NOT fully removed by the global affine: the kitchen bottle
-grows 138 -> 160 px (14%) across the raw sweep and still 140 -> 154 after
-alignment. Per-bin TRANSLATION cannot express that, since a residual scale moves
-an off-centre object's two edges by different amounts. Fix breathing at the
-global stage or give regions a scale term before blaming the region machinery
-(F87 corrected).
+**Then the per-region two-frame architecture** (user proposal, not yet built):
+per region pick the frame where its foreground is sharpest and the frame where its
+background is sharpest, align that pair, run it through the base processor, stitch.
+It plays to the engine's most-validated path. Two cautions: the stitch reintroduces
+exactly the boundary problems this arc fought and needs its own validated stage
+(F79 already found hard region-copy seams unacceptable); and `--enhance` is licensed
+for exactly two frames ≤1600 px (F56), so a stitched composite is outside it.
 
-Textureless interiors get their motion from EDGES (F87), not from tile
-residuals that have nothing to correlate. Correlate GRADIENT profiles, never
-intensity: defocus spreads a bright object over its surround and biases the
-apparent edge outward on both sides, so intensity correlation reports a rigid
-object widening by 17 px. Rigidity (zero differential) then says which of two
-edge measurements to distrust, without ground truth.
+## Standing rules for this area
 
-Object integrity is a MERGE rule (F86): regions whose fitted motion agrees
-across the sweep are one object. Keep the merge tolerance at or below 2 px —
-past that it merges genuinely different depth planes and the result collapses.
-
-Next move, concretely: F85's residual-driven splitting recovers the kitchen
-bottle (+2.5 -> +18.8 px, artifact visibly gone) but regresses the analytic
-factory, and no tile-confidence floor serves both. Do not tune that threshold —
-replace it. A real object's residual scales with each frame's motion and keeps
-its direction; a bad phase correlation does not. Gate the split on that
-proportionality. Promotion also needs `_REFINE_MIN_BIN_FRACTION` and the
-acceptance cap relaxed together, since a small region asking for a large
-correction is exactly the case they currently reject.
-
-The bottle on the kitchen sweep is still visibly wrong, and F84 says why: its
-depth bin covers 55% of the frame, so ECC fits the majority and the bottle gets
-+2.3 px where it needs +19.2. Fix that by splitting bins until homogeneous
-(per-tile residual, `research/boundary_probe.py`), not by widening masks. Do not
-turn veiling into a hard mask — it loses in every regime including the one built
-to favour it, because a veiled pixel is a mixture, not an absence.
-
-Do not revisit one-sided disocclusion refusal without new evidence: F83 built
-the occlusion-edge-blur ordering, validated every step of it, and still found
-two-sided refusal better, because the occluder's boundary pixels are matte
-mixtures whenever it is defocused. The instrument survives in
-`research/occlusion_order.py`; the conclusion does not.
-
-Four alignment negatives are load-bearing (F81b, F82b, F83): a model linear in the depth
-proxy loses to nonparametric bins, and the alternating motion/depth/calibration
-estimator (`depth_model="joint"`), while achieving the best registration of any
-variant, invents motion on the zero-motion sentinel and is not promotable. Do
-not enable it by default without fixing its observation model first.
-
-No-reference metrics cannot compare two alignments (F81a): they score against
-the aligned sources, which the alignment itself changes. Judge alignment by
-registration residual per depth region, the GT parallax factory, and
-disagreement-guided crops.
+- Textureless interiors take their motion from EDGES, correlating GRADIENT profiles
+  (intensity correlation reports a rigid object widening by 17 px). Trust only the
+  normal component. Measure near an object's focal plane, then propagate.
+- Interior edges make "one object?" falsifiable; two edges alone can only be solved,
+  never tested.
+- No-reference metrics cannot adjudicate an alignment change — they score against
+  sources that alignment itself moves.
+- Do not turn veiling into a hard mask: it loses in every regime including the one
+  built to favour it. A veiled pixel is a mixture, not an absence.
+- Do not revisit one-sided disocclusion refusal: the ordering cue works and the
+  conclusion still fails, because a defocused occluder's own matte mixes background
+  onto its boundary.
+- Do not test alignment on frames differing by one global transform — use
+  `research/parallax_gen.py`.
+- Known-answer test every new measuring instrument before believing it.
 
 ## Read order
 
@@ -134,6 +106,13 @@ disagreement-guided crops.
 - Current evidence: `research/objocc_v2_s29_{manifest,formation_audit,geometry_audit,ordered_visibility}.json`
 - N-frame routing: `selection_instability_score` and
   `stack_consistency_route` in `src/focusstack/fusion.py`
+- Alignment: `src/focusstack/align.py` (global warp + depth-aware pass + `usable`
+  masks); fusion honours `usable` in `fuse_perband`/`fuse_coherent`
+- Alignment instruments (research only, none in the runtime path):
+  `parallax_gen.py` analytic parallax factory with GT · `adaptive_bins.py` motion
+  splitting and merge · `edge_motion.py` edge-driven object motion ·
+  `boundary_probe.py` veiling and bin homogeneity · `occlusion_order.py` front/back
+  ordering
 
 Historical scripts, phase plans, generated reports, caches, and legacy inspector
 cohorts were removed from the working tree. Recover them from Git only if a
@@ -141,8 +120,18 @@ specific old result must be reproduced.
 
 ## Fast working loop
 
-Use compact causal probes and the same three visual sentinels until the user
-returns the project to full validation:
+Keep the early loop SMALL — the alignment arc resolved nine findings on one
+analytic factory plus one real sweep, with no benchmark run. Scale data when the
+mechanism stabilizes, not while finding it.
+
+For alignment/geometry work:
+
+```bash
+.venv/bin/python research/parallax_gen.py      # GT factory: is the mechanism right?
+.venv/bin/python research/adaptive_bins.py     # kitchen: does it move the bottle?
+```
+
+For recovery work, the same three visual sentinels as before:
 
 ```bash
 .venv/bin/python research/make_showcase_specialists.py inspection
@@ -166,14 +155,16 @@ inspector once.
 
 ## Immediate next move
 
-Refactor formation-state estimation upstream without changing pixels:
-`V_front`, `T_rear`, PSF weights/choice, forward residual, and detection floor
-should be computed once while both original observations are available and
-passed explicitly into recovery. Byte-compare the refactor against F78 on the
-quick cohort.
+Remove focus breathing at the global stage, then re-measure object separation
+before touching the region machinery (see "What is not solved" above). The
+magnification signal is clean and monotone; the current global affine compromises
+between it and depth-varying parallax, which F81 established cannot be co-fitted.
 
-After that, freeze a fresh cross-family validation split. Do not tune further
-on `_010`.
+Still queued behind it, unchanged: refactor formation-state estimation upstream
+without changing pixels (`V_front`, `T_rear`, PSF weights/choice, forward residual,
+detection floor computed once while both original observations are available and
+passed explicitly into recovery; byte-compare against F78 on the quick cohort),
+then freeze a fresh cross-family validation split. Do not tune further on `_010`.
 
 ## Invariants
 
@@ -189,6 +180,9 @@ on `_010`.
   observation detection floor.
 - Global metrics inform but do not overrule physical partitions and visible
   coherent artifacts.
+- A hard mask is only for observations that do not exist; partial contamination
+  takes a soft weight.
+- A measuring instrument is not trusted until it has returned a known answer.
 
 ## Git checkpoint
 

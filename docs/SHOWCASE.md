@@ -382,8 +382,12 @@ questions, not lingering doubts.
 - **A synthesis-aware no-reference metric** — today's no-ref metrics score any
   deviation from the sources as damage, so they cannot audit corrections that
   *improve on* every source; a metric that can would unlock runtime self-auditing.
-- **Deep-stack alignment** — chained/feature-initialized registration and
-  focus-breathing compensation for 10–50 frame handheld rails.
+- **Deep-stack alignment** — depth-dependent parallax is now corrected (a
+  depth-aware pass after the global warp, plus per-pixel refusal of scene that
+  parallax uncovered: 0.875 → 0.979 GT-SSIM on an analytic parallax factory).
+  What remains is focus-breathing removal — a real 14% magnification change across
+  a phone sweep that the global affine only partly absorbs — and object-level
+  region grouping on top of it.
 - **Noise-adaptive fusion** — low-light stacks where sensor noise mimics focus energy.
 - **A learned no-reference metric** — close the remaining gap between no-GT scoring
   and truth for per-region decisions.

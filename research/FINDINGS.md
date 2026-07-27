@@ -5,508 +5,204 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
-## F89 — Interior edges make the one-object question falsifiable, and solve the motion
+## F81–F89 — Alignment arc: parallax, disocclusion, and object geometry
 
-Two edges of a candidate object give two measurements for two unknowns,
-translation and magnification, so the system is exactly determined: it can be
-solved but never tested, and "one object breathing" is indistinguishable from
-"two objects moving independently". The edges BETWEEN them break that tie. For a
-single rigid object under magnification, edge displacement must be linear in x
-(`d = a + b*(x - centre)`), so every additional interior edge is a constraint
-the hypothesis can fail.
+One arc, consolidated. Nine findings, six of which overturned a claim made earlier
+in the same arc; the corrections are kept because each names a trap.
 
-On the kitchen bottle, using only edges whose match is confident:
+### Shipped (F81, F82) — default on, runtime path
 
-| frame | confident edges | translation | magnification | rms residual | verdict |
+A handheld rotation pivots the DEVICE, not the lens entrance pupil, so the camera
+centre translates and displacement scales with inverse depth. Measured directly: on
+every moving phone sweep the residual inside near content was 2.0–2.5× the residual
+in far content. One global warp splits the difference; F79/F80 handled the
+consequences of that, this handles the geometry.
+
+`align_stack` adds a depth-aware pass — depth-from-focus bins cut at histogram
+VALLEYS, one translation-only ECC correction per bin, blended into one dense
+coordinate field, relaxed where it would stretch content, resampled exactly once —
+plus per-pixel refusal of scene that parallax uncovered, carried into fusion as a
+`usable` mask (separate from F80's rectangular crop).
+
+| | GT-SSIM | PSNR |
+|---|---:|---:|
+| global affine only | 0.875425 | 23.34 dB |
+| + depth-aware alignment | 0.966007 | 29.66 dB |
+| + disocclusion refusal | **0.978509** | **31.82 dB** |
+
+Real sweeps, near-content residual and fraction withheld per frame: kitchen
+2.190 → 0.544 px / 4.32%; large-motion 1.540 → 0.907 px / 4.09%; small-motion
+0.469 → 0.227 px / 0.94%; zero-motion 0.046 → 0.031 px / 0.11%. What is withheld
+tracks how much the camera moved, which is the behaviour to demand. Cost is
+1.5–3.5× alignment time.
+
+Four properties are load-bearing and each was found by failing first:
+1. **Valley bin edges, not quantiles** — an equal-population edge cut through the
+   middle of one object, putting a 13 px step across its own surface (visible seam
+   and ghost strip on the large-motion book).
+2. **Stop the field stretching** — relaxing displacement where its local gradient
+   exceeds 0.10 RAISED probe GT-SSIM (0.9579 → 0.9628), so the stretch was pure
+   damage. No membership width substitutes: narrowing makes stretch worse.
+3. **Refusal at every level** — untextured/underpopulated bins, diverged fits and
+   sub-three-frame stacks fall back to the global warp; a frame earning no
+   correction is byte-identical.
+4. **Disocclusion ribbons must come from MEASURED per-bin displacement**, never the
+   smoothed applied field (which reported 0.06% on kitchen), and be sized by the
+   step: a foreground moving Q px uncovers a Q px strip, tested at a ladder of radii
+   where radius r demands a step ≥ r. A single-scale test condemned 38.6% of a frame.
+
+### The metrics cannot adjudicate this (F81a, F82a)
+
+Q_SSIM scores the fused image against its locally sharpest source, and alignment
+changes what the sources ARE. Cross-scoring each output against the other variant's
+sources collapses both to ~0.72–0.82. Within-variant scores therefore partly measure
+self-consistency with a possibly misregistered stack, which a misaligned stack can
+win; the ±0.002 real-sweep deltas are not evidence either way. Refusal makes it
+worse: deliberately declining an untrustworthy-but-sharp source always looks like a
+loss, yet on the factory it is worth +0.0125 GT-SSIM. Judge alignment by
+per-depth-region residual, the analytic factory, and disagreement crops. The metric
+still earned its keep as a POINTER — localizing its one real-looking dissent is what
+exposed the quantile-edge seam.
+
+### Rigorous negatives (do not reopen without new evidence)
+
+- **Parametric depth→displacement models (F81b).** Displacement is ∝1/Z so a model
+  linear in the depth proxy looks principled; it loses (0.9313 vs 0.9565) because the
+  focus-winner index is monotone but not affine in inverse depth, and multiplying a
+  noisy proxy by a ~20 px coefficient turns depth wiggle into displacement wiggle.
+  Binning quantizes that noise away and assumes nothing about the mapping.
+- **Joint motion/depth/calibration estimator (F81b).** Alternating rotation,
+  translation, breathing scale, depth and the depth-to-parallax calibration converges
+  (corrections 1.13 → 1.11 → 0.35 px) and achieves the BEST registration of any
+  variant (large-motion 0.568 px), but invents motion on the zero-motion sentinel
+  (0.046 → 0.247 px). Available as `depth_model="joint"`, off by default. The wall is
+  the observation model, not the solver: tile shifts are sound (84% agree within 1 px
+  with independent ECC) yet the rigid-motion-plus-depth model explains only 25–50%
+  of them.
+- **One-sided disocclusion refusal (F83).** Every part of the occlusion-edge-blur cue
+  works: contour localization 32 px → 4.8 px, the global ordering bit votes
+  correctly, the front mask agrees 91.1% with the known near plane. And refusing only
+  the background side LOSES: background-only 0.971433, foreground-only 0.975415, both
+  0.978509. The occluder is opaque and geometrically present — but out of focus its
+  own matte blurs, so its boundary pixels are foreground/background mixtures carrying
+  background colour onto the object. Near a defocused silhouette BOTH sides are
+  compromised, by different mechanisms. Instrument kept at
+  `research/occlusion_order.py`; the conclusion does not survive.
+- **Veiling as a hard mask (F84).** Direction and width are both derivable (foreground
+  spreads outward; width = distance from the occluder's own focal frame, since
+  contrast-over-gradient saturates by 2 px of blur and is useless on textured frames).
+  It behaves correctly — the occluder's focal frame veils nothing — and still loses:
+  neutral in the parallax-dominant regime, −0.002 in the veil-dominant regime built to
+  favour it, −0.001 with both strong, and −0.0024 even at `harden=0`, so it is not
+  redundancy. Refusing veiled background forces fusion onto frames where the
+  BACKGROUND is defocused, trading contaminated-but-sharp for clean-but-blurry.
+  **Refusal is the wrong verb for partial contamination:** disocclusion earns a hard
+  mask because the observation does not exist, veiling does not because it does. The
+  same physics as a soft down-weight (`harden`) gains 0.980438 → 0.982593.
+- **Median-stabilizing the depth map before the step test (F82b)** made silhouette
+  concentration worse (2.81× → 2.07×).
+- **Connected-coherence gating of splits (F86)** changed nothing; the factory's extra
+  regions are coherent, not confetti.
+
+### Why the kitchen bottle resisted, and what fixed the diagnosis (F84–F86)
+
+A depth bin is a RANGE, not an object. The bin holding the bottle covers 55.4% of the
+frame with a p90 internal tile residual of 14.44 px; the bottle is 8.7% of it, needs
++19.2 px, and receives +2.3 px because ECC follows the majority. Raising the
+acceptance cap changes nothing — the correction is never proposed.
+
+This also corrects the F81/F82 headline honestly: kitchen near-residual 2.190 → 0.544
+px was averaged over the near half by depth median and never measured the bottle,
+which is why a metric improved while the picture did not.
+
+Grouping by MEASURED MOTION rather than depth recovers it (`research/adaptive_bins.py`):
+clustering each region's tiles by their residual across every frame concatenated takes
+the bottle's region from 55.4% of frame at +2.47 px to 7.0% at +18.56 px, and +18.8 px
+end to end, with the ghost slab visibly gone. Necessary details: pool split evidence
+across frames by MAX not median (a sweep's many near-reference frames hide an object
+stranded in the few that moved); snap regions to image structure rather than the tile
+grid; and relax `_REFINE_MIN_BIN_FRACTION` and the acceptance cap together, since a
+7%-of-frame region asking 19 px is rejected by both.
+
+**Splitting needs a merge rule (F86).** Subdividing a rigid plane gives each piece its
+own noisier fit, so a surface with no discontinuity is transported by different amounts
+in different places. Regions whose fitted motion agrees across the sweep are one
+object — zero-motion collapses 5 regions to 2, kitchen keeps the bottle separate.
+Tolerance is sharply bounded above: at 3 px the factory's two PLANES merge and one
+compromise fit across a real depth boundary costs 0.889 GT-SSIM.
+
+Not promoted: splitting regresses the analytic factory (0.9785 → 0.9734, partly
+recovered to 0.9740 by merging) and no tile-confidence floor serves both scenes
+(0.05 buys the bottle and costs the factory; 0.35 the reverse).
+
+### Focus breathing is upstream of all of it (F87 corrected, F88)
+
+The bottle's two edges disagreed by up to 16.8 px, growing monotonically with defocus.
+First reading: a defocus bias, since a bright out-of-focus object spreads over its
+darker surround. **Wrong.** Measuring the width directly in the RAW frames: 138, 138,
+139, 139, 139, 139, 140, 141, 143, 148, 155, 160 px — 14% real magnification, monotone,
+before any correlation is involved. It is focus breathing, and the global affine
+removes only part of it (aligned widths still run 140 → 154).
+
+Structural consequence, larger than the correction: **per-bin translation cannot
+express residual breathing**, because a scale error moves an off-centre object's two
+edges by different amounts. Translation-only is the most constrained model that can
+express parallax, and it is — but not this. And a rigid object's edges need NOT show
+zero differential in the image, only in the scene; the rigidity test must target the
+expected breathing scale or it will indict sound measurements.
+
+Object separation confirms breathing is the blocker (F88). Measured against a known
+silhouette: on the factory the object lands in one region at 79.1% IoU (depth bins
+alone already manage that). On the kitchen the bottle FRAGMENTS — purity doubles to
+30.8% but coverage collapses 85.9% → 22.2% — which is what a translation-only model
+must do to a magnifying object. Removing breathing crudely (one global scale per
+frame from the bottle's own width, ~40% of it) drops regions 7 → 5 and lifts bottle
+IoU 14.8% → 23.8%, coverage 22% → 42%. **The region machinery is sound and was being
+fed geometry it cannot represent. Fix breathing at the global stage first.**
+
+### Object motion from edges (F87, F89)
+
+Textureless interiors have nothing to correlate; edges do. Integrating a vertical edge
+along its length turns a weak local match into a strong 1-D measurement, and rigidity
+carries it to the interior. Correlate GRADIENT profiles, not intensity. Trust only the
+normal component (aperture problem) and combine differently-oriented edges.
+
+**Interior edges make the one-object question falsifiable (F89).** Two edges give two
+measurements for two unknowns, so the system is exactly determined — solvable, never
+testable, and "one object breathing" is indistinguishable from "two objects moving".
+Under magnification a rigid object's edge displacement is LINEAR IN X, so each interior
+edge is a constraint the hypothesis can fail:
+
+| frame | confident edges | translation | magnification | rms resid | verdict |
 |---|---:|---:|---:|---:|---|
 | 7 | 11 | +4.07 | 1.0048 | **0.33** | one object |
 | 8 | 8 | +8.26 | 1.0254 | 1.15 | one object |
 | 9 | 7 | +10.83 | 1.0530 | 2.16 | borderline |
 | 10 | 5 | +9.44 | 1.0897 | 5.41 | interior detail gone |
-| 11 | 3 | -4.47 | 1.0151 | 24.03 | interior detail gone |
+| 11 | 3 | −4.47 | 1.0151 | 24.03 | interior detail gone |
 
-Eleven edges agreeing to 0.33 px rms is a positive result, not an absence of
-evidence: the bottle is provably one object, and translation and magnification
-are separately identified, which two edges could never do. The magnification
-also grows monotonically (1.0048, 1.0254, 1.0530, 1.0897), independently
-confirming F87/F88 that residual breathing survives the global affine.
+Eleven edges agreeing to 0.33 px rms is positive proof of one object, with translation
+and magnification separately identified. The test degrades exactly where physics says
+it must — interior detail is low-contrast and blurs away off the focal plane — which
+is repairable, because motion is smooth along the sweep:
 
-The test degrades exactly where the physics says it must. Interior detail is
-low-contrast and blurs away as the object leaves focus, so the frames far from
-the object's focal plane have nothing to measure. That is a property of the
-scene, not a flaw in the method, and it is repairable: the object's motion is
-smooth across the sweep, so the frames whose interiors ARE resolvable predict
-the ones whose interiors are not.
-
-| frame 11 estimate | value |
+| frame-11 estimate | value |
 |---|---:|
-| depth-bin fit (F84) | +2.3 px |
+| depth-bin fit | +2.3 px |
 | quadratic extrapolation from 3 usable frames | +23.98 px |
 | **linear extrapolation from 3 usable frames** | **+18.88 px** |
 | truth (ECC over the bottle region) | +19.2 px |
 
-Linear lands within 0.32 px. The quadratic overshoots by 25% because three
-points exactly determine it and leave no slack — with this little data the model
-must be the simplest one the physics allows, not the most flexible.
-
-Order of estimation this establishes: measure where the evidence exists (near an
-object's focal plane), test rigidity there, then propagate along the sweep. Do
-not try to measure an object where it is most defocused; that is where it can
-least be seen.
-
-## F88 — The region machinery works; breathing was sabotaging it
-
-Direct question: does the split/merge work actually separate objects? Measured
-against a known silhouette rather than inferred from output quality.
-
-| | IoU | covers | purity | object spread over |
-|---|---:|---:|---:|---|
-| factory, depth bins | 79.1% | 95.9% | 81.8% | 1 region of 4 |
-| factory, split+merge | 79.1% | 95.9% | 81.8% | 1 region of 4 |
-| kitchen, depth bins | 14.1% | 85.9% | 14.4% | 2 regions of 4 |
-| kitchen, split+merge | 14.8% | 22.2% | 30.8% | 2 regions of 7 |
-
-On the factory the object is cleanly isolated, though depth bins alone already
-did that and splitting neither helps nor harms. On the kitchen the bottle
-FRAGMENTS: purity doubles but coverage collapses from 86% to 22%.
-
-That failure is predicted by F87's correction, and the prediction was tested.
-Under a translation-only model a magnifying object genuinely requires different
-translations across its extent, so a motion-clustering is behaving CORRECTLY
-when it cuts the bottle apart. The fragmentation is the missing scale term
-showing through, not a defect in the clustering.
-
-Removing breathing crudely — one global scale per frame taken from the bottle's
-own width, which eliminated only about 40% of it (width spread 22 px -> 13 px) —
-improves object separation immediately:
-
-| | regions | bottle IoU | covers | purity |
-|---|---:|---:|---:|---:|
-| with breathing | 7 | 14.8% | 22.2% | 30.8% |
-| de-breathed | 5 | **23.8%** | **42.0%** | 35.5% |
-
-A partial correction cuts fragmentation, nearly doubles coverage and lifts IoU
-by 60%. The region machinery is therefore sound and is being fed geometry it
-cannot represent. Fix breathing at the global stage — the per-frame
-magnification here runs monotonically from 1.014 to 0.875, an easy signal — and
-revisit the region results before changing the region machinery further.
-
-## F87 — Edges carry object motion where interiors cannot, once blur bias is removed
-
-F85/F86 group by per-tile residual, which has nothing to measure inside a flat
-surface. The Lubriderm bottle is mostly blank white, so tile evidence fragments
-it and the tile-based fit gave the bottle +2.3 px where it needs +19.2.
-
-Its edges are another matter. Integrating a vertical edge along its length turns
-a weak local match into a strong one-dimensional measurement, and three physical
-facts make edges sufficient for the whole object: a rigid object's edges all
-move together; the bottle does not approach or recede, so there is no scale to
-solve for; and a flat interior bounded by co-moving edges therefore inherits
-their motion instead of needing evidence of its own. The aperture problem is
-handled by taking only the normal component and combining differently-oriented
-edges around one outline.
-
-Measured on the kitchen sweep, frame 11 against the reference, where truth is
-+20 px by direct edge scan and +19.2 px by ECC over the bottle region:
-
-| method | left edge | right edge | differential |
-|---|---:|---:|---:|
-| per-tile residual (F85) | — | — | fit was +2.3 px overall |
-| intensity profile, wide band | +1.18 | +17.98 | +16.81 |
-| gradient profile, wide band | +13.62 | +19.97 | +6.36 |
-| gradient profile, edge-centred window | +13.46 | **+19.85** | +6.39 |
-
-**CORRECTED — the widening is mostly REAL, and it is focus breathing.** The
-first reading of this was that defocus spreads a bright object over its surround
-and biases the apparent edge outward. That explanation is wrong, and measuring
-the bottle's width directly in the RAW frames is what refuted it: 138, 138, 139,
-139, 139, 139, 140, 141, 143, 148, 155, 160 px across the sweep. A 14%
-magnification change, monotone, present before any correlation is involved. The
-lens refocusing changes magnification, which is the focus breathing this stage
-has always existed to remove, and the global affine removes only part of it —
-aligned widths still run 140 -> 154.
-
-Gradient profiles do still help (frame 11's differential falls 16.81 -> 6.39 and
-the strong edge lands within 0.15 px of truth), so some bias exists on top. But
-the bulk of the differential is a real scale change, not a measurement artifact.
-
-The consequence is structural and matters more than the measurement: **per-bin
-translation cannot express residual breathing.** Translation-only was chosen as
-the most constrained model that can express parallax, which it is — but a
-residual scale on a 140 px object lying off-centre requires its two edges to
-move by DIFFERENT amounts, exactly the +13.5 / +19.9 measured here. No
-translation can do that. Either the global stage must remove breathing properly
-(its affine currently compromises between scale and depth-varying parallax), or
-the per-region model needs a scale term. This is now the most likely reason the
-bottle resists correction, ahead of anything in F85/F86.
-
-A rigid object's edges therefore do NOT have to show zero differential in the
-image, only in the scene. The rigidity constraint must be stated against an
-expected breathing scale, or it will keep indicting good measurements.
-
-**Rigidity is still a usable detector, but not with a zero target.** Two edges
-of one object must agree once the frame's magnification is accounted for. With
-breathing folded in, the constraint as first written would reject sound
-measurements; with it removed, the disagreement that remains is genuine evidence
-about which reading to distrust.
-
-Also worth recording: the correlator used for all of this was wrong on first
-write, reporting -shift/8 because of time-domain zero padding, and produced a
-completely plausible table of small consistent numbers. It was caught only by
-feeding it known synthetic shifts. Validate a measuring instrument against a
-known answer before believing anything it says about real data.
-
-Open: the left edge still reads ~6 px low. Its window very likely straddles
-background at a different depth, whose motion pulls the correlation. Narrowing
-onto object support — which the split/merge work already produces — is the next
-step, and the two lines of work meet there.
-
-## F86 — Splitting needs a merge rule: pieces that move alike are one object
-
-F85's residual splitting recovered the kitchen bottle and regressed the analytic
-factory. The cause is not what two guesses predicted. The factory's extra
-regions are neither confetti (a connected-coherence gate changed nothing) nor
-caused by an over-permissive confidence floor. They are coherent pieces of ONE
-RIGID PLANE, each handed its own independent ECC fit — and small regions fit
-more noisily, so a surface with no discontinuity in it gets transported by
-slightly different amounts in different places.
-
-So object integrity is a MERGE rule, not a shape rule, and it uses the same
-evidence as the split read the other way: regions whose fitted motion agrees
-across the whole sweep are one object, however the split arrived at them.
-
-| merge tolerance | factory (2 real regions) | kitchen bottle |
-|---|---|---|
-| none | 5 regions, 0.973263 | +18.8 px |
-| 1 px | 4 regions, 0.974036 | +18.8 px |
-| 2 px | 4 regions, 0.974036 | +18.8 px |
-| 3 px | 4 regions, **0.889273** | +18.8 px |
-| 5 px | 3 regions, 0.888564 | +18.2 px |
-
-Zero-motion collapses 5 regions to 2, which is the behaviour to demand. The
-tolerance is sharply bounded above: past 2 px it starts merging the factory's
-two PLANES, whose motions differ by about 9 px, and a single compromise fit
-across a real depth boundary is far worse than any over-splitting.
-
-Net state: kitchen's bottle is corrected end to end (+2.5 -> +18.8 px, the ghost
-slab visibly gone), the factory still costs 0.0045, and the remaining gap is
-over-splitting that the merge rule does not fully undo. Still not promoted.
-
-## F85 — Residual-driven splitting recovers the bottle, and is not yet promotable
-
-F84 showed the depth bin holding the kitchen bottle covers 55% of the frame and
-is fitted to +2.3 px where the bottle needs +19.2. The reframe that follows:
-stop grouping by depth and group by MEASURED MOTION. Depth is only a seed, and
-"wants the same correction" is the operational definition of an object here.
-
-`research/adaptive_bins.py` splits each region by clustering its per-tile
-residual, with the feature being the residual across EVERY frame concatenated —
-an object is an object in every frame, so its residual profile is a far stronger
-signature than any one frame's number. It works:
-
-| level | bottle's region | bottle's share of it | frame-11 fit |
-|---|---:|---:|---:|
-| 0 (depth bins) | 55.4% of frame | 8.7% | +2.47 px |
-| 1 | 11.5% | 24.0% | +4.96 px |
-| 2 | 7.0% | 29.9% | **+18.56 px** |
-
-End to end the corrected region reaches +18.8 px, and the crop shows it: the
-ghost slab over the background beside the bottle is gone and the shelf behind it
-is sharp up to a clean edge.
-
-Three details were each necessary and each found by failing first:
-
-1. **Pool the split evidence across frames by MAX, not median.** A sweep spends
-   most frames near the reference where everything fits, so a median hides an
-   object stranded in the few frames that moved. Median-gating refused to split
-   the kitchen at all.
-2. **Regions must not inherit the tile grid.** A blocky support puts staircase
-   transitions into the sampling field. Tiles vote; the vote is snapped to image
-   structure with a guided filter.
-3. **The runtime's own guards blocked the result.** `_REFINE_MIN_BIN_FRACTION`
-   (6%) and the 14 px acceptance cap reject a 7%-of-frame region asking for
-   19 px. This also explains F84's puzzle that raising the cap alone did
-   nothing: without the split the correction was never proposed, so there was
-   nothing for the cap to reject.
-
-**Not promotable.** Splitting regresses the analytic factory, whose bins are
-already homogeneous, and no single tile-confidence floor serves both scenes:
-
-| tile confidence floor | factory GT-SSIM | kitchen bottle |
-|---|---:|---:|
-| 0.05 | 0.978509 -> 0.973263 | +18.8 px |
-| 0.20 | 0.978509 -> 0.973263 | +7.8 px |
-| 0.35 | 0.978509 -> 0.978496 | +1.9 px |
-
-A magnitude threshold is the wrong instrument, because it asks "is this residual
-big" when the question is "is this residual real". The physical test is
-available and unused: a genuine object's residual must scale with each frame's
-motion and hold its direction, while a garbage phase correlation — from a tile
-straddling the disoccluded zone, which is what the factory keeps splitting on —
-will not. Gate on proportionality to frame motion, not on size.
-
-## F84 — Veiling is real but must not be a hard mask; depth bins are the actual blocker
-
-Two instruments were built for the two defects visible at the kitchen bottle,
-deliberately on the smallest data that can show them (the analytic factory plus
-one real sweep). `research/boundary_probe.py` runs both.
-
-**Veiling — negative, in the regime built to favour it.** A defocused occluder
-spreads its own material outward over the background and never pulls background
-inward, so a mask can take its direction from the occluder and its width from
-that occluder's defocus. Width needs no blur estimator: contrast-over-gradient
-saturates by 2 px of blur (0.25/0.78/1.02/1.58 at radii 0/1/4/12) and reads 4-7
-on real frames where texture swamps the window, but F83's contour reading
-already names the occluder's focal frame, so the width is just how far a frame
-sits from it. That version behaves correctly — the occluder's own focal frame
-veils nothing — and still loses:
-
-| regime | no refusal | ribbon | veil | ribbon+veil |
-|---|---:|---:|---:|---:|
-| parallax-dominant | 0.966007 | **0.978509** | 0.966610 | 0.978728 |
-| veil-dominant | 0.982593 | 0.982604 | 0.980566 | 0.980593 |
-| both strong | 0.970096 | **0.973777** | 0.968295 | 0.972802 |
-
-It is not redundancy with `harden`: at `harden=0` the veil mask still costs
--0.0024. Refusing veiled background forces fusion onto frames where the
-BACKGROUND is defocused, trading contaminated-but-sharp for clean-but-blurry,
-and GT prefers the former. Meanwhile `harden` — the same physics expressed as a
-soft down-weight — gains 0.980438 -> 0.982593 in that regime.
-
-The lesson generalizes beyond veiling: per-pixel validity can only refuse, and
-refusal is the wrong verb for contamination that is partial. A veiled pixel is a
-mixture in some proportion, not an absence. Disocclusion earns a hard mask (F82)
-because the observation genuinely does not exist; veiling does not, because it
-does. Any future boundary evidence should ask which of those two it is.
-
-**Bin homogeneity — strong positive.** A depth bin is a range, not an object. On
-the kitchen sweep, frame 11 against the reference:
-
-| bin | share of frame | fitted | tile residual median / p90 | contains |
-|---|---:|---:|---:|---|
-| 0 | 55.4% | (+2.33, +0.13) | 3.10 / **14.44** px | the bottle, 8.7% of the bin |
-| 1 | 15.9% | (-0.62, +0.14) | 1.54 / 2.60 px | |
-| 3 | 17.7% | (-0.94, -0.03) | 2.13 / **10.91** px | |
-
-The bottle needs +19.2 px and its bin is fitted to +2.3 px by the other 91% of
-its pixels. Raising the acceptance cap changes nothing — the correction is not
-rejected, it is never proposed, because ECC over a bin follows the majority.
-This is why the near-residual headline in F81/F82 (2.190 -> 0.544 px on kitchen)
-did not translate into a better-looking bottle: averaged over the near half by
-depth median, it never measured the object that fails.
-
-Next work belongs here, not on veiling: bins must be split until each is
-homogeneous, driven by the per-tile residual this instrument already measures.
-
-## F83 — Occlusion-edge blur orders the boundary correctly, and ordering does not help
-
-An occlusion boundary is the near object's own silhouette, so its sharpness
-follows the FOREGROUND through the sweep: crisp in the frame that focuses the
-occluder, blurred in the frame that focuses what lies behind. The focus index
-read *on* a contour therefore names the occluder's depth — ordinal front/back
-evidence that focus magnitude alone cannot supply (Marshall et al., JOSA A 1996).
-
-The cue is real and was measured directly. Within 4 px of the true silhouette,
-the background reads the FOREGROUND's focal frame (1) rather than its own (4);
-past 8 px it recovers its own. Everything the cue promises is confirmed:
-
-- **Localization**: the depth map alone cannot place a contour — its steps sit a
-  median of 32 px from the true silhouette, because a 0.10 threshold is half a
-  focal step on a 6-frame stack and depth noise swamps it. Intensity edges keep
-  only those whose two sides, sampled 10 px out along the edge normal, differ by
-  >= 1.5 focal frames: median error 4.8 px, 61% within 8 px.
-- **Ordering**: per contour the cue is 77.3% reliable, far too noisy to decide
-  ownership pixel by pixel. But a monotone sweep shares ONE bit — near is either
-  the low index or the high one — and voting that bit across thousands of contour
-  pixels settles it correctly. Given the bit, "lower index is nearer" is 100%
-  accurate, and the resulting front mask agrees with the true near plane 91.1%.
-
-And it does not help, which is the finding. Refusing only the background side is
-WORSE than refusing both:
-
-| refusal | GT-SSIM | withheld |
-|---|---:|---:|
-| none | 0.966007 | 0% |
-| background side only | 0.971433 | 4.84% |
-| foreground side only | 0.975415 | 7.03% |
-| both sides | **0.978509** | 11.86% |
-
-The premise was that the occluder is opaque and present in every frame, merely
-displaced, so it loses nothing and needs no refusal. That is true of the
-*surface* and false of the *observation*. When the occluder is out of focus its
-own matte is blurred, so its boundary pixels are foreground/background mixtures
-carrying background colour onto the object — unusable for exactly the same
-reason the uncovered ribbon is. The foreground side turns out to contribute
-MORE of the gain than the background side it was supposed to be spared for.
-
-Two-sided refusal (F82) therefore stands. `research/occlusion_order.py` keeps the
-contour localizer and the ordering vote, both validated, since they are reusable
-and the negative must stay reproducible; neither is in the runtime path.
-
-Consequence worth carrying: near a defocused silhouette, BOTH surfaces are
-compromised, and the reason differs on each side — missing correspondence behind,
-matte mixing in front. Any future boundary work should assume the whole
-neighbourhood is suspect rather than just the far half.
-
-## F82 — Parallax uncovers scene, and the uncovered ribbon must be discarded
-
-Lateral camera motion does not merely shift a near object; it swings it across
-the background, revealing scene on one side and hiding it on the other. Those
-pixels have no correspondence in that frame at all, so no warp can supply them
-and any value there is interpolated off the wrong surface. Fusion then mixes a
-bottle's outer edge with what was behind it. F80 discarded invented data at the
-outer border; this is the same rule applied where the invention happens in the
-interior, as per-pixel validity rather than a rectangle.
-
-On the analytic parallax factory this is worth as much again as the alignment
-fix itself:
-
-| | GT-SSIM | PSNR | withheld |
-|---|---:|---:|---:|
-| global affine only | 0.875425 | 23.343 | — |
-| depth-aware alignment | 0.966007 | 29.660 | 0% |
-| **+ disocclusion refusal** | **0.978509** | **31.816** | 11.86% |
-
-Real sweeps at the shipped default (4 bins), near-content residual and the
-fraction each frame withholds:
-
-| Sweep | near residual | withheld/frame | Q_SSIM |
-|---|---:|---:|---:|
-| kitchen, 12 frames | 2.190 → 0.544 px | 4.32% | 0.911196 → 0.910074 |
-| large-motion, 14 frames | 1.540 → 0.907 px | 4.09% | 0.942354 → 0.928407 |
-| small-motion, 14 frames | 0.469 → 0.227 px | 0.94% | 0.981779 → 0.980734 |
-| zero-motion, 14 frames | 0.046 → 0.031 px | 0.11% | 0.986779 → 0.986336 |
-
-The withheld fraction tracks how much the camera actually moved, which is the
-behaviour to demand: a still stack discards essentially nothing.
-
-Four properties had to hold, and three of them were wrong on the first attempt:
-
-1. **The test must be geometric, never photometric.** In a focus stack frames
-   legitimately disagree wherever defocus differs, so "these pixels disagree"
-   cannot separate occlusion from blur.
-2. **Derive it from the MEASURED per-region displacement, not the applied
-   field.** Uncovering is a fact about the scene, so it happened whether or not
-   the correction modelled it. Reading it off the smoothed, stretch-limited
-   field reported almost nothing on the kitchen sweep (0.06% withheld) precisely
-   where the visible defect is.
-3. **The ribbon is as wide as the step is tall.** A foreground moving Q px
-   relative to its background uncovers a Q px strip. Testing at one scale with a
-   fixed tolerance condemned 38.6% of the large-motion frame; testing at a ladder
-   of radii, where radius r requires a step of at least r, brought the same
-   sweep to 4.09% without losing the real ribbons.
-4. **Only genuine depth discontinuities qualify.** A continuously receding
-   surface hides nothing, but binning turns it into a staircase of displacements.
-   The gate must be an absolute depth jump; expressing it as a fraction of bin
-   width made it loosen as bins increased, which is backwards, and it was
-   effectively inert until fixed.
-
-Bin count moved to 4 on the same evidence: kitchen's near residual improves
-1.481 → 0.544 px going from 3 to 4 bins. Registration keeps improving at 5 on
-the two 14-frame sweeps (large-motion 0.300 px) but withholds more, and the
-optimum is scene-dependent, so 4 is a compromise rather than a discovered value.
-
-### F82a — GT and no-reference metrics disagree about refusal, and GT is right
-
-Q_SSIM prefers *less* masking on every real sweep, and it is wrong to. It scores
-the fused image against its locally sharpest source, so deliberately refusing an
-untrustworthy-but-sharp source always looks like a loss to it. On the factory,
-where truth exists, refusal is worth +0.0125 GT-SSIM and +2.2 dB. This is F81a
-again with a sharper edge: the no-reference metrics cannot see the difference
-between using data and using data that should not exist.
-
-### F82b — Rejected: median-stabilizing the depth map before the step test
-
-Depth-from-focus speckle scatters some refusals onto surfaces that never
-occluded anything, so a median filter ahead of the step test looked obviously
-right. It made concentration on the true silhouette *worse* (2.81x -> 2.07x) and
-withheld more. Not kept. The ribbon is currently ~2.8x concentrated on the
-silhouette, and the residual scatter is unexplained.
-
-## F81 — Depth-dependent parallax needs a depth-binned field, not a better global warp
-
-F79 and F80 handled the *consequences* of unresolved parallax. This is the
-geometry itself. A handheld rotation pivots the device, not the entrance pupil,
-so the camera centre translates and displacement scales with inverse depth. One
-global warp splits the difference: on all three moving phone sweeps the residual
-translation inside near content was 2.0–2.5x the residual in far content, which
-is the inverse-depth signature measured directly rather than inferred.
-
-The default now adds a second pass on top of the global warp: depth bins from
-the stack's own depth-from-focus map, one translation-only ECC correction per
-bin, blended into a single dense coordinate field by edge-aware memberships and
-resampled exactly once. Registration improves on every moving sweep:
-
-| Sweep | near residual | far residual | Q_SSIM | sharp | align |
-|---|---:|---:|---:|---:|---:|
-| synthetic parallax + GT | 2.735 → 0.481 px | 1.245 → 0.402 px | GT 0.8754 → **0.9660** | — | — |
-| kitchen, 12 frames | 2.172 → 0.981* | 0.855 → 0.916 | 0.911430 → 0.909417 | 19.36 → 19.27 | 1.2 → 2.0 s |
-| large-motion, 14 frames | 1.539 → 0.981 | 0.729 → 0.358 | 0.942463 → 0.940672 | 18.21 → 18.51 | 1.3 → 4.5 s |
-| small-motion, 14 frames | 0.470 → 0.221 | 0.379 → 0.217 | 0.981784 → 0.982400 | 15.45 → 15.47 | 0.4 → 3.3 s |
-| zero-motion, 14 frames | 0.046 → 0.034 | 0.026 → 0.040 | 0.986796 → 0.986316 | 16.28 → 16.29 | 0.4 → 3.3 s |
-
-*kitchen near residual 2.172 → 1.453.
-
-The isolated synthetic case carries the verdict because it is the only one with
-GT, and because a stack that differs by one global transform cannot test this
-pass at all — it must be built with near and far content moving by different
-amounts. +0.0906 GT-SSIM and +6.3 dB. Its remaining error sits on silhouettes,
-which is genuine disocclusion: parallax uncovers background that no
-single-valued warp can recover.
-
-Four things had to be right, and each was found by a failure:
-
-1. **Bin edges belong at depth-histogram valleys, not quantiles.** Equal-population
-   edges cut through the middle of one physical object, giving it a 13 px step
-   across its own surface: a visible seam and ghosted strip inside the book on
-   the large-motion sweep. Valleys split where the scene separates.
-2. **The field must be stopped from stretching content.** A sampling field may
-   transport pixels freely, but a large correction changing quickly across space
-   smears geometry the camera never saw. Relaxing displacement wherever its local
-   gradient exceeds 0.10 *raised* probe GT-SSIM (0.9579 → 0.9628), so the stretch
-   was pure damage. Membership width cannot substitute: narrowing it makes stretch
-   worse (5.9 vs 2.7 at the extremes), because the same jump crosses fewer pixels.
-3. **Refusal at every level.** Untextured bins, underpopulated bins, diverged
-   fits, and sub-three-frame stacks all fall back to the global warp, and a frame
-   earning no correction is byte-identical. The zero-motion sentinel is left alone.
-4. **Bin count stopped being a tuning knob** once edges came from valleys: 3 and 4
-   requested bins both resolve to the same 2 real bins on the probe.
-
-Cost is 1.5–3.5x alignment time, which is a small share of a full run.
-
-### F81a — No-reference metrics cannot adjudicate an alignment change
-
-Q_SSIM compares the fused image to its *locally sharpest source*, and alignment
-changes what the sources are. Scoring each fused output against the other
-variant's source set collapses both to ~0.72–0.82, and the depth-aware output
-scores marginally *higher* on the global variant's sources than the reverse.
-Within-variant Q_SSIM therefore partly measures self-consistency with a possibly
-misregistered stack, which a misaligned stack can win. The real-data Q_SSIM
-deltas above (±0.002) are not evidence either way; the registration residuals,
-the GT probe, and disagreement-guided crops are. Localizing the one dissent that
-looked real (large-motion, −0.0137) is what exposed the quantile-edge seam, so
-the metric earned its keep as a *pointer* while being useless as a verdict.
-
-### F81b — Tested and rejected: parametric depth-to-displacement models
-
-Displacement is proportional to 1/Z, so a model linear in the depth proxy looks
-principled. It loses: probe GT-SSIM 0.9313 vs 0.9565 for bins, with higher
-stretch. The focus-winner index is monotone in inverse depth but not affine in
-it, and multiplying a noisy continuous proxy by a ~20 px coefficient turns every
-depth-map wiggle into a displacement wiggle. Binning quantizes that noise away
-and assumes nothing about the mapping.
-
-A full alternating estimator — camera rotation, translation, breathing scale,
-depth, *and* the depth-to-parallax calibration, each refined from the others
-across iterations — is implemented behind `depth_model="joint"`. It converges
-(mean correction 1.13 → 1.11 → 0.35 px) and achieves the best registration of
-any variant (large-motion near residual 0.568 px vs 0.981 binned, 1.539 global),
-but it is **not promotable**: it moves the zero-motion sentinel from 0.046 to
-0.247 px, inventing motion where there is none, and scores worst on Q_SSIM
-everywhere. The diagnosed wall is the observation model, not the solver — tile
-shifts are sound (84% agree within 1 px with independent ECC), yet the
-rigid-motion-plus-depth model explains only ~25–50% of them, so the fit
-generalizes poorly to pixels whose depth differs from the tiles'.
+**Order of estimation:** measure near an object's focal plane where the evidence
+exists, test rigidity there, then propagate. Do not try to measure an object where it
+is most defocused. With three points, use the simplest model the physics allows — the
+quadratic is exactly determined and extrapolates 25% long.
+
+### Instruments built by this arc
+
+`parallax_gen.py` (analytic two-plane parallax factory with GT — alignment cannot be
+tested on frames differing by one global transform), `adaptive_bins.py` (motion
+splitting + merge), `edge_motion.py`, `boundary_probe.py`, `occlusion_order.py`.
 
 ## F80 — Alignment output is the all-frame observed footprint
 
@@ -763,7 +459,12 @@ and explicit region selection. Legacy formation cohorts were removed.
 - N-frame recovery, multiple occluders, broad CoC range, >1600 px solving, and
   real macro/product truth are open.
 - The formation-state handoff is not yet explicit in the pipeline API.
-- Alignment/focus breathing remain a dominant real handheld limitation.
+- Focus breathing is the dominant unsolved real-handheld limitation: 14% residual
+  magnification on the kitchen sweep, only partly removed by the global affine, and
+  not expressible by the per-bin translation model (F87/F88).
+- Object-level region grouping is measured but unpromoted: it recovers the kitchen
+  bottle and regresses the analytic factory (F85/F86).
+- The per-region two-frame architecture and its stitch stage are unbuilt.
 
 ## Working rule
 

@@ -66,7 +66,8 @@ nuance; `FINDINGS.md` is the dated experimental log.
 
 ## II. MFIF domain theory
 
-- **Pipeline:** align (ECC; correct focus-breathing) → focus measure → fusion.
+- **Pipeline:** align (ECC; global warp + depth-aware pass) → focus measure → fusion.
+  Registration has its own theory section below (II-b); it is not a solved preamble.
 - **Focus = high-frequency energy; defocus = low-pass.** Focus measures detect what
   defocus destroys.
 - **Operators:** Laplacian (texture); **modified Laplacian** `|I_xx|+|I_yy|` (no sign
@@ -92,6 +93,98 @@ nuance; `FINDINGS.md` is the dated experimental log.
   ambiguous. Metric-tiny, visually-large win.
 - **Operator/param routing has a low ceiling (~+0.002).** Big visible wins are
   STRUCTURAL (spread/hair), not operator choice.
+
+## II-b. Registration geometry (the alignment arc, F81–F89)
+
+**Two motions are superimposed and they cannot be fitted together.**
+- *Parallax.* A handheld rotation pivots the DEVICE, not the lens entrance pupil, so
+  the camera centre translates and image displacement scales with inverse depth. Near
+  content moves 2–2.5× as far as far content — measured on every moving phone sweep.
+  A single affine or homography splits the difference and leaves the near plane wrong.
+- *Focus breathing.* Refocusing changes magnification. Not a rounding effect: 14% on a
+  12-frame phone macro sweep (bottle width 138 → 160 px), monotone.
+- Both are radial-ish and a global affine fitted with both present COMPROMISES between
+  them. Breathing is the depth-independent half, parallax the depth-varying half; the
+  small-motion flow decomposition (rotation + breathing depth-independent, translation
+  scaled by 1/Z) is what separates them in principle.
+- **Fix breathing first.** It is upstream, it is a clean monotone signal, and residual
+  scale sabotages every downstream object-grouping step (F88).
+
+**Region models.**
+- A depth bin is a RANGE, not an object. ECC over a region follows its majority: the
+  kitchen bottle occupied 8.7% of a bin covering 55% of the frame and received +2.3 px
+  where it needed +19.2. Raising acceptance caps does nothing — the correction is never
+  proposed.
+- Bin edges belong at depth-histogram VALLEYS, not quantiles. An equal-population edge
+  cuts through one physical object and puts a many-pixel step across its own surface.
+- Group by MEASURED MOTION, not depth; depth is only a seed. "Wants the same
+  correction" is the operational definition of an object here.
+- **Object integrity is a MERGE rule, not a shape rule.** Subdividing a rigid surface
+  gives each piece its own noisier fit, so one object gets transported by different
+  amounts in different places. Regions whose fitted motion agrees across the sweep are
+  one object. Merge tolerance is sharply bounded above (≤2 px here): past it, genuinely
+  different depth planes merge and one compromise fit is far worse than over-splitting.
+- Per-bin TRANSLATION is the most constrained model that can express parallax — and it
+  cannot express residual breathing at all, since a scale error moves an off-centre
+  object's two edges by different amounts.
+
+**Fields and resampling.**
+- Blend the COORDINATES, not warped images: one source location per output pixel, so a
+  multi-stage correction still costs a single interpolation. Compose iterations into the
+  field, not the pixels.
+- A sampling field may TRANSPORT content freely; it must not STRETCH it. Relax
+  displacement wherever its local gradient exceeds ~0.1 — on the factory this RAISED
+  GT-SSIM, proving the stretch was pure damage. Membership width cannot substitute:
+  narrowing it makes stretch worse, since the same jump crosses fewer pixels.
+
+**Occlusion at boundaries.**
+- *Disocclusion* (parallax uncovers scene): the observation does not exist → hard
+  per-pixel refusal is correct, and worth as much as the alignment fix itself
+  (0.9660 → 0.9785 GT-SSIM on the factory). Derive the ribbon from the MEASURED
+  per-region displacement, never the smoothed applied field, and size it by the step:
+  a foreground moving Q px uncovers a Q px strip, so test at a ladder of radii where
+  radius r requires a step of at least r. A single-scale test condemned 38% of a frame.
+- *Veiling* (a defocused occluder spreads over its surround): the observation exists but
+  is a MIXTURE → a hard mask loses in every regime, including one built to favour it,
+  because it forces fusion onto frames where the background itself is defocused. The
+  soft down-weight `harden` already applies is the right expression of the same physics.
+- Both sides of a defocused silhouette are compromised, by different mechanisms: missing
+  correspondence behind, matte mixing in front. Refusing only the background side loses
+  to refusing both (0.9714 vs 0.9785).
+- Occlusion-edge blur names the OCCLUDER's focal frame — the boundary is the near
+  object's own silhouette, so its sharpness follows the foreground (Marshall, JOSA A
+  1996). ~77% reliable per contour, which is useless per-pixel but decisive as ONE
+  global bit (near = low index or high) voted across thousands of contours.
+- Depth maps cannot LOCATE a contour: their steps sit ~32 px from the true silhouette.
+  Intensity edges whose two sides — sampled ~10 px out along the normal — differ by
+  ≥1.5 focal frames land within ~5 px.
+
+**Measuring object motion.**
+- Textureless interiors have nothing to correlate; EDGES carry the motion, and a rigid
+  object's flat interior inherits it. Integrate along the edge's length to turn a weak
+  local match into a strong 1-D measurement.
+- Correlate GRADIENT profiles, not intensity: defocus spreads a bright object over its
+  surround and biases the apparent edge outward on both sides.
+- Aperture problem: trust only the component along each edge's normal, and combine
+  differently-oriented edges around one outline for full 2-D motion.
+- Phase correlation resolves shifts up to roughly a QUARTER of the patch. A 32 px patch
+  silently saturates at ~8 px, reporting a confident wrong number.
+- **Interior edges make "one object?" falsifiable.** Under magnification a rigid
+  object's edge displacement is LINEAR IN X, so interior edges over-determine the fit:
+  11 edges agreeing to 0.33 px rms is positive proof of one object, and translation and
+  magnification come out separately identified. Two edges alone can never test this.
+- Measure near an object's focal plane where interior detail survives, then propagate
+  along the sweep — linear extrapolation reached +18.88 px against +19.2 truth where
+  direct measurement in the blurred frame was hopeless.
+
+**Evaluation caveat specific to registration.**
+- No-reference fusion metrics CANNOT adjudicate an alignment change: they score the
+  fused image against its aligned sources, and alignment changes what the sources are.
+  Cross-scoring collapses both variants to ~0.72–0.82. Judge alignment by per-depth-
+  region registration residual, an analytic parallax factory, and disagreement crops.
+- Alignment cannot be tested on frames differing by one global transform — a global
+  aligner is exactly right on those. The test stack must have near and far content
+  moving by DIFFERENT amounts (`research/parallax_gen.py`).
 
 ## III. GT-free evaluation
 
@@ -142,6 +235,12 @@ nuance; `FINDINGS.md` is the dated experimental log.
 6. `inspect.py` shadows stdlib `inspect` → numpy crash. Don't name scripts after stdlib.
 7. `multiprocessing` from a heredoc (`<stdin>`) fails → use a script file.
 8. numpy 2.x removed `ndarray.ptp()` → `np.ptp(x)`.
+9. A 1-D correlator zero-padded in the TIME domain reports shift/pad-factor with the
+   sign flipped — and looks entirely plausible. Known-answer test every correlator.
+10. `cv2.medianBlur` needs uint8 for large kernels; `phaseCorrelate` needs contiguous
+   float64 and a matching Hanning window.
+11. Locating an edge by contrast/gradient saturates by ~2 px of blur and is swamped by
+   texture on real frames — it is not a blur estimator. Use focal distance instead.
 
 ## VII. Fast start
 

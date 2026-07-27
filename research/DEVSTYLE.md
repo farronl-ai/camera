@@ -76,6 +76,19 @@ next hypothesis. Do not silently turn that loop into a promotion claim. Freeze t
 visually accepted output, write down rejected alternatives, then return to fresh
 cross-scene validation after the mechanism stabilizes. F78 is the reference example.
 
+The alignment arc (F81–F89) is the second reference example, and every turn in it
+came from a user lead: "it still looks really bad" (stopped a premature promotion
+built on a flattering metric); "we throw away behind-the-corner stuff" (F82
+disocclusion refusal); "veiling spreads foreground outward, not background inward"
+(F84 — correct physics, and the measurement then showed it must be a soft weight,
+not a hard mask); "the object should stay intact" (F86 — which turned out to be a
+merge rule, not a shape rule); "look at the movement of the edges... the object is
+not moving forward and backward" (F87 edge-driven motion); "edges between those two
+edges tell you if they are the same object" (F89 — the one that made the question
+falsifiable and solved the motion to 0.3 px). Answer the lead by MEASURING it, and
+report when the measurement contradicts the lead — three of these were partly wrong
+in ways that were more informative than being right.
+
 ## 5. Cadence & operations
 
 - The active checkpoint lives in `STATE.md`; replace stale steps instead of
@@ -202,6 +215,96 @@ manager audit → tests/gates).
   voice as first-party work. Credit what the agent did well; name what you fixed.
 - Verify the mechanical state after all agents land: clean tree, pushes ordered,
   tests green — a three-way push race leaves exactly one branch history; check it.
+
+## 12. Instrument discipline (added after the alignment arc, F81–F89)
+
+Nine findings in one arc, of which six overturned a claim made earlier in the same
+arc. What made that cheap rather than embarrassing:
+
+1. **Validate a measuring instrument against a known answer BEFORE believing it on
+   real data.** A one-dimensional correlator written for F87 reported −shift/8 from
+   a zero-padding mistake and produced a perfectly plausible table of small,
+   internally consistent numbers that agreed with nothing. Feeding it synthetic
+   shifts of +5/+12/+20 px exposed it in one line. Same arc, same lesson twice: the
+   blur estimator saturated by 2 px of blur and read off-scale on textured frames,
+   which a synthetic blur ladder showed immediately. New instrument → known-answer
+   test → only then real data.
+2. **Scope the metric to the thing that is failing.** "Near-plane residual 2.190 →
+   0.544 px" was true, headline-worthy, and never measured the object the user was
+   complaining about — the bottle sat inside it, 20 px out of register, averaged
+   away. If a specific defect is the subject, the number must be computed on that
+   defect, not on a region containing it.
+3. **When two scenes want opposite values for a threshold, the threshold is the
+   wrong instrument.** Tile confidence 0.05 fixed the kitchen and cost the factory;
+   0.35 did the reverse. That is a signal to find the physical invariant the
+   threshold is standing in for (rigidity, motion agreement, coherence), not to
+   split the difference. Three separate gates in this arc were replaced this way.
+4. **An exactly-determined system cannot be tested, only solved.** Two edges give
+   two measurements for two unknowns (translation, magnification), so "one object
+   breathing" and "two objects moving" fit equally well and no amount of care
+   distinguishes them. Adding interior edges makes it overdetermined and the
+   hypothesis falsifiable (F89). Before trusting a fit, count constraints against
+   unknowns; if they are equal, the fit proves nothing.
+5. **Measure where the evidence is, not where the problem is.** The bottle is least
+   measurable in exactly the frames where it is most misregistered, because defocus
+   destroys the interior detail. Measure near each object's focal plane, test there,
+   then propagate along the sweep. This inverts the natural instinct and was worth
+   ~17 px of accuracy.
+6. **With few data points, use the simplest model the physics allows.** Three usable
+   frames determine a quadratic exactly and it extrapolated 25% long (+23.98 vs
+   +19.2); the linear fit landed at +18.88. Flexibility with no slack is not
+   flexibility, it is interpolation with a confident face.
+7. **Refusal is the wrong verb for partial contamination.** Disocclusion earns a hard
+   mask because the observation does not exist; veiling does not, because it does —
+   a veiled pixel is a mixture, and a hard mask on it loses to the soft down-weight
+   `harden` already applies. Ask which of the two a new piece of boundary evidence
+   describes before choosing the mechanism.
+8. **Render the picture even when the numbers agree with you.** The bottle's 14%
+   growth was invisible in every number I had and obvious the moment three frames
+   were placed side by side. Both times a story survived the numbers in this arc, an
+   image killed it.
+9. **Keep the early loop small on purpose** (the user's rule, and it paid): one
+   analytic factory plus one real scene. Three wrong turns cost minutes each. Scale
+   the data when the mechanism stabilizes, not while it is being found.
+
+## 13. Economy is a design discipline, not just a budget (user's observation, same arc)
+
+Running an AI collaborator cheaply and running it well turn out to be the same
+practice. The alignment arc resolved nine findings on two scenes — one analytic
+factory and one 12-frame kitchen sweep — with no benchmark sweep launched at any
+point. That was not a compromise forced by cost; it produced better work:
+
+- **The smallest experiment that can falsify the claim is also the cheapest.**
+  Almost every probe in this arc was one question with a one-line answer: does the
+  bin the bottle sits in get the correction it needs (no, +2.3 vs +19.2); does
+  raising the cap change it (no); is the split coherent (yes, and irrelevant). A
+  benchmark run would have cost far more and answered none of them, because an
+  aggregate score cannot say WHY.
+- **Concept first is free; compute is not.** Deriving what the physics requires —
+  displacement linear in inverse depth, edges linear in x under magnification,
+  rotation depth-independent — costs nothing and tells you which single measurement
+  settles the question. Most of the expensive detours in this project came from
+  measuring before predicting.
+- **Prefer mechanism numbers to quality numbers.** Per-depth-region residual is a
+  handful of ECC calls and says exactly what is wrong; a fusion-quality sweep is
+  orders of magnitude more work and, as F81a/F82a showed, can be flatly unable to
+  adjudicate the question anyway.
+- **Do not load large artifacts into the session.** Print tables, not arrays; write
+  images to disk and open the ONE crop that matters. The disagreement-guided crop
+  exists for exactly this reason and is thriftier than a gallery.
+- **Iterate in `research/` with the runtime untouched.** Nothing needed
+  re-validation, no test suite churn, no regression risk, and the promotion decision
+  stayed open until evidence closed it.
+- **A cheap negative is the best-value purchase available.** F83 cost three probes
+  and permanently closed a plausible direction that would otherwise have been
+  revisited for months. Write the conditions with the verdict and it stays closed.
+- **Reuse validated instruments.** The GT factory, the residual tiler and the
+  known-answer correlator test were each built once and then answered many
+  questions. Building an instrument is an investment; rebuilding one is waste.
+
+The through-line: token thrift forces you to know what you are asking before you
+ask it, which is the same habit that produces good experimental design. When a
+session feels expensive, the usual cause is not the model but an unclear question.
 
 ## 11. Recurring rituals are SKILLS — invoke, don't reinvent
 

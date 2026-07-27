@@ -26,9 +26,16 @@ The pipeline has three stages, each a small signal/image-processing problem:
 1. **Registration / alignment** (`align.py`) — refocusing a lens slightly changes
    magnification ("focus breathing"), and the camera may shift. Unaligned frames
    fuse into ghosts, so every frame is warped onto a common reference frame using
-   OpenCV's ECC image alignment. Warped validity masks are intersected across
-   all N frames, then every frame is cropped to the largest all-valid rectangle;
-   synthetic border fill can never enter focus selection or fusion.
+   OpenCV's ECC image alignment. One global warp is not enough on handheld stacks:
+   a hand pivots the *device*, not the lens, so the camera centre translates and
+   near objects shift further than far ones. A second, depth-aware pass therefore
+   corrects each depth band separately, blending the corrections into a single
+   sampling field so the frame is still resampled exactly once. Parallax also
+   *uncovers* scene — background visible in one frame and hidden in another — and
+   those pixels have no correspondence at all, so they are withheld from fusion
+   per-pixel. Warped validity masks are additionally intersected across all N
+   frames and every frame cropped to the largest all-valid rectangle; synthetic
+   border fill can never enter focus selection or fusion.
 2. **Focus measure** (`focus.py`) — sharpness is high-frequency energy. For each
    pixel we score "how in focus is this here?" from the Laplacian (2nd derivative),
    gradient, Tenengrad, or modified Laplacian, pooled over a small window. The
@@ -138,9 +145,10 @@ generation. The current narrow two-frame opaque path is enabled under
 `--enhance auto`; broader camera claims await fresh PSF/ISP families and real
 controlled captures.
 
-Near-term engineering priorities are an explicit upstream formation-state
-handoff, frozen cross-family validation of the F78 boundary result, and
-alignment/focus-breathing robustness on real handheld sweeps. See
+Near-term engineering priorities are focus-breathing removal at the global
+registration stage (the dominant remaining error on real handheld sweeps — see
+F87/F88), object-level region grouping, an explicit upstream formation-state
+handoff, and frozen cross-family validation of the F78 boundary result. See
 [`research/STATE.md`](research/STATE.md) and
 [`research/FRONTIER.md`](research/FRONTIER.md).
 

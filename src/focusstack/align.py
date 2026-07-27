@@ -39,6 +39,15 @@ diverged fit keeps the global warp, and a frame that earns no correction at all
 comes out byte-identical to the global-only aligner. Stacks of fewer than three
 frames have no depth proxy and skip the pass entirely.
 
+A depth bin is a range, not an object: a bin covering half the frame is fitted to
+its majority, and an object inside it that moves differently is simply outvoted
+(the measured case: a bin fitted to +2.3 px containing an object that needed
++19.2). So a final pass groups material edges by the motion they share across the
+whole sweep (`motion_groups.py`) and, ONLY where such a group demonstrably
+disagrees with the depth path at its own location, replaces the correction inside
+that group's own support. Where nothing disagrees, the output is byte-identical —
+the override is non-regressing by construction, not by tuning.
+
 `depth_model="joint"` selects an experimental alternative that estimates camera
 motion, scene depth, and the depth-to-parallax calibration in alternation. It
 registers moving sweeps better than the binned model but is not yet
@@ -100,9 +109,6 @@ _OCCLUSION_MAX_RADIUS = 24
 # claim about the scene, so it must not loosen just because more bins were asked
 # for. A gradual ramp fails it at every bin count.
 _OCCLUSION_MIN_DEPTH_STEP = 0.10
-# Below this much per-bin motion anywhere in the stack, the motion-group override
-# cannot fire and is not worth measuring for.
-_OVERRIDE_MIN_MOTION = 1.0
 # Joint motion/depth estimation. Tiles are the observation unit: enough of them
 # to constrain seven parameters robustly, each large enough for phase
 # correlation to be reliable.
@@ -970,9 +976,6 @@ def _depth_binned_fields(
         bool(mask.sum() >= _REFINE_MIN_BIN_FRACTION * common_valid.sum()) for mask in masks
     ]
 
-    # Fit the bins first, so an override has something to disagree WITH.
-    bin_shifts: dict[int, dict[int, tuple[float, float]]] = {}
-
     fields: dict[int, tuple[np.ndarray, np.ndarray]] = {}
     occlusion: dict[int, np.ndarray] = {}
     for i, image in enumerate(images):
@@ -1006,11 +1009,6 @@ def _depth_binned_fields(
             weights.append(membership)
 
         report["frames"][i] = {"accepted": accepted, "shifts": shifts, "stretch": 0.0}
-        # The bottle's own bin is the one an override has to beat: take the shift of
-        # whichever bin holds the largest share of each frame's accepted fits.
-        accepted_shifts = [s for s in shifts if s is not None]
-        if accepted_shifts:
-            bin_shifts[i] = max(accepted_shifts, key=lambda s: abs(s[0]) + abs(s[1]))
         if accepted == 0:
             continue
         if depth_model == "linear":
@@ -1044,42 +1042,45 @@ def _depth_binned_fields(
     # (F101): where depth separates the scene cleanly the bins are near-ideal, and
     # where it cannot isolate an object only grouping by measured motion can. So the
     # bins stand, and a group replaces them only where it demonstrably disagrees —
-    # which leaves every scene the depth path already handles untouched.
-    # Cheap gate first. The override exists for a bin whose fit is a compromise
-    # across content that moves differently, which requires there to BE meaningful
-    # motion. On a still stack every bin shift is a few hundredths of a pixel, no
-    # group can disagree with that by the required margin, and the feature work is
-    # pure cost — measured at 46 s to decide to change nothing.
-    largest_shift = max(
-        (abs(s[0]) + abs(s[1])
-         for frame in report.get("frames", {}).values()
-         for s in frame.get("shifts", []) if s is not None),
-        default=0.0,
-    )
-    if motion_override and largest_shift < _OVERRIDE_MIN_MOTION:
-        report["motion_groups"] = {"skipped": "stack is too still to need it"}
-        motion_override = False
-
+    # which leaves every scene the depth path already handles untouched. Whether the
+    # expensive measurement is worth starting at all is decided inside `overrides`
+    # by screening a few frames for actual unexplained motion; gating here on bin
+    # statistics was tried and is wrong by construction, because a majority fit
+    # hides exactly the minority motion the override exists to find.
     if motion_override and depth_model != "linear":
         from .motion_groups import overrides
 
         def displacement_at(frame, x, y):
+            """What the depth path applies at one point, beyond the global warp."""
+            warp = global_warps[frame]
             field = fields.get(frame)
-            if field is None:
+            if warp is None:
                 return None
-            base_x, base_y = _matrix_field(_homogeneous(global_warps[frame]), (h, w))
+            if field is None:
+                return (0.0, 0.0)
+            matrix = _homogeneous(warp)
+            denominator = matrix[2, 0] * x + matrix[2, 1] * y + matrix[2, 2]
+            denominator = denominator if abs(denominator) > 1e-12 else 1e-12
+            base_x = (matrix[0, 0] * x + matrix[0, 1] * y + matrix[0, 2]) / denominator
+            base_y = (matrix[1, 0] * x + matrix[1, 1] * y + matrix[1, 2]) / denominator
             xi = int(np.clip(round(y), 0, h - 1)), int(np.clip(round(x), 0, w - 1))
-            return (float(field[0][xi] - base_x[xi]), float(field[1][xi] - base_y[xi]))
+            return (float(field[0][xi] - base_x), float(field[1][xi] - base_y))
 
         chosen, group_report = overrides(
             images, coarse, coarse_valid, ref_index, depth, displacement_at
         )
         report["motion_groups"] = group_report
         if chosen:
-            for i in list(fields):
+            for i in range(len(images)):
+                if i == ref_index or global_warps[i] is None:
+                    continue
+                if not any(motion.get(i) is not None for _weight, motion in chosen):
+                    continue
                 base = _homogeneous(global_warps[i])
                 base_x, base_y = _matrix_field(base, (h, w))
-                map_x, map_y = fields[i]
+                # A frame whose bins were all rejected still deserves the override:
+                # the group measured its motion regardless of what the bins managed.
+                map_x, map_y = fields.get(i, (base_x.copy(), base_y.copy()))
                 for weight, motion in chosen:
                     shift = motion.get(i)
                     if shift is None:
@@ -1095,14 +1096,9 @@ def _depth_binned_fields(
                 # correction — measured: the bottle stayed at +19.94 px instead of
                 # reaching ~+1.5. The boundary band is handled the way F82 handles
                 # every such band, by refusing it rather than smoothing it.
-                probe = np.ones((5, 5), np.uint8)
-                step_map = (
-                    (cv2.dilate(depth, probe) - cv2.erode(depth, probe))
-                    > _OCCLUSION_MIN_DEPTH_STEP
-                ).astype(np.uint8)
                 occlusion[i] = occlusion.get(
                     i, np.zeros((h, w), dtype=bool)
-                ) | _occlusion_mask(map_x - base_x, map_y - base_y, step_map)
+                ) | _occlusion_mask(map_x - base_x, map_y - base_y, depth_step)
                 report["frames"][i]["stretch"] = _field_stretch(map_x, map_y)
                 fields[i] = (map_x.astype(np.float32), map_y.astype(np.float32))
 
@@ -1143,6 +1139,11 @@ def align_stack(
             estimator, which is not yet non-regressing on still stacks.
         stretch_tolerance: largest local field gradient left unrelaxed. 0
             disables the limiter and permits visible smearing at depth steps.
+        motion_override: allow motion-consensus groups of material edges to
+            replace the depth-bin correction where the two demonstrably disagree
+            (>5 px). This is what rescues an object whose depth bin is dominated
+            by other content; scenes where nothing disagrees are byte-identical
+            to `motion_override=False`.
         return_report: also return a diagnostic dict describing the refinement:
             the bin count, per-frame accepted corrections and their measured
             shifts, the worst field stretch, and the final crop rectangle.

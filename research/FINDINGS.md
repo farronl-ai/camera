@@ -5,6 +5,58 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F103 — Fresh-eyes review of the override: two conceptual bugs, one accidental
+## quadratic, and large-motion finally inspected
+
+A model change brought fresh eyes over the arc's shipped code. Four defects, each
+now fixed and tested (85 tests, +3 for the override, which had none):
+
+**1. The still-stack gate was wrong by construction.** It gated the override on the
+largest BIN shift — but a bin fit is a majority fit, and hiding the minority's
+motion is precisely the failure the override exists to correct. The kitchen passed a
+1.0 px gate at 2.46 px: the arc's flagship fix survived its own gate by 2.5×, on the
+only scene it was validated on. And the gate never achieved its purpose, since bin
+noise exceeds 1 px even on a still stack. **A majority statistic cannot gate a
+minority-rescue path.** Replaced by evidence screening inside `overrides()`: a few
+frames near the reference (±2, ±4 — near, because off the focal plane features read
+zero confidently, F99) are checked for any cluster of features whose motion the
+depth path does not already explain.
+
+**2. Vacuous consistency: the aperture problem let static features join moving
+groups.** A feature whose edge normal is perpendicular to a group's motion predicts
+d·n ≈ 0, measures ≈ 0, and passes the residual test while carrying no evidence.
+Measured: 37 static background features joined a moving group, ballooning its convex
+hull across the frame (correction weight 0.28 at a corner 150 px from the object)
+and biasing the group's perpendicular motion toward zero. Membership now requires
+the group's motion to be OBSERVABLE along the feature's normal; perpendicular
+features that genuinely sit on the object are recovered by a spatial attachment pass
+(consistent AND adjacent to an informative member), which restores coverage without
+letting anything attach across the frame.
+
+**3. An accidental quadratic.** The consensus loop evaluated a full residual array
+once per candidate feature (`residual(motions)[i]` inside a comprehension).
+Rewriting it for bug 2 removed it: kitchen 23.2 → 3.1 s, zero-motion 45.7 → 4.0 s,
+small-motion 47.4 → 5.4 s. With screening, the sweeps that override nothing now
+cost ~4 s and return byte-identical output.
+
+**4. Frames whose bins were all rejected could never receive an override** (the
+application loop iterated only frames holding bin fields), and `displacement_at`
+returned None for them so they did not even count toward disagreement. Both fixed:
+the group's motion applies over the plain global warp there. Also fixed: the
+unsupported-fit fallback in `_group_motion` (the F99 zero-bias trap, reapplied),
+dead `bin_shifts` plumbing with a comment that mis-described it, and the missing
+pipeline/CLI exposure (`--no-motion-override`) and docstrings.
+
+**Large-motion, inspected at last.** The 28% of changed pixels are the playing-card
+box: the bins path renders its text doubled and garbled ("LASeMeG"), the override
+reads "LAS VEGAS" cleanly and matches the reference geometry. The −0.004 Q_SSIM that
+had been logged as a caution was F81a's blindness a third time. One new, small,
+localized artifact: a white smear where the box's bottom-right corner meets the
+table — the support boundary zone — logged as open.
+
+After fixes: kitchen f8 +8.4 → +1.0 px, f11 +20.1 → +2.0 px; factory, zero-motion
+and small-motion byte-identical to `motion_override=False`.
+
 ## F102 — The motion-group override ships: the bottle is corrected in the runtime
 
 The targeted override F101 specified, now in the package

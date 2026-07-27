@@ -62,6 +62,13 @@ def build_parser() -> argparse.ArgumentParser:
         "sweeps better but is not yet non-regressing on still ones.",
     )
     p.add_argument(
+        "--no-motion-override",
+        action="store_true",
+        help="Disable the motion-group override, which corrects an object whose "
+        "depth bin is dominated by other content (it only ever acts where its "
+        "measured motion disagrees with the depth fit by more than 5 px).",
+    )
+    p.add_argument(
         "--focus-measure",
         dest="focus_method",
         choices=["laplacian", "gradient", "tenengrad", "mod_laplacian", "content_aware"],
@@ -170,6 +177,7 @@ def main(argv: list[str] | None = None) -> int:
             align_motion=args.align_motion,
             align_depth_bins=args.align_depth_bins,
             align_depth_model=args.align_depth_model,
+            align_motion_override=not args.no_motion_override,
             focus_method=args.focus_method,
             levels=args.levels,
             harden=args.harden,

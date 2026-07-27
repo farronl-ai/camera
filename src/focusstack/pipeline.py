@@ -51,6 +51,7 @@ def run(
     align_motion: str = "affine",
     align_depth_bins: int = 4,
     align_depth_model: str = "bins",
+    align_motion_override: bool = True,
     focus_method: str = "content_aware",
     levels: int | None = None,
     harden: float = 0.5,
@@ -85,6 +86,7 @@ def run(
             motion=align_motion,
             depth_bins=align_depth_bins,
             depth_model=align_depth_model,
+            motion_override=align_motion_override,
             return_report=True,
         )
         corrected = sum(
@@ -93,6 +95,12 @@ def run(
         if corrected:
             log(f"depth-aware pass corrected {corrected} frame(s) "
                 f"across {align_report['bins']} depth bins")
+        groups = align_report.get("motion_groups", {})
+        if groups.get("overridden"):
+            log(f"motion-group override corrected {groups['overridden']} object(s) "
+                f"whose depth bin was fitted to other content")
+        elif groups.get("skipped"):
+            log(f"motion-group override skipped: {groups['skipped']}")
         # Pixels parallax uncovered: present in some frames, absent in others.
         usable = align_report.get("usable")
         if usable is not None:

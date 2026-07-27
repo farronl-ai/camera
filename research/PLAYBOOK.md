@@ -115,6 +115,17 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   object's focal plane then propagate along the sweep.
 - **Interior edges make "is this one object?" falsifiable.** Two edges are exactly
   determined — solvable, never testable.
+- **A majority statistic cannot gate a minority-rescue path** (F103). The bin fit
+  hides exactly the motion the override exists to find, so gating the override on
+  bin shifts nearly disabled it on its own validation scene. Gate on direct
+  evidence: screen a few near-reference frames for motion the current field does
+  not explain (near the reference, because distant frames read zero confidently).
+- **Watch for VACUOUS consistency under the aperture problem** (F103). A feature
+  whose normal is perpendicular to a motion agrees with it while seeing nothing;
+  such features join any moving group, balloon its spatial support, and bias its
+  perpendicular component to zero. Membership requires the motion to be observable
+  along the feature's own normal; recover on-object perpendicular features by
+  spatial attachment to informative members, never by global consistency.
 - **Depth bins and motion groups win on OPPOSITE scenes** (F101). Where depth
   cleanly separates the scene, bins are near-ideal and feature-hull supports
   under-correct; where depth cannot isolate the object, only motion grouping can.
@@ -254,6 +265,7 @@ skip it or state which condition has changed.
 | Connected-coherence gating of region splits | No effect; the spurious regions are coherent, not confetti | never for this purpose |
 | Tuning the tile-confidence floor to serve both scenes | No value serves both (0.05 vs 0.35 trade directly) | replace with the physical test (residual proportional to frame motion) |
 | Adding a scale term to the region model | Unproven — the object it was built for measures scale ~1.005 and needs pure translation (F91) | a region whose scale is first MEASURED with a known-answer-validated estimator |
+| Gating the motion override on bin-shift statistics | Wrong by construction — the majority fit hides the minority motion the override exists to find | never; screen on direct evidence instead |
 | Contrast-over-gradient as a blur estimator | Saturates by 2 px of blur, swamped by texture | never — use distance from the object's focal frame |
 | Pseudo-GT or source similarity as latent-scene truth | Ceiling-limited and blind to correct synthesis | real captured latent truth |
 | Blind generative / diffusion de-occlusion fill | Not remnant-auditable | never under the current mission |

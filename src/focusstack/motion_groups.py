@@ -30,6 +30,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
+from .fusion import guided_filter
 from .io import to_gray_float
 
 PROFILE_HALF = 28
@@ -51,6 +52,18 @@ SHARPNESS = 6.0
 # overruled. Well above measurement noise (~1 px) and far below the case this exists
 # for, so a marginal disagreement never disturbs a working depth fit.
 DISAGREEMENT_PX = 5.0
+# Screening: before paying for the full feature-by-frame measurement, a few frames
+# near the reference are checked for ANY cluster of features whose motion the depth
+# path does not already explain. The offsets matter: at the sweep's far end an
+# object's own features have blurred away and read ~0 confidently (F99), so distant
+# frames cannot be screened; near the reference the object is still sharp while its
+# accumulated motion is already measurable. Screening on BIN statistics instead was
+# tried and is wrong twice over — a majority fit hides exactly the minority motion
+# this exists to find (the kitchen case passed a 1 px bin-shift gate by only 2.5x),
+# and a still stack still produced >1 px bin noise so it never skipped anything.
+SCREEN_OFFSETS = (2, 4)
+SCREEN_PX = 2.0
+SCREEN_COUNT = 4
 
 
 def _profile(gray, x, y, nx, ny):
@@ -166,6 +179,35 @@ def _consensus_groups(features, table, frames):
                 out[i] = float(np.sqrt(np.mean(np.square(errs))))
         return out
 
+    def consensus_of(motions, pool):
+        """Members whose agreement with this motion is INFORMATIVE, not vacuous.
+
+        The aperture problem makes vacuous agreement easy: a feature whose edge
+        normal is perpendicular to the group's motion predicts d.n ~ 0, measures
+        ~ 0, and passes the residual test while carrying no evidence at all.
+        Measured: 37 static background features joined a moving group that way,
+        ballooning its convex hull across the frame and biasing its perpendicular
+        motion component toward zero. So when the group genuinely moves, a member
+        must be able to SEE that motion along its own normal.
+        """
+        res = residual(motions)
+        magnitude = max(
+            (float(np.hypot(m[0], m[1])) for m in motions.values()), default=0.0
+        )
+        members = []
+        for i in pool:
+            if res[i] >= INLIER_PX:
+                continue
+            _x, _y, nx, ny = features[i]
+            seen = max(
+                (abs(float(m[0]) * nx + float(m[1]) * ny) for m in motions.values()),
+                default=0.0,
+            )
+            if magnitude >= INLIER_PX and seen < INLIER_PX:
+                continue
+            members.append(i)
+        return members, res
+
     remaining = set(range(len(features)))
     groups = []
     for _ in range(6):
@@ -182,11 +224,27 @@ def _consensus_groups(features, table, frames):
             motions = fit(near)
             if not motions:
                 continue
-            consensus = [i for i in pool if residual(motions)[i] < INLIER_PX]
+            consensus, _ = consensus_of(motions, pool)
             if len(consensus) >= MIN_GROUP and (best is None or len(consensus) > len(best)):
                 best = consensus
         if best is None:
             break
+        # Attachment pass: perpendicular-edge features that sit ON the object are
+        # real members and extend its support coverage — coverage is what makes a
+        # correction land (F101). They may attach only NEXT TO an informative
+        # member, never across the frame, which is exactly the distinction the
+        # informativeness test alone cannot draw.
+        motions = fit(best)
+        if motions:
+            _, res = consensus_of(motions, pool)
+            informative = [(features[i][0], features[i][1]) for i in best]
+            reach = float(2 * SUPPORT_RADIUS) ** 2
+            for i in pool:
+                if i in best or res[i] >= INLIER_PX:
+                    continue
+                x, y = features[i][0], features[i][1]
+                if any((x - px) ** 2 + (y - py) ** 2 < reach for px, py in informative):
+                    best.append(i)
         groups.append(best)
         remaining -= set(best)
     return groups
@@ -226,8 +284,11 @@ def _group_motion(features, table, score, focal, members, frames, ref):
             motion[k] = np.array([
                 np.polyval(np.polyfit(t, [raw[m][0] for m in near], 1), k - ref),
                 np.polyval(np.polyfit(t, [raw[m][1] for m in near], 1), k - ref)])
-        elif k in raw:
-            motion[k] = raw[k]
+        # An unsupported raw fit is deliberately NOT used as a last resort. Off the
+        # group's focal plane its features are blurred, and a blurred profile
+        # matches a sharp one confidently at about zero shift (F99) — so an
+        # unsupported fit is biased toward "no motion", and applying it would move
+        # the object wrongly with high confidence. No override beats a biased one.
     return motion
 
 
@@ -241,7 +302,6 @@ def _support(features, members, shape, guide):
     for i in members:
         x, y, _nx, _ny = features[i]
         cv2.circle(seed, (int(round(x)), int(round(y))), SUPPORT_RADIUS, 1.0, -1)
-    from .fusion import guided_filter
     return guided_filter(guide, seed, 24, 1e-3)
 
 
@@ -261,6 +321,29 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
     features = _material_features(grays[ref_index], depth, common)
     report = {"features": len(features), "groups": 0, "overridden": 0}
     if len(features) < 3 * MIN_GROUP:
+        return [], report
+
+    screen_frames = sorted({
+        ref_index + sign * offset
+        for offset in SCREEN_OFFSETS for sign in (-1, 1)
+        if 0 <= ref_index + sign * offset < len(grays)
+    } - {ref_index})
+    disagreeing = 0
+    for x, y, nx, ny in features:
+        base = _profile(grays[ref_index], x, y, nx, ny)
+        for k in screen_frames:
+            shift, peak = _match(base, _profile(grays[k], x, y, nx, ny))
+            if peak < MIN_PEAK or abs(shift) > 40:
+                continue
+            expected = displacement_at(k, x, y) or (0.0, 0.0)
+            if abs(shift - (expected[0] * nx + expected[1] * ny)) > SCREEN_PX:
+                disagreeing += 1
+                break
+        if disagreeing >= SCREEN_COUNT:
+            break
+    report["screen_disagreeing"] = disagreeing
+    if disagreeing < SCREEN_COUNT:
+        report["skipped"] = "no unexplained motion near the reference"
         return [], report
 
     table, score = _measure(grays, ref_index, features)

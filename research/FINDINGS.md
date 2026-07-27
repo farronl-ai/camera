@@ -5,6 +5,37 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F86 — Splitting needs a merge rule: pieces that move alike are one object
+
+F85's residual splitting recovered the kitchen bottle and regressed the analytic
+factory. The cause is not what two guesses predicted. The factory's extra
+regions are neither confetti (a connected-coherence gate changed nothing) nor
+caused by an over-permissive confidence floor. They are coherent pieces of ONE
+RIGID PLANE, each handed its own independent ECC fit — and small regions fit
+more noisily, so a surface with no discontinuity in it gets transported by
+slightly different amounts in different places.
+
+So object integrity is a MERGE rule, not a shape rule, and it uses the same
+evidence as the split read the other way: regions whose fitted motion agrees
+across the whole sweep are one object, however the split arrived at them.
+
+| merge tolerance | factory (2 real regions) | kitchen bottle |
+|---|---|---|
+| none | 5 regions, 0.973263 | +18.8 px |
+| 1 px | 4 regions, 0.974036 | +18.8 px |
+| 2 px | 4 regions, 0.974036 | +18.8 px |
+| 3 px | 4 regions, **0.889273** | +18.8 px |
+| 5 px | 3 regions, 0.888564 | +18.2 px |
+
+Zero-motion collapses 5 regions to 2, which is the behaviour to demand. The
+tolerance is sharply bounded above: past 2 px it starts merging the factory's
+two PLANES, whose motions differ by about 9 px, and a single compromise fit
+across a real depth boundary is far worse than any over-splitting.
+
+Net state: kitchen's bottle is corrected end to end (+2.5 -> +18.8 px, the ghost
+slab visibly gone), the factory still costs 0.0045, and the remaining gap is
+over-splitting that the merge rule does not fully undo. Still not promoted.
+
 ## F85 — Residual-driven splitting recovers the bottle, and is not yet promotable
 
 F84 showed the depth bin holding the kitchen bottle covers 55% of the frame and

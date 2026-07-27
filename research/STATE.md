@@ -47,6 +47,10 @@ separate from F80's rectangular crop and must stay separate. Derive the ribbon
 from the MEASURED per-bin displacement, never from the smoothed applied field,
 and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
 
+Object integrity is a MERGE rule (F86): regions whose fitted motion agrees
+across the sweep are one object. Keep the merge tolerance at or below 2 px —
+past that it merges genuinely different depth planes and the result collapses.
+
 Next move, concretely: F85's residual-driven splitting recovers the kitchen
 bottle (+2.5 -> +18.8 px, artifact visibly gone) but regresses the analytic
 factory, and no tile-confidence floor serves both. Do not tune that threshold —

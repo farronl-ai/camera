@@ -48,6 +48,13 @@ SPLIT_THRESHOLD_PX = 2.0
 # scene — must come back unsplit, or the extra regions invent structure and
 # each carries its own fitting error.
 MIN_STRANDED_RESIDUAL_PX = 4.0
+# An object is one thing. A real stranded object is a coherent connected piece
+# of the picture that moves rigidly; a bad phase correlation off a disoccluded
+# tile is confetti. Requiring coherence is a physical constraint rather than a
+# tuned threshold, and it is what separates a scene whose bins genuinely hold
+# two objects from one whose bins are already right.
+MAX_PIECES_PER_GROUP = 3
+MIN_COHERENT_FRACTION = 0.6
 
 
 def fit_translation(reference, moving, mask):
@@ -142,6 +149,27 @@ def two_means(features, iterations=20):
     return labels, separation
 
 
+def is_coherent(region: np.ndarray) -> bool:
+    """Is this group one object, or scattered debris?
+
+    A stranded object is contiguous: a few connected pieces at most, with the
+    bulk of its area in them. Debris from unreliable correlations is spread over
+    many small fragments, and splitting a bin along debris invents structure
+    that then carries its own fitting error.
+    """
+    total = int(region.sum())
+    if total == 0:
+        return False
+    count, _, stats, _ = cv2.connectedComponentsWithStats(
+        region.astype(np.uint8), connectivity=8
+    )
+    areas = np.sort(stats[1:, cv2.CC_STAT_AREA])[::-1]
+    if areas.size == 0:
+        return False
+    biggest = areas[:MAX_PIECES_PER_GROUP].sum()
+    return float(biggest) / total >= MIN_COHERENT_FRACTION
+
+
 def split_region(grays, reference_index, mask, shifts):
     """Split one region into two if its tiles disagree about the correction.
 
@@ -193,9 +221,52 @@ def split_region(grays, reference_index, mask, shifts):
         for (x, y, box), label in zip(kept, labels):
             if label == k:
                 part[box] = 1.0
-        snapped = guided_filter(guide, part, 12, 1e-4) > 0.5
-        parts.append(snapped & mask)
+        snapped = (guided_filter(guide, part, 12, 1e-4) > 0.5) & mask
+        if not is_coherent(snapped):
+            return None
+        parts.append(snapped)
     return parts, separation
+
+
+def merge_by_motion(grays, reference_index, regions, tolerance=1.0):
+    """Rejoin regions whose motion agrees: they are one object.
+
+    Splitting alone is unsafe. Subdividing a rigid surface gives each piece its
+    own independent fit, and small regions fit more noisily, so one object ends
+    up transported by slightly different amounts in different places — a
+    discontinuity inside a surface that has none. Motion is the same evidence
+    used to split, read the other way: pieces that move identically across the
+    whole sweep belong together, however the split arrived at them.
+    """
+    signatures = []
+    for region in regions:
+        vector = []
+        for i, gray in enumerate(grays):
+            if i == reference_index:
+                continue
+            fitted = fit_translation(grays[reference_index], gray, region)
+            vector.extend(fitted if fitted else (np.nan, np.nan))
+        signatures.append(np.array(vector, dtype=np.float64))
+
+    merged, used = [], set()
+    for a in range(len(regions)):
+        if a in used:
+            continue
+        group = regions[a].copy()
+        used.add(a)
+        for b in range(a + 1, len(regions)):
+            if b in used:
+                continue
+            pair = np.stack([signatures[a], signatures[b]])
+            valid = ~np.isnan(pair).any(axis=0)
+            if valid.sum() < 4:
+                continue
+            difference = pair[0][valid] - pair[1][valid]
+            if float(np.sqrt((difference ** 2).mean())) < tolerance:
+                group |= regions[b]
+                used.add(b)
+        merged.append(group)
+    return merged
 
 
 def main() -> None:

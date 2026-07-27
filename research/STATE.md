@@ -51,9 +51,14 @@ grouping, focal-weighted motion with temporal propagation, support from each gro
 convex hull. Two painting bugs mattered more than any estimator: claim strength is a
 GATE not a scale factor (a fully-owned pixel was losing 30-42% of its correction),
 and support must be the hull of a group's features, not their neighbourhoods (the
-bottle's top and bottom got nothing). Before integrating: make it ENGAGE on the
-factory, where two planes exist but the consensus collapses to one group (use F97's
-focal-signature grouping), and carry the disocclusion refusal through.
+bottle's top and bottom got nothing). Both of those are now done (F101): focal-seeded grouping engages on the factory at
+97% purity, and refusal carries through. But the group path REGRESSES the factory
+(0.900 vs 0.971) because clean depth separation is exactly where bins are ideal.
+Integrate as a TARGETED OVERRIDE: keep the shipped depth-bin path and apply a motion
+group's correction only where it demonstrably disagrees with its bin — a bin fitted
+to +2.3 px containing a group measured at +18.5 px is not a marginal call. Watch the
+purity/coverage trade: finer groups are purer but their hulls cover less, and
+coverage is what makes a correction land.
 
 **Its ingredients were the ones F99 found already solved and disconnected.**
 F89 measures that object at +18.88 vs +19.2 truth by using frames near the reference

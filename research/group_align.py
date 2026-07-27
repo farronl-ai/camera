@@ -31,6 +31,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import focusstack.align as align_mod  # noqa: E402
 from focusstack.align import align_stack  # noqa: E402
 from focusstack.fusion import depth_from_focus, fuse_perband, guided_filter  # noqa: E402
 from focusstack.io import to_gray_float  # noqa: E402
@@ -141,6 +142,57 @@ def group_support(features, members, shape, guide):
     return guided_filter(guide, seed, 24, 1e-3)
 
 
+def focal_seeded_groups(features, table, focal, shape, frames):
+    """Group by focal signature FIRST, then split each depth by motion.
+
+    Motion consensus alone collapses the analytic factory's two planes into one
+    group (F96): a greedy search that maximizes consensus SIZE rewards the
+    compromise fit sitting midway between them, and no inlier threshold serves both
+    that scene and the kitchen (F97). The focal signature does separate them, with
+    no threshold, so it seeds the partition and motion only refines within a depth —
+    which is the division of labour F97 recommended and this had not yet adopted.
+    """
+    peaks = np.asarray(focal, float)
+    labels = np.zeros(len(features), int)
+    for _ in range(4):
+        best = None
+        for g in range(labels.max() + 1):
+            members = np.nonzero(labels == g)[0]
+            if len(members) < 2 * MIN_GROUP:
+                continue
+            ordered = np.sort(peaks[members])
+            total = float(np.var(ordered))
+            if total < 1e-9:
+                continue
+            for i in range(MIN_GROUP, len(ordered) - MIN_GROUP):
+                lo, hi = ordered[:i], ordered[i:]
+                w = len(lo) / len(ordered)
+                quality = w * (1 - w) * (lo.mean() - hi.mean()) ** 2 / total
+                if quality >= 0.55 and (best is None or quality > best[2]):
+                    best = (g, 0.5 * (ordered[i - 1] + ordered[i]), quality)
+        if best is None:
+            break
+        g, threshold, _ = best
+        members = np.nonzero(labels == g)[0]
+        labels[members[peaks[members] > threshold]] = labels.max() + 1
+
+    groups = []
+    for g in range(labels.max() + 1):
+        members = list(np.nonzero(labels == g)[0])
+        if len(members) < MIN_GROUP:
+            continue
+        # Within one depth, motion consensus may still find two rigid bodies.
+        sub, _ = OS.segment([features[i] for i in members],
+                            table[members], shape, frames)
+        if len(sub) > 1:
+            for part, _ in sub:
+                if len(part) >= MIN_GROUP:
+                    groups.append([members[j] for j in part])
+        else:
+            groups.append(members)
+    return groups
+
+
 def align_by_groups(frames_in):
     coarse = align_stack(frames_in, depth_bins=0, crop_valid=False)
     grays = [to_gray_float(i).astype(np.float32) / 255.0 for i in coarse]
@@ -154,8 +206,7 @@ def align_by_groups(frames_in):
     table, score = measure(grays, ref, features)
     focal = focal_frames(grays, features)
 
-    groups, _ = OS.segment(features, table, shape, len(grays))
-    groups = [m for m, _ in groups if len(m) >= MIN_GROUP]
+    groups = focal_seeded_groups(features, table, focal, shape, len(grays))
     if len(groups) < 2:
         return coarse, None
 
@@ -184,10 +235,10 @@ def align_by_groups(frames_in):
     h, w = shape
     grid_x, grid_y = np.meshgrid(np.arange(w, dtype=np.float32),
                                  np.arange(h, dtype=np.float32))
-    out = []
+    out, usable = [], []
     for k in range(len(grays)):
         if k == ref:
-            out.append(coarse[k]); continue
+            out.append(coarse[k]); usable.append(np.ones(shape, bool)); continue
         dx = np.zeros(shape, np.float32); dy = np.zeros(shape, np.float32)
         for weight, motion in zip(weights, motions):
             m = motion.get(k)
@@ -197,7 +248,15 @@ def align_by_groups(frames_in):
             dy += weight * (1.0 - unclaimed) * float(m[1])
         out.append(cv2.remap(coarse[k], grid_x + dx, grid_y + dy, cv2.INTER_LINEAR,
                              borderMode=cv2.BORDER_REPLICATE))
-    return out, {"groups": groups, "features": features, "motions": motions}
+        # Parallax uncovers scene here exactly as it does for the shipped path
+        # (F82): where this frame's displacement disagrees across a real depth
+        # step, the observation behind the occluder does not exist.
+        probe = np.ones((5, 5), np.uint8)
+        step = ((cv2.dilate(depth, probe) - cv2.erode(depth, probe))
+                > align_mod._OCCLUSION_MIN_DEPTH_STEP).astype(np.uint8)
+        usable.append(~align_mod._occlusion_mask(dx, dy, step))
+    return out, {"groups": groups, "features": features, "motions": motions,
+                 "usable": usable}
 
 
 def edge_shift(a, b, y0, y1, x0, x1):

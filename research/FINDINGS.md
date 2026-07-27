@@ -5,6 +5,41 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F101 — Motion groups and depth bins win on opposite scenes; the fix is a targeted override
+
+Both blockers from F100 were closed. Seeding the grouping with the focal signature
+(F97) makes it ENGAGE on the analytic factory — 2 groups, 97% near-plane purity,
+where motion consensus alone collapsed to one — and the disocclusion refusal now
+carries through the group path. The sentinels stay clean: zero-motion and
+small-motion change by 0.04 and 0.10 px against the global-only result.
+
+But scored on the same crop, the factory regresses:
+
+| | factory GT-SSIM | kitchen bottle residual |
+|---|---:|---:|
+| shipped depth bins + refusal | **0.970768** | +19.97 px |
+| motion groups + refusal | 0.900156 | **+1.47 px** (motion-seeded) / +4.44 (focal-seeded) |
+
+The reason is not a defect in either method. The factory's two planes are cleanly
+separated BY DEPTH, so depth bins are near-ideal there, while feature-hull supports
+overlap and under-correct — the group differential reaches 3.19 px where the truth is
+about 5.0. The kitchen is the opposite: depth cannot isolate the bottle at all (F99),
+and only motion grouping does.
+
+There is also a real tension inside the grouping itself. Focal seeding raises the
+bottle group's purity from 92.9% to 100% but SHRINKS it from 14 features to 12, so
+its convex hull covers less of the object and the residual worsens from +1.47 to
++4.44 px. Purity and support coverage trade against each other, and support coverage
+is what actually determines whether the correction lands.
+
+**Integration should therefore be a targeted override, not a replacement.** Keep the
+shipped depth-bin path exactly as it is, and apply a motion group's own correction
+only where that group demonstrably disagrees with the bin it sits in — which is the
+kitchen bottle's case and is not the factory's. That is non-regressing by
+construction, it needs no arbitration between two whole pipelines, and the
+disagreement test is already measured (a bin fitted to +2.3 px containing a group
+measured at +18.5 px is not a marginal call).
+
 ## F100 — Motion-group alignment finally corrects the bottle
 
 Wiring together what F99 identified as already-solved-but-disconnected: material

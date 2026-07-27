@@ -115,6 +115,16 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   object's focal plane then propagate along the sweep.
 - **Interior edges make "is this one object?" falsifiable.** Two edges are exactly
   determined — solvable, never testable.
+- **Depth bins and motion groups win on OPPOSITE scenes** (F101). Where depth
+  cleanly separates the scene, bins are near-ideal and feature-hull supports
+  under-correct; where depth cannot isolate the object, only motion grouping can.
+  Route between them — or better, keep the depth path and override it only where a
+  motion group demonstrably disagrees with its bin, which is non-regressing by
+  construction.
+- **Purity and support coverage trade against each other.** Finer grouping raised one
+  object's purity from 92.9% to 100% while shrinking its feature set, so its hull
+  covered less of the body and the applied correction fell from +1.47 to +4.44 px of
+  residual. Coverage, not purity, decides whether a correction lands.
 - **Key a parallax correction on MOTION GROUPS, never on depth** (F99). Content at
   the same depth VALUE can have different motion, so any depth-keyed fit — binned or
   continuous — averages the target away. Measured: a depth-keyed curve never exceeded

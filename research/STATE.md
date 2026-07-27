@@ -71,6 +71,10 @@ for exactly two frames ≤1600 px (F56), so a stitched composite is outside it.
 
 ## Standing rules for this area
 
+- Before diagnosing a stack, RUN `research/motion_components.py`: it reports
+  breathing, forward translation, rotation and lateral parallax with a residual, in
+  one pass over all material edges. On kitchen it says breathing ~1.000, rotation
+  ±0.5deg monotone, forward translation up to 4.3%, lateral parallax dominant.
 - Fit object motion on MATERIAL edges (print, texture, corners); a curved object's
   silhouette is a limb that slides with the viewpoint and is not a rigid feature
   (F92). Nine printed edges on the bottle agree to ~1 px; its left limb reads half.

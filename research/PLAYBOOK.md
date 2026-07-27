@@ -88,6 +88,17 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
 - **Blend coordinates, not warped images** — one source location per output pixel, so
   a multi-stage correction still costs one interpolation. A field may transport
   content freely; it must never stretch it.
+- **Read camera motion off ALL edges at once** (F94): each component has a distinct
+  spatial signature (radial for breathing and forward translation, uniform for pan
+  and lateral translation), the quadrant sign pattern separates radial from uniform
+  with no depth at all, and depth then splits each pair because only the
+  translational components scale with 1/Z. With ~200 edges this is heavily
+  over-determined.
+- **A pan is NOT identifiable.** A uniform shift is indistinguishable from every
+  depth translating equally; only the depth-VARYING part of translation is
+  recoverable. Fitting both a uniform term and per-depth translations makes the
+  system singular and silently halves the answer. Define breathing as the radial
+  component the depth bins share and forward translation as the part that varies.
 - **Textureless interiors take their motion from edges.** Correlate gradient profiles,
   integrate along the edge, trust only the normal component, and measure near the
   object's focal plane then propagate along the sweep.

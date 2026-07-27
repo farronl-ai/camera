@@ -5,6 +5,62 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F94 — Reading camera motion off all edges at once, and what is not identifiable
+
+Each component of camera motion leaves a different spatial signature, so with a
+couple of hundred edges the problem is heavily over-determined and the components can
+be measured rather than argued about:
+
+| component | spatial pattern | depth |
+|---|---|---|
+| breathing | radial | independent |
+| forward translation | radial | scaled by 1/Z |
+| pan / rotation | near-uniform shift | independent |
+| lateral translation | uniform direction | scaled by 1/Z |
+
+The quadrant sign pattern separates radial from uniform with no depth at all (under a
+radial component the left half moves left while the right half moves right); depth
+then splits each pair, since only the translational components scale with inverse
+depth. That hierarchy is exactly why this session burned three findings confusing
+breathing with forward translation — both are radial, and depth is the ONLY thing
+that separates them.
+
+**Structural result: a pan is not identifiable.** A uniform shift is
+indistinguishable from every depth translating equally, so the two are confounded in
+image motion and only the depth-VARYING part of translation can be recovered. The
+first version of this fit included both a uniform term and per-depth translations and
+was therefore singular; it silently reported an applied +8 px shift as +4.00, split
+evenly between the duplicate columns. The known-answer test caught it, the model was
+restated (rotation shared; radial and translation per depth; no uniform term), and
+the same test then returned +8.01. Breathing is now defined as the radial component
+its depth bins SHARE, and forward translation as the part that varies between them.
+
+Known-answer validation on a real frame: applied radial +2% reads +0.0197, applied
+rotation +0.5° reads +0.491, applied uniform +8 px reads +8.01, and each stays within
+0.03 of zero when its component is absent.
+
+Kitchen sweep, 226 material edges, 4 depth bins:
+
+| frame | breathing | radial spread (forward) | rotation | tx spread (lateral) | rms |
+|---|---:|---:|---:|---:|---:|
+| 0 | 0.9968 | 0.0433 | −0.574° | 10.63 px | 2.75 |
+| 5 | 1.0012 | 0.0069 | −0.169° | 2.46 px | 0.52 |
+| 10 | 1.0017 | 0.0201 | +0.495° | 7.17 px | 2.71 |
+
+Breathing is ~1.000 across the whole sweep, confirming F91 that the global affine
+removes it. Rotation is real and monotone through the sweep. Forward translation is
+real but small — up to 4.3% radial spread — which partly vindicates F90's instinct
+while leaving F91's correction of its magnitude intact. Lateral parallax dominates.
+
+This is the instrument that should have existed before F87. It answers "what motion
+is actually in this stack" in one pass, with a residual, instead of inferring it from
+one object's width.
+
+Limitation: the analytic factory yields only 12–21 material edges because its
+synthetic texture mostly fails the limb/material test, so component recovery is
+validated on known warps of a REAL frame rather than on the factory. The factory
+needs richer surface texture before it can validate this instrument end to end.
+
 ## F93 — An object is a maximal feature set admitting one rigid motion
 
 The anti-fragmentation model, stated so it can be tested rather than tuned. Every

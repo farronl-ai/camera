@@ -64,6 +64,9 @@ for exactly two frames ≤1600 px (F56), so a stitched composite is outside it.
 
 ## Standing rules for this area
 
+- Fit object motion on MATERIAL edges (print, texture, corners); a curved object's
+  silhouette is a limb that slides with the viewpoint and is not a rigid feature
+  (F92). Nine printed edges on the bottle agree to ~1 px; its left limb reads half.
 - Textureless interiors take their motion from EDGES, correlating GRADIENT profiles
   (intensity correlation reports a rigid object widening by 17 px). Trust only the
   normal component. Measure near an object's focal plane, then propagate.

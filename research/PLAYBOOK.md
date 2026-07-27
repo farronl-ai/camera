@@ -68,6 +68,18 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   equally in both axes; a claim that it grew 14% horizontally and 1.5% vertically is
   a broken measurement, not a discovery. Costs one extra measurement and would have
   saved three findings.
+- **Fit rigid motion on MATERIAL edges (texture, print, corners), never on the
+  silhouette of a curved object** (F92). A cylinder's limb lies where its surface
+  turns away from the camera, so it slides across the material surface as the
+  viewpoint moves: it is view-dependent by construction. On the kitchen bottle, nine
+  printed edges agreed to ~1 px while the left limb read half their value. This is
+  why interior edges (F89) were the arc's strongest instrument — not because there
+  were more of them, but because they were the right kind.
+- Corollary: a non-zero rigidity differential on a curved object may be legitimate
+  limb motion, not error. State the rigidity test over material features only.
+- Corollary: curved subjects (bottles, cans, jars) bias silhouette-based motion
+  systematically; flat-faced subjects will never reveal it. Most of this project's
+  real data is curved.
 - **A depth bin is a range, not an object.** ECC over a region follows its majority.
   Group by measured motion; use depth only as a seed; cut bin edges at
   depth-histogram valleys, never quantiles.

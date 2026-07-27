@@ -5,6 +5,46 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F92 — Silhouette edges of a curved object are not material features
+
+A cylinder's left and right edges are LIMB edges: the silhouette lies where the
+surface turns away from the camera, so it slides around the object as the viewpoint
+moves and does not track a fixed material point. Its top and bottom rims do. That
+predicts precisely the asymmetry that derailed F87–F91 — apparent width changing
+under lateral camera motion while height does not — with no magnification involved.
+
+Measured on the kitchen bottle, separating printed label edges (material) from the
+silhouette (limb):
+
+| frame | material edges (n=9) | spread | left limb | right limb |
+|---|---:|---:|---:|---:|
+| 8 | **+8.93** | 0.95 px | +4.52 | +8.28 |
+| 9 | **+12.25** | 1.30 px | +3.23 | +11.95 |
+| 10 | +14.40 | 14.46 | +1.50 | +15.69 |
+| 11 | −16.59 | 41.27 | −0.07 | +19.66 |
+
+At frames 8–9 nine material edges agree to about 1 px: the object is rigid and
+purely translating, and the fit is clean. The LEFT limb is the outlier, reading half
+the material value, while the right limb tracks material closely. Material
+translation advances ≈+3.3 px per frame, extrapolating to ≈+19 px at frame 11
+against a truth of +19.2. Frames 10–11 degrade because printed detail blurs away
+(F89), not because the features are wrong.
+
+**Rule: fit rigid motion on material (texture/printed) edges. Treat the silhouette
+of a curved object as view-dependent and exclude it from a rigidity fit** — or the
+constraint indicts the object instead of the feature. This also revises F87's
+rigidity test, which assumed all edges are material: on a curved object a non-zero
+differential can be legitimate limb motion rather than a bad measurement.
+
+It also explains why the interior-edge test of F89 was the strongest instrument in
+the arc: interior edges are exactly the material ones. The property that made it work
+was never "more constraints", it was "the right constraints".
+
+Standing caution for this project's data: kitchen objects are bottles, cans and
+jars — curved almost everywhere. Silhouette-based motion estimation is systematically
+biased on them, and flat-faced subjects (books, boxes, labels facing the camera) will
+not reveal the problem.
+
 ## F91 — The magnification was a measurement artifact; the bottle is pure translation
 
 F87, F88 and F90 all rest on one number: the kitchen bottle's width growing

@@ -5,6 +5,57 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F93 — An object is a maximal feature set admitting one rigid motion
+
+The anti-fragmentation model, stated so it can be tested rather than tuned. Every
+admissible feature i sits at x_i with unit normal n_i and contributes exactly one
+scalar per frame — its displacement along its own normal, all the aperture problem
+permits. Features belong to one object iff a single motion per frame explains all of
+them, in every frame:
+
+```text
+d_i,k . n_i  =  [ s_k (x_i - c) + t_k ] . n_i     for all i in the object, all k
+```
+
+An object is then a maximal consensus set under that model, found greedily from
+spatially local seeds. Admissibility is physical, not heuristic: material edges only
+(a curved object's limb is view-dependent, F92 — rejected here by testing whether
+depth steps across the edge), and a feature counts in a frame only where its match is
+confident, since detail blurs away off the focal plane (F89).
+
+**It keeps the object whole.** On the kitchen sweep, 226 material features segment
+into a 171-feature background, a 20-feature group, and a 21-feature group of which
+**20 lie inside the bottle box** — with only 3 bottle-box features leaking into the
+background. The bottle survives as one object, which is what every previous
+grouping attempt failed to do.
+
+**Motion parameterization is a separate problem from grouping, and it is where this
+still loses accuracy.** Fitting the full similarity to that object produces a
+monotonically rising scale (0.965 → 1.133) absorbing motion that is really
+translation, and a non-monotone tx. Translation-only on the identical grouping is
+clean and monotone:
+
+| frame | 1 | 3 | 5 | 7 | 8 | 9 | 11 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| tx | −13.76 | −8.31 | −2.12 | +3.56 | +7.36 | +9.09 | +9.41 |
+| rms | 1.90 | 1.33 | 0.57 | 0.72 | 1.90 | 3.84 | 8.65 |
+
+Confirming F91/F92 from a third direction: this object translates and does not scale.
+**Fit scale only where it is identifiable** — the radius term must change sign across
+the object's features, and even then a compact off-centre object will trade scale
+against translation unless the sign-changing features are numerous and well measured.
+
+**Propagate from NEARBY frames, not all reliable ones.** Linear propagation from
+every reliable frame (1–8) reaches +16.07 at frame 11 against a truth of +19.2, while
+F89's propagation from only the adjacent frames reached +18.88. The drift is not
+linear across a whole sweep, so distant frames bias the local slope. Combined with
+F89's rule — measure near the object's focal plane — the estimator wants frames that
+are near in BOTH senses: near the focal plane for evidence, near the target frame for
+extrapolation.
+
+Standing gap: grouping is solved, the remaining error is in the motion estimate, and
+none of this is wired into the runtime yet.
+
 ## F92 — Silhouette edges of a curved object are not material features
 
 A cylinder's left and right edges are LIMB edges: the silhouette lies where the

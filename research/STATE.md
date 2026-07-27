@@ -45,6 +45,13 @@ and the affine removes it, and a known-answer-validated estimator measures the
 bottle at scale 1.003–1.008 with ~+19 px of pure translation (F91). Do not build a
 scale term until a region's scale has been measured with a validated instrument.
 
+**Object grouping is solved (F93), motion estimation is not.** Defining an object as
+a maximal feature set admitting one rigid motion keeps the kitchen bottle whole (20
+of 21 features inside it) where every earlier grouping fragmented it. What remains is
+accuracy: translation-only propagation from nearby frames reaches ~+19 px against
++19.2 truth, all-frame propagation only +16.07. Wire grouping into the region model
+before revisiting the split gate.
+
 **Then regions.** Residual-driven splitting recovers the bottle (+2.5 → +18.8 px,
 artifact visibly gone) but regresses the factory, and no tile-confidence floor serves
 both scenes. Do not tune that threshold — replace it with the physical test: a real

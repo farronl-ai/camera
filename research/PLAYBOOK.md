@@ -93,6 +93,21 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   object's focal plane then propagate along the sweep.
 - **Interior edges make "is this one object?" falsifiable.** Two edges are exactly
   determined — solvable, never testable.
+- **Define an object as a maximal feature set admitting ONE rigid motion across all
+  frames** (F93). Each material edge gives one scalar per frame (its normal
+  displacement); a greedy consensus from spatially local seeds keeps a bottle whole
+  where tile clustering fragmented it (20 of 21 grouped features inside the object).
+  Grouping and motion-parameterization are separate problems — solving the first does
+  not give you the second.
+- **Fit scale only where it is identifiable.** The radius term must change sign across
+  the object's features; a compact off-centre object trades scale against translation
+  and will absorb pure translation into a rising scale. Check the conditioning before
+  choosing the model, and prefer translation-only when in doubt.
+- **Propagate motion from frames near the target, not from every reliable frame.**
+  Handheld drift is not linear across a whole sweep: all-frames propagation gave
+  +16.07 px where adjacent-frame propagation gave +18.88 against +19.2 truth. Frames
+  should be near in both senses — near the focal plane for evidence, near the target
+  for extrapolation.
 
 ### Occlusion and boundaries
 - **Disocclusion earns a hard mask; veiling does not.** If the observation does not

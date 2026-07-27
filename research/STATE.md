@@ -47,6 +47,13 @@ separate from F80's rectangular crop and must stay separate. Derive the ribbon
 from the MEASURED per-bin displacement, never from the smoothed applied field,
 and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
 
+Focus breathing is NOT fully removed by the global affine: the kitchen bottle
+grows 138 -> 160 px (14%) across the raw sweep and still 140 -> 154 after
+alignment. Per-bin TRANSLATION cannot express that, since a residual scale moves
+an off-centre object's two edges by different amounts. Fix breathing at the
+global stage or give regions a scale term before blaming the region machinery
+(F87 corrected).
+
 Textureless interiors get their motion from EDGES (F87), not from tile
 residuals that have nothing to correlate. Correlate GRADIENT profiles, never
 intensity: defocus spreads a bright object over its surround and biases the

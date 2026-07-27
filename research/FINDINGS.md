@@ -30,21 +30,39 @@ Measured on the kitchen sweep, frame 11 against the reference, where truth is
 | gradient profile, wide band | +13.62 | +19.97 | +6.36 |
 | gradient profile, edge-centred window | +13.46 | **+19.85** | +6.39 |
 
-**Defocus biases edge location outward, systematically.** The differential grows
-monotonically with defocus (+0.6, +3.5, +7.1, +12.1, +16.8 over frames 7-11)
-rather than scattering like noise, which is the signature of a bias, not an
-error. The cause is the veiling asymmetry: a bright out-of-focus object spreads
-over its darker surround, so the intensity profile's apparent edge migrates
-outward on BOTH sides and the object reads as wider than it is. Correlating
-gradient profiles removes most of it, because a symmetric blur widens the
-gradient bump without moving its centre — frame 11's differential falls 16.81 ->
-6.39 and the strong edge lands within 0.15 px of truth.
+**CORRECTED — the widening is mostly REAL, and it is focus breathing.** The
+first reading of this was that defocus spreads a bright object over its surround
+and biases the apparent edge outward. That explanation is wrong, and measuring
+the bottle's width directly in the RAW frames is what refuted it: 138, 138, 139,
+139, 139, 139, 140, 141, 143, 148, 155, 160 px across the sweep. A 14%
+magnification change, monotone, present before any correlation is involved. The
+lens refocusing changes magnification, which is the focus breathing this stage
+has always existed to remove, and the global affine removes only part of it —
+aligned widths still run 140 -> 154.
 
-**Rigidity is a usable detector, not just a description.** A rigid object at
-constant depth must show zero differential, so when the two edges disagree, one
-measurement is wrong and the constraint says so without needing ground truth.
-Here it correctly indicts the left edge, which is lower contrast and more
-defocused; the right edge, which it exonerates, is the one that matches truth.
+Gradient profiles do still help (frame 11's differential falls 16.81 -> 6.39 and
+the strong edge lands within 0.15 px of truth), so some bias exists on top. But
+the bulk of the differential is a real scale change, not a measurement artifact.
+
+The consequence is structural and matters more than the measurement: **per-bin
+translation cannot express residual breathing.** Translation-only was chosen as
+the most constrained model that can express parallax, which it is — but a
+residual scale on a 140 px object lying off-centre requires its two edges to
+move by DIFFERENT amounts, exactly the +13.5 / +19.9 measured here. No
+translation can do that. Either the global stage must remove breathing properly
+(its affine currently compromises between scale and depth-varying parallax), or
+the per-region model needs a scale term. This is now the most likely reason the
+bottle resists correction, ahead of anything in F85/F86.
+
+A rigid object's edges therefore do NOT have to show zero differential in the
+image, only in the scene. The rigidity constraint must be stated against an
+expected breathing scale, or it will keep indicting good measurements.
+
+**Rigidity is still a usable detector, but not with a zero target.** Two edges
+of one object must agree once the frame's magnification is accounted for. With
+breathing folded in, the constraint as first written would reject sound
+measurements; with it removed, the disagreement that remains is genuine evidence
+about which reading to distrust.
 
 Also worth recording: the correlator used for all of this was wrong on first
 write, reporting -shift/8 because of time-domain zero padding, and produced a

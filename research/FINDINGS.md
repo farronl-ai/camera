@@ -5,6 +5,30 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F105 — First unseen-scene validation: IMG-46
+
+Four handheld 24 MP frames (glass table, transparent water bottle up close, specular
+glass bowl, hills at infinity — an adversarial depth range), downscaled to 1080 px
+per the working rule of reducing resolution rather than the scene. The full default
+pipeline, untouched and untuned:
+
+- 2.3 s end to end; 3 depth bins corrected; the motion-group override fired on
+  exactly one object — the near water bottle, which is the kitchen-bottle situation
+  replayed on data none of this was fitted to; 1.1% withheld.
+- Override off, the bottle's nutrition label and barcode fuse doubled and
+  illegible; override on, both resolve. The bottle CAP text ("RECYCLE...") resolves
+  too — that is F104's limb-edge coverage extending the footprint over an
+  untextured part, exactly as on the Lubriderm pump.
+- Against the user's earlier full-resolution auto output from the older build, the
+  new result at working resolution matches the label sharpness and renders the
+  glass-table texture behind the bottle sharper.
+
+Named limitation: this ran at reduced resolution. The motion-group parameters
+(PROFILE_HALF, SUPPORT_RADIUS, STRIDE, screening offsets) are pixel-scaled and
+validated at ~800–1100 px; native 24 MP needs resolution-adaptive scaling of those
+— the same disease PLAYBOOK §0 already names for windows and metrics. That is the
+path to full-resolution delivery, and it is engineering, not research.
+
 ## F104 — Coverage by motion-matched limb edges; refusal at the support boundary
 
 The user looked all around the bottle and found what the right-edge residual could

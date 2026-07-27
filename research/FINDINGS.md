@@ -5,6 +5,56 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F83 — Occlusion-edge blur orders the boundary correctly, and ordering does not help
+
+An occlusion boundary is the near object's own silhouette, so its sharpness
+follows the FOREGROUND through the sweep: crisp in the frame that focuses the
+occluder, blurred in the frame that focuses what lies behind. The focus index
+read *on* a contour therefore names the occluder's depth — ordinal front/back
+evidence that focus magnitude alone cannot supply (Marshall et al., JOSA A 1996).
+
+The cue is real and was measured directly. Within 4 px of the true silhouette,
+the background reads the FOREGROUND's focal frame (1) rather than its own (4);
+past 8 px it recovers its own. Everything the cue promises is confirmed:
+
+- **Localization**: the depth map alone cannot place a contour — its steps sit a
+  median of 32 px from the true silhouette, because a 0.10 threshold is half a
+  focal step on a 6-frame stack and depth noise swamps it. Intensity edges keep
+  only those whose two sides, sampled 10 px out along the edge normal, differ by
+  >= 1.5 focal frames: median error 4.8 px, 61% within 8 px.
+- **Ordering**: per contour the cue is 77.3% reliable, far too noisy to decide
+  ownership pixel by pixel. But a monotone sweep shares ONE bit — near is either
+  the low index or the high one — and voting that bit across thousands of contour
+  pixels settles it correctly. Given the bit, "lower index is nearer" is 100%
+  accurate, and the resulting front mask agrees with the true near plane 91.1%.
+
+And it does not help, which is the finding. Refusing only the background side is
+WORSE than refusing both:
+
+| refusal | GT-SSIM | withheld |
+|---|---:|---:|
+| none | 0.966007 | 0% |
+| background side only | 0.971433 | 4.84% |
+| foreground side only | 0.975415 | 7.03% |
+| both sides | **0.978509** | 11.86% |
+
+The premise was that the occluder is opaque and present in every frame, merely
+displaced, so it loses nothing and needs no refusal. That is true of the
+*surface* and false of the *observation*. When the occluder is out of focus its
+own matte is blurred, so its boundary pixels are foreground/background mixtures
+carrying background colour onto the object — unusable for exactly the same
+reason the uncovered ribbon is. The foreground side turns out to contribute
+MORE of the gain than the background side it was supposed to be spared for.
+
+Two-sided refusal (F82) therefore stands. `research/occlusion_order.py` keeps the
+contour localizer and the ordering vote, both validated, since they are reusable
+and the negative must stay reproducible; neither is in the runtime path.
+
+Consequence worth carrying: near a defocused silhouette, BOTH surfaces are
+compromised, and the reason differs on each side — missing correspondence behind,
+matte mixing in front. Any future boundary work should assume the whole
+neighbourhood is suspect rather than just the far half.
+
 ## F82 — Parallax uncovers scene, and the uncovered ribbon must be discarded
 
 Lateral camera motion does not merely shift a near object; it swings it across

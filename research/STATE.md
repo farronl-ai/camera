@@ -47,7 +47,13 @@ separate from F80's rectangular crop and must stay separate. Derive the ribbon
 from the MEASURED per-bin displacement, never from the smoothed applied field,
 and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
 
-Three alignment negatives are load-bearing (F81b, F82b): a model linear in the depth
+Do not revisit one-sided disocclusion refusal without new evidence: F83 built
+the occlusion-edge-blur ordering, validated every step of it, and still found
+two-sided refusal better, because the occluder's boundary pixels are matte
+mixtures whenever it is defocused. The instrument survives in
+`research/occlusion_order.py`; the conclusion does not.
+
+Four alignment negatives are load-bearing (F81b, F82b, F83): a model linear in the depth
 proxy loses to nonparametric bins, and the alternating motion/depth/calibration
 estimator (`depth_model="joint"`), while achieving the best registration of any
 variant, invents motion on the zero-motion sentinel and is not promotable. Do

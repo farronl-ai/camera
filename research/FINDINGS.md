@@ -5,6 +5,39 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F104 — Coverage by motion-matched limb edges; refusal at the support boundary
+
+The user looked all around the bottle and found what the right-edge residual could
+not show: ghosted pump and cap, a doubled left shoulder, smudges at the base. All of
+them ON the object but OUTSIDE the override's support — the group's fitting features
+are the printed label, so its hull covered the label and the untextured rest of the
+object still fused under the bin's contradicted +2 px.
+
+**Fix 1: limb edges may decide COVERAGE, never the fit.** F92 bans limb edges from
+rigid fitting because their view-dependent bias is a few px. But for "does this area
+move +19 px with the group or +2 px with its bin" — a gap of >5 px by construction —
+that bias is irrelevant. Any edge (limb included, plus material edges no group
+claimed) whose own measured shift matches the group's motion within 3 px, at a frame
+where that motion is visible along the edge's normal (the F103 vacuousness rule
+again), joins the group's FOOTPRINT, chained outward from the fitted members so
+nothing attaches across the frame. The pump outline moves with the bottle; the
+background does not. Result: pump, shoulders and base corrected; the right-edge
+residual also improved (f11 +2.22 → +1.80) because the whole object now moves as one.
+
+**Fix 2: the override's support boundary joins the refusal gate.** The remaining
+large-motion artifact — a white smear of mixed content where the card box meets the
+table — sat in the support-transition band, which the depth-step gate never admitted
+for refusal because the guided depth map is fuzzy at exactly that junction. But the
+override KNOWS where it created a displacement discontinuity, and a measured >5 px
+disagreement is stronger evidence of a real object boundary than the smoothed depth
+map. The transition band of every chosen group is now refused (F82's rule, fed by
+better evidence). The smear is reduced to a faint trace; withheld rises to 7.1%
+(kitchen) and 8.9% (large-motion), the honest price of not mixing.
+
+Remaining, honestly: a small dark fleck on the bottle's cap and faint low-left body
+streaks — far below the previous artifact level, unexplained, logged open. Factory,
+zero-motion and small-motion remain byte-identical; 85 tests.
+
 ## F103 — Fresh-eyes review of the override: two conceptual bugs, one accidental
 ## quadratic, and large-motion finally inspected
 

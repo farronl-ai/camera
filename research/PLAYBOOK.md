@@ -120,6 +120,15 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   bin shifts nearly disabled it on its own validation scene. Gate on direct
   evidence: screen a few near-reference frames for motion the current field does
   not explain (near the reference, because distant frames read zero confidently).
+- **Limb edges may decide COVERAGE, never the fit** (F104). Their view-dependent
+  bias (a few px) forbids them from rigid estimation (F92) and is irrelevant to a
+  membership question whose alternatives differ by >5 px. An untextured object part
+  — pump, shoulder, base — has ONLY limb edges; motion-matched, spatially chained
+  attachment is how it joins its object's footprint.
+- **A model that creates a discontinuity must feed its own refusal gate** (F104).
+  The override knows where its support boundary steps the field; a measured >5 px
+  disagreement is stronger boundary evidence than a smoothed depth map, whose step
+  detector fails at exactly the junctions that matter.
 - **Watch for VACUOUS consistency under the aperture problem** (F103). A feature
   whose normal is perpendicular to a motion agrees with it while seeing nothing;
   such features join any moving group, balloon its spatial support, and bias its

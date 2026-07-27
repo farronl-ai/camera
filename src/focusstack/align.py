@@ -1071,6 +1071,19 @@ def _depth_binned_fields(
         )
         report["motion_groups"] = group_report
         if chosen:
+            # The override's support boundary IS a depth discontinuity — the group
+            # disagreed with its surroundings by >5 px, which is stronger evidence
+            # of a real object edge than the smoothed depth map, whose step
+            # detector is exactly what fails at an object/table junction (the
+            # measured case: a white smear of mixed content beside the card box,
+            # in a band the depth-step gate never admitted for refusal). So the
+            # transition band of every chosen group joins the refusal gate.
+            support_edge = np.zeros((h, w), dtype=np.uint8)
+            kernel = np.ones((5, 5), np.uint8)
+            for weight, _motion in chosen:
+                owned = (weight > 0.5).astype(np.uint8)
+                support_edge |= cv2.dilate(owned, kernel) - cv2.erode(owned, kernel)
+            override_step = np.maximum(depth_step, support_edge)
             for i in range(len(images)):
                 if i == ref_index or global_warps[i] is None:
                     continue
@@ -1098,7 +1111,7 @@ def _depth_binned_fields(
                 # every such band, by refusing it rather than smoothing it.
                 occlusion[i] = occlusion.get(
                     i, np.zeros((h, w), dtype=bool)
-                ) | _occlusion_mask(map_x - base_x, map_y - base_y, depth_step)
+                ) | _occlusion_mask(map_x - base_x, map_y - base_y, override_step)
                 report["frames"][i]["stretch"] = _field_stretch(map_x, map_y)
                 fields[i] = (map_x.astype(np.float32), map_y.astype(np.float32))
 

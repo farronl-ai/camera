@@ -64,6 +64,11 @@ DISAGREEMENT_PX = 5.0
 SCREEN_OFFSETS = (2, 4)
 SCREEN_PX = 2.0
 SCREEN_COUNT = 4
+# Coverage matching: an edge joins a group's FOOTPRINT (never its fit) when its
+# own measured motion matches the group's within this, at a frame where the
+# motion is visible along the edge's normal. Far below DISAGREEMENT_PX, so an
+# edge moving with the bin can never sneak in.
+COVER_PX = 3.0
 
 
 def _profile(gray, x, y, nx, ny):
@@ -91,8 +96,16 @@ def _match(pa, pb):
     return (i - (len(pa) - 1)) + off, float(c[i])
 
 
-def _material_features(gray, depth, valid):
-    """Edges that belong to a surface, not to a silhouette."""
+def _material_features(gray, depth, valid, return_limb=False):
+    """Edges that belong to a surface, not to a silhouette.
+
+    With `return_limb`, the silhouette edges are returned too, separately. They
+    must never enter a rigid FIT (F92: a curved object's limb slides with the
+    viewpoint, a few px of view-dependent bias), but they are the only edges an
+    untextured part of an object has — a pump top, a smooth shoulder — and for
+    the coarse question "does this area move with the group or with its bin",
+    where the gap is >5 px by construction, their bias is irrelevant.
+    """
     scaled = (gray * 255.0).astype(np.uint8)
     smoothed = cv2.GaussianBlur(scaled, (5, 5), 0)
     edges = cv2.Canny(smoothed, 60, 180) > 0
@@ -104,17 +117,20 @@ def _material_features(gray, depth, valid):
 
     h, w = gray.shape
     margin = PROFILE_HALF + PROFILE_SPAN + 2
-    out = []
+    out, limb = [], []
     ys, xs = np.nonzero(edges)
     for y, x in zip(ys, xs):
         if y % STRIDE or x % STRIDE:
             continue
         if not (margin <= x < w - margin and margin <= y < h - margin):
             continue
-        if step[y, x] > 0.15 or not valid[y, x]:
+        if not valid[y, x]:
             continue
-        out.append((float(x), float(y), float(gx[y, x] / magnitude[y, x]),
-                    float(gy[y, x] / magnitude[y, x])))
+        feature = (float(x), float(y), float(gx[y, x] / magnitude[y, x]),
+                   float(gy[y, x] / magnitude[y, x]))
+        (limb if step[y, x] > 0.15 else out).append(feature)
+    if return_limb:
+        return out, limb
     return out
 
 
@@ -292,17 +308,64 @@ def _group_motion(features, table, score, focal, members, frames, ref):
     return motion
 
 
-def _support(features, members, shape, guide):
-    """A group's body: the hull of its features, snapped to image structure."""
+def _support(points, shape, guide):
+    """A group's body: the hull of its evidence points, snapped to image structure."""
     seed = np.zeros(shape, np.float32)
-    points = np.array([[int(round(features[i][0])), int(round(features[i][1]))]
-                       for i in members], dtype=np.int32)
-    if len(points) >= 3:
-        cv2.fillConvexPoly(seed, cv2.convexHull(points), 1.0)
-    for i in members:
-        x, y, _nx, _ny = features[i]
+    array = np.array([[int(round(x)), int(round(y))] for x, y in points], dtype=np.int32)
+    if len(array) >= 3:
+        cv2.fillConvexPoly(seed, cv2.convexHull(array), 1.0)
+    for x, y in points:
         cv2.circle(seed, (int(round(x)), int(round(y))), SUPPORT_RADIUS, 1.0, -1)
     return guided_filter(guide, seed, 24, 1e-3)
+
+
+def _coverage_points(grays, ref, candidates, motion, anchors, screen_frames):
+    """Extend a group's footprint with edges that MOVE with it.
+
+    A group's fitting features cluster on printed texture, so its hull misses the
+    untextured rest of the object — a pump, a smooth shoulder, the base — and
+    those parts then fuse as ghosts, corrected by a bin fit the object has
+    already been shown to contradict. The evidence that they belong is their own
+    motion: any edge (limb edges included, see `_material_features`) whose
+    measured shift matches the group's motion, chained outward from the anchors
+    so nothing attaches across the frame.
+    """
+    matched = []
+    for x, y, nx, ny in candidates:
+        base = _profile(grays[ref], x, y, nx, ny)
+        agrees = False
+        for k in screen_frames:
+            m = motion.get(k)
+            if m is None:
+                continue
+            shift, peak = _match(base, _profile(grays[k], x, y, nx, ny))
+            if peak < MIN_PEAK or abs(shift) > 40:
+                continue
+            predicted = float(m[0]) * nx + float(m[1]) * ny
+            # Only frames where this edge could SEE the group's motion count —
+            # a perpendicular edge agreeing is vacuous (F103).
+            if abs(predicted) < COVER_PX:
+                continue
+            agrees = abs(shift - predicted) < COVER_PX
+            break
+        if agrees:
+            matched.append((x, y))
+
+    accepted = list(anchors)
+    pool = matched
+    reach = float(2 * SUPPORT_RADIUS) ** 2
+    for _ in range(6):
+        added, rest = [], []
+        for x, y in pool:
+            if any((x - px) ** 2 + (y - py) ** 2 < reach for px, py in accepted):
+                added.append((x, y))
+            else:
+                rest.append((x, y))
+        if not added:
+            break
+        accepted.extend(added)
+        pool = rest
+    return accepted
 
 
 def overrides(images, coarse, valid, ref_index, depth, displacement_at):
@@ -318,7 +381,8 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
     """
     grays = [to_gray_float(image).astype(np.float32) / 255.0 for image in coarse]
     common = np.logical_and.reduce(valid)
-    features = _material_features(grays[ref_index], depth, common)
+    features, limb_features = _material_features(grays[ref_index], depth, common,
+                                                  return_limb=True)
     report = {"features": len(features), "groups": 0, "overridden": 0}
     if len(features) < 3 * MIN_GROUP:
         return [], report
@@ -372,7 +436,15 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
                                                             value[1] - fitted[1])))
         if disagreement < DISAGREEMENT_PX:
             continue
-        chosen.append((_support(features, members, shape, grays[ref_index]), motion))
+        anchors = [(features[i][0], features[i][1]) for i in members]
+        assigned = set()
+        for group in groups:
+            assigned.update(group)
+        candidates = limb_features + [features[i] for i in range(len(features))
+                                      if i not in assigned]
+        points = _coverage_points(grays, ref_index, candidates, motion, anchors,
+                                  screen_frames)
+        chosen.append((_support(points, shape, grays[ref_index]), motion))
 
     if not chosen:
         return [], report

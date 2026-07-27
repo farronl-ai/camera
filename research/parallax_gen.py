@@ -84,6 +84,20 @@ def _texture(seed: int, h: int, w: int) -> np.ndarray:
         cv2.rectangle(image, (x0, y0),
                       (x0 + int(rng.integers(8, 38)), y0 + int(rng.integers(4, 16))),
                       (250, 250, 250), -1)
+    # Surface detail. Without it almost every detected edge is a silhouette, the
+    # material/limb test rejects nearly everything, and any instrument that fits
+    # object motion from MATERIAL edges (F92) cannot be validated here at all —
+    # the factory yielded 12-21 usable features before this was added.
+    for _ in range(90):
+        x0, y0 = rng.integers(6, w - 46), rng.integers(6, h - 26)
+        shade = int(rng.integers(0, 90)) if rng.random() < 0.5 else int(rng.integers(170, 255))
+        cv2.rectangle(image, (x0, y0),
+                      (x0 + int(rng.integers(6, 40)), y0 + int(rng.integers(3, 18))),
+                      (shade, shade, shade), -1)
+    for _ in range(70):
+        x0, y0 = rng.integers(4, w - 4), rng.integers(4, h - 4)
+        cv2.line(image, (x0, y0), (x0 + int(rng.integers(-30, 30)), y0),
+                 (int(rng.integers(0, 255)),) * 3, 1)
     return np.clip(image, 0, 255).astype(np.uint8)
 
 

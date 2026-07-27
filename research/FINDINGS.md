@@ -5,6 +5,75 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F96/F97 — Joint scene motion, and defocus as the orthogonal grouping channel
+
+**F96 — objects, their depths and camera motion solved together.** F93 defines an
+object as a maximal feature set admitting one rigid motion; F95 makes inverse depth
+explicit and shared across frames, blaming its residual on four quantized bins and on
+motion varying within a bin. Both complaints have one answer: let each OBJECT be its
+own depth.
+
+```text
+d_i,k . n_i = omega_k (rot) + rho_o(i) [ (-tx_k + ux tz_k) nx + (-ty_k + uy tz_k) ny ]
+```
+
+Four camera parameters per frame, one inverse depth per object, plus the assignment —
+each linear or trivial given the others, so it alternates, and the assignment step
+becomes a physical test instead of a clustering heuristic. On the kitchen sweep it
+converges from rms 2.66 to **1.49 px** (F95 managed 2.00), the target object is 97%
+self-consistent, and its predicted shift at frame 8 is +7.61 px against ~+7.4 truth.
+
+At frame 11 it predicts +11.06 against +19.2, because by then the bottle's own
+features are blurred away and its motion is inferred from far content where rho gives
+weak leverage. That is F89's rule again: where an object's own evidence is gone,
+propagate its measured motion temporally rather than predicting it from the global
+model.
+
+**Two model errors found by the factory, once the factory could see them.** The
+analytic factory yielded only 12–21 material edges because its synthetic texture had
+no surface detail — almost every edge was a silhouette, which the material/limb test
+correctly rejects. Adding printed-style surface texture brought it to 63–70 and
+immediately exposed:
+
+1. *Grouping must use the model that CANNOT explain a depth difference.* With a
+   similarity model, one consensus swallowed the whole two-plane factory and reported
+   an excellent 0.92 px residual for entirely the wrong structure — a radial term can
+   imitate two spatially separated regions translating differently. Translation-only
+   grouping is now mandatory (F93 had already found it better conditioned).
+2. *Maximizing consensus SIZE rewards the sloppy compromise fit.* A model sitting
+   midway between two planes counts both as inliers.
+
+**F97 — no motion threshold serves two scenes, and defocus is the invariant that
+replaces it.** Sweeping the inlier threshold shows the same trap as F85:
+
+| inlier px | factory objects | near-plane purity | kitchen bottle purity |
+|---|---:|---:|---:|
+| 1.4 | 1 | 51.8% | 100% |
+| 1.0 | 2 | 100% | 1.7% |
+
+Each scene wants what the other cannot use. The physical invariant behind it is
+DEFOCUS, which is orthogonal to motion entirely: features at one depth sharpen and
+blur together across the sweep no matter what they are doing. Measuring each
+material feature's own sharpness curve and taking its peak frame:
+
+| | measured focal frame | truth | within-group spread |
+|---|---:|---:|---:|
+| factory near plane | 1.03 | frame 1 | 0.30 |
+| factory far plane | 3.89 | frame 4 | 0.56 |
+| kitchen bottle | 5.93 | ~frame 6 | 0.39 |
+| kitchen elsewhere | 7.98 | many depths | 1.73 |
+
+Focal frames are recovered to within 0.1 frame, groups separate by 2–2.9 frames
+against a within-group spread of 0.3–0.6, and it works on both scenes with identical
+settings. Depth grouping should therefore come from the focal signature, with motion
+consistency confirming rigidity WITHIN a depth rather than being asked to discover
+depth by itself.
+
+Not yet tested: the same channel should also distinguish veiling from ordinary
+defocus, since a veiled feature is attenuated one-sidedly by a foreground spreading
+over it while a defocused one spreads symmetrically. That is the next orthogonal
+signal and it is unbuilt.
+
 ## F95 — Depth belongs IN the decomposition, and is recoverable only up to an affine
 
 Clarifying what F94's table was for: the components are not depth-independent. They

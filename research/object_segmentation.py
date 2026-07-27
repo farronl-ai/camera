@@ -109,12 +109,18 @@ def fit_motion(features, table, members, shape, frames):
     cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
     motions = {}
     for k in range(frames):
+        # TRANSLATION ONLY, deliberately. A radial term can imitate two
+        # spatially-separated regions translating differently, so a similarity
+        # model lets one consensus swallow a whole two-plane scene and report an
+        # excellent residual for the wrong structure — which is exactly what it
+        # did on the analytic factory. The grouping model must be the one that
+        # CANNOT explain a depth difference (F93/F96).
         rows, target = [], []
         for i in members:
             if np.isnan(table[i, k]):
                 continue
             x, y, nx, ny = features[i]
-            rows.append([(x - cx) * nx + (y - cy) * ny, nx, ny])
+            rows.append([nx, ny])
             target.append(table[i, k])
         if len(rows) < 4:
             continue
@@ -134,8 +140,7 @@ def residuals(features, table, motions, shape):
         for k, solution in motions.items():
             if np.isnan(table[i, k]):
                 continue
-            predicted = (solution[0] * ((x - cx) * nx + (y - cy) * ny)
-                         + solution[1] * nx + solution[2] * ny)
+            predicted = solution[0] * nx + solution[1] * ny
             errs.append(predicted - table[i, k])
         if len(errs) >= MIN_FRAMES:
             out[i] = float(np.sqrt(np.mean(np.square(errs))))

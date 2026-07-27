@@ -115,6 +115,20 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   object's focal plane then propagate along the sweep.
 - **Interior edges make "is this one object?" falsifiable.** Two edges are exactly
   determined — solvable, never testable.
+- **Group depths by the FOCAL SIGNATURE, not by motion** (F97). Each material
+  feature's own sharpness curve across the sweep peaks at its depth; measured focal
+  frames land within 0.1 frame of truth, and groups separate by 2–3 frames against a
+  within-group spread of 0.3–0.6. This is orthogonal to motion — features at one
+  depth blur together whatever they are doing — and it works across scenes with no
+  threshold, where no motion-residual threshold does (each scene wants a value the
+  other cannot use). Let motion confirm rigidity WITHIN a depth instead of asking it
+  to discover depth.
+- **A grouping model must be one that CANNOT explain a depth difference** (F96). A
+  similarity model absorbed a whole two-plane scene into one consensus at 0.92 px
+  residual — right number, wrong structure — because a radial term imitates two
+  separated regions translating differently. Use translation-only for grouping. And
+  do not select a consensus by SIZE: that rewards the compromise fit that counts both
+  planes as inliers.
 - **Define an object as a maximal feature set admitting ONE rigid motion across all
   frames** (F93). Each material edge gives one scalar per frame (its normal
   displacement); a greedy consensus from spatially local seeds keeps a bottle whole

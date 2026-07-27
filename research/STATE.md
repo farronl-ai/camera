@@ -71,6 +71,10 @@ for exactly two frames ≤1600 px (F56), so a stitched composite is outside it.
 
 ## Standing rules for this area
 
+- Depth grouping comes from the per-feature FOCAL SIGNATURE (F97), not from a motion
+  threshold — no motion threshold serves two scenes. Motion confirms rigidity within
+  a depth. Next orthogonal signal, unbuilt: veil vs defocus, one-sided attenuation
+  versus symmetric spread.
 - Before diagnosing a stack, RUN `research/motion_components.py`: it reports
   breathing, forward translation, rotation and lateral parallax with a residual, in
   one pass over all material edges. On kitchen it says breathing ~1.000, rotation

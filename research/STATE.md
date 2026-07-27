@@ -47,6 +47,13 @@ separate from F80's rectangular crop and must stay separate. Derive the ribbon
 from the MEASURED per-bin displacement, never from the smoothed applied field,
 and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
 
+Order of work is settled by F88: fix breathing FIRST, then revisit regions. The
+region machinery separates objects correctly when the geometry is representable
+(factory IoU 79%, object in one region) and fragments the kitchen bottle only
+because a magnifying object needs different translations across its extent under
+a translation-only model. A crude 40% breathing removal already takes the bottle
+from IoU 14.8% to 23.8% and coverage 22% to 42%.
+
 Focus breathing is NOT fully removed by the global affine: the kitchen bottle
 grows 138 -> 160 px (14%) across the raw sweep and still 140 -> 154 after
 alignment. Per-bin TRANSLATION cannot express that, since a residual scale moves

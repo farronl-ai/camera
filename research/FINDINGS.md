@@ -5,6 +5,43 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F88 — The region machinery works; breathing was sabotaging it
+
+Direct question: does the split/merge work actually separate objects? Measured
+against a known silhouette rather than inferred from output quality.
+
+| | IoU | covers | purity | object spread over |
+|---|---:|---:|---:|---|
+| factory, depth bins | 79.1% | 95.9% | 81.8% | 1 region of 4 |
+| factory, split+merge | 79.1% | 95.9% | 81.8% | 1 region of 4 |
+| kitchen, depth bins | 14.1% | 85.9% | 14.4% | 2 regions of 4 |
+| kitchen, split+merge | 14.8% | 22.2% | 30.8% | 2 regions of 7 |
+
+On the factory the object is cleanly isolated, though depth bins alone already
+did that and splitting neither helps nor harms. On the kitchen the bottle
+FRAGMENTS: purity doubles but coverage collapses from 86% to 22%.
+
+That failure is predicted by F87's correction, and the prediction was tested.
+Under a translation-only model a magnifying object genuinely requires different
+translations across its extent, so a motion-clustering is behaving CORRECTLY
+when it cuts the bottle apart. The fragmentation is the missing scale term
+showing through, not a defect in the clustering.
+
+Removing breathing crudely — one global scale per frame taken from the bottle's
+own width, which eliminated only about 40% of it (width spread 22 px -> 13 px) —
+improves object separation immediately:
+
+| | regions | bottle IoU | covers | purity |
+|---|---:|---:|---:|---:|
+| with breathing | 7 | 14.8% | 22.2% | 30.8% |
+| de-breathed | 5 | **23.8%** | **42.0%** | 35.5% |
+
+A partial correction cuts fragmentation, nearly doubles coverage and lifts IoU
+by 60%. The region machinery is therefore sound and is being fed geometry it
+cannot represent. Fix breathing at the global stage — the per-frame
+magnification here runs monotonically from 1.014 to 0.875, an easy signal — and
+revisit the region results before changing the region machinery further.
+
 ## F87 — Edges carry object motion where interiors cannot, once blur bias is removed
 
 F85/F86 group by per-tile residual, which has nothing to measure inside a flat

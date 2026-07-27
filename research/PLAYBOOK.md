@@ -115,6 +115,17 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   object's focal plane then propagate along the sweep.
 - **Interior edges make "is this one object?" falsifiable.** Two edges are exactly
   determined — solvable, never testable.
+- **Grouping FEATURES is solved; turning groups into pixel REGIONS is not** (F98).
+  Features carry evidence — a focal curve, a normal displacement, a confidence — and
+  group cleanly. Most pixels carry none, so any region mask is filled in by a
+  propagation rule that is doing the real work while looking like plumbing. Sparse
+  seeds plus guided propagation cost the factory 0.066 GT-SSIM; dense per-pixel focal
+  peaks tie the shipped bins but still leave the target object at 18% IoU. Prefer
+  evaluating a per-feature motion model through the field it implies over committing
+  to hard region boundaries.
+- **Cluster a 1-D signature with Otsu, not with gaps.** A bimodal distribution whose
+  tails meet has no large consecutive gap, so single-linkage — absolute or
+  median-relative — chains through it into one group every time.
 - **Group depths by the FOCAL SIGNATURE, not by motion** (F97). Each material
   feature's own sharpness curve across the sweep peaks at its depth; measured focal
   frames land within 0.1 frame of truth, and groups separate by 2–3 frames against a

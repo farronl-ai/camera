@@ -5,6 +5,49 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F98 — Feature-level grouping works; turning it into pixel regions does not yet
+
+F97's focal signature is an excellent per-FEATURE measurement, and F93/F96 group
+features into objects well: the kitchen bottle comes out 92.9% pure as a feature
+group, 97% self-consistent under the joint model. The obvious next step — use those
+groups as the region masks the alignment fits — does not work yet.
+
+| region construction | factory GT-SSIM | kitchen bottle IoU | bottle correction |
+|---|---:|---:|---:|
+| shipped valley depth bins | **0.970768** | ~14% | +2.3 px |
+| sparse features, guided propagation | 0.904696 | 12.3% | +2.1 px |
+| dense per-pixel focal peak, Otsu split | 0.969599 | 18.0% | +4.6 px |
+| (truth) | — | — | +19.2 px |
+
+Sparse-to-dense propagation is clearly wrong — a guided filter over sparse seeds
+produced a region covering 72% of the kitchen frame, and cost the factory 0.066
+GT-SSIM. Dense per-pixel focal peaks with subpixel interpolation are far better and
+essentially tie the shipped bins on the factory, but still fail to isolate the
+bottle: its best region reaches 18% IoU and the correction only +4.6 px.
+
+**The gap is now precisely localized.** Grouping is solved at the level of features,
+where the evidence lives — a feature has a focal curve, a normal displacement, and a
+confidence. Region masks are a question about PIXELS, most of which have no such
+evidence at all: the bottle's interior is blank white, so nothing there votes on
+which object it belongs to, and whatever fills it in is doing so by spatial
+propagation rather than measurement. Both constructions tried here fill it in badly.
+
+This is the same shape as the project's older matte lesson: support must come from
+CONTENT, not from a detector's convenient reach. A sparse set of confident features
+plus a propagation rule is not the same object as the thing a human sees, and the
+propagation rule is doing the real work while pretending to be plumbing.
+
+Worth stating plainly: the alignment does not need pixel regions in order to use this
+grouping. A per-feature motion model can be evaluated at any pixel through the
+motion field it implies, without ever committing to a hard region boundary. That
+route is unexplored and avoids the failure above entirely.
+
+Also clustering-method notes, since each cost a run: single-linkage on an absolute
+gap chains straight through a bimodal focal distribution whose tails meet (one group,
+always); gap-relative-to-median has the same failure for the same reason; Otsu asks
+the right question — is this better described as two clumps than one — and splits
+correctly with no tuned distance.
+
 ## F96/F97 — Joint scene motion, and defocus as the orthogonal grouping channel
 
 **F96 — objects, their depths and camera motion solved together.** F93 defines an

@@ -45,6 +45,12 @@ and the affine removes it, and a known-answer-validated estimator measures the
 bottle at scale 1.003–1.008 with ~+19 px of pure translation (F91). Do not build a
 scale term until a region's scale has been measured with a validated instrument.
 
+**Grouping works at FEATURE level; pixel regions are the open problem (F98).** Do
+not spend more effort converting feature groups into region masks by propagation —
+two constructions were tried and neither beats the shipped valley depth bins. The
+promising unexplored route is to skip regions: evaluate the per-feature motion model
+through the dense field it implies, with no hard boundary.
+
 **Object grouping is solved (F93), motion estimation is not.** Defining an object as
 a maximal feature set admitting one rigid motion keeps the kitchen bottle whole (20
 of 21 features inside it) where every earlier grouping fragmented it. What remains is

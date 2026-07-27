@@ -5,6 +5,55 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F89 — Interior edges make the one-object question falsifiable, and solve the motion
+
+Two edges of a candidate object give two measurements for two unknowns,
+translation and magnification, so the system is exactly determined: it can be
+solved but never tested, and "one object breathing" is indistinguishable from
+"two objects moving independently". The edges BETWEEN them break that tie. For a
+single rigid object under magnification, edge displacement must be linear in x
+(`d = a + b*(x - centre)`), so every additional interior edge is a constraint
+the hypothesis can fail.
+
+On the kitchen bottle, using only edges whose match is confident:
+
+| frame | confident edges | translation | magnification | rms residual | verdict |
+|---|---:|---:|---:|---:|---|
+| 7 | 11 | +4.07 | 1.0048 | **0.33** | one object |
+| 8 | 8 | +8.26 | 1.0254 | 1.15 | one object |
+| 9 | 7 | +10.83 | 1.0530 | 2.16 | borderline |
+| 10 | 5 | +9.44 | 1.0897 | 5.41 | interior detail gone |
+| 11 | 3 | -4.47 | 1.0151 | 24.03 | interior detail gone |
+
+Eleven edges agreeing to 0.33 px rms is a positive result, not an absence of
+evidence: the bottle is provably one object, and translation and magnification
+are separately identified, which two edges could never do. The magnification
+also grows monotonically (1.0048, 1.0254, 1.0530, 1.0897), independently
+confirming F87/F88 that residual breathing survives the global affine.
+
+The test degrades exactly where the physics says it must. Interior detail is
+low-contrast and blurs away as the object leaves focus, so the frames far from
+the object's focal plane have nothing to measure. That is a property of the
+scene, not a flaw in the method, and it is repairable: the object's motion is
+smooth across the sweep, so the frames whose interiors ARE resolvable predict
+the ones whose interiors are not.
+
+| frame 11 estimate | value |
+|---|---:|
+| depth-bin fit (F84) | +2.3 px |
+| quadratic extrapolation from 3 usable frames | +23.98 px |
+| **linear extrapolation from 3 usable frames** | **+18.88 px** |
+| truth (ECC over the bottle region) | +19.2 px |
+
+Linear lands within 0.32 px. The quadratic overshoots by 25% because three
+points exactly determine it and leave no slack — with this little data the model
+must be the simplest one the physics allows, not the most flexible.
+
+Order of estimation this establishes: measure where the evidence exists (near an
+object's focal plane), test rigidity there, then propagate along the sweep. Do
+not try to measure an object where it is most defocused; that is where it can
+least be seen.
+
 ## F88 — The region machinery works; breathing was sabotaging it
 
 Direct question: does the split/merge work actually separate objects? Measured

@@ -47,6 +47,13 @@ separate from F80's rectangular crop and must stay separate. Derive the ribbon
 from the MEASURED per-bin displacement, never from the smoothed applied field,
 and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
 
+Object motion is now solvable to sub-pixel on the kitchen bottle (F89):
+interior edges between two candidate edges make "one object" falsifiable and
+separate translation from magnification, then a LINEAR fit over the frames near
+the object's focal plane extrapolates to the blurred frames (+18.88 vs +19.2
+truth, against +2.3 from the depth-bin fit). Measure where the evidence is, not
+where the object is most defocused.
+
 Order of work is settled by F88: fix breathing FIRST, then revisit regions. The
 region machinery separates objects correctly when the geometry is representable
 (factory IoU 79%, object in one region) and fragments the kitchen bottle only

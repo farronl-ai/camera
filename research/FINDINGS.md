@@ -5,6 +5,54 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F100 — Motion-group alignment finally corrects the bottle
+
+Wiring together what F99 identified as already-solved-but-disconnected: material
+edges (F92), motion-consensus grouping (F93), focal-proximity trust plus temporal
+propagation (F89), and support built from a group's own features rather than by
+segmenting the frame (F98's unexplored route).
+
+`research/group_align.py`. On the kitchen sweep the grouping isolates the bottle at
+92.9% purity in a 14-feature group, that group measures **+18.54 px at frame 11**
+against ~+19.2 truth, and the correction lands:
+
+| frame | global-only residual | motion-group residual |
+|---|---:|---:|
+| 8 | +9.09 px | **+1.68 px** |
+| 9 | +12.53 px | **+1.10 px** |
+| 10 | +16.21 px | **+1.67 px** |
+| 11 | +19.97 px | **+1.47 px** |
+
+About a 92% reduction, and visible: the ghost band and doubled strip along the
+bottle's right edge are substantially gone.
+
+Two bugs stood between "the motion is measured correctly" and "the correction is
+applied", and both were in the painting rather than the estimation:
+
+1. **Claim strength must be a GATE, not a scale factor.** Attenuating each group's
+   correction by its guided-support value shaved 30% off it at the bottle's own label
+   centre — a pixel the group owned outright with weight 1.00 — and 42% at its edge,
+   because a guided-filtered seed stays below 1 even deep inside an object. A pixel a
+   group clearly owns must get that group's motion in full.
+2. **Support must be the convex hull of a group's features, not their
+   neighbourhoods.** Features cluster on whatever part of an object carries texture —
+   here the printed label — so circles around them left the bottle's top and bottom
+   entirely unclaimed and uncorrected (applied dx +0.35 and +0.00). An object is
+   connected; the hull of its features is a far better first guess at its body.
+
+Sharpening the memberships was tried first and is NOT the fix: it moved frame 11 from
++14.8 to +14.3 across a 4x sharpness range, because the limiter was the claim gate
+and the missing support, not the blending.
+
+**Not integrated, and two things block it.** The method declines to engage where the
+grouping yields fewer than two groups, which is correct on the zero-motion sentinel
+(0.03 px introduced) but wrong on the analytic factory, where two planes exist and
+the consensus still collapses to one group — the same collapse F96 diagnosed and the
+focal-signature grouping (F97) is meant to fix, unwired here. And the group path does
+not yet carry the disocclusion refusal the shipped path applies, so the fusion
+comparisons run above are not like-for-like and the Q_SSIM figures from them should
+be ignored (F81a applies doubly).
+
 ## F99 — Depth cannot drive the correction; motion grouping must. (What was missed)
 
 Asked to re-read the arc and find what was missed that would fix the shipped output.

@@ -45,7 +45,17 @@ and the affine removes it, and a known-answer-validated estimator measures the
 bottle at scale 1.003–1.008 with ~+19 px of pure translation (F91). Do not build a
 scale term until a region's scale has been measured with a validated instrument.
 
-**The fix for the shipped bottle is F89 + F93, and it was never wired in (F99).**
+**F100 corrects the bottle: residual 19.97 -> 1.47 px, ghost band visibly gone**
+(`research/group_align.py`). Motion-group alignment — material edges, consensus
+grouping, focal-weighted motion with temporal propagation, support from each group's
+convex hull. Two painting bugs mattered more than any estimator: claim strength is a
+GATE not a scale factor (a fully-owned pixel was losing 30-42% of its correction),
+and support must be the hull of a group's features, not their neighbourhoods (the
+bottle's top and bottom got nothing). Before integrating: make it ENGAGE on the
+factory, where two planes exist but the consensus collapses to one group (use F97's
+focal-signature grouping), and carry the disocclusion refusal through.
+
+**Its ingredients were the ones F99 found already solved and disconnected.**
 F89 measures that object at +18.88 vs +19.2 truth by using frames near the reference
 and propagating; F93 identifies which features are it (92.9-100% pure). Do NOT key
 the correction on depth — a depth-keyed curve never exceeds +/-5 px at the bottle's

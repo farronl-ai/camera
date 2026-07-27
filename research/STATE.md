@@ -41,7 +41,13 @@ exactly once. Do not answer this with a more flexible single global warp, and do
 not replace valley edges with quantiles — that puts a seam through the middle of
 an object. F79's coherent source route stays as the safe fusion fallback.
 
-Two alignment negatives are load-bearing (F81b): a model linear in the depth
+F82 adds the second half: parallax uncovers scene, so `align_stack` also
+returns per-pixel `usable` masks and fusion refuses those pixels. This is
+separate from F80's rectangular crop and must stay separate. Derive the ribbon
+from the MEASURED per-bin displacement, never from the smoothed applied field,
+and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
+
+Three alignment negatives are load-bearing (F81b, F82b): a model linear in the depth
 proxy loses to nonparametric bins, and the alternating motion/depth/calibration
 estimator (`depth_model="joint"`), while achieving the best registration of any
 variant, invents motion on the zero-motion sentinel and is not promotable. Do

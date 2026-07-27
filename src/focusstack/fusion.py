@@ -224,9 +224,41 @@ def guided_filter(
     return _box(a, radius) * guide + _box(b, radius)
 
 
+def _apply_usability(energy: np.ndarray, usable: list[np.ndarray] | None) -> np.ndarray:
+    """Remove frames from the focus contest where they have nothing to offer.
+
+    A frame that cannot legitimately supply a pixel (parallax uncovered the
+    scene there, so the observation does not exist) must not be able to win it.
+    Its energy is pushed below every real energy rather than merely reduced, so
+    the decision falls to a frame that actually saw the surface.
+    """
+    if usable is None:
+        return energy
+    blocked = ~np.stack([np.asarray(m, dtype=bool) for m in usable], axis=0)
+    if not blocked.any():
+        return energy
+    # Where every frame is blocked, block none: an unusable pixel is still
+    # better served by the ordinary contest than by an arbitrary choice.
+    blocked &= ~blocked.all(axis=0, keepdims=True)
+    return np.where(blocked, -1.0, energy)
+
+
+def _usability_weights(
+    weights: np.ndarray, usable: list[np.ndarray] | None
+) -> np.ndarray:
+    """Zero the blending weight of frames that cannot supply a pixel."""
+    if usable is None:
+        return weights
+    mask = np.stack([np.asarray(m, dtype=np.float32) for m in usable], axis=0)
+    keep = mask.sum(axis=0, keepdims=True) > 0.0
+    masked = np.where(keep, weights * mask, weights)
+    return masked / (masked.sum(axis=0, keepdims=True) + 1e-8)
+
+
 def _guided_weights(
     images: list[np.ndarray], focus_method: str, radius: int, eps: float,
     smooth_ksize: int = 9, harden: float = 0.0, guide_scale: float = 1.0,
+    usable: list[np.ndarray] | None = None,
 ) -> np.ndarray:
     """Per-frame, edge-aware fusion weight maps summing to 1 at every pixel.
 
@@ -270,7 +302,7 @@ def _guided_weights(
     else:
         focus = [focus_measure(to_gray_float(img), method=focus_method, smooth_ksize=smooth_ksize)
                  for img in images]
-    energy = np.stack(focus, axis=0)
+    energy = _apply_usability(np.stack(focus, axis=0), usable)
     winner = np.argmax(energy, axis=0)  # (H, W)  — full res
 
     conf = None
@@ -300,16 +332,17 @@ def _guided_weights(
             wg = (1.0 - conf) * wg + conf * raw          # full-res hard-select where confident
         weights.append(wg)
 
-    w = np.stack(weights, axis=0)
+    w = _usability_weights(np.stack(weights, axis=0), usable)
     return w / (w.sum(axis=0, keepdims=True) + 1e-8)     # partition of unity
 
 
-def _weights(images, focus_method, radius, eps, smooth_ksize, harden, weight_scale=1.0):
+def _weights(images, focus_method, radius, eps, smooth_ksize, harden, weight_scale=1.0,
+             usable=None):
     """Fusion weights; `weight_scale` < 1 subscales the costly guided-filter step
     for a high-res speedup while keeping focus/confidence/decision full-res so thin
     structures (and `harden`) are preserved. See `_guided_weights` guide_scale."""
     return _guided_weights(images, focus_method, radius, eps, smooth_ksize, harden,
-                           guide_scale=weight_scale)
+                           guide_scale=weight_scale, usable=usable)
 
 
 def fuse_decision(
@@ -392,6 +425,7 @@ def fuse_coherent(
     smooth_ksize: int | None = None,
     harden: float = 0.5,
     return_weights: bool = False,
+    usable: list[np.ndarray] | None = None,
 ):
     """Ghost-resistant shared-decision fusion for unstable N-frame stacks.
 
@@ -408,6 +442,7 @@ def fuse_coherent(
         eps,
         smooth_ksize,
         harden,
+        usable=usable,
     )
     winner = np.argmax(soft_weights, axis=0)
     yy, xx = np.indices(winner.shape)
@@ -566,6 +601,7 @@ def fuse_perband(
     veil_far_idx: int = -1,
     veil_models: list[dict] | None = None,
     stack_consistency: bool | None = None,
+    usable: list[np.ndarray] | None = None,
 ) -> np.ndarray:
     """Per-band edge-aware fusion — pyramid's multi-scale DECISION + guided (halo-free).
 
@@ -613,6 +649,7 @@ def fuse_perband(
                 images,
                 eps=eps,
                 harden=harden,
+                usable=usable,
             )
 
     floats = [img.astype(np.float32) for img in images]
@@ -620,6 +657,13 @@ def fuse_perband(
     levels = _auto_levels(floats[0].shape, None)
     image_pyramids = [_laplacian_pyramid(im, levels) for im in floats]
     guide_pyramids = [_gaussian_pyramid(to_gray_float(f), levels) for f in images]
+    # Usability follows the pyramid down: a ribbon of uncovered scene is a
+    # fine-scale fact, and coarse bands must not import it either.
+    usable_pyramids = None
+    if usable is not None:
+        usable_pyramids = [
+            _gaussian_pyramid(np.asarray(m, dtype=np.float32), levels) for m in usable
+        ]
 
     # Optional boundary map B in [0,1] (from the boundary engine): consumed as its
     # OWN guide component (F30: never filter B through luminance alone, or the
@@ -695,6 +739,10 @@ def fuse_perband(
             energy = np.stack(
                 [cv2.boxFilter((coeffs[k] ** 2).sum(axis=2), cv2.CV_32F, (k_b, k_b))
                  for k in range(n)], axis=0)
+            band_usable = None
+            if usable_pyramids is not None:
+                band_usable = [usable_pyramids[k][band] > 0.5 for k in range(n)]
+                energy = _apply_usability(energy, band_usable)
             winner = np.argmax(energy, axis=0)
             conf = None
             if harden > 0:
@@ -710,7 +758,7 @@ def fuse_perband(
                 if conf is not None:
                     wg = (1.0 - conf) * wg + conf * raw
                 weights.append(wg)
-            w = np.stack(weights, axis=0)
+            w = _usability_weights(np.stack(weights, axis=0), band_usable)
             w /= (w.sum(axis=0, keepdims=True) + 1e-8)
             fb = sum(w[k][..., None] * coeffs[k] for k in range(n))
             for fidx, dp in d_pyrs.items():

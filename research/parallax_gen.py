@@ -14,6 +14,9 @@ not be: a disk (not Gaussian) defocus PSF, an occluding foreground with a real
 silhouette, hard thin structure that visibly doubles when misregistered, and a
 near/far displacement ratio large enough that no single warp can fit both.
 
+`+refusal` is the same output with parallax-uncovered pixels withheld from the
+focus contest, which is where the second half of the gain lives.
+
 Run directly to compare the global-only aligner against the depth-aware pass:
 
     .venv/bin/python research/parallax_gen.py
@@ -144,7 +147,9 @@ def evaluate(frames, truth, near_mask, depth_bins, depth_model="bins"):
     aligned, report = align_stack(frames, motion="affine", depth_bins=depth_bins,
                                   depth_model=depth_model, return_report=True)
     x0, y0, x1, y1 = report["crop"]
+    usable = report["usable"] if depth_bins else None
     fused = fuse_perband(aligned)
+    fused_masked = fuse_perband(aligned, usable=usable)
     truth_cropped = truth[y0:y1, x0:x1]
     near = near_mask[y0:y1, x0:x1]
 
@@ -157,7 +162,9 @@ def evaluate(frames, truth, near_mask, depth_bins, depth_model="bins"):
 
     return {
         "gt_ssim": metrics.ref_ssim(fused, truth_cropped),
-        "gt_psnr": metrics.ref_psnr(fused, truth_cropped),
+        "gt_ssim_masked": metrics.ref_ssim(fused_masked, truth_cropped),
+        "gt_psnr": metrics.ref_psnr(fused_masked, truth_cropped),
+        "withheld": float(np.mean([1.0 - m.mean() for m in usable])) if usable else 0.0,
         "instability": selection_instability_score(aligned),
         "near_px": float(np.nanmean(residuals["near"])),
         "far_px": float(np.nanmean(residuals["far"])),
@@ -168,15 +175,15 @@ def evaluate(frames, truth, near_mask, depth_bins, depth_model="bins"):
 
 def main() -> None:
     frames, truth, near_mask = build_stack()
-    print(f"{'variant':<22} {'GT-SSIM':>9} {'PSNR':>7} {'near px':>8} {'far px':>7} "
-          f"{'stretch':>8} {'bins':>5}")
+    print(f"{'variant':<22} {'GT-SSIM':>9} {'+refusal':>9} {'PSNR':>7} {'near px':>8} "
+          f"{'far px':>7} {'withheld':>9} {'bins':>5}")
     for bins, model, label in ((0, "bins", "global affine only"),
                                (3, "bins", "depth-binned"),
                                (3, "joint", "joint (experimental)")):
         result, fused, truth_cropped = evaluate(frames, truth, near_mask, bins, model)
-        print(f"{label:<22} {result['gt_ssim']:9.6f} {result['gt_psnr']:7.3f} "
-              f"{result['near_px']:8.3f} {result['far_px']:7.3f} "
-              f"{result['stretch']:8.3f} {result['bins']:5d}")
+        print(f"{label:<22} {result['gt_ssim']:9.6f} {result['gt_ssim_masked']:9.6f} "
+              f"{result['gt_psnr']:7.3f} {result['near_px']:8.3f} {result['far_px']:7.3f} "
+              f"{result['withheld'] * 100:8.2f}% {result['bins']:5d}")
 
 
 if __name__ == "__main__":

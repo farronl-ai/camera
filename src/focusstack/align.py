@@ -92,6 +92,14 @@ _REFINE_MEMBERSHIP_EPS = 1e-3
 # sampling field may TRANSPORT content freely; what it must not do is stretch
 # it, because that is geometry the camera never saw.
 _REFINE_STRETCH_TOLERANCE = 0.10
+# Widest disocclusion ribbon considered; beyond this the frame is so displaced
+# that the binned model is out of its depth anyway.
+_OCCLUSION_MAX_RADIUS = 24
+# How abruptly depth must change to count as one surface passing in front of
+# another, as a fraction of the full depth range. Absolute on purpose: it is a
+# claim about the scene, so it must not loosen just because more bins were asked
+# for. A gradual ramp fails it at every bin count.
+_OCCLUSION_MIN_DEPTH_STEP = 0.10
 # Joint motion/depth estimation. Tiles are the observation unit: enough of them
 # to constrain seven parameters robustly, each large enough for phase
 # correlation to be reliable.
@@ -523,6 +531,71 @@ def _limit_field_stretch(
     return (base_x + disp_x).astype(np.float32), (base_y + disp_y).astype(np.float32)
 
 
+def _occlusion_mask(
+    displacement_x: np.ndarray,
+    displacement_y: np.ndarray,
+    depth_step: np.ndarray,
+    tolerance: float = 1.0,
+) -> np.ndarray:
+    """Pixels this frame cannot legitimately supply, because nothing was behind.
+
+    Lateral camera motion does not merely shift a near object; it swings the
+    object across the background, uncovering scene on one side and hiding it on
+    the other. Those pixels have no correspondence at all — the observation
+    simply does not exist in this frame — so no warp, however good, can produce
+    them, and any value there is interpolated from the wrong surface. F80 threw
+    away invented data at the outer border; this is the same rule applied where
+    the invention happens in the interior.
+
+    The test is geometric on purpose. Photometric agreement cannot be used in a
+    focus stack, because frames legitimately disagree wherever defocus differs,
+    which is everywhere that matters. Instead: if the displacement disagrees by
+    more than `tolerance` pixels within a neighbourhood, then one sampling field
+    is being asked to serve two surfaces moving differently, and the pixels
+    between them belong to whichever surface wins — not reliably to this frame.
+
+    Feed this the MEASURED per-region displacement, not the field that was
+    finally applied. Uncovering is a fact about the scene and the camera, so it
+    happened whether or not the correction chose to model it; a conservatively
+    smoothed field would otherwise report that nothing was ever uncovered.
+
+    `depth_step` is required and does real work: binning turns a smoothly
+    receding surface, like a countertop running away from the camera, into a
+    staircase of displacements, and those manufactured risers are not occlusion
+    boundaries. A continuous surface hides nothing behind itself. Only where the
+    scene's depth genuinely jumps can one surface pass in front of another, so
+    the ribbon is admitted only near a real discontinuity.
+
+    The ribbon's width is not free either: a foreground that moves Q px relative
+    to its background uncovers a strip exactly Q px wide, so a pixel is at risk
+    only if it lies within Q of a step of height Q. Testing that at one scale
+    would either miss narrow ribbons or condemn whole regions around wide ones,
+    so it is tested at a ladder of radii and a pixel fails if it fails any of
+    them. Small steps therefore cost a couple of pixels, not a neighbourhood.
+    """
+    displacement_x = np.ascontiguousarray(displacement_x, dtype=np.float32)
+    displacement_y = np.ascontiguousarray(displacement_y, dtype=np.float32)
+
+    edge = np.ascontiguousarray(depth_step, dtype=np.uint8)
+    if not edge.any():
+        return np.zeros(displacement_x.shape, dtype=bool)
+
+    mask = np.zeros(displacement_x.shape, dtype=bool)
+    radius = 1
+    while radius <= _OCCLUSION_MAX_RADIUS:
+        window = np.ones((2 * radius + 1, 2 * radius + 1), np.uint8)
+        spread = np.maximum(
+            cv2.dilate(displacement_x, window) - cv2.erode(displacement_x, window),
+            cv2.dilate(displacement_y, window) - cv2.erode(displacement_y, window),
+        )
+        # Within `radius` of a step at least `radius` tall, and within reach of
+        # a real depth discontinuity. Never below the subpixel floor, where a
+        # "step" is just interpolation noise.
+        mask |= (spread > max(float(radius), tolerance)) & (cv2.dilate(edge, window) > 0)
+        radius *= 2
+    return mask
+
+
 def _field_stretch(map_x: np.ndarray, map_y: np.ndarray) -> float:
     """Worst local stretch the sampling field imposes, as a deviation from 1.
 
@@ -693,6 +766,7 @@ def _joint_motion_depth_fields(
     current = list(coarse)
     valid = list(coarse_valid)
     corrected_frames: set[int] = set()
+    depth_step = np.zeros((h, w), dtype=np.uint8)
 
     for _iteration in range(iterations):
         depth = depth_from_focus(current)
@@ -709,6 +783,11 @@ def _joint_motion_depth_fields(
             break
         bin_map = np.clip(np.digitize(depth, edges[1:-1]), 0, edges.size - 2)
         bin_count = int(edges.size - 1)
+        probe = np.ones((5, 5), np.uint8)
+        depth_step = (
+            (cv2.dilate(depth, probe) - cv2.erode(depth, probe))
+            > _OCCLUSION_MIN_DEPTH_STEP
+        ).astype(np.uint8)
 
         centres = np.array(
             [float(np.median(depth[bin_map == b])) if (bin_map == b).any() else 0.0
@@ -796,15 +875,19 @@ def _joint_motion_depth_fields(
             break
 
     output = {}
+    occlusion: dict[int, np.ndarray] = {}
     for i in sorted(corrected_frames):
         map_x, map_y = fields[i]
+        base_x, base_y = _matrix_field(_homogeneous(global_warps[i]), (h, w))
+        occlusion[i] = _occlusion_mask(map_x - base_x, map_y - base_y, depth_step)
         if stretch_tolerance > 0.0:
-            base_x, base_y = _matrix_field(_homogeneous(global_warps[i]), (h, w))
             map_x, map_y = _limit_field_stretch(
                 map_x, map_y, base_x, base_y, stretch_tolerance
             )
+        report["frames"][i]["occluded_fraction"] = float(occlusion[i].mean())
         report["frames"][i]["stretch"] = _field_stretch(map_x, map_y)
         output[i] = (map_x, map_y)
+    report["occlusion"] = occlusion
     return output, report
 
 
@@ -870,6 +953,13 @@ def _depth_binned_fields(
     memberships = [(m / denominator).astype(np.float32) for m in memberships]
     fallback = (fallback / denominator).astype(np.float32)
 
+    # A genuine discontinuity: depth crossing most of a bin's width within a
+    # few pixels. A gradual ramp never trips this, however many bins span it.
+    probe = np.ones((5, 5), np.uint8)
+    depth_step = (
+        (cv2.dilate(depth, probe) - cv2.erode(depth, probe)) > _OCCLUSION_MIN_DEPTH_STEP
+    ).astype(np.uint8)
+
     centers = [float(np.median(depth[mask])) if mask.any() else 0.0 for mask in masks]
     textured = [_bin_is_textured(gradient, mask) for mask in masks]
     populated = [
@@ -877,6 +967,7 @@ def _depth_binned_fields(
     ]
 
     fields: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+    occlusion: dict[int, np.ndarray] = {}
     for i, image in enumerate(images):
         if i == ref_index or global_warps[i] is None:
             continue
@@ -917,16 +1008,27 @@ def _depth_binned_fields(
             map_x, map_y = field
         else:
             map_x, map_y = _blended_coordinate_maps(matrices, weights, (h, w))
-            if stretch_tolerance > 0.0:
-                base_x, base_y = _blended_coordinate_maps(
-                    [base], [np.ones((h, w), dtype=np.float32)], (h, w)
-                )
-                map_x, map_y = _limit_field_stretch(
-                    map_x, map_y, base_x, base_y, stretch_tolerance
-                )
+        base_x, base_y = _matrix_field(base, (h, w))
+        # Built from the per-bin shifts as MEASURED, on hard bin support: this
+        # is the relative motion the scene actually underwent, before any
+        # membership smoothing or stretch relaxation softened the steps out of
+        # the applied field.
+        hard_x = np.zeros((h, w), dtype=np.float32)
+        hard_y = np.zeros((h, w), dtype=np.float32)
+        for mask, shift in zip(masks, shifts):
+            if shift is not None:
+                hard_x[mask] = shift[0]
+                hard_y[mask] = shift[1]
+        occlusion[i] = _occlusion_mask(hard_x, hard_y, depth_step)
+        if depth_model != "linear" and stretch_tolerance > 0.0:
+            map_x, map_y = _limit_field_stretch(
+                map_x, map_y, base_x, base_y, stretch_tolerance
+            )
+        report["frames"][i]["occluded_fraction"] = float(occlusion[i].mean())
         report["frames"][i]["stretch"] = _field_stretch(map_x, map_y)
         fields[i] = (map_x, map_y)
 
+    report["occlusion"] = occlusion
     return fields, report
 
 
@@ -937,7 +1039,7 @@ def align_stack(
     max_iterations: int = 500,
     eps: float = 1e-6,
     crop_valid: bool = True,
-    depth_bins: int = 3,
+    depth_bins: int = 4,
     depth_model: str = "bins",
     stretch_tolerance: float = _REFINE_STRETCH_TOLERANCE,
     return_report: bool = False,
@@ -1079,11 +1181,28 @@ def align_stack(
             )
             valid_masks[i] = refined_valid == 255
 
+    # Per-pixel usability, kept SEPARATE from the rectangular crop above. The
+    # crop answers "which pixels did every frame observe at all"; this answers
+    # "which pixels can this particular frame legitimately supply", which
+    # parallax makes a different question near every depth step.
+    occlusion = report.get("occlusion", {})
+    usable = [
+        ~occlusion[i] if i in occlusion else np.ones((h, w), dtype=bool)
+        for i in range(n)
+    ]
+
     if crop_valid:
         common_valid = np.logical_and.reduce(valid_masks)
         x0, y0, x1, y1 = _largest_valid_rectangle(common_valid)
         aligned = [img[y0:y1, x0:x1].copy() for img in aligned]
+        usable = [mask[y0:y1, x0:x1].copy() for mask in usable]
         report["crop"] = (x0, y0, x1, y1)
+
+    # The reference frame is unwarped, so it always has a real observation
+    # everywhere. That guarantees every output pixel keeps at least one usable
+    # source and fusion can never be left with nothing to choose from.
+    report["usable"] = usable
+    report.pop("occlusion", None)
 
     if return_report:
         return aligned, report

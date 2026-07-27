@@ -5,6 +5,81 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F82 — Parallax uncovers scene, and the uncovered ribbon must be discarded
+
+Lateral camera motion does not merely shift a near object; it swings it across
+the background, revealing scene on one side and hiding it on the other. Those
+pixels have no correspondence in that frame at all, so no warp can supply them
+and any value there is interpolated off the wrong surface. Fusion then mixes a
+bottle's outer edge with what was behind it. F80 discarded invented data at the
+outer border; this is the same rule applied where the invention happens in the
+interior, as per-pixel validity rather than a rectangle.
+
+On the analytic parallax factory this is worth as much again as the alignment
+fix itself:
+
+| | GT-SSIM | PSNR | withheld |
+|---|---:|---:|---:|
+| global affine only | 0.875425 | 23.343 | — |
+| depth-aware alignment | 0.966007 | 29.660 | 0% |
+| **+ disocclusion refusal** | **0.978509** | **31.816** | 11.86% |
+
+Real sweeps at the shipped default (4 bins), near-content residual and the
+fraction each frame withholds:
+
+| Sweep | near residual | withheld/frame | Q_SSIM |
+|---|---:|---:|---:|
+| kitchen, 12 frames | 2.190 → 0.544 px | 4.32% | 0.911196 → 0.910074 |
+| large-motion, 14 frames | 1.540 → 0.907 px | 4.09% | 0.942354 → 0.928407 |
+| small-motion, 14 frames | 0.469 → 0.227 px | 0.94% | 0.981779 → 0.980734 |
+| zero-motion, 14 frames | 0.046 → 0.031 px | 0.11% | 0.986779 → 0.986336 |
+
+The withheld fraction tracks how much the camera actually moved, which is the
+behaviour to demand: a still stack discards essentially nothing.
+
+Four properties had to hold, and three of them were wrong on the first attempt:
+
+1. **The test must be geometric, never photometric.** In a focus stack frames
+   legitimately disagree wherever defocus differs, so "these pixels disagree"
+   cannot separate occlusion from blur.
+2. **Derive it from the MEASURED per-region displacement, not the applied
+   field.** Uncovering is a fact about the scene, so it happened whether or not
+   the correction modelled it. Reading it off the smoothed, stretch-limited
+   field reported almost nothing on the kitchen sweep (0.06% withheld) precisely
+   where the visible defect is.
+3. **The ribbon is as wide as the step is tall.** A foreground moving Q px
+   relative to its background uncovers a Q px strip. Testing at one scale with a
+   fixed tolerance condemned 38.6% of the large-motion frame; testing at a ladder
+   of radii, where radius r requires a step of at least r, brought the same
+   sweep to 4.09% without losing the real ribbons.
+4. **Only genuine depth discontinuities qualify.** A continuously receding
+   surface hides nothing, but binning turns it into a staircase of displacements.
+   The gate must be an absolute depth jump; expressing it as a fraction of bin
+   width made it loosen as bins increased, which is backwards, and it was
+   effectively inert until fixed.
+
+Bin count moved to 4 on the same evidence: kitchen's near residual improves
+1.481 → 0.544 px going from 3 to 4 bins. Registration keeps improving at 5 on
+the two 14-frame sweeps (large-motion 0.300 px) but withholds more, and the
+optimum is scene-dependent, so 4 is a compromise rather than a discovered value.
+
+### F82a — GT and no-reference metrics disagree about refusal, and GT is right
+
+Q_SSIM prefers *less* masking on every real sweep, and it is wrong to. It scores
+the fused image against its locally sharpest source, so deliberately refusing an
+untrustworthy-but-sharp source always looks like a loss to it. On the factory,
+where truth exists, refusal is worth +0.0125 GT-SSIM and +2.2 dB. This is F81a
+again with a sharper edge: the no-reference metrics cannot see the difference
+between using data and using data that should not exist.
+
+### F82b — Rejected: median-stabilizing the depth map before the step test
+
+Depth-from-focus speckle scatters some refusals onto surfaces that never
+occluded anything, so a median filter ahead of the step test looked obviously
+right. It made concentration on the true silhouette *worse* (2.81x -> 2.07x) and
+withheld more. Not kept. The ribbon is currently ~2.8x concentrated on the
+silhouette, and the residual scatter is unexplained.
+
 ## F81 — Depth-dependent parallax needs a depth-binned field, not a better global warp
 
 F79 and F80 handled the *consequences* of unresolved parallax. This is the

@@ -44,10 +44,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--align-depth-bins",
         type=int,
-        default=3,
+        default=4,
         metavar="N",
         help="Depth bins used to correct depth-dependent parallax after the "
-        "global warp (default: 3; 0 disables). Handheld rotation pivots around "
+        "global warp (default: 4; 0 disables). Handheld rotation pivots around "
         "the device rather than the lens, so near and far content shift by "
         "different amounts and no single global warp fits both. Ignored for "
         "stacks of fewer than three frames.",

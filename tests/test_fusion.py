@@ -200,3 +200,34 @@ def test_guided_filter_preserves_flat_and_edges():
     out = guided_filter(guide, guide.copy(), radius=6, eps=1e-6)
     step = abs(float(out[:, 40].mean()) - float(out[:, 24].mean()))
     assert step > 0.8  # the ~1.0 contrast across the edge is retained
+
+
+def test_usability_mask_is_inert_when_everything_is_usable():
+    """The masked path must be byte-identical when nothing is withheld."""
+    rng = np.random.default_rng(5)
+    images = [rng.integers(0, 255, (80, 96, 3), dtype=np.uint8) for _ in range(3)]
+    plain = fuse_perband(images)
+    masked = fuse_perband(images, usable=[np.ones((80, 96), bool) for _ in images])
+    assert np.array_equal(plain, masked)
+
+
+def test_a_withheld_frame_cannot_win_the_focus_contest():
+    """A frame with no real observation must not supply the pixels it lacks."""
+    rng = np.random.default_rng(6)
+    blurred = cv2.GaussianBlur(
+        rng.integers(0, 255, (80, 96, 3), dtype=np.uint8), (0, 0), 3.0
+    )
+    sharp = rng.integers(0, 255, (80, 96, 3), dtype=np.uint8)
+
+    # `sharp` would win everywhere on focus energy alone; withhold its left half.
+    usable = [np.ones((80, 96), bool), np.ones((80, 96), bool)]
+    usable[1][:, :48] = False
+    fused = fuse_perband([blurred, sharp], usable=usable)
+
+    left_from_blurred = np.abs(
+        fused[:, :48].astype(float) - blurred[:, :48].astype(float)
+    ).mean()
+    left_from_sharp = np.abs(
+        fused[:, :48].astype(float) - sharp[:, :48].astype(float)
+    ).mean()
+    assert left_from_blurred < left_from_sharp

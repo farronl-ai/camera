@@ -49,7 +49,7 @@ def run(
     method: str = "perband",
     align: bool = True,
     align_motion: str = "affine",
-    align_depth_bins: int = 3,
+    align_depth_bins: int = 4,
     align_depth_model: str = "bins",
     focus_method: str = "content_aware",
     levels: int | None = None,
@@ -72,6 +72,7 @@ def run(
         if verbose:
             print(f"[focusstack] {msg}")
 
+    usable: list[np.ndarray] | None = None
     named = fio.load_images(inputs)
     names = [name for name, _ in named]
     images = [img for _, img in named]
@@ -92,6 +93,13 @@ def run(
         if corrected:
             log(f"depth-aware pass corrected {corrected} frame(s) "
                 f"across {align_report['bins']} depth bins")
+        # Pixels parallax uncovered: present in some frames, absent in others.
+        usable = align_report.get("usable")
+        if usable is not None:
+            withheld = float(np.mean([1.0 - m.mean() for m in usable]))
+            if withheld > 0:
+                log(f"withholding {withheld * 100:.1f}% of pixels per frame "
+                    f"as parallax-uncovered")
 
     if normalize_exposure:
         log("normalizing per-frame exposure/WB drift ...")
@@ -147,7 +155,7 @@ def run(
                 fio.save_image(os.path.join(debug_dir, f"weight_{stem}.png"), _normalize_map(wmap))
     elif method == "perband":
         log("fusing (per-band edge-aware) ...")
-        fused = fuse_perband(images, harden=harden)
+        fused = fuse_perband(images, harden=harden, usable=usable)
     else:
         raise ValueError(
             f"Unknown method {method!r}; use 'blend', 'perband', 'decision', 'pyramid', or 'max'."

@@ -172,6 +172,41 @@ def test_depth_aware_field_does_not_distort_content():
         assert frame["stretch"] < 1.0
 
 
+def test_parallax_withholds_a_ribbon_along_the_occluding_silhouette():
+    """Scene uncovered by parallax has no correspondence and must be refused.
+
+    The ribbon also has to be in the right PLACE: hugging the near object's
+    silhouette, not scattered over surfaces that never occluded anything.
+    """
+    stack, near_mask, reference = _parallax_stack()
+    _, report = align_stack(stack, depth_bins=4, crop_valid=False, return_report=True)
+    usable = report["usable"]
+
+    assert usable[reference].all(), "the unwarped reference always has real data"
+    withheld = np.stack([~m for m in usable]).any(axis=0)
+    assert withheld.any(), "a parallax stack must uncover something"
+
+    silhouette = cv2.dilate(
+        cv2.Canny(near_mask.astype(np.uint8) * 255, 50, 150),
+        np.ones((41, 41), np.uint8),
+    ) > 0
+    # Concentration, not exclusivity: depth-from-focus is imperfect away from
+    # the boundary too, and refusing a few extra pixels is the safe direction.
+    # A ribbon scattered at random would sit at ~1.0.
+    near_silhouette = float(withheld[silhouette].mean())
+    elsewhere = float(withheld[~silhouette].mean())
+    assert near_silhouette > 2.0 * elsewhere, (
+        f"ribbon not concentrated on the silhouette: {near_silhouette:.3f} vs {elsewhere:.3f}"
+    )
+
+
+def test_a_still_stack_withholds_nothing():
+    """No relative motion means nothing was uncovered; refuse to discard data."""
+    frames = [_textured_scene(seed=41, h=200, w=260) for _ in range(4)]
+    _, report = align_stack(frames, depth_bins=4, crop_valid=False, return_report=True)
+    assert all(mask.all() for mask in report["usable"])
+
+
 def test_alignment_crops_to_pixels_observed_by_every_frame(monkeypatch):
     ref = _textured_scene(seed=3, h=120, w=160)
     other = ref.copy()

@@ -5,6 +5,59 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F84 — Veiling is real but must not be a hard mask; depth bins are the actual blocker
+
+Two instruments were built for the two defects visible at the kitchen bottle,
+deliberately on the smallest data that can show them (the analytic factory plus
+one real sweep). `research/boundary_probe.py` runs both.
+
+**Veiling — negative, in the regime built to favour it.** A defocused occluder
+spreads its own material outward over the background and never pulls background
+inward, so a mask can take its direction from the occluder and its width from
+that occluder's defocus. Width needs no blur estimator: contrast-over-gradient
+saturates by 2 px of blur (0.25/0.78/1.02/1.58 at radii 0/1/4/12) and reads 4-7
+on real frames where texture swamps the window, but F83's contour reading
+already names the occluder's focal frame, so the width is just how far a frame
+sits from it. That version behaves correctly — the occluder's own focal frame
+veils nothing — and still loses:
+
+| regime | no refusal | ribbon | veil | ribbon+veil |
+|---|---:|---:|---:|---:|
+| parallax-dominant | 0.966007 | **0.978509** | 0.966610 | 0.978728 |
+| veil-dominant | 0.982593 | 0.982604 | 0.980566 | 0.980593 |
+| both strong | 0.970096 | **0.973777** | 0.968295 | 0.972802 |
+
+It is not redundancy with `harden`: at `harden=0` the veil mask still costs
+-0.0024. Refusing veiled background forces fusion onto frames where the
+BACKGROUND is defocused, trading contaminated-but-sharp for clean-but-blurry,
+and GT prefers the former. Meanwhile `harden` — the same physics expressed as a
+soft down-weight — gains 0.980438 -> 0.982593 in that regime.
+
+The lesson generalizes beyond veiling: per-pixel validity can only refuse, and
+refusal is the wrong verb for contamination that is partial. A veiled pixel is a
+mixture in some proportion, not an absence. Disocclusion earns a hard mask (F82)
+because the observation genuinely does not exist; veiling does not, because it
+does. Any future boundary evidence should ask which of those two it is.
+
+**Bin homogeneity — strong positive.** A depth bin is a range, not an object. On
+the kitchen sweep, frame 11 against the reference:
+
+| bin | share of frame | fitted | tile residual median / p90 | contains |
+|---|---:|---:|---:|---|
+| 0 | 55.4% | (+2.33, +0.13) | 3.10 / **14.44** px | the bottle, 8.7% of the bin |
+| 1 | 15.9% | (-0.62, +0.14) | 1.54 / 2.60 px | |
+| 3 | 17.7% | (-0.94, -0.03) | 2.13 / **10.91** px | |
+
+The bottle needs +19.2 px and its bin is fitted to +2.3 px by the other 91% of
+its pixels. Raising the acceptance cap changes nothing — the correction is not
+rejected, it is never proposed, because ECC over a bin follows the majority.
+This is why the near-residual headline in F81/F82 (2.190 -> 0.544 px on kitchen)
+did not translate into a better-looking bottle: averaged over the near half by
+depth median, it never measured the object that fails.
+
+Next work belongs here, not on veiling: bins must be split until each is
+homogeneous, driven by the per-tile residual this instrument already measures.
+
 ## F83 — Occlusion-edge blur orders the boundary correctly, and ordering does not help
 
 An occlusion boundary is the near object's own silhouette, so its sharpness

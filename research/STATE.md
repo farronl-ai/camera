@@ -47,6 +47,13 @@ separate from F80's rectangular crop and must stay separate. Derive the ribbon
 from the MEASURED per-bin displacement, never from the smoothed applied field,
 and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
 
+The bottle on the kitchen sweep is still visibly wrong, and F84 says why: its
+depth bin covers 55% of the frame, so ECC fits the majority and the bottle gets
++2.3 px where it needs +19.2. Fix that by splitting bins until homogeneous
+(per-tile residual, `research/boundary_probe.py`), not by widening masks. Do not
+turn veiling into a hard mask — it loses in every regime including the one built
+to favour it, because a veiled pixel is a mixture, not an absence.
+
 Do not revisit one-sided disocclusion refusal without new evidence: F83 built
 the occlusion-edge-blur ordering, validated every step of it, and still found
 two-sided refusal better, because the occluder's boundary pixels are matte

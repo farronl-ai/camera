@@ -5,6 +5,56 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F91 — The magnification was a measurement artifact; the bottle is pure translation
+
+F87, F88 and F90 all rest on one number: the kitchen bottle's width growing
+138 → 160 px (14%) across the raw sweep. That number is wrong, and a rigid object
+proves it — **the bottle does not grow vertically**. Its top and bottom straddle the
+optical axis, so any real magnification must push them apart:
+
+| | frame 8 | frame 9 | frame 10 |
+|---|---:|---:|---:|
+| raw vertical growth | +1.68 px (1.0064) | +2.77 px (1.0105) | +4.01 px (1.0152) |
+| after global affine | −0.39 px (0.9985) | −0.25 px (0.9991) | −0.22 px (0.9992) |
+
+Raw magnification is ~1.5%, not 14%, and the global affine removes it. A rigid
+object cannot grow 14% in one axis and 1.5% in the other, so the horizontal width
+series came from the left-edge detector failing — the same left edge F87's own
+rigidity test had already flagged as unreliable, on the same object.
+
+A validated instrument confirms it. `edge_similarity.fit_region_similarity` recovers
+scale and translation from edge-normal displacements; on known-answer warps of the
+real frame it returns 1.020 → 1.0200, 1.050 → 1.0499, 0.970 → 0.9692, with
+translations to 0.1 px. Applied to the bottle it measures scale 1.003–1.008 with
+tx +16.02 at frame 11 (truth +19.2). **The bottle undergoes essentially pure
+translation.**
+
+What this retires:
+- F87's "14% breathing" — artifact.
+- F88's "breathing is upstream and blocks object grouping" — unsupported. The IoU
+  improvement measured there was real, but its cause is not established; the "crude
+  de-breathing" applied a scale of up to 12.5% derived from the broken width series,
+  so whatever helped, it was not removing breathing.
+- F90's "depth-dependent magnification is forward camera translation" — the near/far
+  comparison used horizontal-only span fits, which are ill-conditioned for this
+  object because its edges span ux 111–252 and never approach zero, so `s·ux` is
+  nearly constant across it and scale trades against translation. The better-
+  conditioned vertical measurement (uy crosses zero) says scale ≈ 1.000.
+
+What survives: **the region-grab-bag problem (F84/F85) is the real blocker**, exactly
+as first diagnosed. A bin covering 55% of the frame fits its majority and hands the
+bottle +2.3 px where it needs +19.2; motion-driven splitting recovers it (+18.8 px).
+The open problem is the factory regression and a principled split gate — not scale.
+
+**Method, and this is the expensive part.** Three findings were built on a
+measurement that was never checked against a known answer, on a scene with no GT.
+DEVSTYLE §12 rule 1 — written earlier the same day — says exactly not to do that.
+The rule was correct, and being written down did not make it applied. Two habits
+follow: (a) conceptual work belongs on the factory, where the transform is known,
+with the real scene used to confirm rather than to discover; (b) a geometric claim
+about a rigid object must be checked on BOTH axes, because rigidity is a free
+consistency test and it costs one measurement.
+
 ## F90 — The residual magnification is forward camera translation, not breathing
 
 F87/F88 concluded that focus breathing survives the global affine and prescribed

@@ -38,16 +38,12 @@ real sweeps roughly halves to quarters; the zero-motion sentinel is left alone.
 
 ## What is not solved, and the order to attack it
 
-**A per-region SCALE term first (F90 corrects F87/F88).** The residual magnification after the global affine is depth-DEPENDENT (near 1.085
-vs far 1.032 in the same aligned frames), so it is forward camera translation, not
-breathing — the affine already absorbs genuine breathing (residual ~1.000 on a
-factory with 2.5%/frame applied). **No global stage can remove it.** Give regions a
-radial scale term: one kitchen region's p90 residual falls 18.45 → 2.75 px with
-similarity instead of translation. Scale must be in the region model from the START
-of the split iteration, because a region must be object-sized before its scale is
-measurable (the bottle's 55%-of-frame region fits scale ≈1.000 while the bottle needs
-~1.08) — which is also what dissolves the "objects need motion, motion needs objects"
-circularity.
+**The blocker is the region grab-bag, as originally diagnosed (F84/F85), not
+scale.** The apparent magnification that F87/F88/F90 chased was a broken left-edge
+width measurement; the bottle does not grow vertically, real breathing is ~1.5% raw
+and the affine removes it, and a known-answer-validated estimator measures the
+bottle at scale 1.003–1.008 with ~+19 px of pure translation (F91). Do not build a
+scale term until a region's scale has been measured with a validated instrument.
 
 **Then regions.** Residual-driven splitting recovers the bottle (+2.5 → +18.8 px,
 artifact visibly gone) but regresses the factory, and no tile-confidence floor serves

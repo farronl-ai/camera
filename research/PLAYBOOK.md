@@ -50,20 +50,24 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   inverse depth; refocusing independently changes magnification (14% measured on a
   phone macro sweep). A global affine compromises between them. **Applies to every
   handheld stack; not to a rail or a locked-down camera.**
-- **The residual magnification after a global affine is depth-DEPENDENT, so it is
-  forward camera translation, not breathing** (F90). Measured in the aligned kitchen
-  stack: a near object magnifies 1.085 while the far background magnifies 1.032 in
-  the same frames; true breathing is depth-independent and the affine already
-  absorbs it (residual scale ~1.000 on a GT factory with 2.5%/frame breathing
-  applied). **Consequence: no global stage can remove it.** The per-region model
-  needs a radial SCALE term — translation-only left 18.45 px of p90 residual in one
-  kitchen region that a similarity fit reduced to 2.75 px.
-- **A region must be object-sized before its scale can be measured.** A region
-  covering 55% of the frame fits scale ≈1.000 while the object inside it needs
-  ~1.08, for the same majority reason that defeats its translation. Scale must
-  therefore be in the region model from the START of the split iteration, not added
-  afterwards — that is what breaks the apparent circularity between "objects need
-  motion" and "motion needs objects".
+- **Focus breathing is real but small, and the global affine removes it** (F91).
+  Measured on the kitchen sweep: ~1.5% raw magnification by frame 10, and ~1.000
+  after the affine; confirmed on a GT factory where an applied 2.5%/frame breathing
+  leaves residual scale 1.0013…0.9994. Earlier claims of 14% breathing and of
+  depth-dependent residual magnification were measurement artifacts (F91 retires
+  F87/F88/F90 on this point).
+- **A near object's residual motion is dominated by TRANSLATION**, not scale: the
+  kitchen bottle measures scale 1.003–1.008 with a validated estimator while needing
+  ~+19 px of shift. Do not add machinery for a scale term without first measuring
+  that the scale exists.
+- **Scale and translation are ill-conditioned for a compact off-centre object.** Its
+  edges span a narrow radius range that never approaches zero, so `s·(x−c)` is
+  nearly constant across the object and trades against translation. Measure on the
+  axis where the object straddles the optical centre, where the radius changes sign.
+- **Rigidity is a free two-axis consistency test.** A rigid object must scale
+  equally in both axes; a claim that it grew 14% horizontally and 1.5% vertically is
+  a broken measurement, not a discovery. Costs one extra measurement and would have
+  saved three findings.
 - **A depth bin is a range, not an object.** ECC over a region follows its majority.
   Group by measured motion; use depth only as a seed; cut bin edges at
   depth-histogram valleys, never quantiles.
@@ -155,7 +159,7 @@ skip it or state which condition has changed.
 | Median-stabilizing the depth map before the step test | Worsened silhouette concentration (2.81× → 2.07×) | a different stabilizer with its own evidence |
 | Connected-coherence gating of region splits | No effect; the spurious regions are coherent, not confetti | never for this purpose |
 | Tuning the tile-confidence floor to serve both scenes | No value serves both (0.05 vs 0.35 trade directly) | replace with the physical test (residual proportional to frame motion) |
-| Removing residual magnification at the GLOBAL stage | Cannot work — it is depth-dependent (forward translation), and a true global breathing component is already absorbed by the affine | never globally; belongs in the per-region model as a scale term |
+| Adding a scale term to the region model | Unproven — the object it was built for measures scale ~1.005 and needs pure translation (F91) | a region whose scale is first MEASURED with a known-answer-validated estimator |
 | Contrast-over-gradient as a blur estimator | Saturates by 2 px of blur, swamped by texture | never — use distance from the object's focal frame |
 | Pseudo-GT or source similarity as latent-scene truth | Ceiling-limited and blind to correct synthesis | real captured latent truth |
 | Blind generative / diffusion de-occlusion fill | Not remnant-auditable | never under the current mission |

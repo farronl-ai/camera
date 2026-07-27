@@ -5,6 +5,53 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F102 — The motion-group override ships: the bottle is corrected in the runtime
+
+The targeted override F101 specified, now in the package
+(`src/focusstack/motion_groups.py`, wired into `align.py` behind
+`motion_override=True`). The depth-bin path is untouched; a motion group replaces it
+only where that group's own measured motion disagrees with what the depth path
+applies AT THE GROUP'S OWN LOCATION by more than 5 px.
+
+| sweep | groups overridden | pixels changed | Q_SSIM | align time |
+|---|---:|---:|---:|---:|
+| kitchen | 2 of 3 | 17.3% | 0.910336 → **0.918951** | 23.2 s |
+| zero-motion | 0 of 1 | **0.00%** | identical | 45.7 s |
+| small-motion | 0 of 1 | **0.00%** | identical | 47.4 s |
+| large-motion | 3 of 4 | 28.2% | 0.927970 → 0.923764 | 66.8 s |
+| analytic factory | 0 of 1 | **0.00%** | 0.970768 → 0.970768 | — |
+
+The kitchen bottle's right-edge residual falls from +8.38/+11.98/+16.45/+20.14 px at
+frames 8–11 to **+1.17/+1.60/+2.14/+2.51**, and the ghost band and doubled wordmark
+along that edge are gone — the crop now matches the reference frame closely while
+keeping the fused all-in-focus background. Non-regression is by construction rather
+than by tuning: where nothing disagrees, nothing changes, exactly and bit-for-bit.
+
+Three bugs stood between the research result and the runtime one, and all three were
+in plumbing rather than in any model:
+
+1. **The consensus radius was ported wrong.** At 1.4 px the target object's group
+   does not form at all; at 2.0 px it forms at 93% purity. The research result used
+   2.0 and the port hardcoded 1.4, so the override fired on the wrong group entirely.
+2. **Re-limiting the field erased the correction.** The bin field is stretch-limited,
+   and the override then deliberately introduces a step at the object's own boundary
+   — a real depth discontinuity, not smearing. Relaxing it again left the bottle at
+   +19.94 px instead of ~+1.5. That band is now refused the way F82 refuses every
+   such band, rather than smoothed.
+3. **Disagreement must be measured where the group lives.** Comparing each group
+   against one frame-wide bin shift picked the wrong bin; the test now samples the
+   depth path's actual applied displacement at the group's own centroid.
+
+Honest caveats:
+- **Cost.** Alignment goes from ~3 s to 23–67 s on these sweeps, because every
+  material edge is profile-matched against every frame. The still-stack gate written
+  to avoid this does NOT fire — some bin shift exceeds 1 px even on the zero-motion
+  sentinel — so the two sweeps that override nothing still pay ~46 s to discover it.
+- **Large-motion loses 0.004 Q_SSIM** while changing 28% of pixels. Q_SSIM cannot
+  adjudicate an alignment change (F81a), so this is neither exoneration nor
+  conviction; that sweep has not been inspected visually and should be before this is
+  enabled by default for it.
+
 ## F101 — Motion groups and depth bins win on opposite scenes; the fix is a targeted override
 
 Both blockers from F100 were closed. Seeding the grouping with the focal signature

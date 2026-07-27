@@ -100,6 +100,9 @@ _OCCLUSION_MAX_RADIUS = 24
 # claim about the scene, so it must not loosen just because more bins were asked
 # for. A gradual ramp fails it at every bin count.
 _OCCLUSION_MIN_DEPTH_STEP = 0.10
+# Below this much per-bin motion anywhere in the stack, the motion-group override
+# cannot fire and is not worth measuring for.
+_OVERRIDE_MIN_MOTION = 1.0
 # Joint motion/depth estimation. Tiles are the observation unit: enough of them
 # to constrain seven parameters robustly, each large enough for phase
 # correlation to be reliable.
@@ -900,6 +903,7 @@ def _depth_binned_fields(
     bins: int,
     depth_model: str = "bins",
     stretch_tolerance: float = _REFINE_STRETCH_TOLERANCE,
+    motion_override: bool = True,
 ) -> tuple[dict[int, tuple[np.ndarray, np.ndarray]], dict]:
     """Plan a depth-binned sampling field for each frame that earns one.
 
@@ -966,6 +970,9 @@ def _depth_binned_fields(
         bool(mask.sum() >= _REFINE_MIN_BIN_FRACTION * common_valid.sum()) for mask in masks
     ]
 
+    # Fit the bins first, so an override has something to disagree WITH.
+    bin_shifts: dict[int, dict[int, tuple[float, float]]] = {}
+
     fields: dict[int, tuple[np.ndarray, np.ndarray]] = {}
     occlusion: dict[int, np.ndarray] = {}
     for i, image in enumerate(images):
@@ -999,6 +1006,11 @@ def _depth_binned_fields(
             weights.append(membership)
 
         report["frames"][i] = {"accepted": accepted, "shifts": shifts, "stretch": 0.0}
+        # The bottle's own bin is the one an override has to beat: take the shift of
+        # whichever bin holds the largest share of each frame's accepted fits.
+        accepted_shifts = [s for s in shifts if s is not None]
+        if accepted_shifts:
+            bin_shifts[i] = max(accepted_shifts, key=lambda s: abs(s[0]) + abs(s[1]))
         if accepted == 0:
             continue
         if depth_model == "linear":
@@ -1028,6 +1040,72 @@ def _depth_binned_fields(
         report["frames"][i]["stretch"] = _field_stretch(map_x, map_y)
         fields[i] = (map_x, map_y)
 
+    # Motion-group override. Depth bins and motion groups win on opposite scenes
+    # (F101): where depth separates the scene cleanly the bins are near-ideal, and
+    # where it cannot isolate an object only grouping by measured motion can. So the
+    # bins stand, and a group replaces them only where it demonstrably disagrees —
+    # which leaves every scene the depth path already handles untouched.
+    # Cheap gate first. The override exists for a bin whose fit is a compromise
+    # across content that moves differently, which requires there to BE meaningful
+    # motion. On a still stack every bin shift is a few hundredths of a pixel, no
+    # group can disagree with that by the required margin, and the feature work is
+    # pure cost — measured at 46 s to decide to change nothing.
+    largest_shift = max(
+        (abs(s[0]) + abs(s[1])
+         for frame in report.get("frames", {}).values()
+         for s in frame.get("shifts", []) if s is not None),
+        default=0.0,
+    )
+    if motion_override and largest_shift < _OVERRIDE_MIN_MOTION:
+        report["motion_groups"] = {"skipped": "stack is too still to need it"}
+        motion_override = False
+
+    if motion_override and depth_model != "linear":
+        from .motion_groups import overrides
+
+        def displacement_at(frame, x, y):
+            field = fields.get(frame)
+            if field is None:
+                return None
+            base_x, base_y = _matrix_field(_homogeneous(global_warps[frame]), (h, w))
+            xi = int(np.clip(round(y), 0, h - 1)), int(np.clip(round(x), 0, w - 1))
+            return (float(field[0][xi] - base_x[xi]), float(field[1][xi] - base_y[xi]))
+
+        chosen, group_report = overrides(
+            images, coarse, coarse_valid, ref_index, depth, displacement_at
+        )
+        report["motion_groups"] = group_report
+        if chosen:
+            for i in list(fields):
+                base = _homogeneous(global_warps[i])
+                base_x, base_y = _matrix_field(base, (h, w))
+                map_x, map_y = fields[i]
+                for weight, motion in chosen:
+                    shift = motion.get(i)
+                    if shift is None:
+                        continue
+                    # Replace, do not add: within its own body the group's motion is
+                    # the answer, and the bin's compromise is what it is correcting.
+                    map_x = map_x * (1.0 - weight) + weight * (base_x + float(shift[0]))
+                    map_y = map_y * (1.0 - weight) + weight * (base_y + float(shift[1]))
+                # Do NOT relax this field again. The bin field was already
+                # stretch-limited above; the override then deliberately introduces a
+                # step at the object's own boundary, which is a real depth
+                # discontinuity rather than smearing. Re-limiting simply erases the
+                # correction — measured: the bottle stayed at +19.94 px instead of
+                # reaching ~+1.5. The boundary band is handled the way F82 handles
+                # every such band, by refusing it rather than smoothing it.
+                probe = np.ones((5, 5), np.uint8)
+                step_map = (
+                    (cv2.dilate(depth, probe) - cv2.erode(depth, probe))
+                    > _OCCLUSION_MIN_DEPTH_STEP
+                ).astype(np.uint8)
+                occlusion[i] = occlusion.get(
+                    i, np.zeros((h, w), dtype=bool)
+                ) | _occlusion_mask(map_x - base_x, map_y - base_y, step_map)
+                report["frames"][i]["stretch"] = _field_stretch(map_x, map_y)
+                fields[i] = (map_x.astype(np.float32), map_y.astype(np.float32))
+
     report["occlusion"] = occlusion
     return fields, report
 
@@ -1042,6 +1120,7 @@ def align_stack(
     depth_bins: int = 4,
     depth_model: str = "bins",
     stretch_tolerance: float = _REFINE_STRETCH_TOLERANCE,
+    motion_override: bool = True,
     return_report: bool = False,
 ) -> list[np.ndarray] | tuple[list[np.ndarray], dict]:
     """Align every frame to a reference frame.
@@ -1160,7 +1239,7 @@ def align_stack(
         else:
             fields, report = _depth_binned_fields(
                 images, aligned, valid_masks, global_warps, ref_index, depth_bins,
-                depth_model, stretch_tolerance,
+                depth_model, stretch_tolerance, motion_override,
             )
         for i, (map_x, map_y) in fields.items():
             aligned[i] = cv2.remap(

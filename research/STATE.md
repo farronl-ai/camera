@@ -45,6 +45,15 @@ and the affine removes it, and a known-answer-validated estimator measures the
 bottle at scale 1.003–1.008 with ~+19 px of pure translation (F91). Do not build a
 scale term until a region's scale has been measured with a validated instrument.
 
+**SHIPPED (F102): motion-group override is in the runtime**, default on, in
+`src/focusstack/motion_groups.py`. The kitchen bottle's residual falls 20.14 -> 2.51
+px and its ghost band is gone; the factory, zero-motion and small-motion sweeps are
+bit-identical because nothing disagrees there. Open: alignment now costs 23-67 s
+because every material edge is profile-matched against every frame, and the
+still-stack gate meant to avoid that does not fire (a bin shift exceeds 1 px even on
+zero-motion). Large-motion changes 28% of pixels for -0.004 Q_SSIM and has not been
+looked at.
+
 **F100 corrects the bottle: residual 19.97 -> 1.47 px, ghost band visibly gone**
 (`research/group_align.py`). Motion-group alignment — material edges, consensus
 grouping, focal-weighted motion with temporal propagation, support from each group's

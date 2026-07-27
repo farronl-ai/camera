@@ -19,6 +19,12 @@ with local two-frame PSF selection, a 10% aperture-coverage contour,
 component-specific below-noise extrapolation, and contour-relative integration.
 Do not replace it with generic seam smoothing.
 
+For ordinary N-frame stacks, F79 now detects fragmented, low-confidence local
+focus ownership. Unstable stacks use one shared guided decision across pyramid
+bands; stable stacks retain full per-band selection. This prevents residual
+motion/focus breathing from mixing misregistered frames at different
+frequencies and does not affect the two-frame F78 path.
+
 ## Read order
 
 1. `MISSION.md` — post-doctrine objective and evidence rules.
@@ -39,6 +45,8 @@ Do not replace it with generic seam smoothing.
 - Inspector generator: `research/make_showcase_specialists.py`
 - Inspector HTML builder: `research/make_showcase_html.py`
 - Current evidence: `research/objocc_v2_s29_{manifest,formation_audit,geometry_audit,ordered_visibility}.json`
+- N-frame routing: `selection_instability_score` and
+  `stack_consistency_route` in `src/focusstack/fusion.py`
 
 Historical scripts, phase plans, generated reports, caches, and legacy inspector
 cohorts were removed from the working tree. Recover them from Git only if a

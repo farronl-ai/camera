@@ -5,6 +5,35 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F79 — Fragmented N-frame ownership routes to one cross-band decision
+
+The real 12-frame kitchen sweep was not a veil-recovery failure. Raw framing
+shifts, focus breathing, and depth-dependent parallax remain after a single
+global affine alignment, and independent per-band decisions could therefore
+select different misregistered frames at different frequencies. The visible
+symptom was scattered focus ownership and faint doubled text/edges.
+
+The default now measures the fraction of locally isolated focus winners whose
+lead over the runner-up is weak. This is label-invariant and does not penalize
+decisive real depth boundaries. Above `0.115`, N-frame `perband` uses one shared
+guided decision across all pyramid bands; stable stacks and every two-frame
+stack retain the original per-band path.
+
+Three real phone sweeps were the deliberately small validation set:
+
+| Sweep | Instability | Route | Q_SSIM old → new |
+|---|---:|---|---:|
+| kitchen, 12 frames | 0.1250 | shared | 0.889760 → 0.913157 |
+| zero-motion, 14 frames | 0.0880 | per-band identity | 0.986347 → 0.986347 |
+| large-motion, 14 frames | 0.1220 | shared | 0.930018 → 0.945710 |
+
+Disagreement-guided crops confirm the routed outputs reduce double edges in
+text, package contours, and tabletop detail, with a small expected reduction
+in raw edge energy rather than false sharpening. The kitchen inspector now
+shows the actual shared decision and current output. This is a selection-side
+robustness repair; dense optical flow and focus-breathing compensation remain
+open alignment work.
+
 ## The result we are building
 
 The target is the latent physical scene, not an ideal blend of what the camera

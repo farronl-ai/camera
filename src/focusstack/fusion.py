@@ -56,6 +56,12 @@ _BAND_NOISE_STD = np.asarray(
     np.float32,
 )
 
+# N-frame stacks with residual motion can produce locally isolated,
+# low-confidence focus winners. Independent per-band decisions then select
+# different misregistered frames at different frequencies, creating double
+# edges. Above this measured fraction, one shared guided decision is safer.
+_STACK_INSTABILITY_THRESHOLD = 0.115
+
 
 def _soft_threshold(x: np.ndarray, threshold: np.ndarray) -> np.ndarray:
     return np.sign(x) * np.maximum(np.abs(x) - threshold, 0.0)
@@ -449,6 +455,68 @@ def depth_from_focus(
     return np.clip(guided_filter(sharp_lum.astype(np.float32), depth, radius, eps), 0.0, 1.0)
 
 
+def selection_instability_score(
+    images: list[np.ndarray],
+    *,
+    neighborhood: int = 5,
+    confidence_ceiling: float = 0.25,
+    agreement_floor: float = 0.5,
+) -> float:
+    """Measure fragmented, weakly supported focus ownership in an N-frame stack.
+
+    The score is the fraction of pixels whose winning frame has less than
+    ``agreement_floor`` support in its local neighborhood *and* beats the
+    runner-up by less than ``confidence_ceiling``. Real, decisive depth edges
+    therefore do not count as instability. The test is label-invariant: it
+    compares frame identity, not numerical distance between frame indices.
+    """
+    if len(images) < 3:
+        return 0.0
+    if neighborhood < 3 or neighborhood % 2 == 0:
+        raise ValueError("neighborhood must be an odd integer >= 3")
+
+    energy = np.stack(
+        content_aware_energies(
+            [to_gray_float(image) for image in images]
+        ),
+        axis=0,
+    )
+    winner = np.argmax(energy, axis=0)
+    ordered = np.sort(energy, axis=0)
+    confidence = np.clip(
+        (ordered[-1] - ordered[-2]) / (ordered[-1] + 1e-6),
+        0.0,
+        1.0,
+    )
+    local_shares = np.stack(
+        [
+            cv2.boxFilter(
+                (winner == frame_index).astype(np.float32),
+                cv2.CV_32F,
+                (neighborhood, neighborhood),
+                normalize=True,
+            )
+            for frame_index in range(len(images))
+        ],
+        axis=0,
+    )
+    yy, xx = np.indices(winner.shape)
+    winner_agreement = local_shares[winner, yy, xx]
+    unstable = (
+        (winner_agreement < agreement_floor)
+        & (confidence < confidence_ceiling)
+    )
+    return float(unstable.mean())
+
+
+def stack_consistency_route(
+    images: list[np.ndarray],
+) -> tuple[bool, float]:
+    """Return whether an N-frame stack should share one decision across bands."""
+    score = selection_instability_score(images)
+    return score >= _STACK_INSTABILITY_THRESHOLD, score
+
+
 def fuse_perband(
     images: list[np.ndarray],
     radius: int = 6,
@@ -461,6 +529,7 @@ def fuse_perband(
     veil_D: np.ndarray | None = None,
     veil_far_idx: int = -1,
     veil_models: list[dict] | None = None,
+    stack_consistency: bool | None = None,
 ) -> np.ndarray:
     """Per-band edge-aware fusion — pyramid's multi-scale DECISION + guided (halo-free).
 
@@ -486,7 +555,30 @@ def fuse_perband(
         the out-of-focus frame) lives heavily in low frequencies, so averaging
         pulls it in. Instead the coarsest detail band's weights are propagated
         down (pyrDown) and used to blend the base.
+
+    For N-frame stacks, ``stack_consistency=None`` measures locally isolated,
+    low-confidence focus winners. If their fraction exceeds the calibrated
+    instability threshold, fusion uses one shared edge-aware decision across
+    bands (`fuse_blend`). This prevents residual motion/focus breathing from
+    mixing different misregistered frames at different frequencies. Two-frame
+    stacks and stable N-frame stacks retain the ordinary per-band path.
+    ``True``/``False`` force either branch for controlled A/B checks.
     """
+    plain_research_path = (
+        boundary is None
+        and veil_D is None
+        and not veil_models
+    )
+    if len(images) > 2 and plain_research_path:
+        if stack_consistency is None:
+            stack_consistency, _ = stack_consistency_route(images)
+        if stack_consistency:
+            return fuse_blend(
+                images,
+                eps=eps,
+                harden=harden,
+            )
+
     floats = [img.astype(np.float32) for img in images]
     n = len(floats)
     levels = _auto_levels(floats[0].shape, None)

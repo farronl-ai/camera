@@ -185,11 +185,15 @@ def _contact_sheet(images, *, columns=4, cell_width=320):
     return np.vstack(rows)
 
 
-def _normal_photo_cases():
+def _normal_photo_cases(selected_sids=None):
     """Run the actual default pipeline on ordinary real photographic stacks."""
     from focusstack.align import align_stack
     from focusstack.enhance import enhance
     from focusstack.focus import content_aware_energies
+    from focusstack.fusion import (
+        fuse_blend,
+        stack_consistency_route,
+    )
     from focusstack.io import normalize_exposure, to_gray_float
 
     selections = (
@@ -232,6 +236,8 @@ def _normal_photo_cases():
     )
     cases = []
     for sid, paths, role, why in selections:
+        if selected_sids is not None and sid not in selected_sids:
+            continue
         if len(paths) < 2:
             raise RuntimeError(f"{sid} is missing its input stack")
         raw = [cv2.imread(path) for path in paths]
@@ -239,7 +245,20 @@ def _normal_photo_cases():
             raise RuntimeError(f"{sid} contains an unreadable frame")
         print(f"  normal inspection {sid}: {len(raw)} real frames")
         aligned = normalize_exposure(align_stack(raw, motion="affine"))
-        base = fuse_perband(aligned, harden=0.5)
+        routed, instability = stack_consistency_route(aligned)
+        if routed:
+            base, shared_weights = fuse_blend(
+                aligned,
+                harden=0.5,
+                return_weights=True,
+            )
+        else:
+            base = fuse_perband(
+                aligned,
+                harden=0.5,
+                stack_consistency=False,
+            )
+            shared_weights = None
         output, report = enhance(aligned, base, harden=0.5)
 
         energies = np.stack(
@@ -248,7 +267,11 @@ def _normal_photo_cases():
             ),
             axis=0,
         )
-        winner = np.argmax(energies, axis=0)
+        winner = (
+            np.argmax(shared_weights, axis=0)
+            if shared_weights is not None
+            else np.argmax(energies, axis=0)
+        )
         winner_counts = np.bincount(
             winner.ravel(),
             minlength=len(aligned),
@@ -328,6 +351,8 @@ def _normal_photo_cases():
                 "metrics": {
                     "changed_pixels_after_base": int(changed.sum()),
                     "changed_fraction_after_base": float(changed.mean()),
+                    "selection_instability": instability,
+                    "shared_decision_routed": routed,
                     "active_winner_frames": int(
                         (winner_shares >= 0.005).sum()
                     ),
@@ -349,6 +374,31 @@ def _normal_photo_cases():
             }
         )
     return cases
+
+
+def refresh_normal_cases(selected_sids):
+    """Refresh selected ordinary-photo cases without rerunning S29 recovery."""
+    selected = set(selected_sids)
+    replacements = {
+        case["sid"]: case
+        for case in _normal_photo_cases(selected)
+    }
+    missing = selected - replacements.keys()
+    if missing:
+        raise RuntimeError(f"unknown normal inspection cases: {sorted(missing)}")
+    with open(INSPECTION_MANIFEST, encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    manifest["normal_cases"] = [
+        replacements.get(case["sid"], case)
+        for case in manifest["normal_cases"]
+    ]
+    with open(INSPECTION_MANIFEST, "w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=2)
+        handle.write("\n")
+    print(
+        "  refreshed normal cases: "
+        + ", ".join(sorted(replacements))
+    )
 
 
 def _rgb_pixel(image, x, y):
@@ -957,8 +1007,13 @@ def fig_inspection():
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "inspection"
-    if which not in ("inspection", "all"):
-        raise SystemExit("only the current inspection generator is retained")
-    print("generating current inspection -> docs/img/inspection/")
-    fig_inspection()
+    if which in ("inspection", "all"):
+        print("generating current inspection -> docs/img/inspection/")
+        fig_inspection()
+    elif which == "normal":
+        if len(sys.argv) < 3:
+            raise SystemExit("normal requires at least one case id")
+        refresh_normal_cases(sys.argv[2:])
+    else:
+        raise SystemExit("use inspection, all, or normal CASE [CASE ...]")
     print("done")

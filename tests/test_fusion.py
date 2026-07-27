@@ -3,7 +3,8 @@ import numpy as np
 
 from focusstack.focus import focus_measure, focus_measures
 from focusstack.fusion import (depth_from_focus, fuse_blend, fuse_decision, fuse_max,
-                               fuse_perband, fuse_pyramid, guided_filter)
+                               fuse_perband, fuse_pyramid, guided_filter,
+                               selection_instability_score)
 
 
 def _two_region_stack():
@@ -92,6 +93,52 @@ def test_perband_fuses_sharper_than_inputs():
     assert fused.shape == a.shape
     assert _sharpness(fused).mean() > _sharpness(a).mean()
     assert _sharpness(fused).mean() > _sharpness(b).mean()
+
+
+def test_stack_consistency_uses_one_decision_for_nframe_motion():
+    _, a, b = _two_region_stack()
+    shifted = np.roll(a, 2, axis=1)
+    stack = [a, shifted, b]
+
+    routed = fuse_perband(stack, harden=0.5, stack_consistency=True)
+    shared = fuse_blend(stack, harden=0.5)
+    independent = fuse_perband(
+        stack,
+        harden=0.5,
+        stack_consistency=False,
+    )
+
+    assert np.array_equal(routed, shared)
+    assert not np.array_equal(routed, independent)
+    assert selection_instability_score([a, b]) == 0.0
+
+
+def test_stack_consistency_auto_routes_only_fragmented_nframe():
+    rng = np.random.default_rng(3)
+    base = rng.integers(0, 256, (128, 192, 3), dtype=np.uint8)
+    blurred = cv2.GaussianBlur(base, (15, 15), 6)
+    stable = []
+    for frame_index in range(3):
+        frame = blurred.copy()
+        x0 = frame_index * 64
+        frame[:, x0 : x0 + 64] = base[:, x0 : x0 + 64]
+        stable.append(frame)
+
+    assert selection_instability_score(stable) < 0.01
+    assert np.array_equal(
+        fuse_perband(stable),
+        fuse_perband(stable, stack_consistency=False),
+    )
+
+    fragmented = [
+        np.roll(base, shift, axis=1)
+        for shift in (-3, 0, 3, 6)
+    ]
+    assert selection_instability_score(fragmented) > 0.3
+    assert np.array_equal(
+        fuse_perband(fragmented),
+        fuse_blend(fragmented),
+    )
 
 
 def test_harden_runs_and_preserves_sharpness():

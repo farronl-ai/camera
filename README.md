@@ -26,7 +26,9 @@ The pipeline has three stages, each a small signal/image-processing problem:
 1. **Registration / alignment** (`align.py`) — refocusing a lens slightly changes
    magnification ("focus breathing"), and the camera may shift. Unaligned frames
    fuse into ghosts, so every frame is warped onto a common reference frame using
-   OpenCV's ECC image alignment.
+   OpenCV's ECC image alignment. Warped validity masks are intersected across
+   all N frames, then every frame is cropped to the largest all-valid rectangle;
+   synthetic border fill can never enter focus selection or fusion.
 2. **Focus measure** (`focus.py`) — sharpness is high-frequency energy. For each
    pixel we score "how in focus is this here?" from the Laplacian (2nd derivative),
    gradient, Tenengrad, or modified Laplacian, pooled over a small window. The

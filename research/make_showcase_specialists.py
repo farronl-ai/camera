@@ -345,8 +345,10 @@ def _normal_photo_cases(selected_sids=None):
                 "role": role,
                 "why": why,
                 "frame_count": len(raw),
-                "native_width": int(raw[0].shape[1]),
-                "native_height": int(raw[0].shape[0]),
+                # Feedback coordinates belong to the fused common footprint,
+                # not to the larger uncropped source-frame canvas.
+                "native_width": int(output.shape[1]),
+                "native_height": int(output.shape[0]),
                 "assets": assets,
                 "metrics": {
                     "changed_pixels_after_base": int(changed.sum()),

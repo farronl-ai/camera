@@ -5,6 +5,23 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F80 — Alignment output is the all-frame observed footprint
+
+A rotated or translated frame does not observe the same scene rectangle as the
+reference. The old aligner nevertheless filled missing warp regions by
+reflection, allowing invented border pixels to compete as focus evidence. The
+default now warps an explicit validity mask with every frame, intersects those
+masks across all N frames, and crops the complete stack to the largest
+axis-aligned rectangle containing only all-valid pixels. Bilinear edge samples
+are rejected too: validity requires that interpolation never touched padding.
+
+This is deliberately an intersection, not a union with per-pixel fallback.
+Every output pixel has a real observation in every focal frame, so selection
+confidence remains comparable and later reconstruction never mistakes missing
+coverage for defocus. On the 12-frame kitchen sweep the common footprint is
+`727×502` from `774×518` inputs. Inspector feedback coordinates now use that
+cropped output geometry.
+
 ## F79 — Fragmented N-frame ownership routes to one cross-band decision
 
 The real 12-frame kitchen sweep was not a veil-recovery failure. Raw framing

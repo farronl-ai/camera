@@ -30,7 +30,12 @@ def test_align_recovers_known_translation_and_scale():
                      [0.0, 1.015, 5.0]], dtype=np.float32)
     moved = cv2.warpAffine(ref, warp, (w, h), borderMode=cv2.BORDER_REFLECT)
 
-    aligned = align_stack([ref, moved], ref_index=0, motion="affine")
+    aligned = align_stack(
+        [ref, moved],
+        ref_index=0,
+        motion="affine",
+        crop_valid=False,
+    )
     recovered = aligned[1]
 
     before = _center_mad(ref, moved)
@@ -43,6 +48,32 @@ def test_align_recovers_known_translation_and_scale():
 def test_reference_frame_is_returned_unchanged():
     ref = _textured_scene(seed=1)
     other = _textured_scene(seed=2)
-    aligned = align_stack([ref, other], ref_index=0, motion="affine")
-    # The reference frame is the fixed target and must pass through untouched.
+    aligned = align_stack(
+        [ref, other],
+        ref_index=0,
+        motion="affine",
+        crop_valid=False,
+    )
+    # Without common-footprint cropping, the fixed reference passes through.
     assert np.array_equal(aligned[0], ref)
+
+
+def test_alignment_crops_to_pixels_observed_by_every_frame(monkeypatch):
+    ref = _textured_scene(seed=3, h=120, w=160)
+    other = ref.copy()
+    warp = np.array(
+        [[1.0, 0.0, 14.0], [0.0, 1.0, -9.0]],
+        dtype=np.float32,
+    )
+
+    monkeypatch.setattr(
+        cv2,
+        "findTransformECC",
+        lambda *_args, **_kwargs: (1.0, warp.copy()),
+    )
+    aligned = align_stack([ref, other], ref_index=0, motion="affine")
+
+    # WARP_INVERSE_MAP samples source x+14, y-9, leaving a 14 px loss on the
+    # right and 9 px loss at the top. Neither synthetic region may survive.
+    assert aligned[0].shape == aligned[1].shape == (111, 146, 3)
+    assert np.array_equal(aligned[0], ref[9:, :146])

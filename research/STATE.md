@@ -26,6 +26,11 @@ per-band selection. Fine details are never softly double-imaged, while coarse
 decision transitions remain feathered. This does not affect the two-frame F78
 path.
 
+F80 makes the alignment contract explicit: only the scene footprint observed
+by every frame may reach fusion. `align_stack` warps validity masks, intersects
+them across all N frames, and crops all aligned images to the largest all-valid
+rectangle. Never reintroduce reflected/replicated warp borders as image data.
+
 The remaining kitchen geometry is true depth-dependent parallax: handheld
 device rotation includes camera-center translation because the pivot is not the
 lens entrance pupil, so near and far pixels move differently. Do not answer

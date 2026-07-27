@@ -33,12 +33,45 @@ _MOTION_MODES = {
 }
 
 
+def _largest_valid_rectangle(mask: np.ndarray) -> tuple[int, int, int, int]:
+    """Return the largest axis-aligned rectangle containing only true pixels."""
+    valid = np.asarray(mask, dtype=bool)
+    if valid.ndim != 2:
+        raise ValueError("validity mask must be two-dimensional")
+
+    h, w = valid.shape
+    heights = np.zeros(w, dtype=np.int32)
+    best_area = 0
+    best = (0, 0, 0, 0)
+
+    for y in range(h):
+        heights = np.where(valid[y], heights + 1, 0)
+        stack: list[tuple[int, int]] = []
+        for x in range(w + 1):
+            height = int(heights[x]) if x < w else 0
+            start = x
+            while stack and stack[-1][1] > height:
+                x0, previous = stack.pop()
+                area = previous * (x - x0)
+                if area > best_area:
+                    best_area = area
+                    best = (x0, y - previous + 1, x, y + 1)
+                start = x0
+            if height and (not stack or stack[-1][1] < height):
+                stack.append((start, height))
+
+    if best_area == 0:
+        raise ValueError("aligned frames have no common valid image footprint")
+    return best
+
+
 def align_stack(
     images: list[np.ndarray],
     ref_index: int | None = None,
     motion: str = "affine",
     max_iterations: int = 500,
     eps: float = 1e-6,
+    crop_valid: bool = True,
 ) -> list[np.ndarray]:
     """Align every frame to a reference frame.
 
@@ -48,9 +81,13 @@ def align_stack(
             middle frame, which tends to be geometrically closest to all others.
         motion: one of `_MOTION_MODES`.
         max_iterations, eps: ECC convergence criteria.
+        crop_valid: crop every aligned frame to the largest rectangular region
+            genuinely observed in every source frame. This prevents warp border
+            fill from entering focus selection or fusion.
 
     Returns:
-        A new list of aligned BGR uint8 frames (the reference is unchanged).
+        A new list of aligned BGR uint8 frames. With the default common-footprint
+        crop, even the reference is cropped to match the other frames.
         Frames for which ECC fails to converge are returned unaligned, with a
         warning, rather than aborting the whole run.
     """
@@ -71,9 +108,11 @@ def align_stack(
     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, max_iterations, eps)
 
     aligned: list[np.ndarray] = []
+    valid_masks: list[np.ndarray] = []
     for i, img in enumerate(images):
         if i == ref_index:
             aligned.append(img)
+            valid_masks.append(np.ones((h, w), dtype=bool))
             continue
 
         moving = norm_gray(img)
@@ -91,15 +130,41 @@ def align_stack(
             common = dict(
                 dsize=(w, h),
                 flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
-                borderMode=cv2.BORDER_REFLECT,
+                borderMode=cv2.BORDER_CONSTANT,
+                borderValue=0,
             )
             if warp_mode == cv2.MOTION_HOMOGRAPHY:
                 warped = cv2.warpPerspective(img, warp_matrix, **common)
+                warped_valid = cv2.warpPerspective(
+                    np.full((h, w), 255, np.uint8),
+                    warp_matrix,
+                    dsize=(w, h),
+                    flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+                    borderMode=cv2.BORDER_CONSTANT,
+                    borderValue=0,
+                )
             else:
                 warped = cv2.warpAffine(img, warp_matrix, **common)
+                warped_valid = cv2.warpAffine(
+                    np.full((h, w), 255, np.uint8),
+                    warp_matrix,
+                    dsize=(w, h),
+                    flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+                    borderMode=cv2.BORDER_CONSTANT,
+                    borderValue=0,
+                )
             aligned.append(warped)
+            # Requiring 255 means bilinear sampling never touched synthetic
+            # border data, rather than merely requiring the sample centre to
+            # fall within the source canvas.
+            valid_masks.append(warped_valid == 255)
         except cv2.error as e:
             warnings.warn(f"ECC alignment failed for frame {i}; using it unaligned. ({e})")
             aligned.append(img)
+            valid_masks.append(np.ones((h, w), dtype=bool))
 
+    if crop_valid:
+        common_valid = np.logical_and.reduce(valid_masks)
+        x0, y0, x1, y1 = _largest_valid_rectangle(common_valid)
+        aligned = [img[y0:y1, x0:x1].copy() for img in aligned]
     return aligned

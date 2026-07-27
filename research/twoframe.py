@@ -53,7 +53,11 @@ Run:
 
     .venv/bin/python research/twoframe.py kat        # instrument known-answer tests
     .venv/bin/python research/twoframe.py factory    # analytic GT factory
+    .venv/bin/python research/twoframe.py oracle     # the architecture's ceiling
+    .venv/bin/python research/twoframe.py variants   # the two free choices, A/B'd
     .venv/bin/python research/twoframe.py kitchen    # kitchen sweep + F108 crops
+
+Findings and the rejected list: `research/twoframe_NOTES.md`.
 """
 from __future__ import annotations
 
@@ -742,7 +746,6 @@ def oracle() -> None:
 
 
 STREAK = (230, 400, 600, 700)    # F108's acceptance box, uncropped coordinates
-FLANK = (230, 400, 600, 645)     # its low-contrast half: the bottle's white flank
 BOTTLE_EDGE = (160, 340, 600, 700)   # group_align's residual window
 
 

@@ -5,6 +5,46 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F109 — The two-frame architecture passes the F108 acceptance test
+
+Prototyped by an Opus 5 subagent under the §10 delegation discipline
+(`research/twoframe.py`, full write-up and negative deliverables in
+`research/twoframe_NOTES.md`); verdict verified independently by the reviewing
+agent on its own render.
+
+The architecture is the user's design: per region, elect the frame where its
+foreground is sharpest and the frame where its background is sharpest; each frame
+of a pair is warped by ONE rigid transform (global affine ∘ layer shift, composed,
+single resample); `fuse_perband` per pair; one-hot ownership; `multiband_blend`
+stitch. The structural property that closes F108's gap: each pair member owns
+exactly one depth layer, so the layer it gets wrong is by construction the layer it
+is defocused in, and the focus contest discards it — no depth-dependent field
+inside a region, hence no ramp, no stretch, no soft geometric blend, and no need
+for per-pixel evidence where none exists.
+
+**Acceptance (the Lubriderm streak): passed.** On the measured low-contrast flank:
+shipped mean |Δ| 5.98, 16.34% of pixels >12; two-frame mean |Δ| **1.96**, **0.00%**
+>12. Visually confirmed by the reviewer: the tan column is gone, the flank clean,
+the edge single. The deeper reason is humbling for the whole arc: the bottle is
+sharpest AT the reference, so regional pair election never asks the far frames to
+supply that surface — the +19.97 px correction F100–F108 fought for is simply not
+needed under this architecture. The cat figurine, doubled in the shipped output,
+is also single. Cost 2.2 s using 5 of 12 frames.
+
+**Honest ledger.** Factory GT-SSIM 0.9658 vs shipped 0.9728 (−0.0070) — and the
+oracle rung proves it is ESTIMATION, not architecture: exact per-layer shifts give
+0.9730, and two-source fusion is ~2.7× more sensitive to a misplaced layer than
+N-frame. A wrong-but-in-range layer shift once took the factory to 0.668 with
+nothing objecting — a validity gate on layer fits is the promotion blocker.
+Notable measured non-result: hard paste and multiband stitching are
+indistinguishable here because every candidate shares the reference geometry —
+F79's seam is geometric and does not arise.
+
+Integration prerequisites (in the notes, unstarted): layer-fit validity gate;
+close the ~0.3 px layer-shift error (focal-weighted edge-profile estimator);
+route between shipped and two-frame per F101 rather than replace; third frame for
+three-mode regions; F107 rescaling.
+
 ## F108 — The wrong-group wipe, four kept fixes, and one precisely-characterized wall
 
 The user reported a column of foreground displaced leftward with yellow background

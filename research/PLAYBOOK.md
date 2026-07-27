@@ -115,6 +115,16 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   object's focal plane then propagate along the sweep.
 - **Interior edges make "is this one object?" falsifiable.** Two edges are exactly
   determined — solvable, never testable.
+- **Key a parallax correction on MOTION GROUPS, never on depth** (F99). Content at
+  the same depth VALUE can have different motion, so any depth-keyed fit — binned or
+  continuous — averages the target away. Measured: a depth-keyed curve never exceeded
+  ±5 px at the kitchen bottle's depth in any frame, while the bottle's own features
+  gave a clean monotone series reaching ~+19 px. Continuity does not cure it because
+  it was never a quantization problem.
+- **Match confidence does not detect defocus bias.** A blurred profile correlates
+  CONFIDENTLY against a sharp one at about zero shift, so degraded features vote
+  "no motion" with high confidence on exactly the objects that moved most. Key trust
+  on each feature's own focal distance, never on its match score.
 - **Grouping FEATURES is solved; turning groups into pixel REGIONS is not** (F98).
   Features carry evidence — a focal curve, a normal displacement, a confidence — and
   group cleanly. Most pixels carry none, so any region mask is filled in by a

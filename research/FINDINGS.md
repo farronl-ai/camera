@@ -5,6 +5,52 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F99 — Depth cannot drive the correction; motion grouping must. (What was missed)
+
+Asked to re-read the arc and find what was missed that would fix the shipped output.
+The answer is a wrong turn taken at F94 and never revisited.
+
+F89 measured the kitchen bottle at **+18.88 px against +19.2 truth** by measuring its
+interior edges at frames near the reference and PROPAGATING temporally. F93 then
+identified which features belong to it (92.9–100% pure). Those two together are the
+fix. Instead the arc went to F94–F97 building increasingly general scene models, and
+F98 spent itself on pixel regions, and the shipped path was never touched.
+
+Worse, the models were all keyed on DEPTH, and depth cannot do this job here. Fitting
+displacement as a continuous function of depth — no bins, five knots, evaluated per
+pixel — still fails, and the diagnostic is decisive:
+
+| frame | curve at the bottle's depth | the bottle's own features |
+|---|---:|---:|
+| 0 | −5.01 | **−18.71** (n=18) |
+| 5 | −1.77 | −2.13 (n=24) |
+| 8 | +3.39 | **+7.80** (n=24) |
+| 9 | +3.33 | **+9.87** (n=22) |
+| 11 | +3.16 | +2.63 (n=14, blurred) |
+
+The bottle's features give a clean monotone series that extrapolates to ~+19. The
+depth-keyed curve never exceeds ±5 px at ANY frame, including frames where the bottle
+is perfectly measurable. **Other content shares the bottle's depth VALUE while having
+different motion**, so a depth-keyed fit averages it away — the same majority problem
+as bins, which continuity does not cure because it was never a quantization problem.
+
+Two further traps found on the way, both already in the playbook and both re-hit:
+- Tiles cannot measure this at all. Phase correlation resolves about a quarter of the
+  patch, so 40 px tiles saturate near 10 px, the bottle's 19 px is invisible, and the
+  fitted curve reports that the scene barely moved.
+- **Match confidence does not detect defocus bias.** A blurred profile correlates
+  *confidently* against a sharp one at ≈0 shift, so degraded features report high
+  confidence for "no motion" on exactly the objects that moved most. Any support or
+  trust measure built on match confidence will be fooled; trust must be keyed on the
+  feature's own focal distance instead.
+
+Standing consequence: **key the correction on MOTION GROUPS, not on depth.** The
+groups isolate the object (F93), their own features give an accurate motion series
+where evidence exists, and F89's temporal propagation covers the frames where it does
+not. Spatial support for a motion group is a much easier problem than general
+segmentation, because the group is spatially compact and its own features bound it —
+which is where F98's negative should have sent the work, and did not.
+
 ## F98 — Feature-level grouping works; turning it into pixel regions does not yet
 
 F97's focal signature is an excellent per-FEATURE measurement, and F93/F96 group

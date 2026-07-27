@@ -45,6 +45,14 @@ and the affine removes it, and a known-answer-validated estimator measures the
 bottle at scale 1.003–1.008 with ~+19 px of pure translation (F91). Do not build a
 scale term until a region's scale has been measured with a validated instrument.
 
+**The fix for the shipped bottle is F89 + F93, and it was never wired in (F99).**
+F89 measures that object at +18.88 vs +19.2 truth by using frames near the reference
+and propagating; F93 identifies which features are it (92.9-100% pure). Do NOT key
+the correction on depth — a depth-keyed curve never exceeds +/-5 px at the bottle's
+depth in any frame, because other content shares its depth value with different
+motion. Build spatial support from the motion group's own features, which is easy
+because the group is compact, and propagate temporally where the object is blurred.
+
 **Grouping works at FEATURE level; pixel regions are the open problem (F98).** Do
 not spend more effort converting feature groups into region masks by propagation —
 two constructions were tried and neither beats the shipped valley depth bins. The

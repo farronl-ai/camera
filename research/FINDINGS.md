@@ -5,6 +5,58 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F87 — Edges carry object motion where interiors cannot, once blur bias is removed
+
+F85/F86 group by per-tile residual, which has nothing to measure inside a flat
+surface. The Lubriderm bottle is mostly blank white, so tile evidence fragments
+it and the tile-based fit gave the bottle +2.3 px where it needs +19.2.
+
+Its edges are another matter. Integrating a vertical edge along its length turns
+a weak local match into a strong one-dimensional measurement, and three physical
+facts make edges sufficient for the whole object: a rigid object's edges all
+move together; the bottle does not approach or recede, so there is no scale to
+solve for; and a flat interior bounded by co-moving edges therefore inherits
+their motion instead of needing evidence of its own. The aperture problem is
+handled by taking only the normal component and combining differently-oriented
+edges around one outline.
+
+Measured on the kitchen sweep, frame 11 against the reference, where truth is
++20 px by direct edge scan and +19.2 px by ECC over the bottle region:
+
+| method | left edge | right edge | differential |
+|---|---:|---:|---:|
+| per-tile residual (F85) | — | — | fit was +2.3 px overall |
+| intensity profile, wide band | +1.18 | +17.98 | +16.81 |
+| gradient profile, wide band | +13.62 | +19.97 | +6.36 |
+| gradient profile, edge-centred window | +13.46 | **+19.85** | +6.39 |
+
+**Defocus biases edge location outward, systematically.** The differential grows
+monotonically with defocus (+0.6, +3.5, +7.1, +12.1, +16.8 over frames 7-11)
+rather than scattering like noise, which is the signature of a bias, not an
+error. The cause is the veiling asymmetry: a bright out-of-focus object spreads
+over its darker surround, so the intensity profile's apparent edge migrates
+outward on BOTH sides and the object reads as wider than it is. Correlating
+gradient profiles removes most of it, because a symmetric blur widens the
+gradient bump without moving its centre — frame 11's differential falls 16.81 ->
+6.39 and the strong edge lands within 0.15 px of truth.
+
+**Rigidity is a usable detector, not just a description.** A rigid object at
+constant depth must show zero differential, so when the two edges disagree, one
+measurement is wrong and the constraint says so without needing ground truth.
+Here it correctly indicts the left edge, which is lower contrast and more
+defocused; the right edge, which it exonerates, is the one that matches truth.
+
+Also worth recording: the correlator used for all of this was wrong on first
+write, reporting -shift/8 because of time-domain zero padding, and produced a
+completely plausible table of small consistent numbers. It was caught only by
+feeding it known synthetic shifts. Validate a measuring instrument against a
+known answer before believing anything it says about real data.
+
+Open: the left edge still reads ~6 px low. Its window very likely straddles
+background at a different depth, whose motion pulls the correlation. Narrowing
+onto object support — which the split/merge work already produces — is the next
+step, and the two lines of work meet there.
+
 ## F86 — Splitting needs a merge rule: pieces that move alike are one object
 
 F85's residual splitting recovered the kitchen bottle and regressed the analytic

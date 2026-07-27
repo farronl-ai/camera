@@ -47,6 +47,13 @@ separate from F80's rectangular crop and must stay separate. Derive the ribbon
 from the MEASURED per-bin displacement, never from the smoothed applied field,
 and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
 
+Textureless interiors get their motion from EDGES (F87), not from tile
+residuals that have nothing to correlate. Correlate GRADIENT profiles, never
+intensity: defocus spreads a bright object over its surround and biases the
+apparent edge outward on both sides, so intensity correlation reports a rigid
+object widening by 17 px. Rigidity (zero differential) then says which of two
+edge measurements to distrust, without ground truth.
+
 Object integrity is a MERGE rule (F86): regions whose fitted motion agrees
 across the sweep are one object. Keep the merge tolerance at or below 2 px —
 past that it merges genuinely different depth planes and the result collapses.

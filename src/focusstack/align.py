@@ -1066,24 +1066,38 @@ def _depth_binned_fields(
             xi = int(np.clip(round(y), 0, h - 1)), int(np.clip(round(x), 0, w - 1))
             return (float(field[0][xi] - base_x), float(field[1][xi] - base_y))
 
-        chosen, group_report = overrides(
+        chosen, group_report, unexplained = overrides(
             images, coarse, coarse_valid, ref_index, depth, displacement_at
         )
         report["motion_groups"] = group_report
+        if unexplained:
+            # Measured motion that no model explains: the object is there, it
+            # moved, and nothing corrected it. Refusing its neighbourhood in
+            # every frame that moved appreciably keeps it from fusing as ghosts
+            # — the pixels come from the reference and its neighbours instead,
+            # which is F82's answer whenever a correction is impossible.
+            evidence = np.zeros((h, w), dtype=np.uint8)
+            for x, y in unexplained:
+                cv2.circle(evidence, (int(round(x)), int(round(y))), 26, 1, -1)
+            evidence = evidence.astype(bool)
+            for i in range(len(images)):
+                if i == ref_index or abs(i - ref_index) <= 1 or global_warps[i] is None:
+                    continue
+                occlusion[i] = occlusion.get(
+                    i, np.zeros((h, w), dtype=bool)
+                ) | evidence
         if chosen:
             # The override's support boundary IS a depth discontinuity — the group
             # disagreed with its surroundings by >5 px, which is stronger evidence
             # of a real object edge than the smoothed depth map, whose step
-            # detector is exactly what fails at an object/table junction (the
-            # measured case: a white smear of mixed content beside the card box,
-            # in a band the depth-step gate never admitted for refusal). So the
-            # transition band of every chosen group joins the refusal gate.
+            # detector is exactly what fails at an object/table junction.
             support_edge = np.zeros((h, w), dtype=np.uint8)
             kernel = np.ones((5, 5), np.uint8)
             for weight, _motion in chosen:
                 owned = (weight > 0.5).astype(np.uint8)
                 support_edge |= cv2.dilate(owned, kernel) - cv2.erode(owned, kernel)
             override_step = np.maximum(depth_step, support_edge)
+
             for i in range(len(images)):
                 if i == ref_index or global_warps[i] is None:
                     continue
@@ -1093,25 +1107,41 @@ def _depth_binned_fields(
                 base_x, base_y = _matrix_field(base, (h, w))
                 # A frame whose bins were all rejected still deserves the override:
                 # the group measured its motion regardless of what the bins managed.
-                map_x, map_y = fields.get(i, (base_x.copy(), base_y.copy()))
+                orig_x, orig_y = fields.get(i, (base_x, base_y))
+                map_x, map_y = orig_x.copy(), orig_y.copy()
+                ring_refused = np.zeros((h, w), dtype=bool)
                 for weight, motion in chosen:
                     shift = motion.get(i)
                     if shift is None:
                         continue
-                    # Replace, do not add: within its own body the group's motion is
-                    # the answer, and the bin's compromise is what it is correcting.
-                    map_x = map_x * (1.0 - weight) + weight * (base_x + float(shift[0]))
-                    map_y = map_y * (1.0 - weight) + weight * (base_y + float(shift[1]))
-                # Do NOT relax this field again. The bin field was already
-                # stretch-limited above; the override then deliberately introduces a
-                # step at the object's own boundary, which is a real depth
-                # discontinuity rather than smearing. Re-limiting simply erases the
-                # correction — measured: the bottle stayed at +19.94 px instead of
-                # reaching ~+1.5. The boundary band is handled the way F82 handles
-                # every such band, by refusing it rather than smoothing it.
+                    # A GEOMETRIC decision cannot be soft. Blending two sampling
+                    # fields does not blend appearances — it invents a third
+                    # position neither surface ever occupied, and the ramp then
+                    # renders ghost lids and smears label colour into the
+                    # background (measured on IMG-46). So the application is
+                    # trinary: inside the support the group's motion applies IN
+                    # FULL, outside it the depth path stands, and the uncertain
+                    # ring between is REFUSED in every frame whose geometry there
+                    # is materially ambiguous — the same rule as F82, because the
+                    # ring's true content is unknowable from a frame that moved.
+                    inside = weight >= 0.9
+                    map_x = np.where(inside, base_x + float(shift[0]), map_x)
+                    map_y = np.where(inside, base_y + float(shift[1]), map_y)
+                    ring = (weight > 0.1) & ~inside
+                    if not ring.any():
+                        continue
+                    peak = np.unravel_index(int(np.argmax(weight)), weight.shape)
+                    fitted = (float(orig_x[peak] - base_x[peak]),
+                              float(orig_y[peak] - base_y[peak]))
+                    ambiguity = float(np.hypot(shift[0] - fitted[0],
+                                               shift[1] - fitted[1]))
+                    if ambiguity > 2.0:
+                        ring_refused |= ring
                 occlusion[i] = occlusion.get(
                     i, np.zeros((h, w), dtype=bool)
-                ) | _occlusion_mask(map_x - base_x, map_y - base_y, override_step)
+                ) | ring_refused | _occlusion_mask(
+                    map_x - base_x, map_y - base_y, override_step
+                )
                 report["frames"][i]["stretch"] = _field_stretch(map_x, map_y)
                 fields[i] = (map_x.astype(np.float32), map_y.astype(np.float32))
 

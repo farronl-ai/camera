@@ -5,6 +5,47 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F106 — A geometric decision cannot be soft, and unexplained motion obliges refusal
+
+The user looked at the Lubriderm pump and saw three of it — one real, two faint —
+and yellow wall bleeding in at the bottle's lower right. The same signature was
+measured on IMG-46: label colour smeared ~20 px past the bottle's silhouette. Two
+distinct causes, one concept each.
+
+**1. The override was applied with soft weights, and a sampling field cannot be
+blended.** A 0.5 weight between two displacement fields does not blend appearances —
+it invents a THIRD position that neither surface ever occupied, and the support
+ramp then renders exactly the observed smears. The repo already held this rule three
+times over (F79's hard region choice, F82's hard refusal, the stretch limiter's
+transport-not-stretch); the override had been exempted from the limiter and its
+thin support-edge refusal under-covered the ramp. Application is now TRINARY:
+inside the support (weight ≥ 0.9) the group's motion applies in full; outside
+(≤ 0.1) the depth path stands; the ring between is REFUSED in every frame whose
+geometry there is materially ambiguous (> 2 px), because the ring's true content is
+unknowable from a frame that moved.
+
+**2. Measured, unexplained motion was being dropped, and it must be refused.** The
+pump's ghosts came from farther out: the pump sat OUTSIDE the support entirely — a
+coverage-matching loop broke on the first frame where motion was visible, letting
+one noisy measurement decide (fixed: any visible frame may confirm, none may veto,
+per F99's zero-bias). But the deeper rule is that the screening pass had already
+MEASURED the pump's limb edges moving ~19 px that nothing modelled, and then threw
+that evidence away. Every disagreeing feature that no chosen support corrects is now
+returned as unexplained motion, and its neighbourhood is refused in all frames
+beyond ref±1: if it cannot be corrected, it must not be allowed to ghost. This is
+F82's principle extended from "the observation does not exist" to "the observation
+exists and nothing accounts for it".
+
+Results: the Lubriderm pump is single and clean, the cap smear gone, the yellow-wall
+bleed at the lower right gone to a faint edge tint; the IMG-46 bottle cap's ghost
+step gone. Kitchen residuals improved again (f8 +0.78, f11 +1.32 px). Factory and
+zero-motion remain byte-identical. 85 tests.
+
+Honest costs: kitchen now withholds 20.2% of pixels per frame (was 7.1) — refused
+regions fall back to the reference and its neighbours, which is visibly right here
+but is a lot of withholding; IMG-46 withholds 5.6%. And a faint tint remains along
+the bottle's lower-right silhouette. Both logged open.
+
 ## F105 — First unseen-scene validation: IMG-46
 
 Four handheld 24 MP frames (glass table, transparent water bottle up close, specular

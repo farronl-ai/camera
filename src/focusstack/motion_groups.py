@@ -343,11 +343,16 @@ def _coverage_points(grays, ref, candidates, motion, anchors, screen_frames):
                 continue
             predicted = float(m[0]) * nx + float(m[1]) * ny
             # Only frames where this edge could SEE the group's motion count —
-            # a perpendicular edge agreeing is vacuous (F103).
+            # a perpendicular edge agreeing is vacuous (F103). Agreement in ANY
+            # visible frame suffices, and a disagreeing frame must not veto
+            # (blurred edges read zero confidently, F99): breaking on the first
+            # visible frame let one noisy measurement decide, which is how the
+            # pump fell out of coverage.
             if abs(predicted) < COVER_PX:
                 continue
-            agrees = abs(shift - predicted) < COVER_PX
-            break
+            if abs(shift - predicted) < COVER_PX:
+                agrees = True
+                break
         if agrees:
             matched.append((x, y))
 
@@ -385,15 +390,22 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
                                                   return_limb=True)
     report = {"features": len(features), "groups": 0, "overridden": 0}
     if len(features) < 3 * MIN_GROUP:
-        return [], report
+        return [], report, []
 
     screen_frames = sorted({
         ref_index + sign * offset
         for offset in SCREEN_OFFSETS for sign in (-1, 1)
         if 0 <= ref_index + sign * offset < len(grays)
     } - {ref_index})
-    disagreeing = 0
-    for x, y, nx, ny in features:
+    # Evidence, not just a count: every feature (limb included — its few-px
+    # bias is irrelevant at SCREEN_PX-scale disagreement) whose motion the depth
+    # path does not explain. Features a chosen group later corrects are its
+    # body; the REST are measured, unexplained motion, and evidence of
+    # unexplained motion obliges refusal (F82), never silence — the pump's own
+    # limb edges measured ~19 px that nothing modelled, and dropping that
+    # evidence is what rendered three pump heads.
+    disagreeing_points = []
+    for x, y, nx, ny in features + limb_features:
         base = _profile(grays[ref_index], x, y, nx, ny)
         for k in screen_frames:
             shift, peak = _match(base, _profile(grays[k], x, y, nx, ny))
@@ -401,21 +413,19 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
                 continue
             expected = displacement_at(k, x, y) or (0.0, 0.0)
             if abs(shift - (expected[0] * nx + expected[1] * ny)) > SCREEN_PX:
-                disagreeing += 1
+                disagreeing_points.append((x, y))
                 break
-        if disagreeing >= SCREEN_COUNT:
-            break
-    report["screen_disagreeing"] = disagreeing
-    if disagreeing < SCREEN_COUNT:
+    report["screen_disagreeing"] = len(disagreeing_points)
+    if len(disagreeing_points) < SCREEN_COUNT:
         report["skipped"] = "no unexplained motion near the reference"
-        return [], report
+        return [], report, []
 
     table, score = _measure(grays, ref_index, features)
     focal = _focal_frames(grays, features)
     groups = _consensus_groups(features, table, len(grays))
     report["groups"] = len(groups)
     if not groups:
-        return [], report
+        return [], report, disagreeing_points
 
     frames = [k for k in range(len(grays)) if k != ref_index]
     shape = grays[0].shape
@@ -447,7 +457,7 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
         chosen.append((_support(points, shape, grays[ref_index]), motion))
 
     if not chosen:
-        return [], report
+        return [], report, disagreeing_points
     report["overridden"] = len(chosen)
 
     # Sharpen so a compact group owns its own body rather than being outvoted by a
@@ -460,4 +470,15 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
     total = sharp.sum(axis=0, keepdims=True)
     share = np.where(total > 1e-6, sharp / np.maximum(total, 1e-6), 0.0)
     claim = np.clip(peak / CLAIM_FULL, 0.0, 1.0)
-    return [(share[j] * claim, motion) for j, (_s, motion) in enumerate(chosen)], report
+    weights = [(share[j] * claim, motion) for j, (_s, motion) in enumerate(chosen)]
+
+    # Unexplained motion = disagreeing evidence no chosen support corrected.
+    owned = np.zeros(shape, dtype=bool)
+    for weight, _motion in weights:
+        owned |= weight >= 0.9
+    unexplained = [
+        (x, y) for x, y in disagreeing_points
+        if not owned[int(round(y)), int(round(x))]
+    ]
+    report["unexplained"] = len(unexplained)
+    return weights, report, unexplained

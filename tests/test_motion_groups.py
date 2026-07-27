@@ -46,7 +46,7 @@ def _run_overrides(stack, ref):
 
 def test_override_fires_on_an_object_the_depth_path_missed():
     stack, ref = _square_stack(step_px=4.0)
-    chosen, report = _run_overrides(stack, ref)
+    chosen, report, unexplained = _run_overrides(stack, ref)
     assert report["overridden"] >= 1, report
 
     # The chosen group must measure the square's true motion: +8 px at the far
@@ -63,8 +63,9 @@ def test_override_fires_on_an_object_the_depth_path_missed():
 
 def test_override_screens_out_a_scene_with_no_unexplained_motion():
     stack, ref = _square_stack(step_px=0.0)
-    chosen, report = _run_overrides(stack, ref)
+    chosen, report, unexplained = _run_overrides(stack, ref)
     assert chosen == []
+    assert unexplained == []
     assert report.get("skipped"), report   # refused early, before the full pass
 
 

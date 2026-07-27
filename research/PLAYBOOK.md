@@ -125,6 +125,14 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   membership question whose alternatives differ by >5 px. An untextured object part
   — pump, shoulder, base — has ONLY limb edges; motion-matched, spatially chained
   attachment is how it joins its object's footprint.
+- **A geometric decision cannot be soft** (F106). Soft weights are for photometric
+  blending; blending two SAMPLING FIELDS invents a third position neither surface
+  occupied. Apply a motion in full, or not at all, and refuse the uncertain ring —
+  trinary, never a ramp.
+- **Measured motion that nothing explains obliges refusal** (F106). If screening
+  found it and no model corrected it, dropping the evidence converts it into
+  ghosts. F82 extended: refuse not only observations that do not exist, but
+  observations that exist unaccounted for.
 - **A model that creates a discontinuity must feed its own refusal gate** (F104).
   The override knows where its support boundary steps the field; a measured >5 px
   disagreement is stronger boundary evidence than a smoothed depth map, whose step

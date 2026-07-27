@@ -94,6 +94,17 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   with no depth at all, and depth then splits each pair because only the
   translational components scale with 1/Z. With ~200 edges this is heavily
   over-determined.
+- **Carry depth explicitly in any motion decomposition** (F95). The components are
+  not depth-independent; they are characteristically different from each other, and
+  depth-dependence is part of that difference. Parameterize by inverse depth ρ, and
+  exploit that ρ is a SCENE property shared by every frame while motion is per-frame
+  — that makes it hugely over-determined and is solvable by alternating linear
+  halves. On real data this explains ~69% of observed displacement, against 25–50%
+  for the same idea fed by tiles.
+- **ρ is recoverable only up to an affine reparameterization**, because a pan can
+  absorb any constant added to it. Use only its depth-VARYING part; its offset and
+  scale are gauge. Do not expect monotone ρ to validate a fit — bins at similar true
+  depths order arbitrarily within noise.
 - **A pan is NOT identifiable.** A uniform shift is indistinguishable from every
   depth translating equally; only the depth-VARYING part of translation is
   recoverable. Fitting both a uniform term and per-depth translations makes the

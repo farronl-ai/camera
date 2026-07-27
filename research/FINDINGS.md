@@ -5,6 +5,52 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F95 — Depth belongs IN the decomposition, and is recoverable only up to an affine
+
+Clarifying what F94's table was for: the components are not depth-independent. They
+are characteristically DIFFERENT from one another, and depth-dependence is part of
+what makes them different — it is not a nuisance to be set aside. The quadrant
+sign test happens not to need depth, but that is one check inside the method, not
+the method. Any decomposition must carry depth explicitly, and F94's four quantized
+bins are a crude stand-in for a quantity continuous in 1/Z.
+
+The physically correct form makes inverse depth a parameter, and exploits that it is
+a property of the SCENE — one ρ per depth, shared by every frame, while motion is
+per-frame:
+
+```text
+d_i,k . n_i = omega_k (rot basis) + rho_b [ (-tx_k + x tz_k) nx + (-ty_k + y tz_k) ny ]
+```
+
+Solved by alternating (motion given ρ, then ρ given motion), which is linear in each
+half. On the kitchen sweep: 2419 observations, 226 material edges, 11 frames.
+
+- **rms residual 2.00 px** against an observed displacement rms of 3.58 px — about
+  69% of the motion explained, where F81b's tile-based version of the same idea
+  managed 25–50%. The improvement is entirely in the features: material edges
+  measured by gradient profile, not tiles.
+- **ρ = +2.90, −0.21, −0.77, −0.12** across bins ordered near to far: one clearly
+  separated near bin (the bottle's) and three far bins mutually indistinguishable.
+  Sensible for this scene, and not monotone across all four.
+
+**ρ is identifiable only up to an affine reparameterization**, and the reason is
+F94's confound: a pan is indistinguishable from every depth translating equally, so
+adding a constant to ρ can be absorbed by the motion. Dropping the uniform term (as
+F94 requires for identifiability) leaves pan/tilt nowhere to go but into ρ·t, which
+is what inflates one bin's ρ. Practical consequences:
+
+- report and use only the depth-VARYING part of ρ; its offset and overall scale are
+  gauge, not measurement;
+- do not expect a monotone ρ to validate the fit — bins whose true depths are close
+  will order arbitrarily within noise;
+- this is the same wall as F81b's "monotone but not affine", now with its cause
+  named rather than observed.
+
+The residual 2 px is not yet explained. Candidates in order of suspicion: depth
+quantization at four bins, genuine object-level motion differences within a bin
+(which is what F93's grouping exists to capture), and measurement noise, which the
+material-edge agreement puts at roughly 1 px.
+
 ## F94 — Reading camera motion off all edges at once, and what is not identifiable
 
 Each component of camera motion leaves a different spatial signature, so with a

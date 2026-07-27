@@ -5,6 +5,91 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F81 — Depth-dependent parallax needs a depth-binned field, not a better global warp
+
+F79 and F80 handled the *consequences* of unresolved parallax. This is the
+geometry itself. A handheld rotation pivots the device, not the entrance pupil,
+so the camera centre translates and displacement scales with inverse depth. One
+global warp splits the difference: on all three moving phone sweeps the residual
+translation inside near content was 2.0–2.5x the residual in far content, which
+is the inverse-depth signature measured directly rather than inferred.
+
+The default now adds a second pass on top of the global warp: depth bins from
+the stack's own depth-from-focus map, one translation-only ECC correction per
+bin, blended into a single dense coordinate field by edge-aware memberships and
+resampled exactly once. Registration improves on every moving sweep:
+
+| Sweep | near residual | far residual | Q_SSIM | sharp | align |
+|---|---:|---:|---:|---:|---:|
+| synthetic parallax + GT | 2.735 → 0.481 px | 1.245 → 0.402 px | GT 0.8754 → **0.9660** | — | — |
+| kitchen, 12 frames | 2.172 → 0.981* | 0.855 → 0.916 | 0.911430 → 0.909417 | 19.36 → 19.27 | 1.2 → 2.0 s |
+| large-motion, 14 frames | 1.539 → 0.981 | 0.729 → 0.358 | 0.942463 → 0.940672 | 18.21 → 18.51 | 1.3 → 4.5 s |
+| small-motion, 14 frames | 0.470 → 0.221 | 0.379 → 0.217 | 0.981784 → 0.982400 | 15.45 → 15.47 | 0.4 → 3.3 s |
+| zero-motion, 14 frames | 0.046 → 0.034 | 0.026 → 0.040 | 0.986796 → 0.986316 | 16.28 → 16.29 | 0.4 → 3.3 s |
+
+*kitchen near residual 2.172 → 1.453.
+
+The isolated synthetic case carries the verdict because it is the only one with
+GT, and because a stack that differs by one global transform cannot test this
+pass at all — it must be built with near and far content moving by different
+amounts. +0.0906 GT-SSIM and +6.3 dB. Its remaining error sits on silhouettes,
+which is genuine disocclusion: parallax uncovers background that no
+single-valued warp can recover.
+
+Four things had to be right, and each was found by a failure:
+
+1. **Bin edges belong at depth-histogram valleys, not quantiles.** Equal-population
+   edges cut through the middle of one physical object, giving it a 13 px step
+   across its own surface: a visible seam and ghosted strip inside the book on
+   the large-motion sweep. Valleys split where the scene separates.
+2. **The field must be stopped from stretching content.** A sampling field may
+   transport pixels freely, but a large correction changing quickly across space
+   smears geometry the camera never saw. Relaxing displacement wherever its local
+   gradient exceeds 0.10 *raised* probe GT-SSIM (0.9579 → 0.9628), so the stretch
+   was pure damage. Membership width cannot substitute: narrowing it makes stretch
+   worse (5.9 vs 2.7 at the extremes), because the same jump crosses fewer pixels.
+3. **Refusal at every level.** Untextured bins, underpopulated bins, diverged
+   fits, and sub-three-frame stacks all fall back to the global warp, and a frame
+   earning no correction is byte-identical. The zero-motion sentinel is left alone.
+4. **Bin count stopped being a tuning knob** once edges came from valleys: 3 and 4
+   requested bins both resolve to the same 2 real bins on the probe.
+
+Cost is 1.5–3.5x alignment time, which is a small share of a full run.
+
+### F81a — No-reference metrics cannot adjudicate an alignment change
+
+Q_SSIM compares the fused image to its *locally sharpest source*, and alignment
+changes what the sources are. Scoring each fused output against the other
+variant's source set collapses both to ~0.72–0.82, and the depth-aware output
+scores marginally *higher* on the global variant's sources than the reverse.
+Within-variant Q_SSIM therefore partly measures self-consistency with a possibly
+misregistered stack, which a misaligned stack can win. The real-data Q_SSIM
+deltas above (±0.002) are not evidence either way; the registration residuals,
+the GT probe, and disagreement-guided crops are. Localizing the one dissent that
+looked real (large-motion, −0.0137) is what exposed the quantile-edge seam, so
+the metric earned its keep as a *pointer* while being useless as a verdict.
+
+### F81b — Tested and rejected: parametric depth-to-displacement models
+
+Displacement is proportional to 1/Z, so a model linear in the depth proxy looks
+principled. It loses: probe GT-SSIM 0.9313 vs 0.9565 for bins, with higher
+stretch. The focus-winner index is monotone in inverse depth but not affine in
+it, and multiplying a noisy continuous proxy by a ~20 px coefficient turns every
+depth-map wiggle into a displacement wiggle. Binning quantizes that noise away
+and assumes nothing about the mapping.
+
+A full alternating estimator — camera rotation, translation, breathing scale,
+depth, *and* the depth-to-parallax calibration, each refined from the others
+across iterations — is implemented behind `depth_model="joint"`. It converges
+(mean correction 1.13 → 1.11 → 0.35 px) and achieves the best registration of
+any variant (large-motion near residual 0.568 px vs 0.981 binned, 1.539 global),
+but it is **not promotable**: it moves the zero-motion sentinel from 0.046 to
+0.247 px, inventing motion where there is none, and scores worst on Q_SSIM
+everywhere. The diagnosed wall is the observation model, not the solver — tile
+shifts are sound (84% agree within 1 px with independent ECC), yet the
+rigid-motion-plus-depth model explains only ~25–50% of them, so the fit
+generalizes poorly to pixels whose depth differs from the tiles'.
+
 ## F80 — Alignment output is the all-frame observed footprint
 
 A rotated or translated frame does not observe the same scene rectangle as the

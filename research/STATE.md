@@ -31,12 +31,26 @@ by every frame may reach fusion. `align_stack` warps validity masks, intersects
 them across all N frames, and crops all aligned images to the largest all-valid
 rectangle. Never reintroduce reflected/replicated warp borders as image data.
 
-The remaining kitchen geometry is true depth-dependent parallax: handheld
-device rotation includes camera-center translation because the pivot is not the
-lens entrance pupil, so near and far pixels move differently. Do not answer
-that with a more flexible single global warp. The eventual alignment successor
-is regularized dense flow or depth-binned local transforms, with the coherent
-source route retained as the safe fusion fallback.
+F81 answers the remaining kitchen geometry — true depth-dependent parallax,
+because handheld rotation pivots the device rather than the lens entrance pupil
+and the camera centre therefore translates. `align_stack` now runs a depth-aware
+second pass after the global warp: depth bins cut at depth-histogram valleys,
+one translation-only ECC correction per bin, blended into a single dense field,
+relaxed wherever it would stretch rather than transport content, and resampled
+exactly once. Do not answer this with a more flexible single global warp, and do
+not replace valley edges with quantiles — that puts a seam through the middle of
+an object. F79's coherent source route stays as the safe fusion fallback.
+
+Two alignment negatives are load-bearing (F81b): a model linear in the depth
+proxy loses to nonparametric bins, and the alternating motion/depth/calibration
+estimator (`depth_model="joint"`), while achieving the best registration of any
+variant, invents motion on the zero-motion sentinel and is not promotable. Do
+not enable it by default without fixing its observation model first.
+
+No-reference metrics cannot compare two alignments (F81a): they score against
+the aligned sources, which the alignment itself changes. Judge alignment by
+registration residual per depth region, the GT parallax factory, and
+disagreement-guided crops.
 
 ## Read order
 

@@ -49,6 +49,8 @@ def run(
     method: str = "perband",
     align: bool = True,
     align_motion: str = "affine",
+    align_depth_bins: int = 3,
+    align_depth_model: str = "bins",
     focus_method: str = "content_aware",
     levels: int | None = None,
     harden: float = 0.5,
@@ -76,8 +78,20 @@ def run(
     log(f"loaded {len(images)} frames: {', '.join(names)}")
 
     if align:
-        log(f"aligning frames (motion={align_motion}) ...")
-        images = align_stack(images, motion=align_motion)
+        log(f"aligning frames (motion={align_motion}, depth_bins={align_depth_bins}) ...")
+        images, align_report = align_stack(
+            images,
+            motion=align_motion,
+            depth_bins=align_depth_bins,
+            depth_model=align_depth_model,
+            return_report=True,
+        )
+        corrected = sum(
+            1 for frame in align_report["frames"].values() if frame["accepted"] > 0
+        )
+        if corrected:
+            log(f"depth-aware pass corrected {corrected} frame(s) "
+                f"across {align_report['bins']} depth bins")
 
     if normalize_exposure:
         log("normalizing per-frame exposure/WB drift ...")

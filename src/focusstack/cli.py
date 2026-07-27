@@ -42,6 +42,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Geometric model for alignment (default: affine).",
     )
     p.add_argument(
+        "--align-depth-bins",
+        type=int,
+        default=3,
+        metavar="N",
+        help="Depth bins used to correct depth-dependent parallax after the "
+        "global warp (default: 3; 0 disables). Handheld rotation pivots around "
+        "the device rather than the lens, so near and far content shift by "
+        "different amounts and no single global warp fits both. Ignored for "
+        "stacks of fewer than three frames.",
+    )
+    p.add_argument(
+        "--align-depth-model",
+        choices=["bins", "joint"],
+        default="bins",
+        help="How the depth-dependent correction is modelled (default: bins). "
+        "'joint' is an experimental alternating estimate of camera motion, "
+        "depth, and the depth-to-parallax calibration; it registers moving "
+        "sweeps better but is not yet non-regressing on still ones.",
+    )
+    p.add_argument(
         "--focus-measure",
         dest="focus_method",
         choices=["laplacian", "gradient", "tenengrad", "mod_laplacian", "content_aware"],
@@ -148,6 +168,8 @@ def main(argv: list[str] | None = None) -> int:
             method=method,
             align=not args.no_align,
             align_motion=args.align_motion,
+            align_depth_bins=args.align_depth_bins,
+            align_depth_model=args.align_depth_model,
             focus_method=args.focus_method,
             levels=args.levels,
             harden=args.harden,

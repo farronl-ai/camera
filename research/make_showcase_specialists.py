@@ -191,7 +191,7 @@ def _normal_photo_cases(selected_sids=None):
     from focusstack.enhance import enhance
     from focusstack.focus import content_aware_energies
     from focusstack.fusion import (
-        fuse_blend,
+        fuse_coherent,
         stack_consistency_route,
     )
     from focusstack.io import normalize_exposure, to_gray_float
@@ -247,7 +247,7 @@ def _normal_photo_cases(selected_sids=None):
         aligned = normalize_exposure(align_stack(raw, motion="affine"))
         routed, instability = stack_consistency_route(aligned)
         if routed:
-            base, shared_weights = fuse_blend(
+            base, shared_weights = fuse_coherent(
                 aligned,
                 harden=0.5,
                 return_weights=True,

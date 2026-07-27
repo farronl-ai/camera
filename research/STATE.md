@@ -20,10 +20,18 @@ component-specific below-noise extrapolation, and contour-relative integration.
 Do not replace it with generic seam smoothing.
 
 For ordinary N-frame stacks, F79 now detects fragmented, low-confidence local
-focus ownership. Unstable stacks use one shared guided decision across pyramid
-bands; stable stacks retain full per-band selection. This prevents residual
-motion/focus breathing from mixing misregistered frames at different
-frequencies and does not affect the two-frame F78 path.
+focus ownership. Unstable stacks snap one shared guided decision to coherent
+hard frame regions before multiband reconstruction; stable stacks retain full
+per-band selection. Fine details are never softly double-imaged, while coarse
+decision transitions remain feathered. This does not affect the two-frame F78
+path.
+
+The remaining kitchen geometry is true depth-dependent parallax: handheld
+device rotation includes camera-center translation because the pivot is not the
+lens entrance pupil, so near and far pixels move differently. Do not answer
+that with a more flexible single global warp. The eventual alignment successor
+is regularized dense flow or depth-binned local transforms, with the coherent
+source route retained as the safe fusion fallback.
 
 ## Read order
 

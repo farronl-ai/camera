@@ -14,7 +14,7 @@ frontier ledgers and completed scans are in Git history. Status:
 | 4 | Transparent/transmissive foreground | NEXT | Separate factory with saved foreground, background, opacity/extinction, coverage, and both clean observations. Never relax opaque complete-core ownership. |
 | 5 | First-party real optical truth | BLOCKED on capture | Controlled macro/product bracket with removable occluder or known target, RAW if possible, aperture/focus metadata, and an occluder-free latent reference. |
 | 6 | N-frame and multiple-occluder recovery | LATER | Ordered multilayer formation state, per-layer observability, identity fallback when ownership is ambiguous. |
-| 7 | Alignment and focus breathing | ACTIVE | F79 repairs the selection-side failure by routing fragmented N-frame ownership to one cross-band decision. Next: feature/flow initialization and a stack-consistent breathing model for the residual geometric error itself. |
+| 7 | Alignment and focus breathing | ACTIVE | F79 prevents unresolved parallax from becoming a double exposure. Handheld device rotation includes translation about a non-optical pivot, so displacement varies with inverse depth; another global homography cannot solve it. Next: regularized dense flow or depth-binned local transforms plus a stack-consistent breathing model. |
 | 8 | Stack-gap recovery | LATER | Mild remnant-anchored deconvolution only where no frame is sharp; estimate scale without the known under-deconvolution bias. |
 | 9 | Noise-adaptive focal evidence | LATER | Separate focus energy from sensor/ISP high-frequency energy, especially in low light. |
 

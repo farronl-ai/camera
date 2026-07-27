@@ -383,6 +383,42 @@ def fuse_blend(
     return fused
 
 
+def fuse_coherent(
+    images: list[np.ndarray],
+    focus_method: str = "content_aware",
+    levels: int | None = None,
+    radius: int | None = None,
+    eps: float = 1e-3,
+    smooth_ksize: int | None = None,
+    harden: float = 0.5,
+    return_weights: bool = False,
+):
+    """Ghost-resistant shared-decision fusion for unstable N-frame stacks.
+
+    Guided weights first produce a spatially coherent, edge-aware frame
+    decision. The winning frame is then made one-hot before multiband
+    reconstruction: fine detail comes from exactly one source, so residual
+    misregistration cannot form a double edge, while the Gaussian weight
+    pyramid still feathers coarse transitions and avoids hard-copy seams.
+    """
+    soft_weights = _weights(
+        images,
+        focus_method,
+        radius,
+        eps,
+        smooth_ksize,
+        harden,
+    )
+    winner = np.argmax(soft_weights, axis=0)
+    yy, xx = np.indices(winner.shape)
+    weights = np.zeros_like(soft_weights)
+    weights[winner, yy, xx] = 1.0
+    fused = multiband_blend(images, weights, levels)
+    if return_weights:
+        return fused, weights
+    return fused
+
+
 def multiband_blend(
     images: list[np.ndarray], weights: np.ndarray, levels: int | None = None
 ) -> np.ndarray:
@@ -573,7 +609,7 @@ def fuse_perband(
         if stack_consistency is None:
             stack_consistency, _ = stack_consistency_route(images)
         if stack_consistency:
-            return fuse_blend(
+            return fuse_coherent(
                 images,
                 eps=eps,
                 harden=harden,

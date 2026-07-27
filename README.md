@@ -41,9 +41,10 @@ The pipeline has three stages, each a small signal/image-processing problem:
      `blend`. A fixed small guided radius per band means the effective scale grows
      with resolution automatically — multi-scale by construction, no magic numbers.
      On motion-fragmented N-frame stacks it automatically routes to one shared
-     edge-aware decision across bands, preventing different frequencies from
-     selecting different misregistered frames. Stable and two-frame stacks retain
-     full per-band selection.
+     edge-aware hard decision across bands: fine detail comes from exactly one
+     frame while coarse transitions remain multiband-feathered. This prevents
+     soft double images and cross-frequency frame disagreement. Stable and
+     two-frame stacks retain full per-band selection.
    - `blend`: **guided multi-band blending** — one edge-aware weight map (as in
      `decision`) applied per Laplacian-pyramid band (Burt & Adelson multiresolution
      blending). Halo-free and seamless, but its *decision* is single-scale; the

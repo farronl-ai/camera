@@ -10,29 +10,41 @@ Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 The real 12-frame kitchen sweep was not a veil-recovery failure. Raw framing
 shifts, focus breathing, and depth-dependent parallax remain after a single
 global affine alignment, and independent per-band decisions could therefore
-select different misregistered frames at different frequencies. The visible
-symptom was scattered focus ownership and faint doubled text/edges.
+select different misregistered frames at different frequencies. Pure rotation
+about the entrance pupil would be one depth-independent homography, but normal
+handheld rotation pivots around the device/body and includes camera-center
+translation; image displacement then varies approximately with inverse scene
+depth. The visible symptom was scattered focus ownership and doubled
+text/edges.
 
 The default now measures the fraction of locally isolated focus winners whose
 lead over the runner-up is weak. This is label-invariant and does not penalize
-decisive real depth boundaries. Above `0.115`, N-frame `perband` uses one shared
-guided decision across all pyramid bands; stable stacks and every two-frame
-stack retain the original per-band path.
+decisive real depth boundaries. Above `0.115`, N-frame `perband` obtains one
+shared guided decision, snaps it to a hard region-coherent frame choice, and
+uses that choice across all pyramid bands. Fine detail therefore comes from
+exactly one frame while the Gaussian weight pyramid feathers only coarser
+transitions. Stable stacks and every two-frame stack retain the original
+per-band path.
 
 Three real phone sweeps were the deliberately small validation set:
 
 | Sweep | Instability | Route | Q_SSIM old → new |
 |---|---:|---|---:|
-| kitchen, 12 frames | 0.1250 | shared | 0.889760 → 0.913157 |
+| kitchen, 12 frames | 0.1250 | coherent | 0.889760 → 0.912199 |
 | zero-motion, 14 frames | 0.0880 | per-band identity | 0.986347 → 0.986347 |
-| large-motion, 14 frames | 0.1220 | shared | 0.930018 → 0.945710 |
+| large-motion, 14 frames | 0.1220 | coherent | 0.930018 → 0.943014 |
 
-Disagreement-guided crops confirm the routed outputs reduce double edges in
-text, package contours, and tabletop detail, with a small expected reduction
-in raw edge energy rather than false sharpening. The kitchen inspector now
-shows the actual shared decision and current output. This is a selection-side
-robustness repair; dense optical flow and focus-breathing compensation remain
-open alignment work.
+The first soft shared-weight attempt improved the metric and decision map but
+still visibly doubled the Lubriderm label, cat, and vertical contours. It was
+not accepted as the fix. Hard direct copying removed those ghosts but made
+jagged seams. The final coherent multiband composition removes the doubled
+images without those hard-copy seams and restores edge energy
+(`46.12 → 55.07` kitchen, `46.62 → 55.40` large-motion). The kitchen inspector
+shows this final output and its actual decision. Dense optical flow and
+focus-breathing compensation remain open alignment work. A more flexible
+single global homography is not the answer; the geometric successor must allow
+depth-varying motion through regularized dense flow or depth-binned local
+transforms.
 
 ## The result we are building
 

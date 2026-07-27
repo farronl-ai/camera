@@ -2,7 +2,8 @@ import cv2
 import numpy as np
 
 from focusstack.focus import focus_measure, focus_measures
-from focusstack.fusion import (depth_from_focus, fuse_blend, fuse_decision, fuse_max,
+from focusstack.fusion import (depth_from_focus, fuse_blend, fuse_coherent,
+                               fuse_decision, fuse_max,
                                fuse_perband, fuse_pyramid, guided_filter,
                                selection_instability_score)
 
@@ -101,7 +102,7 @@ def test_stack_consistency_uses_one_decision_for_nframe_motion():
     stack = [a, shifted, b]
 
     routed = fuse_perband(stack, harden=0.5, stack_consistency=True)
-    shared = fuse_blend(stack, harden=0.5)
+    shared = fuse_coherent(stack, harden=0.5)
     independent = fuse_perband(
         stack,
         harden=0.5,
@@ -137,7 +138,7 @@ def test_stack_consistency_auto_routes_only_fragmented_nframe():
     assert selection_instability_score(fragmented) > 0.3
     assert np.array_equal(
         fuse_perband(fragmented),
-        fuse_blend(fragmented),
+        fuse_coherent(fragmented),
     )
 
 

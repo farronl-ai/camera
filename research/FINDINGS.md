@@ -5,6 +5,36 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F107 — Full resolution by estimating small and applying native
+
+The alignment estimators are pixel-scaled and validated at ~800–1100 px; at 24 MP
+every measurement leaves its regime (the near object's displacement alone exceeds
+the 40 px match cap several times over). The sampling-field architecture makes the
+fix structural: a field maps reference coordinates to source coordinates, so
+
+    field_native(X) = s * field_small(X / s)
+
+Estimation runs where it is validated; the NATIVE pixels are resampled exactly once
+through the scaled field; usable masks scale nearest; the crop is recomputed
+natively; `fuse_perband` is structurally resolution-adaptive already
+(`research/fullres_apply.py`). On IMG-46 at 5712×4284 this delivers an
+artifact-free native result — the nutrition table is fully legible at 24 MP down to
+"Pantothenic Acid 5.1mg", barcode digits resolved, cap single.
+
+**And F106's safety net earned its keep on its first outing.** In this run the
+grouping found one group instead of two and the override did not fire — the same
+frames, downscaled in memory rather than through the saved 1080 JPEGs, moved the
+greedy seed sampling enough to lose the bottle group. Under the old behaviour that
+would have meant ghosts. Instead the 90 unexplained-motion points triggered
+refusal, and the bottle renders clean with source-limited sharpness rather than
+corrupted. Refusal converted a model failure from an artifact into a soft spot.
+
+Open, honestly: the consensus grouping is provenance-sensitive (seed subsampling at
+`pool[::len/24]` is brittle to pixel-level input changes) — it should seed from the
+screening evidence, which already knows where unexplained motion clusters; and the
+estimate-small/apply-native path lives in a research script and belongs in the
+pipeline as the default for large inputs.
+
 ## F106 — A geometric decision cannot be soft, and unexplained motion obliges refusal
 
 The user looked at the Lubriderm pump and saw three of it — one real, two faint —

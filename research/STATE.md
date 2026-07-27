@@ -47,6 +47,15 @@ separate from F80's rectangular crop and must stay separate. Derive the ribbon
 from the MEASURED per-bin displacement, never from the smoothed applied field,
 and keep the radius ladder — a single-scale test condemned 38.6% of a frame.
 
+Next move, concretely: F85's residual-driven splitting recovers the kitchen
+bottle (+2.5 -> +18.8 px, artifact visibly gone) but regresses the analytic
+factory, and no tile-confidence floor serves both. Do not tune that threshold —
+replace it. A real object's residual scales with each frame's motion and keeps
+its direction; a bad phase correlation does not. Gate the split on that
+proportionality. Promotion also needs `_REFINE_MIN_BIN_FRACTION` and the
+acceptance cap relaxed together, since a small region asking for a large
+correction is exactly the case they currently reject.
+
 The bottle on the kitchen sweep is still visibly wrong, and F84 says why: its
 depth bin covers 55% of the frame, so ECC fits the majority and the bottle gets
 +2.3 px where it needs +19.2. Fix that by splitting bins until homogeneous

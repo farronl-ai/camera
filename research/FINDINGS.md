@@ -5,6 +5,59 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F85 — Residual-driven splitting recovers the bottle, and is not yet promotable
+
+F84 showed the depth bin holding the kitchen bottle covers 55% of the frame and
+is fitted to +2.3 px where the bottle needs +19.2. The reframe that follows:
+stop grouping by depth and group by MEASURED MOTION. Depth is only a seed, and
+"wants the same correction" is the operational definition of an object here.
+
+`research/adaptive_bins.py` splits each region by clustering its per-tile
+residual, with the feature being the residual across EVERY frame concatenated —
+an object is an object in every frame, so its residual profile is a far stronger
+signature than any one frame's number. It works:
+
+| level | bottle's region | bottle's share of it | frame-11 fit |
+|---|---:|---:|---:|
+| 0 (depth bins) | 55.4% of frame | 8.7% | +2.47 px |
+| 1 | 11.5% | 24.0% | +4.96 px |
+| 2 | 7.0% | 29.9% | **+18.56 px** |
+
+End to end the corrected region reaches +18.8 px, and the crop shows it: the
+ghost slab over the background beside the bottle is gone and the shelf behind it
+is sharp up to a clean edge.
+
+Three details were each necessary and each found by failing first:
+
+1. **Pool the split evidence across frames by MAX, not median.** A sweep spends
+   most frames near the reference where everything fits, so a median hides an
+   object stranded in the few frames that moved. Median-gating refused to split
+   the kitchen at all.
+2. **Regions must not inherit the tile grid.** A blocky support puts staircase
+   transitions into the sampling field. Tiles vote; the vote is snapped to image
+   structure with a guided filter.
+3. **The runtime's own guards blocked the result.** `_REFINE_MIN_BIN_FRACTION`
+   (6%) and the 14 px acceptance cap reject a 7%-of-frame region asking for
+   19 px. This also explains F84's puzzle that raising the cap alone did
+   nothing: without the split the correction was never proposed, so there was
+   nothing for the cap to reject.
+
+**Not promotable.** Splitting regresses the analytic factory, whose bins are
+already homogeneous, and no single tile-confidence floor serves both scenes:
+
+| tile confidence floor | factory GT-SSIM | kitchen bottle |
+|---|---:|---:|
+| 0.05 | 0.978509 -> 0.973263 | +18.8 px |
+| 0.20 | 0.978509 -> 0.973263 | +7.8 px |
+| 0.35 | 0.978509 -> 0.978496 | +1.9 px |
+
+A magnitude threshold is the wrong instrument, because it asks "is this residual
+big" when the question is "is this residual real". The physical test is
+available and unused: a genuine object's residual must scale with each frame's
+motion and hold its direction, while a garbage phase correlation — from a tile
+straddling the disoccluded zone, which is what the factory keeps splitting on —
+will not. Gate on proportionality to frame motion, not on size.
+
 ## F84 — Veiling is real but must not be a hard mask; depth bins are the actual blocker
 
 Two instruments were built for the two defects visible at the kitchen bottle,

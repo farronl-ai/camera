@@ -5,6 +5,58 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F108 — The wrong-group wipe, four kept fixes, and one precisely-characterized wall
+
+The user reported a column of foreground displaced leftward with yellow background
+in its true place, beside the Lubriderm bottle's lower right. The investigation
+found one severe bug, three concept completions worth keeping, and one artifact
+that survived five attempts and is now a named open problem.
+
+**The severe bug: a wrongly-elected scene-wide group wipes every correction under
+its hull.** A near-still background group (168 features spanning the frame, ~0
+motion) was being chosen as an override; the trinary write then replaced the field
+under its frame-wide hull with `base + ~0` — global-only geometry, rendering the
+bottle ~19 px displaced with wall content in its true position. Its ownership
+simultaneously voided the unexplained-motion refusal there. Two fixes, both kept:
+
+1. **Disagreement is measured at the group's MEMBERS (median), never at a
+   centroid** — one pixel of a scene-spanning group lands anywhere.
+2. **The override's license is MINORITY rescue.** A group whose hull covers most
+   of the frame IS the majority the global stage already fit; it may not override
+   (hull area ≤ 35% of frame).
+3. **Ownership requires explanation.** A disagreeing evidence point is accounted
+   for only if its owner's motion matches the point's own measured shift — 
+   coverage alone is territory, and territory must not void the refusal net.
+
+**Also kept, measured positive: the bins' membership transition band joins the
+refusal gate.** The band is soft-blended geometry — F106's sin, still living in the
+bins stage since F81, priced in before refusal existed — and its depth-step-gated
+ribbon cannot catch it at smooth junctions (F104). Refusing the band where the
+adjacent bins' fitted shifts genuinely pull apart raised the analytic factory's
+GT-SSIM 0.970768 → 0.973225. Also kept: unexplained-point refusal now chains points
+into cluster hulls (objects are contiguous, F93) and applies to ALL moving frames —
+the near-reference exemption was disproved by direct composite (ref-only in the
+artifact box is clean; ref±1's ±3-4 px fan is real).
+
+**The wall, stated precisely.** The tan streak persists. Mechanism PROVEN by
+composite: it is the mixing of near-reference frames' fanned, uncorrected edges in
+the low-contrast stretch of a partially-corrected object (white flank against light
+wall). Five coverage attempts failed for one shared reason — every available gate
+is blind exactly there: no detectable edges (evidence-driven refusal has nothing to
+chain), the label evidence above is EXPLAINED and thus correctly excluded, the
+guided depth ramps smoothly across the boundary (depth-value and depth-step gates
+both fail), and a depth-adjacent dilation stops at the same ramp (rolled back after
+buying +12% withholding for nothing). This is F98's zone-coverage gap at the
+refusal level: pixels that carry no evidence can be neither corrected nor
+selectively refused. The capability that closes it — support that does not depend
+on local evidence, e.g. the two-frame architecture's per-region frame pairs, or a
+non-edge coverage channel — is the next build, and this artifact is its acceptance
+test.
+
+State after the session: kitchen residuals f8 +0.78 / f11 +1.32 px, withheld
+22.5%, factory GT-SSIM improved to 0.973225, all sentinels byte-identical, 85
+tests. The streak is the known remaining defect, smaller than any of its ancestors.
+
 ## F107 — Full resolution by estimating small and applying native
 
 The alignment estimators are pixel-scaled and validated at ~800–1100 px; at 24 MP

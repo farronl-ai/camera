@@ -129,7 +129,19 @@ Each line is load-bearing, measured, and has an anchor in `FINDINGS.md`. The
   blending; blending two SAMPLING FIELDS invents a third position neither surface
   occupied. Apply a motion in full, or not at all, and refuse the uncertain ring —
   trinary, never a ramp.
-- **Measured motion that nothing explains obliges refusal** (F106). If screening
+- **Measured motion that nothing explains obliges refusal** (F106).
+- **The override's license is MINORITY rescue** (F108): a group whose hull spans
+  the frame is the majority the global stage already fit, and electing it wipes
+  every correction under its hull. Measure disagreement at the group's members
+  (median), never at a centroid; and ownership requires EXPLANATION — an owner
+  must match the evidence point's measured shift, or coverage is mere territory
+  and voids the refusal net exactly where it does damage.
+- **Every gate is blind at a smooth low-contrast boundary** (F108): no edges → no
+  evidence; guided depth ramps → depth-value and depth-step gates both fail. A
+  partially-covered object's evidence-free remainder can be neither corrected nor
+  selectively refused with local evidence. Zone coverage needs a channel that does
+  not depend on it — this is F98's gap at the refusal level, and the two-frame
+  architecture's acceptance test. If screening
   found it and no model corrected it, dropping the evidence converts it into
   ghosts. F82 extended: refuse not only observations that do not exist, but
   observations that exist unaccounted for.

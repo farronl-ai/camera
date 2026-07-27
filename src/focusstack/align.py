@@ -955,6 +955,7 @@ def _depth_binned_fields(
         for mask in masks
     ]
     total_membership = np.sum(memberships, axis=0)
+    dominance = np.max(memberships, axis=0)
     # Whatever membership is missing (image border, unbinned pixels) falls back
     # to the global warp, so the field is defined everywhere.
     fallback = np.clip(1.0 - total_membership, 0.0, 1.0)
@@ -1030,6 +1031,22 @@ def _depth_binned_fields(
                 hard_x[mask] = shift[0]
                 hard_y[mask] = shift[1]
         occlusion[i] = _occlusion_mask(hard_x, hard_y, depth_step)
+        # The membership TRANSITION BAND is soft-blended geometry — the F106 sin,
+        # still living in the bins stage: where no bin dominates, the field is a
+        # ramp between two displacements, and content there is rendered at
+        # positions neither surface occupied. Its cost was priced in at F81,
+        # before refusal existed; and the disocclusion ribbon above cannot catch
+        # it because its depth-step gate fails at exactly the object/background
+        # junctions where the ramp bites (F104). So the band joins the refusal
+        # gate directly, in every frame whose bins actually pull apart there.
+        window = np.ones((11, 11), np.float32) / 121.0
+        spread = np.maximum(
+            cv2.dilate(hard_x, np.ones((11, 11), np.uint8))
+            - cv2.erode(hard_x, np.ones((11, 11), np.uint8)),
+            cv2.dilate(hard_y, np.ones((11, 11), np.uint8))
+            - cv2.erode(hard_y, np.ones((11, 11), np.uint8)),
+        )
+        occlusion[i] |= (dominance < 0.9) & (spread > 2.0)
         if depth_model != "linear" and stretch_tolerance > 0.0:
             map_x, map_y = _limit_field_stretch(
                 map_x, map_y, base_x, base_y, stretch_tolerance
@@ -1076,12 +1093,48 @@ def _depth_binned_fields(
             # every frame that moved appreciably keeps it from fusing as ghosts
             # — the pixels come from the reference and its neighbours instead,
             # which is F82's answer whenever a correction is impossible.
+            # Unexplained points belong to OBJECTS, and objects are contiguous
+            # (F93) — so the refusal must cover the object, not just the points.
+            # The measured failure: a bottle flank against a light wall carries
+            # no detectable edges, so the stretch between its label evidence
+            # (above) and its counter-junction evidence (below) produced no
+            # points, and per-point discs left the fan of uncorrected edges
+            # unrefused there — evidence-driven refusal is blind exactly where
+            # contrast is low. Chaining the points and refusing each chain's
+            # hull covers the evidence-free stretch between them.
             evidence = np.zeros((h, w), dtype=np.uint8)
-            for x, y in unexplained:
-                cv2.circle(evidence, (int(round(x)), int(round(y))), 26, 1, -1)
+            points = [(float(x), float(y)) for x, y in unexplained]
+            clusters = []
+            for point in points:
+                joined = None
+                for cluster in clusters:
+                    if any((point[0] - q[0]) ** 2 + (point[1] - q[1]) ** 2 < 52.0 ** 2
+                           for q in cluster):
+                        if joined is None:
+                            cluster.append(point)
+                            joined = cluster
+                        else:
+                            joined.extend(cluster)
+                            cluster.clear()
+                if joined is None:
+                    clusters.append([point])
+            for cluster in clusters:
+                if len(cluster) >= 3:
+                    hull = cv2.convexHull(np.array(cluster, dtype=np.float32))
+                    cv2.fillConvexPoly(evidence, hull.astype(np.int32), 1)
+                    cv2.polylines(evidence, [hull.astype(np.int32)], True, 1, 52)
+                else:
+                    for x, y in cluster:
+                        cv2.circle(evidence, (int(round(x)), int(round(y))), 26, 1, -1)
             evidence = evidence.astype(bool)
+            # ALL moving frames, no near-reference exemption. The exemption
+            # assumed adjacent frames' error is negligible; measured, their
+            # ±3-4 px fan over a contrast-free boundary IS the residual smear —
+            # composited from the reference alone the smear vanishes. The
+            # reference is guaranteed usable everywhere, so unexplained zones
+            # simply become reference-quality, which is F82's honest price.
             for i in range(len(images)):
-                if i == ref_index or abs(i - ref_index) <= 1 or global_warps[i] is None:
+                if i == ref_index or global_warps[i] is None:
                     continue
                 occlusion[i] = occlusion.get(
                     i, np.zeros((h, w), dtype=bool)
@@ -1137,9 +1190,14 @@ def _depth_binned_fields(
                                                shift[1] - fitted[1]))
                     if ambiguity > 2.0:
                         ring_refused |= ring
-                occlusion[i] = occlusion.get(
-                    i, np.zeros((h, w), dtype=bool)
-                ) | ring_refused | _occlusion_mask(
+                owned = np.zeros((h, w), dtype=bool)
+                for weight, motion in chosen:
+                    if motion.get(i) is not None:
+                        owned |= weight >= 0.9
+                previous = occlusion.get(i, np.zeros((h, w), dtype=bool))
+                # Inside a corrected support the geometry is the group's rigid
+                # motion — the bins' transition-band refusal no longer applies.
+                occlusion[i] = (previous & ~owned) | ring_refused | _occlusion_mask(
                     map_x - base_x, map_y - base_y, override_step
                 )
                 report["frames"][i]["stretch"] = _field_stretch(map_x, map_y)

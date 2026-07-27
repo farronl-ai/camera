@@ -413,7 +413,7 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
                 continue
             expected = displacement_at(k, x, y) or (0.0, 0.0)
             if abs(shift - (expected[0] * nx + expected[1] * ny)) > SCREEN_PX:
-                disagreeing_points.append((x, y))
+                disagreeing_points.append((x, y, k, shift, nx, ny))
                 break
     report["screen_disagreeing"] = len(disagreeing_points)
     if len(disagreeing_points) < SCREEN_COUNT:
@@ -425,7 +425,7 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
     groups = _consensus_groups(features, table, len(grays))
     report["groups"] = len(groups)
     if not groups:
-        return [], report, disagreeing_points
+        return [], report, [(x, y) for x, y, *_ in disagreeing_points]
 
     frames = [k for k in range(len(grays)) if k != ref_index]
     shape = grays[0].shape
@@ -434,17 +434,41 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
         motion = _group_motion(features, table, score, focal, members, frames, ref_index)
         if not motion:
             continue
-        # Compare with what the depth path already does where this group lives.
-        cx = float(np.mean([features[i][0] for i in members]))
-        cy = float(np.mean([features[i][1] for i in members]))
+        # Compare with what the depth path already does where this group lives —
+        # at its MEMBERS, robustly, never at a single centroid sample. A centroid
+        # is one pixel; for a scene-spanning background group it lands anywhere,
+        # and one polluted sample once elected a ~0-motion group covering the
+        # whole frame, whose trinary write then replaced every correction under
+        # its hull with global-only geometry: a column of foreground displaced
+        # to its uncorrected position with wall content where the object
+        # belongs. The median over members is what "the depth path under this
+        # group" actually means.
+        sample = members[:: max(1, len(members) // 24)]
         disagreement = 0.0
         for k, value in motion.items():
-            fitted = displacement_at(k, cx, cy)
-            if fitted is None:
-                continue
-            disagreement = max(disagreement, float(np.hypot(value[0] - fitted[0],
-                                                            value[1] - fitted[1])))
+            residuals = []
+            for i in sample:
+                fitted = displacement_at(k, features[i][0], features[i][1])
+                if fitted is None:
+                    continue
+                residuals.append(float(np.hypot(value[0] - fitted[0],
+                                                value[1] - fitted[1])))
+            if residuals:
+                disagreement = max(disagreement, float(np.median(residuals)))
         if disagreement < DISAGREEMENT_PX:
+            continue
+        # The override's license is MINORITY rescue: an object the bins' majority
+        # fit outvoted. A group whose members span most of the frame IS the
+        # majority — the very content the global warp and bins were fitted to —
+        # and electing it replaces every correction under its hull with its own
+        # near-global motion (measured: a column of foreground rendered at
+        # global-only geometry with wall content in its true place), while its
+        # ownership simultaneously voids the unexplained-motion refusal there.
+        points = np.array([[features[i][0], features[i][1]] for i in members],
+                          dtype=np.float32)
+        hull_area = cv2.contourArea(cv2.convexHull(points)) if len(points) >= 3 else 0.0
+        if hull_area > 0.35 * float(shape[0] * shape[1]):
+            report["rejected_majority"] = report.get("rejected_majority", 0) + 1
             continue
         anchors = [(features[i][0], features[i][1]) for i in members]
         assigned = set()
@@ -457,7 +481,7 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
         chosen.append((_support(points, shape, grays[ref_index]), motion))
 
     if not chosen:
-        return [], report, disagreeing_points
+        return [], report, [(x, y) for x, y, *_ in disagreeing_points]
     report["overridden"] = len(chosen)
 
     # Sharpen so a compact group owns its own body rather than being outvoted by a
@@ -472,13 +496,23 @@ def overrides(images, coarse, valid, ref_index, depth, displacement_at):
     claim = np.clip(peak / CLAIM_FULL, 0.0, 1.0)
     weights = [(share[j] * claim, motion) for j, (_s, motion) in enumerate(chosen)]
 
-    # Unexplained motion = disagreeing evidence no chosen support corrected.
-    owned = np.zeros(shape, dtype=bool)
-    for weight, _motion in weights:
-        owned |= weight >= 0.9
-    unexplained = [
-        (x, y) for x, y in disagreeing_points
-        if not owned[int(round(y)), int(round(x))]
-    ]
+    # Unexplained motion = disagreeing evidence no chosen group EXPLAINS.
+    # Coverage alone is territory, not explanation: a point is accounted for
+    # only when its owner's motion matches the point's own measured shift —
+    # otherwise a wrongly-elected group would void the refusal net exactly
+    # where it does its damage.
+    unexplained = []
+    for x, y, k, shift, nx, ny in disagreeing_points:
+        yi, xi = int(round(y)), int(round(x))
+        explained = False
+        for weight, motion in weights:
+            if weight[yi, xi] < 0.9:
+                continue
+            m = motion.get(k)
+            if m is not None and abs(shift - (float(m[0]) * nx + float(m[1]) * ny)) < COVER_PX:
+                explained = True
+                break
+        if not explained:
+            unexplained.append((x, y))
     report["unexplained"] = len(unexplained)
     return weights, report, unexplained

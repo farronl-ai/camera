@@ -324,3 +324,325 @@ In priority order, because the first item alone may close the factory gap:
 The prototype deliberately leaves the runtime untouched (DEVSTYLE §13: iterate
 in `research/` so nothing needs re-validation and the promotion decision stays
 open until evidence closes it).
+
+---
+
+# Hardening pass — 2026-08-02
+
+Second Opus session, on the promotion blockers §7 listed. Code: `research/twoframe.py`
+only; nothing in `src/`, `tests/` or any other research file was touched; 85 tests
+pass. New entry points:
+
+```
+.venv/bin/python research/twoframe.py kat2       # KATs for the two new instruments
+.venv/bin/python research/twoframe.py hardening  # the two acceptance tests
+.venv/bin/python research/twoframe.py fullres    # full-resolution transfer KAT
+.venv/bin/python research/twoframe.py modes      # do kitchen tiles hold 3 modes?
+```
+
+## H1. Verdict first, and one correction to §4a
+
+**The validity gate is built and both halves of its acceptance pass.** A deliberate
++8 px error in a layer shift takes the factory 0.971310 → 0.928212 ungated, and the
+gate returns it to **0.970986** — inside 0.0004 of the clean run. On correct fits the
+gate is silent: factory and kitchen are bit-identical with it on and off, zero
+refusals on either scene.
+
+**The factory gap is 79% closed: 0.965810 → 0.971310** against the shipped path's
+0.972808. The kitchen keeps its F108 acceptance: flank mean |Δ| **2.16**, max 10,
+**0.00%** over 12.
+
+**And §4a's headline was wrong, which is the most important thing in this note.**
+The oracle ladder there concluded "that entire gap is per-layer shift ESTIMATION,
+not the architecture". It cannot support that: every rung of it bypasses
+`twoframe_stack` — two frames, two analytic shifts, one `fuse_perband`, no global
+affine, no tiling, no stitch, no refusal, no crop. Feeding the same exact shifts
+THROUGH the architecture scores **0.968782**, and the measured hardened run scores
+0.971310 — i.e. the architecture BEATS its own exact-per-layer-shift oracle. Two
+things follow:
+
+* The gap was never mostly estimation. It was **geometry** (H3), and the estimator
+  contributed 0.0016 of the 0.0055 recovered.
+* "Exact per-layer shift" is not this architecture's optimum, and that is a
+  structural fact, not a fluke: a pair member is rendered WHOLE and its coarse
+  bands enter the fusion outside its own layer, so the score-optimal single
+  translation for a frame sits slightly between its two layers' exact shifts. Do
+  not chase analytic exactness past ~0.5 px here; it is the wrong target.
+
+An oracle that skips the machinery measures the idea, not the build. Both rungs are
+now printed side by side by `twoframe.py oracle`.
+
+## H2. TASK 1 — the validity gate
+
+### Instruments first (§12.1), `twoframe.py kat2`
+
+| KAT | question | result |
+|---|---|---|
+| 5 | does the focal-weighted edge-profile fit agree with the ECC, in sign and value? | −2/−5/−12/−20 px and two 2-D shifts recovered to **0.000 px** by both |
+| 6 | does the gate separate right from wrong? | 0.0/0.5/1.0 px error → **verified**; 2/4/8/20 px → **contradicted**, statistic 1.97/3.98/7.97/19.67 |
+
+KAT 5 exists because the two estimators must share a sign convention before either
+can verify the other; both return the warp taking REFERENCE coordinates to MOVING
+ones. KAT 6 fixes `GATE_TOL = 1.5 px` between the two measured populations: real
+correct kitchen fits verify at 0.01–0.32 px, and the smallest error the gate must
+catch reads 1.97.
+
+### Design
+
+A fitted layer shift is applied only after forward verification: apply it, then ask
+the layer's **own material edges** whether the layer has stopped moving.
+
+* **Independent of the fitter.** Profile correlation along edge normals versus
+  masked ECC over a dense region — different evidence, different failure modes.
+* **Material only** (`motion_groups._material_features`), so a curved object's
+  view-dependent limb slide is not read as fit error (F92).
+* **Focal-weighted**, so defocus cannot bias it toward the reassuring answer of
+  zero (F99).
+* **Observability-aware.** The residual is solved as a translation and only its
+  components along observable eigen-directions of the weighted normal moment are
+  gated — a feature whose normal is perpendicular to a motion agrees with it
+  vacuously (F103).
+* **No image warp.** Sampling the moving frame's profile at `M(x)` *is* sampling
+  the warped image at `x`, so verification costs one profile per feature.
+* **Free of a `max_shift` illusion.** The 0.668 fit was inside `max_shift`; a
+  plausibility bound cannot tell a correct fit from a wrong one of the same size.
+
+### Trinary, per F106, and repair before refusal
+
+The verdict is **verified / contradicted / unverifiable**, and the three do
+different things — this is PLAYBOOK §0's "is the observation absent, or mixed?"
+asked of a *fit*:
+
+* **verified** → apply.
+* **contradicted** → the evidence says the layer is still displaced. But the
+  verification did not only say NO, it measured HOW WRONG, and that measurement is
+  the correction. The fit is **repaired** from it (up to `GATE_REPAIRS = 4`
+  iterations, to `GATE_CONVERGED = 0.05 px`, preferring doubly-focal evidence) and
+  re-verified. Only a fit that still fails is refused.
+* **unverifiable** → no evidence either way. The *correction* is declined (the
+  frame keeps the global stage's geometry, the baseline everything already accepts)
+  but the *observation* is not thrown away. Refusing here would gut the
+  architecture: the whole point is to use frames the reference cannot see well.
+
+A refused member supplies nothing and the unwarped reference is admitted in its
+place — §5.3's measured best fallback, now reached by a gate rather than by a
+disocclusion probe.
+
+Repair is not decoration. Refusal alone took the eroded-mask disaster from 0.668 to
+**0.916**, because refusing the near layer over 82% of the frame hands it to a
+reference that is defocused there. One repair pass takes it to 0.957. Refusal is
+the floor, not the plan.
+
+### The caught-error demonstration (`twoframe.py hardening`)
+
+| scenario | gate off | gate on | vs clean 0.971310 |
+|---|---:|---:|---:|
+| +2 px into pair 0 layer 0 | 0.943368 | **0.971188** | −0.000122 |
+| **+8 px into pair 0 layer 0** | 0.928212 | **0.970986** | **−0.000324** |
+| +20 px into pair 0 layer 0 | 0.928210 | **0.971226** | −0.000084 |
+| both layers, x and y (+8,−3) and (−6,+4) | 0.823803 | **0.968267** | −0.003043 |
+| §6's own case: fit masks eroded 7 px | 0.670662 | **0.957371** | −0.013939 |
+| eroded 13 px | 0.513248 | **0.898597** | −0.072713 |
+
+The gate reads the injected error almost exactly (rms 3.68 for +8 px, 8.39 for
++20 px) and repairs to 0.02–0.04 px residual. The erosion rows stay short of clean
+because erosion damages *every* fit and sub-`GATE_TOL` damage legitimately passes —
+the gate promises to catch geometric errors, not to undo a bad mask.
+
+**Silence on correct fits.** Factory GT-SSIM 0.971310 with the gate on and off;
+kitchen flank 2.16 both ways; **zero refusals on either scene**. The only thing the
+gate says on the kitchen is `unverifiable` for pair (4,6)'s frame-4 layer, which has
+63 337 dense pixels and **0 material features** — the reference is defocused there,
+so Canny finds nothing to verify with. That is honest, and it costs that pair its
+−2.00 px correction; measured by eye
+(`out/depth_align/TF_hardened_vs_prototype.png`, disagreement-guided) it shows as
+slightly softer countertop grain and no new artifact anywhere.
+
+## H3. TASK 2 — where the factory gap actually was
+
+### The geometry, not the estimate
+
+The prototype composed the **global affine** into every render: `matrix = base @
+T(shift)`. But the global affine is fitted across BOTH depth layers at once, so it
+absorbs differential parallax as a spurious scale — F96's failure exactly ("a radial
+term imitates two separated regions translating differently").
+
+Measured on the factory, which has `BREATHING_PER_FRAME = 0.0` so every
+non-translational term in its affine is over-fit: frame 1's affine reads scale
+0.9954, spreading **±1.3 px** of sampling error across the frame even when the
+layer's own shift is analytically exact. At 0.0268 GT-SSIM per px of near-layer
+error (§4a), that term alone is the factory gap.
+
+The architecture's own premise — one member, one layer, **one rigid translation** —
+was never honoured. `_rigidify` evaluates the composed transform at the layer's own
+centre of support and collapses it to the translation that reproduces it there.
+Nothing is invented; the same displacement is applied rigidly as claimed.
+
+Worth **+0.0044** on the factory (0.965810 → 0.970242 with the prototype's own fit).
+
+### But not everywhere — and the split is decided by evidence, not a threshold
+
+The kitchen's global affine is doing real work: frame 11 reads shear 0.0286 and
+**y-scale 1.0285**, which is ±7 px of vertical variation across the frame. Blanket
+rigidification costs the kitchen (flank 1.96 → 2.39). Two scenes wanting opposite
+values is DEVSTYLE §12.3's signal that the choice is the wrong instrument.
+
+So both are **proposed** and the one that forward-verifies better is applied, per
+(frame, layer), using the same instrument the gate uses — the focal-weighted RMS of
+what is still displaced at the layer's material edges, taken RAW rather than as a
+solved translation, because a solved translation absorbs exactly the
+spatially-varying error that distinguishes the two candidates. The factory picks
+rigid, the kitchen picks affine, and it picks per layer (kitchen pair (6,8) layer 1
+chooses rigid while (6,11) chooses affine). No threshold anywhere.
+
+### The edge-profile estimator
+
+`edge_refined_shift`: the ECC pyramid supplies the RANGE (the only instrument here
+that finds a 19 px shift from identity), and the focal-weighted edge-profile fit
+closes the residual on material edges. Each is used where it is valid — the profile
+is ±28 px long, so it measures a residual well and a gross displacement badly.
+
+**One F99 extension was needed and is the interesting part.** `group_align` weights
+only the MOVING side's focal distance, because it measures an object near its own
+focal plane and propagates. Here the pairing is inverted: a layer supplied by frame
+11 is one the *reference* is deeply defocused in, so every profile match on it is
+blurred-against-sharp. Measured: three of four kitchen layer fits moved TOWARD ZERO
+against the ECC (frame 8's own layer −1.57 → −0.98) — F99's defocus bias arriving
+from the side focal weighting was not watching. Requiring a feature to be sharp in
+**both** frames makes the estimator DECLINE where it cannot see instead of returning
+a confident under-read.
+
+The GATE deliberately does *not* apply that symmetric weighting, and the asymmetry
+is F104's rule transplanted: a defocused profile match carries a few TENTHS of a
+pixel of bias, which forbids it from producing a rigid fit and is irrelevant to a
+question whose wrong answer is several pixels out. **It may verify what it may not
+estimate.** Measured both ways: 0.01–0.32 px on real correct fits, 7.97 px on a
+deliberate +8 px error.
+
+### The ladder
+
+| configuration | factory GT-SSIM | kitchen flank mean | >12 |
+|---|---:|---:|---:|
+| shipped depth-bin path | **0.972808** | 5.98 | 16.34% |
+| two-frame PROTOTYPE (ecc, affine, no gate) | 0.965810 | 1.96 | 0.00% |
+| ecc fit, rigid layer geometry | 0.970242 | 2.39 | 0.00% |
+| edge fit, affine layer geometry | 0.966606 | 2.07 | 0.00% |
+| edge fit, rigid layer geometry | 0.971852 | 2.42 | 0.00% |
+| **HARDENED (edge fit, verified geometry, gate)** | **0.971310** | **2.16** | **0.00%** |
+| also verifying the fit choice (ecc vs edge) | 0.970256 | 2.16 | 0.00% |
+| in-architecture oracle: exact per-layer shifts | 0.968782 | — | — |
+
+TASK 2's bar was factory ≥ 0.9720. **0.971310 misses it by 0.00069** and sits 0.0015
+under the shipped path, against the prototype's 0.0070. The bar was set from the
+0.9730 rung, which H1 shows is not this architecture's ceiling — the honest ceiling
+statement is that the remaining 0.0015 is NOT estimation (the fits verify at
+0.02–0.17 px on the factory) and NOT layer geometry (both candidates are tested).
+What is left is the architecture: the degenerate single-frame regions (14.2% + 4.1%
+of the factory frame take one frame and are therefore defocused in the other plane),
+the stitch, and refusal's own trade. Chasing it means changing the architecture, not
+the estimator.
+
+## H4. TASK 3 — full resolution (`twoframe_fullres`, `twoframe.py fullres`)
+
+Easier here than anywhere else in the pipeline, exactly as §6 predicted: each
+candidate's geometry is ONE homogeneous matrix, so the F107 rule
+`field_native(X) = s·field_small(X/s)` becomes an exact matrix conjugation
+
+    M_native = S @ M_small @ S⁻¹,    S = diag(s, s, 1)
+
+with no resize of a coordinate map and no interpolation of a field. Ownership and
+usable masks are per-pixel decisions, not geometry, and scale nearest-neighbour as
+`fullres_apply` scales its occlusion masks. Native pixels are resampled exactly once.
+
+KAT: kitchen frames upscaled 2× as the "natives", `working_width = 774`, output
+downscaled and compared to the working-resolution output of the same run.
+
+| quantity | mean \|Δ\| | over 12 |
+|---|---:|---:|
+| **native (downscaled) vs working** | **2.41** | **1.21%** |
+| floor — the KAT's own 2× up / area-down round trip | 0.88 | 0.33% |
+| control — the reference frame vs the working output | 6.72 | 13.20% |
+
+2.7× the resample floor and 2.8× below the control: the transfer is sound, and the
+excess over the floor is the fusion band structure resolving genuinely different
+detail at 2×, not a geometry error. Crops are recomputed natively (as
+`fullres_apply` does) so the two outputs do not start at the same pixel — comparing
+them without intersecting the crops reports mean 13.2 and 28% over 12, all of it the
+comparison's own misregistration. That trap cost a run and is worth remembering.
+
+## H5. TASK 4 — three focal modes, measured, not built
+
+`twoframe.py modes`, using the architecture's own Otsu bar recursively and nothing
+new: of 160 kitchen tiles, **137 (85.6%) are two-mode and 125 (78.1%) carry a THIRD
+mode clearing the same quality bar**. The brief's threshold was 5%.
+
+So the demand is real and enormous — but read it carefully before acting on it. The
+recursive Otsu bar is a *relative* variance criterion: a second split of an already
+split side clears 0.45 easily whenever the side has any spread at all, and a
+continuously receding surface (a countertop) will trip it everywhere. This
+measurement says "two layers is a coarse description of most tiles", which was never
+in doubt; it does NOT say a third frame would pay. Nothing was built, per the brief.
+A measurement that would decide it: whether a third frame's own layer verifies (H2's
+instrument) at a residual the two-frame pair cannot reach.
+
+## H6. NEGATIVE deliverables — this pass
+
+1. **Routing the CROSS-LAYER fits through the edge estimator and the gate.**
+   REJECTED, and it was the session's sharpest trap. Those entries are never
+   rendered; they exist only to give F82 its disocclusion width, the DIFFERENTIAL
+   between a frame's two layer motions — the one quantity here with a closed form
+   and the one KAT 4 validated the masked ECC against (87–100% of the analytic
+   parallax). Sending them through the new machinery collapsed the differential and
+   with it the refusal that closes the streak: pair (6,8) refused 20.4% → **0.0%**,
+   pair (4,6) 11.8% → 0.0%, kitchen flank 1.96 → **3.34**, 2.14% over 12. The
+   factory *rose* to 0.976941 doing it, which is the trap: a worse differential
+   (3.41 vs the ECC's 3.75 against a truth of 5.00) under-refuses, and
+   under-refusing flatters the factory while breaking the named acceptance test.
+   Different question, different instrument, each used where it was known-answer
+   tested.
+2. **Verifying the ecc-vs-edge fit choice as well as the geometry.** NOT rejected on
+   mechanism, rejected on measurement: 0.970256 vs 0.971310 on the factory,
+   identical on the kitchen. The two fits differ by less than the selector's own
+   noise, so the extra choice adds variance and no information. Geometry is
+   selected; the fit is not.
+3. **Blanket rigid layer geometry.** REJECTED as a rule (kept as a candidate).
+   Factory +0.0044, kitchen flank 1.96 → 2.39. The kitchen's affine carries a real
+   y-scale of 1.0285 by frame 11.
+4. **Blanket edge-profile refinement with moving-side focal weighting only.**
+   REJECTED. Kitchen flank 1.96 → 3.26 with 1.93% over 12, mechanism identified as
+   reference-side defocus bias (H3). Fixed by symmetric weighting, not by tuning.
+5. **Refusal without repair on a contradicted fit.** REJECTED. 0.916 where repair
+   reaches 0.957 (erode 7); 0.9365 vs 0.9710 (+8 px injection). Refusal is correct
+   as the floor and wasteful as the first response, because the verification has
+   already measured the correction.
+6. **The multiband stitch as the flank's problem.** INVESTIGATED, not changed. The
+   flank is 91.5% owned by the degenerate reference-only pair (6,6), whose candidate
+   is the reference exactly, so its 1.96–2.16 mean |Δ| is entirely low-frequency
+   leak from neighbouring candidates through the stitch. Hard paste drops the mean
+   to 0.57–0.89 but raises the tail (max 13–22, 0.4–3.5% over 12), because the leak
+   is what was smearing a real difference at the (6,11) boundary below the
+   threshold. Neither is clearly better and the acceptance test is defined on the
+   default, so the default stands — but the flank number is measuring the stitch as
+   much as the fits, and a future pass should know that.
+
+## H7. What remains for runtime integration
+
+1. **Route, do not replace** (F101), still unstarted and still the right shape: the
+   two-frame path now loses the factory by 0.0015 rather than 0.0070, but "loses by
+   less" is not "non-regressing". Use it where a region's focal statistics are
+   decisively bimodal AND one of its layers is sharpest at a frame the shipped path
+   corrects badly.
+2. **The unverifiable layer.** Kitchen pair (4,6) has 63 337 dense pixels and zero
+   material features, so 27.7% of the frame silently declines its correction. Limb
+   edges are forbidden from the fit (F92) but explicitly allowed to decide coverage
+   (F104) — the same licence may extend to VERIFICATION, where the alternatives
+   differ by pixels. Worth one probe.
+3. **The degenerate single-frame regions** are the largest remaining factory cost
+   (18.3% of the frame taking one frame). `OTSU_MIN_QUALITY` decides them and has
+   never been swept; it is a threshold, so per §12.3 look for the physical test
+   first.
+4. `twoframe_fullres` is validated at 2× on one scene. F107's own warning about
+   provenance sensitivity applies: the pair election is re-run on downscaled pixels
+   and its greedy merge ORDER changed under a resize round trip (the same pairs, a
+   different order).
+5. `--enhance` still untouched (F56 does not licence it for a stitched composite).

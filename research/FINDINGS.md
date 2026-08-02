@@ -5,6 +5,33 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F110 — Two-frame hardened: verified gate, edge-refined fits, oracle corrected
+
+Second Opus round (write-up in `research/twoframe_NOTES.md`, hardening section).
+Verified by the manager: factory number reproduced through the agent's own eval
+path; kitchen flank confirmed clean on an independent render.
+
+- **Validity gate**: forward-verify a layer fit by asking the layer's own material
+  edges whether the layer stopped moving (focal-weighted, observability-aware).
+  Trinary per F106: verified applies; contradicted repairs from the gate's own
+  measurement, refusing only if re-verification fails; unverifiable declines the
+  correction but keeps the observation. Injected +8 px error: 0.9282 ungated →
+  **0.9710 gated**; +20 px: 0.9712. Silent on correct fits (factory and kitchen
+  identical gate on/off). The predecessor's 0.668 case class is closed.
+- **Estimation**: rigid layer geometry +0.0044, edge-refined fits +0.0016 —
+  factory 0.9658 → **0.9713** (shipped 0.9728).
+- **The prototype's oracle was wrong**, caught by KAT discipline applied unasked:
+  exact analytic shifts run THROUGH the architecture score 0.9688 — below the
+  hardened run — so F109's "the gap is estimation" claim is false; the remaining
+  −0.0015 is architecture (degenerate single-frame regions, stitch, refusal
+  trade). F109 stands corrected on that point.
+- Full-res: candidates transfer by matrix conjugation `S·M·S⁻¹` (F107 with no
+  field resize), KAT'd at 2×.
+- Known gap for routing: one kitchen pair region (27.7% of frame) has zero
+  material features and declines its correction; F104 may licence limb edges for
+  VERIFICATION there. Tri-modal tiles measured (78% trip a relative bar that a
+  receding countertop trips everywhere) — deliberately not built on.
+
 ## F109 — The two-frame architecture passes the F108 acceptance test
 
 Prototyped by an Opus 5 subagent under the §10 delegation discipline

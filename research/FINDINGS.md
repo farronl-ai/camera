@@ -5,6 +5,43 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F111 — The two-frame route ships: engaged where it wins, vetoed where it loses
+
+Third Opus round, manager-verified (port KATs exact; byte-identity reproduced
+independently through the full pipeline; all review crops inspected). In the
+package: `src/focusstack/twoframe.py`, routed in `pipeline.run` (default on,
+`--no-twoframe-route`), 92 tests.
+
+**The routing rule, validated with an amendment.** The candidate — engage where
+the motion-group override fired — proved necessary but NOT sufficient: the route
+also requires the composite to place every elected layer within the existing
+refinement licence (1.5% of the diagonal, `_REFINE_MAX_FRACTION`, borrowed not
+invented). Per scene: factory / zero-motion / small-motion — shipped,
+byte-identical (`np.array_equal` on full pipeline output, route on vs off).
+Kitchen (2.1 px of 14.0 licence) and IMG-46 (6.9 of 20.2) — two-frame.
+Large-motion (19.2 px, over licence) — composite built and DISCARDED.
+
+**The large-motion veto is the finding.** The two-frame composite there does not
+garble the box — it loses it: the box is sharpest at frame 0 and needs +18.9 px;
+the pair fits it correctly (0.51 px verified), then F82's disocclusion refusal
+withdraws that member over 91% of the pair and the box returns
+reference-defocused. F109 §2 predicted the regime. The architecture vetoes its
+own route, and the shipped override output ships there — text crisp, confirmed
+on the review crop.
+
+**Kitchen through the routed pipeline**: flank mean 2.24 / max 11 / 0.00% > 12
+(bar 2.2 missed by 0.04 with the cause measured, not excused: normalize_exposure
+±1.5% per-frame gains; the same composite reads 2.16 from raw sources; shipped
+moves 5.98 → 6.69 under the same gains). The F108 streak remains eliminated in
+the shipped default path.
+
+Open, ranked: a pair-aware refusal that prefers a present-but-defocused member
+over a reference-defocused one would repair large-motion and move the route's
+boundary; a declined composite is still rendered (~4 s wasted — the licence check
+could precede rendering); the licence's scale is borrowed rather than fitted, on
+one real scene per side; `--enhance` is correctly skipped on the routed path
+(F56's licence does not cover a stitched composite).
+
 ## F110 — Two-frame hardened: verified gate, edge-refined fits, oracle corrected
 
 Second Opus round (write-up in `research/twoframe_NOTES.md`, hardening section).

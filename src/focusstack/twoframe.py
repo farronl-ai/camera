@@ -50,6 +50,8 @@ What the hard-won rules bind here, and where each shows up below:
 
 from __future__ import annotations
 
+import inspect
+
 import cv2
 import numpy as np
 
@@ -699,17 +701,44 @@ def _rigidify(matrix, mask, shape):
 #
 # The precondition is testable without texture, and PLAYBOOK §0 supplies the
 # test in one line: DEFOCUS IS A LOW-PASS, ALWAYS. Two observations of one
-# surface must therefore agree once both are low-passed past their own defocus,
-# no matter how textureless the surface is; two different surfaces do not, and
+# surface must therefore agree once both are brought to a COMMON defocus, no
+# matter how textureless the surface is; two different surfaces do not, and
 # their disagreement is the contrast between them. So the member is admitted
-# only where its low-passed appearance agrees with the REFERENCE's — the
+# only where its matched appearance agrees with the REFERENCE's — the
 # reference being the one frame that is unwarped and therefore the authority on
 # what is visible in the composite's own geometry.
 #
 # Trinary, never ramped (F106): a pixel is served by a member, or it is not.
 #
-# What "agree" is allowed to mean is set by measurement, not by taste, and every
-# term is something already measured elsewhere in the arc:
+# HOW the two are brought to a common defocus is F115's retirement of this
+# module's last free scale. Round 3 shipped ONE global low-pass, `SURFACE_SIGMA`,
+# and logged it as an unresolved DEVSTYLE §12.3 split: the analytic factory wants
+# 2, the kitchen boxes want 8, 4.0 was the smallest value clearing every bar. A
+# threshold two scenes want opposite values for is the wrong instrument, and the
+# physical invariant it stands in for is exact. Two observations of one latent
+# surface are
+#
+#     m = L (x) disk(R_m)        r = L (x) disk(R_r)
+#
+# so blurring EACH by the OTHER's disk makes them identical:
+#
+#     m (x) disk(R_r)  ==  L (x) disk(R_m) (x) disk(R_r)  ==  r (x) disk(R_m)
+#
+# CROSS-CONVOLUTION. No low-pass to exceed the residual defocus difference —
+# the difference is REMOVED, exactly, and there is no PSF-family mismatch
+# because the family used to match is the family the physics uses (PLAYBOOK §0:
+# real defocus is a DISK, never a Gaussian; a Gaussian second-moment match was
+# tried in research and leaves a family residual that grows with radius).
+# Disk radii are integers by construction, so the ladder below is the exact
+# parameter space and not a discretization of it.
+#
+# The radius per pixel is the arc's validated blur proxy, `R = c * |k - peak|`:
+# `peak` is `focal_field`'s per-pixel focal frame and `c` is disk radius per
+# frame of focal distance. Nothing here estimates blur from contrast, which
+# PLAYBOOK §0c forbids.
+#
+# What "agree" is allowed to mean is F112's budget, unchanged and unretuned —
+# every term is something already measured elsewhere in the arc:
 #   * a residual displacement of up to GATE_TOL px is the module's own statement
 #     of a fit that verified, so a disagreement a GATE_TOL shift explains is not
 #     evidence of a different surface — it is subtracted as `tol * |grad|`. This
@@ -717,15 +746,91 @@ def _rigidify(matrix, mask, shape):
 #     the geometry admits can account for.
 #   * `normalize_exposure` leaves a per-frame multiplicative residual; measured
 #     on this sweep the largest is 1.85%, so 2% of the local level is allowed.
-#   * sensor noise survives the low-pass at well under one level (measured p99
-#     0.6-0.9 for sigma 3-8), so one level is allowed for it.
-SURFACE_SIGMA = 4.0          # px; must exceed the residual defocus difference
+#   * sensor noise survives the match at well under one level, so one level is
+#     allowed for it.
+#
+# `c` was regressed through the origin from the certifier's own forward radius
+# search (F115 §5), the instrument its KAT-2 measured recovering a KNOWN radius
+# exactly: 1.161 px/frame on the analytic factory, whose true `BLUR_PER_STEP` is
+# 1.15 — recovered to 1.0%. The kitchen's own regression reads 0.684 with a
+# residual 3.5x its own slope (F114: a depth LAYER is a quantization of a depth
+# RAMP), so it is not a second scene asking for a different value; it is a
+# scene whose per-layer blur model is too crude to regress. The factory's number
+# ships, and R2 of the round-4 notes measures what the kitchen's own value would
+# cost: both verdicts are unmoved.
+# AND THE HALF OF THE LOW-PASS THE CROSS-CONVOLUTION DOES NOT RETIRE. Round 4
+# ported the physics above and measured the routed kitchen getting WORSE, not
+# better, in the user's own boxes (box 1 6.14/61 -> 10.42/156 while its focus
+# energy ROSE 41.8 -> 56.1 — the F112 defect returning crisper). The diagnosis
+# is that `SURFACE_SIGMA` was doing TWO jobs and only one of them was defocus:
+#
+#   1. absorbing the residual defocus DIFFERENCE — retired exactly, above;
+#   2. POOLING the decision over a neighbourhood. A per-pixel level agreement is
+#      not evidence about a SURFACE: a textured intruder crosses the occluded
+#      surface's level at scattered pixels, and at native scale the test admits
+#      exactly those (measured: agreement inside box 1 rises 8.9% -> 14.3% for
+#      the member that renders the pot in front of the bottle). F108's wall once
+#      more — a per-pixel test cannot see a regional fact.
+#
+# Job 2's scale is not free either. This test exists to police the FOCUS
+# CONTEST, and the contest is decided on energies pooled by
+# `focus.content_aware_energies` over its own `smooth_ksize` box: a gate may not
+# be finer-grained than the decision it polices. So the window is borrowed from
+# that operator rather than chosen, and the verdict is UNANIMOUS over it — a
+# member is admitted only where nothing in its own pooling window disagrees,
+# which is the conservative side of F106 (admit what the evidence supports, not
+# what it fails to refute). Measured alternatives, all on both scenes (round 4
+# R1): majority pooling reads factory 0.978678 and FAILS the recorded bar;
+# opening (islands only) leaves box 2 at 3.58/20 over its 3.49/17; window
+# 5/7/9/11 reads 0.984209/0.984312/0.984385/0.984376, a plateau rather than a
+# knee. Both halves earn their place: pooling alone on the old global sigma
+# leaves box 3 and box 4 maxima at 86 and 94 against 19 and 4 here, and
+# cross-convolution alone fails as above.
+BLUR_PER_FRAME = 1.161       # px of disk radius per frame of focal distance
+# The sampling-scale residual left after two observations are matched: below one
+# pixel the disk PSF, the bilinear kernel of the module's single resample and the
+# pixel grid are not distinguishable, so a disagreement at that scale is not
+# evidence about which surface is being observed. Applied to BOTH sides
+# identically, so it cancels no structure. Swept 0.5/1.0/2.0 in research: neither
+# verdict moves.
+SIGMA0 = 1.0
 SURFACE_GAIN = 0.02          # share of level, from normalize_exposure's residual
-SURFACE_NOISE = 1.0          # levels, from the blurred noise floor
+SURFACE_NOISE = 1.0          # levels, from the noise floor
+# The pooling window, read from the focus operator's own signature so the two
+# cannot drift apart (`content_aware_energies(..., smooth_ksize=9)`).
+SURFACE_POOL = int(inspect.signature(content_aware_energies)
+                   .parameters["smooth_ksize"].default)
 
 
-def _lowpass(image, sigma=SURFACE_SIGMA):
-    return cv2.GaussianBlur(image.astype(np.float32), (0, 0), sigma)
+def _disk_kernel(radius):
+    """The circle of confusion. Real defocus is a disk, never a Gaussian."""
+    r = int(round(radius))
+    if r < 1:
+        return None
+    yy, xx = np.mgrid[-r:r + 1, -r:r + 1]
+    kernel = ((xx ** 2 + yy ** 2) <= r * r).astype(np.float32)
+    return kernel / kernel.sum()
+
+
+def _defocus(image, radius):
+    kernel = _disk_kernel(radius)
+    if kernel is None:
+        return image
+    return cv2.filter2D(image, -1, kernel, borderType=cv2.BORDER_REPLICATE)
+
+
+def _disk_ladder(image, radius_max):
+    """`image` convolved with every disk radius up to `radius_max`, integer grid."""
+    top = int(np.ceil(max(0.0, float(radius_max))))
+    return np.stack([_defocus(image, r) for r in range(top + 1)], 0)
+
+
+def _select(stack, radius_map):
+    """Per-pixel pick from a ladder — a spatially varying convolution."""
+    index = np.clip(np.rint(radius_map).astype(np.int32), 0, len(stack) - 1)
+    h, w = radius_map.shape
+    yy, xx = np.indices((h, w))
+    return stack[index, yy, xx]
 
 
 def _gradient_magnitude(blurred):
@@ -734,28 +839,63 @@ def _gradient_magnitude(blurred):
     return np.sqrt(gx * gx + gy * gy)
 
 
-def same_surface(member, reference, sigma=SURFACE_SIGMA, tol=GATE_TOL):
+def blur_radii(peak, frame):
+    """The disk radius each pixel carries in `frame` — the validated blur proxy."""
+    return (BLUR_PER_FRAME * np.abs(float(frame) - peak)).astype(np.float32)
+
+
+def match_blur(member, reference, radius_member, radius_reference,
+               sigma0=SIGMA0):
+    """Bring two observations to a COMMON defocus by cross-convolution.
+
+    Each is convolved with the OTHER's disk, which is exact for two observations
+    of one latent surface. `sigma0` is then applied to both identically — the
+    sampling-scale residual the disk model, the bilinear resample and the pixel
+    grid share, and it cancels no structure because it is common.
+    """
+    r_m = np.maximum(radius_member, 0.0).astype(np.float32)
+    r_r = np.maximum(radius_reference, 0.0).astype(np.float32)
+    low_m = _select(_disk_ladder(member.astype(np.float32), r_r.max()), r_r)
+    low_r = _select(_disk_ladder(reference.astype(np.float32), r_m.max()), r_m)
+    if sigma0 > 0:
+        low_m = cv2.GaussianBlur(low_m, (0, 0), sigma0)
+        low_r = cv2.GaussianBlur(low_r, (0, 0), sigma0)
+    return low_m, low_r
+
+
+def agreement_budget(low_member, low_reference, tol=GATE_TOL):
+    """What a disagreement is ALLOWED to be, in levels. F112's terms, unchanged."""
+    return (tol * np.maximum(_gradient_magnitude(low_member),
+                             _gradient_magnitude(low_reference)).max(axis=2)
+            + SURFACE_GAIN * np.maximum(low_member, low_reference).max(axis=2)
+            + SURFACE_NOISE)
+
+
+def same_surface(member, reference, radius_member, radius_reference,
+                 sigma0=SIGMA0, tol=GATE_TOL, pool=SURFACE_POOL):
     """Where does `member` observe the same surface as the unwarped `reference`?
 
-    Both are already in the composite's (reference's) geometry. Returns a bool
-    mask: True where the low-passed appearances agree to within what a GATE_TOL
-    displacement, the exposure residual and sensor noise can explain; False
-    where they do not, which means the member is showing different content —
-    an occluder that moved, or its own copy of one, standing where the
+    Both are already in the composite's (reference's) geometry, and each carries
+    a per-pixel disk radius (`blur_radii`). Returns a bool mask: True where the
+    two, once brought to a COMMON defocus by cross-convolution, agree to within
+    what a GATE_TOL displacement, the exposure residual and sensor noise can
+    explain — and where nothing in the pixel's own pooling window disagrees.
+    False where they do not, which means the member is showing different content
+    — an occluder that moved, or its own copy of one, standing where the
     composite's geometry says something else is visible.
 
-    Known-answer tested in `tests/test_twoframe_route.py`: pure defocus (a disk
-    blur, which is what real defocus is) must NOT trip it, a sub-pixel shift
-    must not trip it, and a displaced occluder must.
+    Known-answer tested in `tests/test_twoframe_route.py`: disk defocus at any
+    radius must NOT trip it (the premise), a displacement inside GATE_TOL must
+    not, the exposure residual must not, and a displaced occluder must.
     """
-    member_low = _lowpass(member, sigma)
-    reference_low = _lowpass(reference, sigma)
-    disagreement = np.abs(member_low - reference_low).max(axis=2)
-    explained = (tol * np.maximum(_gradient_magnitude(member_low),
-                                  _gradient_magnitude(reference_low)).max(axis=2)
-                 + SURFACE_GAIN * np.maximum(member_low, reference_low).max(axis=2)
-                 + SURFACE_NOISE)
-    return disagreement <= explained
+    low_m, low_r = match_blur(member, reference, radius_member, radius_reference,
+                              sigma0)
+    disagreement = np.abs(low_m - low_r).max(axis=2)
+    agree = disagreement <= agreement_budget(low_m, low_r, tol)
+    if pool > 1:
+        agree = cv2.erode(agree.astype(np.uint8),
+                          np.ones((pool, pool), np.uint8)) > 0
+    return agree
 
 
 def _pair_refusal(frames, ref, table, dense, depth_step, shape):
@@ -817,10 +957,11 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
                observation does not exist (F82 disocclusion), falling back to the
                other member and, where both are refused, to the unwarped
                reference. Refusal with no fallback is measurably worse than none.
-    `surface`  admit each member only where its low-passed appearance agrees
-               with the unwarped reference's, i.e. only where the two are
-               observing the SAME SURFACE. This is the precondition the focus
-               contest needs and never had; see `same_surface`.
+    `surface`  admit each member only where its appearance agrees with the
+               unwarped reference's ONCE BOTH ARE BROUGHT TO A COMMON DEFOCUS,
+               i.e. only where the two are observing the SAME SURFACE. This is
+               the precondition the focus contest needs and never had; see
+               `same_surface`.
     `gate`     forward-verify every layer geometry before applying it. A
                CONTRADICTED fit refuses its member; an UNVERIFIABLE one declines
                the correction and keeps the global stage's geometry.
@@ -860,6 +1001,9 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
         cv2.Sobel(ref_gray * 255.0, cv2.CV_32F, 0, 1, ksize=3),
     )
     evidence = EdgeEvidence(grays, ref, depth, common, peak)
+    # The reference's own disk radius per pixel: the other half of every
+    # cross-convolution below, and the same for every pair.
+    radius_ref = blur_radii(peak, ref)
 
     candidates, used, diagnostics = [], set(), []
     for index, pair in enumerate(kept):
@@ -1037,8 +1181,13 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
         # fallback below is what covers it.
         agreement = None
         if surface:
+            # Each member is matched to the reference's OWN defocus and vice
+            # versa (`same_surface`), so the test needs each side's disk radius:
+            # the validated proxy `c * |frame - peak|` on `focal_field`'s
+            # per-pixel focal frame, which is already in the composite's geometry.
             agreement = [np.ones((h, w), bool) if frame == ref
-                         else same_surface(image, images[ref])
+                         else same_surface(image, images[ref],
+                                           blur_radii(peak, frame), radius_ref)
                          for image, frame in zip(rendered, frames)]
 
         usable = None

@@ -19,8 +19,8 @@ import numpy as np
 
 from focusstack.align import align_stack
 from focusstack.pipeline import run
-from focusstack.twoframe import (GATE_TOL, EdgeEvidence, gate_shift, global_stage,
-                                 same_surface, twoframe_fullres,
+from focusstack.twoframe import (GATE_TOL, SURFACE_POOL, EdgeEvidence, gate_shift,
+                                 global_stage, same_surface, twoframe_fullres,
                                  twoframe_stack)
 
 
@@ -150,9 +150,17 @@ def test_the_validity_gate_catches_an_injected_layer_error():
     """The promotion blocker the gate exists for: a wrong-but-plausible layer
     shift is invisible to `max_shift`, and F110 measured one taking the factory
     to 0.668 with nothing objecting. Inject +8 px and require the gate to recover
-    the clean composite."""
+    the clean composite.
+
+    ROUND 4 scoping: every run here has the same-surface precondition OFF, so the
+    subject is the GATE. With it on, the injected member is refused a second time
+    on appearance (8 px out of place is not the same surface) and the ungated
+    composite is barely damaged at all — 0.47 against 4.35 — which would make the
+    gate's own test vacuous. The second instrument is asserted separately below
+    rather than allowed to stand in for the first (§12.2).
+    """
     stack, ref = _stranded_object_stack(step_px=6.0)
-    clean, info = twoframe_stack(stack, ref)
+    clean, info = twoframe_stack(stack, ref, surface=False)
     assert len(info["pairs"]) >= 1
 
     # Into a real two-member pair: a degenerate one-frame region has no second
@@ -161,8 +169,10 @@ def test_the_validity_gate_catches_an_injected_layer_error():
     pair_index = next(i for i, d in enumerate(info["diagnostics"])
                       if len(d["frames"]) == 2)
     error = {(pair_index, 0): (8.0, 0.0)}
-    ungated, ungated_info = twoframe_stack(stack, ref, inject=error, gate=False)
-    gated, gated_info = twoframe_stack(stack, ref, inject=error, gate=True)
+    ungated, ungated_info = twoframe_stack(stack, ref, inject=error, gate=False,
+                                           surface=False)
+    gated, gated_info = twoframe_stack(stack, ref, inject=error, gate=True,
+                                       surface=False)
 
     def compare(a, a_info, b, b_info):
         """Mean |difference| on the region both outputs actually observed.
@@ -183,6 +193,17 @@ def test_the_validity_gate_catches_an_injected_layer_error():
     residual = compare(gated, gated_info, clean, info)
     assert damage > 1.0, damage                 # the error really is damaging
     assert residual < 0.25 * damage, (residual, damage)
+
+    # ROUND 4, the second instrument, stated rather than relied on: with the
+    # precondition ON and the gate still OFF, the same injected error is refused
+    # on APPEARANCE — a layer 8 px out of place is not observing the surface the
+    # reference does. Measured against the same clean composite, so the two
+    # instruments are compared on one scale.
+    guarded, guarded_info = twoframe_stack(stack, ref, inject=error, gate=False,
+                                           surface=True)
+    intact, intact_info = twoframe_stack(stack, ref, surface=True)
+    surface_only = compare(guarded, guarded_info, intact, intact_info)
+    assert surface_only < 0.5 * damage, (surface_only, damage)
 
     # And the error must not have been applied silently: the entry it was
     # injected into is no longer carrying it.
@@ -273,50 +294,77 @@ def _disk(image, radius):
                         kernel / kernel.sum()).astype(np.uint8)
 
 
+def _kat_scene():
+    """The committed round-3 fixture, unchanged, so the two versions of the test
+    are directly comparable on the four questions F112/R3 asked."""
+    rng = np.random.default_rng(4)
+    texture = cv2.GaussianBlur(rng.integers(0, 255, (300, 400)).astype(np.uint8),
+                               (0, 0), 2)
+    scene = cv2.cvtColor(texture, cv2.COLOR_GRAY2BGR).astype(np.float32)
+    inner = np.zeros(scene.shape[:2], bool)
+    inner[40:-40, 40:-40] = True
+    return scene, inner
+
+
 def test_same_surface_is_blind_to_defocus_and_sees_a_displaced_occluder():
-    """KAT for the round-3 instrument (DEVSTYLE §12.1), on known answers.
+    """KAT for the instrument (DEVSTYLE §12.1), on known answers.
 
     `same_surface` decides whether two frames are looking at the same thing, and
-    the whole round-3 fix rests on it, so it is tested against answers that are
-    known by construction BEFORE it is believed on the kitchen:
+    the round-3 fix rests on it, so it is tested against answers that are known
+    by construction BEFORE it is believed on the kitchen:
 
       * real defocus is a DISK (PLAYBOOK §0) and must not trip it — that is the
-        entire premise, "defocus is a low-pass, so one surface still agrees";
+        entire premise, and ROUND 4 replaced the global low-pass that stood in
+        for it with the physics: two observations of one surface satisfy
+        `m (x) disk(R_r) == r (x) disk(R_m)`, so each is convolved with the
+        OTHER's disk and the defocus difference is REMOVED rather than exceeded.
+        The rows that prove the retirement are 8 and 12 px, where the global
+        sigma=4 version read 0.931 and 0.759 and this one reads 1.000;
       * a residual displacement inside the module's own `GATE_TOL` must not trip
         it, because the geometry already declares such a fit verified;
       * `normalize_exposure`'s residual gain (measured at most 1.9% on the
         kitchen) must not trip it;
       * an occluder that MOVED must trip it, over the strip it vacated and the
         strip it now covers, and nowhere else.
+
+    Run with the pooling window OFF, because these are questions about the
+    MATCHING; `test_same_surface_pools_its_verdict` covers the shipped verdict.
+    Every number below reproduces `research/scene_model.py kat` to three decimals,
+    which is the port's own known-answer test.
     """
-    rng = np.random.default_rng(4)
-    texture = cv2.GaussianBlur(rng.integers(0, 255, (300, 400)).astype(np.uint8),
-                               (0, 0), 2)
-    scene = cv2.cvtColor(texture, cv2.COLOR_GRAY2BGR)
-    inner = np.zeros(scene.shape[:2], bool)
-    inner[40:-40, 40:-40] = True
+    scene, inner = _kat_scene()
+    zero = np.zeros(scene.shape[:2], np.float32)
+    ones = np.ones(scene.shape[:2], np.float32)
 
-    # Defocus, at the scale the low-pass is chosen to survive.
-    for radius in (1, 2, 4, 6):
-        assert same_surface(_disk(scene, radius), scene)[inner].mean() > 0.97, radius
+    def agree(member, reference, r_m, r_r):
+        return same_surface(member, reference, r_m, r_r, pool=1)
 
-    # A displacement the geometry already tolerates.
+    # Defocus, at every radius — including the two the global low-pass failed.
+    for radius in (1, 2, 4, 6, 8, 12):
+        value = agree(_disk(scene, radius), scene, ones * radius, zero)[inner].mean()
+        assert value > 0.97, (radius, value)
+
+    # A displacement the geometry already tolerates, and one it does not.
     for shift in (0.5, 1.0, GATE_TOL):
         moved = cv2.warpAffine(scene, np.float32([[1, 0, shift], [0, 1, 0]]),
                                (scene.shape[1], scene.shape[0]),
                                borderMode=cv2.BORDER_REFLECT)
-        assert same_surface(moved, scene)[inner].mean() > 0.97, shift
+        assert agree(moved, scene, zero, zero)[inner].mean() > 0.97, shift
+    far = cv2.warpAffine(scene, np.float32([[1, 0, 4.0], [0, 1, 0]]),
+                         (scene.shape[1], scene.shape[0]),
+                         borderMode=cv2.BORDER_REFLECT)
+    assert agree(far, scene, zero, zero)[inner].mean() < 0.80
 
     # The exposure residual.
-    gained = np.clip(scene.astype(np.float32) * 1.019, 0, 255).astype(np.uint8)
-    assert same_surface(gained, scene)[inner].mean() > 0.97
+    gained = np.clip(scene * 1.019, 0, 255)
+    assert agree(gained, scene, zero, zero)[inner].mean() > 0.97
 
     # And the thing it exists for: an occluder standing somewhere it is not.
     for step in (4, 8, 20):
         here, there = scene.copy(), scene.copy()
         here[100:200, 120:220] = (240, 240, 240)
         there[100:200, 120 + step:220 + step] = (240, 240, 240)
-        agreement = same_surface(there, here)
+        agreement = agree(there, here, zero, zero)
         strip = np.zeros(scene.shape[:2], bool)
         strip[100:200, 120:120 + step] = True        # vacated
         strip[100:200, 220:220 + step] = True        # newly covered
@@ -324,6 +372,46 @@ def test_same_surface_is_blind_to_defocus_and_sees_a_displaced_occluder():
         band[90:210, 110:230 + step] = True
         assert agreement[strip].mean() < 0.05, step
         assert agreement[inner & ~band].mean() > 0.95, step
+
+
+def test_same_surface_pools_its_verdict_over_the_focus_operators_own_window():
+    """The half of the low-pass the cross-convolution does NOT retire.
+
+    A per-pixel level agreement is not evidence about a SURFACE: a textured
+    intruder crosses the occluded surface's level at scattered pixels, and
+    matching the defocus exactly makes the test see those coincidences (measured
+    on the kitchen: agreement inside the F112 box 1 rose 8.9% -> 14.3% for the
+    member that renders the pot in front of the bottle, and the defect came
+    back). So the verdict is pooled — unanimously — over the window the FOCUS
+    CONTEST itself is decided on, `focus.content_aware_energies`'s `smooth_ksize`.
+
+    Two known answers: pooling may not disturb a verdict that is uniform over its
+    window (pure defocus still reads 1.000), and it must remove an agreement that
+    cannot be supported over one (isolated matching pixels inside a region that
+    disagrees).
+    """
+    scene, inner = _kat_scene()
+    zero = np.zeros(scene.shape[:2], np.float32)
+    ones = np.ones(scene.shape[:2], np.float32)
+    assert SURFACE_POOL >= 3
+
+    # Uniform verdicts survive pooling untouched.
+    for radius in (2, 8):
+        assert same_surface(_disk(scene, radius), scene,
+                            ones * radius, zero)[inner].mean() > 0.97, radius
+
+    # An intruder made of the scene's own texture, level-shifted so that its
+    # levels still CROSS the surface it replaced: unpooled, the crossings are
+    # admitted; pooled, none of them is supported by its own neighbourhood.
+    here = scene.copy()
+    there = scene.copy()
+    there[100:200, 120:220] = np.roll(scene, 137, axis=1)[100:200, 120:220]
+    patch = np.zeros(scene.shape[:2], bool)
+    patch[100:200, 120:220] = True
+    loose = same_surface(there, here, zero, zero, pool=1)[patch].mean()
+    pooled = same_surface(there, here, zero, zero)[patch].mean()
+    assert loose > 0.05, loose
+    assert pooled < 0.2 * loose, (pooled, loose)
 
 
 def _occluded_pair_stack(step_px=18.0, frames=5, h=300, w=420):
@@ -381,15 +469,20 @@ def test_a_member_misregistered_for_a_region_does_not_alias_into_the_fused_pair(
     without, _ = twoframe_stack(stack, ref, surface=False)
     loose = np.abs(without.astype(np.float32) - reference).max(axis=2)
 
-    # The bar is the composite's ORDINARY deviation from the reference, measured
-    # away from both the square and its ghost: the background there is legitimately
-    # sharpened, so that level is what "no defect" looks like. An alias is a place
-    # that is WORSE than ordinary, which is the scoping DEVSTYLE §12.2 demands —
-    # an absolute threshold would be measuring the fixture's blur, not the flaw.
+    # The bar is the DEFECT'S OWN SIZE, measured on the same fixture with the
+    # precondition off: an absolute threshold would be measuring the fixture's
+    # blur, not the flaw (§12.2). Round 3 scoped these clauses against the
+    # composite's ORDINARY deviation from the reference instead, and round 4
+    # retired that scope because it went degenerate — the physical test refuses
+    # enough that the composite sits ~1.6 levels from the reference everywhere,
+    # so "ordinary" and "defect-free" became the same number (1.63 vs 1.72) and
+    # the comparison stopped being able to fail for the right reason.
     ordinary = float(delta[~square & ~ghost].mean())
     # 1. the square's own interior is not showing the background behind it
-    assert delta[square].mean() < ordinary, (delta[square].mean(), ordinary)
-    # 2. no second copy of it outside its own silhouette
+    assert delta[square].mean() < 0.25 * loose[square].mean(), (
+        delta[square].mean(), loose[square].mean())
+    # 2. no second copy of it outside its own silhouette — and there the bar is
+    #    still ordinary, because a ghost is content that does not belong at all.
     assert delta[ghost].mean() < 1.5 * ordinary, (delta[ghost].mean(), ordinary)
     # and the precondition is what buys it: without it the ghost is gross
     assert loose[ghost].mean() > 3.0 * delta[ghost].mean(), (loose[ghost].mean(),

@@ -51,6 +51,30 @@ Its KAT: on the routed kitchen output it must light up exactly the known
 residuals (the F112 knob, the pale sliver) and nothing else; on the factory it
 must reproduce the GT-SSIM ranking.
 
+**THE OUTPUT CONTRACT (user directive, 2026-08-02, supersedes the composite-
+rewrite framing B2 implemented).** Pass 2's deliverable is not a better
+composite — it is the N input frames PERFECTLY ALIGNED into reference
+geometry, each with honest GAPS. The scene model (layers, per-layer motions,
+focal radii, occlusion ordering) parameterizes, per frame, a piecewise
+transformation plus a per-pixel validity mask: a pixel is either OBSERVED by
+that frame (brought over, one resample, defocused-as-it-was) or NOT OBSERVED
+— occluded behind a nearer object, inside a defocused occluder's matte
+(dilate silhouettes by the modeled defocus radius, F83), rotated out of view,
+off-frame — in which case that frame carries a GAP there, and other frames
+supply the pixel. The existing validated machinery (fuse_perband /
+fuse_coherent with `usable` masks, the F80/F82 contracts, refusal, veils,
+specialty reconstructions) then consumes aligned-frames-plus-gaps exactly as
+it consumes `align_stack` output today. Under this contract INVENTION IS
+STRUCTURALLY IMPOSSIBLE — every output pixel is a real observation from a
+real frame or a fusion of frames that all observed it; there is no
+cross-frame appearance-synthesis step for fabricated content to enter
+through. (B2's per-layer appearance assembly WAS such a step, and every
+artifact found in inspection leaked in through it — the F116 wall smear was
+background assembled from frames where the wall was occluded.) What the
+contract does not remove is MISPLACEMENT — a wrong transform still puts real
+content in the wrong place — so the certifier (F113) and contour continuity
+(F116) remain the alignment auditors.
+
 **Pass 1 is a GUIDE, not a constraint (user principle, 2026-08-02).** The
 whole reason pass 2 exists is that pass 1 is imperfect — so no pass-1 quantity
 (motion, masks, focal ladder, ownership) is gospel to the second pass. Each is

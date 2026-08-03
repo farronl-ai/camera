@@ -222,15 +222,20 @@ yet ported to `twoframe.same_surface`). Research-only so far: the second pass
 lives in `research/scene_model.py` and rewrites the routed composite behind
 strict-subset vetoes.
 
-NEXT — round B3, the geometry instruments: (1) contour continuity (a rewrite
-may not move a strong contour the input and reference agree on — F115 proved
-focus energy cannot police this) to close the two known kitchen residuals
-(box 1's 6-px silhouette fleck, box 4's shelf-contour displacement); (2) the
-temporally-coherent per-layer motion series (pass-1-as-prior per the FRONTIER
-charter amendment). THEN round C, runtime integration: route the second pass
-per F101 (byte-identical sentinels), port the physical same-surface into
-`twoframe.py` (re-running F112's boxes — it is stricter at 4 px), pair-aware
-refusal for large-motion, and the licence-before-render economy fix.
+DONE also — round B3a (F116): the contour-continuity veto closed the arc's
+standing miss (every user box at or under its routed max; both known
+residuals repaired by eye). Open risk: the kitchen's 19.1% contour flag rate
+is unadjudicated by any ground truth — the user's eyes on the inspector's
+scene-model layer are the audit.
+
+NEXT — round B3b: the temporally-coherent per-layer motion series
+(pass-1-as-prior per the FRONTIER charter amendment; F115 measured the
+factory's own remainder is 86% resample cost, so B3b's case must be argued on
+the kitchen's certifier ledger, not the factory). THEN round C, runtime
+integration: route the second pass per F101 (byte-identical sentinels), port
+the physical same-surface into `twoframe.py` (re-running F112's boxes — it is
+stricter at 4 px), pair-aware refusal for large-motion, and the
+licence-before-render economy fix.
 
 Still queued behind it, unchanged: refactor formation-state estimation upstream
 without changing pixels (`V_front`, `T_rear`, PSF weights/choice, forward residual,

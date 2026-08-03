@@ -5,6 +5,47 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F116 — Contour continuity: the veto that polices position, not contrast
+
+Round B3a (Opus, manager-verified: kitchen bars reproduced through the module's
+own run; both defect crops inspected). The instrument F115 proved missing: a
+rewrite may not MOVE a strong contour that the input composite and the
+reference frame agree on. Implemented as clause 4 of `scene_model.py`'s veto
+stack, composed LAST per §23a's non-monotonicity hazard, strict subset held
+(kitchen 69294 → 67873 px, 0 rescued).
+
+**The KAT inverts a recorded hazard into the required property.** PLAYBOOK's
+"a blurred profile correlates confidently against a sharp one at about zero
+shift" — a defocus BIAS when fitting motion — is exactly what makes profile
+correlation along the normal a defocus-INVARIANT test of contour stasis.
+Known answers: +1.00/+2.00 px read 1.000/2.000; sharpening (disk 1/2/4 → sharp)
+reads ≤0.005 px and flags 0 of 120 agreed sites. Injected strip displacements:
+70.9%@1px / 78.4%@2px against normal-observable sites (the shortfall from raw
+32.5%/47.0% is the aperture problem, honestly scored), 0-px control clean,
+off-strip false alarms 0.00%. On the factory, adjudicated by ground truth:
+6 flags of 4114 agreed contour px, of which 2 are false (0.049%) and 4 had
+genuinely moved. Both kitchen residuals detected blind from coordinates alone.
+Profile geometry fixed by a pre-stated KAT rule before any bar was read —
+and the sweep shows (half, span) = (6, 1) vs 2 is exactly box 1 at 61 vs 83.
+
+**Bars: the arc's standing miss is closed.** Box 1 max 98 → **61** (= routed,
+0 px above; mean improves 6.14 → 5.46; focus energy 44.8 vs routed 41.8 — the
+withdrawal cost none of the resolved background). Box 4's junction profile
+returns to the reference's shape (row means 142.9/93.5 vs reference
+140.6/101.5). Every user box now at or under its routed max (61/16/101/119).
+Factory 0.982034 (−0.000028 for the clause); knob 1.01×; flank 0.23%/29
+identical; 94 tests; inspection layer registration 1.0000.
+
+Open, ranked: the kitchen flags **19.10%** of agreed contour px against the
+factory's 0.15% — a 127× ratio, so the factory's false-alarm bound DOES NOT
+TRANSFER; 1421 kitchen px revert with no ground truth adjudicating any of
+them. Bounded risk: the clause only withdraws to the input, so its worst case
+is lost sharpening, never new structure — but the certifier is structurally
+blind to this defect class (it can only fail to object, and the clause costs
+it +0.024 levels), so the user's eyes are the only instrument that can audit
+those reverts. The instrument under-reads below ~0.3 px; the 2 px slack is
+what covers a cluster.
+
 ## F115 — The scene-model second pass ships a composite, and aggregation turns out to buy nothing
 
 Round B2 of the scene-model arc (FRONTIER §7b), Opus-built.

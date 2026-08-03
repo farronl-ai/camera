@@ -121,6 +121,19 @@ five keepers, ranked:**
    Pass-1 groups propose, certified residual decides, complexity penalized —
    this single principle subsumes the promotion list's fit-uncertainty
    tolerance, cut proposal, gate isolation, and per-piece veto.
+The value instrument was BUILT and KAT'd during the sweep (manager
+scratchpad; promote to research/ next session): per-tile Laplacian-energy
+ratio vs the reference, plus the ENVELOPE (per-tile max over all 12 frames)
+= the value available to capture. Kitchen measurements: envelope median
+**1.505×**, 70.9% of tiles offer >1.10×, box regions offer 6.54× (pot
+behind bottle) / 3.07× (rag) / 3.00× (back shelf) / 1.72× (knob) — while
+the current routed default is >1.10× in only 22.1% of tiles, median 0.998.
+The scene offers a median +50% sharpness; we ship ~0%. Every future output
+reports captured fraction = (out − ref)/(envelope − ref) per region.
+(Envelope caveat: slightly optimistic — misregistration inflates tile
+energy and some envelope content is viewpoint-illegal; the 6.5× signals
+dwarf both corrections.)
+
 Flagged unknowns, low priority: rolling-shutter shear under drift
 (sub-pixel at this drift, unmeasured); per-piece blur slope c (uniform only
 if the focus sweep is diopter-uniform — testable from per-piece peak

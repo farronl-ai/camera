@@ -546,6 +546,20 @@ opportunity and it is a measurement, not an argument. B3 should run it.
   completes occluded content*. A completion pass makes it load-bearing
   immediately, and F83's bit still refuses on both scenes.
 
+**One number the charter should see.** FRONTIER's amendment of 2026-08-02
+designates "a temporally-coherent per-layer motion series refined against render
+residual" as round B3, on F114's finding that motion is the largest remaining
+term in the CERTIFIER's model floor (+0.812 of 1.367). That finding stands and
+this round did not touch it — but on the composite's own GT-SSIM the same
+factory ladder prices motion at **+0.0020 of a 0.0189 remainder**, an eighth,
+against **0.0105 for one resample** (§9). Both are true of their own question: a
+forward render punishes misplacement loudly, and SSIM punishes interpolation.
+B3 should decide which question it is answering before it starts, because the
+two rankings point at different builds. The amendment's principle — pass 1 as
+prior, the certifier as likelihood, revision only where it beats the prior on
+held-out physics — is exactly what §4's never-degrade veto implements at the
+appearance level, and it is directly reusable for a motion series.
+
 **Three threads with a mechanism attached:**
 
 * **The resample is now the factory's largest remainder term** (0.0105 of

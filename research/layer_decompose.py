@@ -216,6 +216,14 @@ def _mirror_frames(peak, n):
             continue
         if abs(k - mirror) < 1:
             continue
+        # ...and both frames must be NEAR the layer's own focal plane. PLAYBOOK
+        # §0/F99: a layer is measurable only there, because defocus destroys the
+        # detail the comparison needs and a blurred profile agrees CONFIDENTLY
+        # with anything. `FOCAL_SIGMA` is the pipeline's own statement of how
+        # wide "near" is; without this the kitchen forms pairs ten frames apart
+        # and the channel fires on a quarter of the frame.
+        if max(abs(k - peak), abs(mirror - peak)) > TF.FOCAL_SIGMA:
+            continue
         pairs.append((k, mirror))
     return pairs
 
@@ -349,14 +357,28 @@ def decompose(images, ref=None, contest=True, band_on=True, verbose=False):
     # p99 34.4 -> 1.08 once separated). Pass-1's masks carried no extents at all,
     # so every layer's matte was its visible mask; a decomposition can say more.
     rank = np.argsort(np.argsort(orders))          # 0 = nearest
-    ambiguous = state != OWNED
+    # Geometry must be TOTAL even though ownership is not: every pixel of the
+    # reference canvas has to be painted by some surface or the render reports
+    # its own hole as unexplained. So the extents are built from the LABELS
+    # (which include the boundary band and, by nearest-layer distance, the
+    # unknown), while the masks stay restricted to OWNED. Handing the ambiguous
+    # pixels to every layer instead was measured and rejected: the nearest
+    # layer's matte then blurs outward over content it does not own, and the
+    # kitchen's certified share fell to 25.6%.
+    assigned = labels.copy()
+    if (assigned < 0).any() and k_layers > 0:
+        stack_lab = np.stack([(labels == i).astype(np.uint8) for i in range(k_layers)], 0)
+        distances = np.stack([cv2.distanceTransform(1 - m, cv2.DIST_L2, 5)
+                              for m in stack_lab], 0)
+        nearest_layer = np.argmin(distances, axis=0)
+        assigned = np.where(labels < 0, nearest_layer, labels).astype(np.int32)
     extents = []
     for i in range(k_layers):
-        behind_of_nearer = np.zeros((h, w), bool)
+        here = assigned == i
         for j in range(k_layers):
             if rank[j] < rank[i]:
-                behind_of_nearer |= masks[j]
-        extents.append(masks[i] | behind_of_nearer | ambiguous)
+                here = here | (assigned == j)
+        extents.append(here)
 
     diag = {"coarse": coarse, "warps": warps, "common": common, "peak": peak,
             "contrast": contrast, "energies": energies, "evidenced": evidenced,
@@ -697,6 +719,82 @@ def kat4() -> None:
         disengage()
 
 
+def kat3() -> None:
+    """Round A's ranking KAT, re-run through the decomposition.
+
+    The honesty guard this round was given: a certifier-score improvement must
+    not come with a GT disagreement. KAT-3 is where the two meet — it ranks four
+    factory composites, two of which have GT-SSIM numbers (two-frame 0.979453 >
+    shipped 0.972808), and the ground-truth composite must still win outright.
+    If the ranking inverts under the new masks, the round STOPS.
+    """
+    print("=" * 78)
+    print("KAT-3 re-run — does the ranking still agree with ground truth?")
+    print("=" * 78)
+    engage(verbose=True)
+    try:
+        FC.kat3()
+    finally:
+        disengage()
+
+
+def kat4_control() -> None:
+    """KAT-4 in the COVERAGE-CONTROL configuration (band reported, not masked).
+
+    The honest run refuses the boundary band, and the band is exactly where a
+    silhouette-scale defect lives — so the run that can answer "does the known
+    defect localize" is the one where every labelled pixel is owned. PLAYBOOK
+    §12.7 is the reason this configuration is not a cheat but the physically
+    argued one: a boundary pixel is partial CONTAMINATION, not an absent
+    observation, and refusal is the wrong verb for it.
+    """
+    print("=" * 78)
+    print("KAT-4, COVERAGE CONTROL — every labelled pixel owned, band reported only")
+    print("=" * 78)
+    engage(verbose=True, band_on=False, contest=False)
+    try:
+        FC.kat4()
+    finally:
+        disengage()
+
+
+def selftest() -> None:
+    """Plumbing KAT: the reference composite must explain the REFERENCE frame.
+
+    `forward_certify.kat4` prints this through `certify`, whose aggregation
+    needs `MIN_COVERAGE = 2` frames before a pixel is scored — so a single-frame
+    run reports `nan` for any segmentation whose masks are DISJOINT. Pass-1's
+    masks overlap slightly and accidentally dodge it; a decomposition's do not,
+    by construction. The check itself is unaffected and is made here directly on
+    the per-frame residual, where no coverage rule applies.
+    """
+    from focusstack.io import normalize_exposure
+    import parallax_gen as P
+
+    paths = sorted(glob.glob(os.path.join(KITCHEN, "*.jpg")))
+    src = [cv2.imread(p) for p in paths]
+    cases = [("factory", P.build_stack()[0], P.REFERENCE),
+             ("kitchen", normalize_exposure(src), len(src) // 2)]
+    print("=" * 78)
+    print("PLUMBING — the reference composite, certified against the reference FRAME")
+    print("=" * 78)
+    for name, images, ref in cases:
+        model, _diag = FC.model_from_pass1(images, ref,
+                                           segmentation=decompose(images, ref).segmentation())
+        h, w = model.shape
+        crop = (0, 0, w, h)
+        canvas, support = FC.place(images[ref], crop, (h, w))
+        appearances, supports = FC.layer_views(model, canvas, support)
+        model.radii, model.gains = {}, {}
+        FC.estimate_radii(model, appearances, supports, images, frames=[ref])
+        result = FC.certify(model, images[ref], crop, images, frames=[ref])
+        entry = result.per_frame[0]
+        verdict = "PASS" if entry["mae"] < 0.5 else "FAIL — plumbing bug"
+        print(f"  {name:<10} MAE on certified {entry['mae']:.4f} levels   "
+              f"p99 {entry['p99']:.4f}   certified {entry['certified'] * 100:.1f}%  "
+              f"{verdict}")
+
+
 def stats() -> None:
     """Trinary ownership statistics on both scenes — round B2's input contract."""
     import parallax_gen as P
@@ -765,7 +863,9 @@ def ablate() -> None:
 
 
 COMMANDS = {"kat": kat, "ladder": ladder, "control": ladder_control,
-            "kat4": kat4, "stats": stats, "ablate": ablate}
+            "kat3": kat3, "kat4": kat4, "kat4c": kat4_control, "stats": stats,
+            "selftest": selftest,
+            "ablate": ablate}
 
 
 def main() -> None:

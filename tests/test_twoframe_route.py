@@ -20,7 +20,7 @@ import numpy as np
 from focusstack.align import align_stack
 from focusstack.pipeline import run
 from focusstack.twoframe import (GATE_TOL, EdgeEvidence, gate_shift, global_stage,
-                                 twoframe_fullres,
+                                 same_surface, twoframe_fullres,
                                  twoframe_stack)
 
 
@@ -258,3 +258,140 @@ def test_the_full_resolution_transfer_agrees_with_its_own_analysis():
     control = float(np.abs(stack[ref][y0:y1, x0:x1].astype(np.float32) - left)
                     .max(axis=2).mean())
     assert transfer < max(4.0 * floor, control), (transfer, floor, control)
+
+
+# ---------------------------------------------------------------------------
+# ROUND 3 — the same-surface precondition of the focus contest.
+# ---------------------------------------------------------------------------
+def _disk(image, radius):
+    r = int(round(radius))
+    if r < 1:
+        return image
+    yy, xx = np.mgrid[-r:r + 1, -r:r + 1]
+    kernel = (xx * xx + yy * yy <= r * r).astype(np.float32)
+    return cv2.filter2D(image.astype(np.float32), -1,
+                        kernel / kernel.sum()).astype(np.uint8)
+
+
+def test_same_surface_is_blind_to_defocus_and_sees_a_displaced_occluder():
+    """KAT for the round-3 instrument (DEVSTYLE §12.1), on known answers.
+
+    `same_surface` decides whether two frames are looking at the same thing, and
+    the whole round-3 fix rests on it, so it is tested against answers that are
+    known by construction BEFORE it is believed on the kitchen:
+
+      * real defocus is a DISK (PLAYBOOK §0) and must not trip it — that is the
+        entire premise, "defocus is a low-pass, so one surface still agrees";
+      * a residual displacement inside the module's own `GATE_TOL` must not trip
+        it, because the geometry already declares such a fit verified;
+      * `normalize_exposure`'s residual gain (measured at most 1.9% on the
+        kitchen) must not trip it;
+      * an occluder that MOVED must trip it, over the strip it vacated and the
+        strip it now covers, and nowhere else.
+    """
+    rng = np.random.default_rng(4)
+    texture = cv2.GaussianBlur(rng.integers(0, 255, (300, 400)).astype(np.uint8),
+                               (0, 0), 2)
+    scene = cv2.cvtColor(texture, cv2.COLOR_GRAY2BGR)
+    inner = np.zeros(scene.shape[:2], bool)
+    inner[40:-40, 40:-40] = True
+
+    # Defocus, at the scale the low-pass is chosen to survive.
+    for radius in (1, 2, 4, 6):
+        assert same_surface(_disk(scene, radius), scene)[inner].mean() > 0.97, radius
+
+    # A displacement the geometry already tolerates.
+    for shift in (0.5, 1.0, GATE_TOL):
+        moved = cv2.warpAffine(scene, np.float32([[1, 0, shift], [0, 1, 0]]),
+                               (scene.shape[1], scene.shape[0]),
+                               borderMode=cv2.BORDER_REFLECT)
+        assert same_surface(moved, scene)[inner].mean() > 0.97, shift
+
+    # The exposure residual.
+    gained = np.clip(scene.astype(np.float32) * 1.019, 0, 255).astype(np.uint8)
+    assert same_surface(gained, scene)[inner].mean() > 0.97
+
+    # And the thing it exists for: an occluder standing somewhere it is not.
+    for step in (4, 8, 20):
+        here, there = scene.copy(), scene.copy()
+        here[100:200, 120:220] = (240, 240, 240)
+        there[100:200, 120 + step:220 + step] = (240, 240, 240)
+        agreement = same_surface(there, here)
+        strip = np.zeros(scene.shape[:2], bool)
+        strip[100:200, 120:120 + step] = True        # vacated
+        strip[100:200, 220:220 + step] = True        # newly covered
+        band = np.zeros(scene.shape[:2], bool)
+        band[90:210, 110:230 + step] = True
+        assert agreement[strip].mean() < 0.05, step
+        assert agreement[inner & ~band].mean() > 0.95, step
+
+
+def _occluded_pair_stack(step_px=18.0, frames=5, h=300, w=420):
+    """A near square sharp AT THE REFERENCE, over a background sharp at the end.
+
+    This is the kitchen's own geometry in miniature and it reproduces the user's
+    flaw class directly: the last frame is the only one that can supply the sharp
+    background, and in it the near square has swung `step_px` sideways, so its
+    background is EXPOSED where the reference says the square is, and its own
+    copy of the square stands where the reference says background is. A fusion
+    that soft-mixes, or that lets the focus contest decide at an occlusion, puts
+    background inside the square and a second square outside it.
+    """
+    ref = frames // 2
+    rng = np.random.default_rng(17)
+    background = cv2.GaussianBlur(
+        rng.integers(0, 255, (h, w)).astype(np.float32), (0, 0), 1.5)
+    square = cv2.GaussianBlur(
+        rng.integers(0, 255, (120, 120)).astype(np.float32), (0, 0), 1.0) * 0.4 + 150
+    stack, masks = [], []
+    for k in range(frames):
+        sharp = background.copy()
+        x0 = 150 + int(round(step_px * (k - ref)))
+        sharp[90:210, x0:x0 + 120] = square
+        mask = np.zeros((h, w), bool)
+        mask[90:210, x0:x0 + 120] = True
+        near = _disk_blur(sharp, 2.2 * abs(k - ref))            # square: sharp at ref
+        far = _disk_blur(sharp, 2.2 * abs(k - (frames - 1)))    # background: sharp last
+        frame = np.where(mask, near, far)
+        stack.append(cv2.cvtColor(np.clip(frame, 0, 255).astype(np.uint8),
+                                  cv2.COLOR_GRAY2BGR))
+        masks.append(mask)
+    return stack, ref, masks
+
+
+def test_a_member_misregistered_for_a_region_does_not_alias_into_the_fused_pair():
+    """The user's round-3 flaw class, synthesized: an occluder that moved.
+
+    Two things must hold inside the pair, and BOTH failed before this round:
+      1. ORDERING — where the reference shows the near square, the composite must
+         show the square, not the background the other member sees through it.
+      2. NO SECOND COPY — where the reference shows background, the composite must
+         show background, not the other member's displaced copy of the square.
+    Scored against the reference frame, which is sharp on the square and is the
+    authority on what is VISIBLE (it is the composite's own geometry).
+    """
+    stack, ref, masks = _occluded_pair_stack()
+    fused, info = twoframe_stack(stack, ref)
+    x0, y0, x1, y1 = info["crop"]
+    reference = stack[ref][y0:y1, x0:x1].astype(np.float32)
+    square = masks[ref][y0:y1, x0:x1]
+    ghost = masks[-1][y0:y1, x0:x1] & ~square      # where the LAST frame's copy is
+    delta = np.abs(fused.astype(np.float32) - reference).max(axis=2)
+
+    without, _ = twoframe_stack(stack, ref, surface=False)
+    loose = np.abs(without.astype(np.float32) - reference).max(axis=2)
+
+    # The bar is the composite's ORDINARY deviation from the reference, measured
+    # away from both the square and its ghost: the background there is legitimately
+    # sharpened, so that level is what "no defect" looks like. An alias is a place
+    # that is WORSE than ordinary, which is the scoping DEVSTYLE §12.2 demands —
+    # an absolute threshold would be measuring the fixture's blur, not the flaw.
+    ordinary = float(delta[~square & ~ghost].mean())
+    # 1. the square's own interior is not showing the background behind it
+    assert delta[square].mean() < ordinary, (delta[square].mean(), ordinary)
+    # 2. no second copy of it outside its own silhouette
+    assert delta[ghost].mean() < 1.5 * ordinary, (delta[ghost].mean(), ordinary)
+    # and the precondition is what buys it: without it the ghost is gross
+    assert loose[ghost].mean() > 3.0 * delta[ghost].mean(), (loose[ghost].mean(),
+                                                             delta[ghost].mean())
+    assert loose[square].mean() > 1.5 * delta[square].mean()

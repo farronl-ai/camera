@@ -89,6 +89,39 @@ silhouettes warped per frame, dilated by that frame's modeled defocus
 radius). The irreducible residue is the reference's OWN defocused-edge matte
 band — a few mixed pixels that stay trinary (matte or refuse) forever.
 
+**DIAGNOSIS OF THE REFERENCE-COLLAPSE (user + manager, 2026-08-03 — read
+this before building anything).** The user inspected all layers and is
+right: every current output is essentially the reference plus a sliver of
+sharpening (default focus energy 43.5 vs reference 42.7; aligner gaps 57.2%
+of pixel-frames; box energies within 1–2% of reference). This is NOT the
+cascade failing — it is every refusal gate working correctly on wrong
+upstream geometry: content lands only where the model is provably right, so
+crude geometry ⇒ copy of the reference. DO NOT loosen the gates; feed them
+geometry that opens them on evidence. Two named root causes:
+1. **No organ discovers objects on real scenes.** The merge only removes
+   cuts; nothing proposes them from motion. The kitchen's objects stayed
+   fused to the counter mega-piece, inherited its wrong affine, and the veto
+   rightly gapped them in exactly the sharp (most-moved) frames. The proven
+   organ EXISTS and is unwired: F93/F100 motion-consensus grouping finds the
+   kitchen bottle at 92–100% feature purity with its ~19 px motion. Cuts
+   must be SEEDED by pass-1's motion groups, refined by the merge.
+2. **The piece-equivalence test checks the wrong invariant.** Depth
+   dependence has TWO axes — lateral translation ⇒ per-depth SHIFT
+   (t_xy/Z), forward translation ⇒ per-depth SCALE (t_z/Z) — and
+   `motion_components` measured this scene at up to 4.3% forward
+   translation. The 2-DoF (translation-only) decision merges
+   different-depth objects that translate alike while scaling differently.
+   The decision residual must be the PAIR (Δtranslation, Δscale), compared
+   under fit uncertainty, not `GATE_TOL`.
+Second-order, after objects exist: a ~10 cm-deep object at ~1 m carries
+1–2 px internal parallax no affine removes — but F110–F112 achieved verified
+sub-pixel fits on the correctly-delineated bottle, so affine-per-TRUE-object
+suffices to beat the reference; the within-piece smooth 1/Z-linear
+refinement is the extension, legal under the charter (smooth where the
+surface is smooth). Also downstream, in order: per-piece photometric veto
+with per-piece measured c (27% whole-frame withdrawal must become a
+diagnosis), and the zero-motion identity snap.
+
 **Division of labor (user, 2026-08-03 — the moral of the whole arc).**
 Everything downstream of alignment already exists and is PROVEN: the focus
 cascade (`fuse_perband`/`fuse_coherent`, harden, stack-consistency routing)

@@ -5,6 +5,60 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F119 — The reference-collapse survived three fixes, and the diagnosis descended three levels
+
+Rounds 3/3b (guide-wiring + micro-fixes, Opus, manager-driven under the
+user's diagnosis: outputs essentially copy the reference; a correct concept
+was bypassed in implementation). **Honest verdict: NOT broken** — the
+agent's own words: "third round running where the numbers improved and the
+picture said no." What each level found, all measured:
+
+**Level 1 — pass-1-as-guide was bypassed, now wired.** The aligner consumes
+`motion_groups.overrides` through the same entry point the pipeline uses;
+the cut/merge decision became the two-axis pair (Δtranslation, Δscale)
+under fit uncertainty (plateau-justified k; the lateral+forward axes of
+1/Z, per the measured 4.3% forward translation).
+
+**Level 2 — capture range is a contract.** `fit_affine` believes nothing
+beyond ±6 px (CONTOUR_HALF), so ~20 px objects can never be fitted unless
+PRIORED there — seeded fits collapsed +24.5 → +3.9 px and were then
+legitimately re-absorbed (invisible for two rounds; the factory's largest
+differential is 3.2 px). Fixed: composed prior `prior_k @ T(dx_k, dy_k)`,
+a capture-range guard derived from the instrument (fires 0 times on final
+fits), and the body-identity rule — a measurement survives a merge only
+when its body is ≥ half the survivor (the counter mega-piece had inherited
+an absorbed object's +11.6 px prior; travel 5.86 → 2.59 px/frame).
+
+**Level 3 — two organs deeper, both named.** (a) With the guard silent, the
+seeded piece STILL disagrees with pass-1 by 9.04 px: `motion_series`' single
+line through the identity cannot represent pass-1's non-uniform sweep
+(3.58/6.19/4.90 px/step at k=0/9/11) — the prior is discarded DOWNSTREAM of
+the fit. (b) The seed support failed one level deeper than assumed: the
+contamination is the GROUP — `_coverage_points` chains any agreeing edge
+within 3 px through 6 rounds of 52 px reach, so the tin, stove wall, rag
+and shelf are IN the bottle's group and its own features' focal band trims
+3.5%, cutting the bottle in half. F104's coverage licence was designed for
+override SUPPORT; as a segmentation SEED it is too greedy — the
+requirement-dependence lesson (F114) recurring.
+
+Throughout: factory gate bit-identical (K4 0.980472, purity 0.969, zero
+occlusion leakage), wall test passing every round, flank recovered a third
+(2.579 → 2.188 / 2.90%; routed 0.897 / 0.01%), 96 tests. The new
+value-added instrument quantifies the complaint that started this arc: the
+scene offers median **1.505×** sharpness over the reference (70.9% of tiles
+> 1.10×; the pot 6.54×) and the shipped default reads median **0.998** —
+near-zero captured. Also flagged: B2's "aggregation buys nothing" was
+measured on near-noiseless fixtures; the real-photo denoise benefit of
+aligned aggregation is unmeasured.
+
+Main line for the next session, in order: (1) supports SPLIT BY EVIDENCE —
+connected focal/depth components adjudicated by the two-axis test, since no
+organ can currently propose the bottle's silhouette as a boundary;
+(2) a motion representation that carries a non-uniform sweep — or directly
+the rank-1 trajectory × inverse-depth backbone (FRONTIER sweep keeper 2),
+which subsumes it; (3) group membership for seeding restricted to
+own-motion-explained features, not coverage-chained ones.
+
 ## F118 — The aligner exists: the transform is solved, the wall smear is unconstructable, and one decision remains
 
 Aligner rounds 1–2 (Opus, manager-verified: commits and evidence images

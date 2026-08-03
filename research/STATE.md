@@ -229,22 +229,31 @@ refusal; licence-before-render DROPPED, still open), and aligner rounds 1–2
 transform solved, wall-smear class structurally impossible, kitchen run
 end-to-end through unmodified `fuse_perband`.
 
-NEXT — the aligner promotion arc, in order (full 8-item list in
-`aligner_NOTES.md` Round 2):
-1. Replace the merge tolerance with a fit-uncertainty (model-selection)
-   test — BOTH scenes' residual segmentation error is this one decision.
-2. Something must PROPOSE cuts from motion (the merge only removes; the
-   kitchen's objects were never seeded apart from the counter).
-3. Close the zero-motion anchor (identity snap + half-pixel border slack —
-   currently a 1 px off-footprint rim, zero interior gaps).
-4. `travel` → displacement at the piece centroid (occlusion order rests on
-   it); isolate the K2b gate (a live defect since the merge cleaned the cut
-   set); per-piece photometric veto (27% whole-frame withdrawal needs a
-   diagnosis); certifier on the kitchen aligner output.
-Then F101 routing into the pipeline (byte-identical sentinels), and the
-cascade re-verification under heavy masking per FRONTIER's integration
-expectation. The user's eyes on the inspector layers (1 routed / 4
-scene-model / 5 aligner) remain the standing audit.
+THE STANDING PROBLEM (F119, user-diagnosed): every output essentially
+copies the reference — the refusal gates are correct and the upstream
+geometry is not yet right enough to open them. The scene offers median
+1.505× sharpness over the reference (value instrument, FRONTIER sweep); we
+ship 0.998×. Read FRONTIER's DIAGNOSIS + CONCEPTUAL SWEEP sections first.
+
+NEXT — break the collapse (F119's main line, in order):
+1. Supports SPLIT BY EVIDENCE: connected focal/depth components
+   adjudicated by the two-axis (Δt, Δs) test — no organ can yet propose
+   the bottle's silhouette as a boundary (rounds 3/3b measured every
+   band/percentile approach failing because the GROUP itself is
+   coverage-chained impure).
+2. Motion that carries a non-uniform sweep — or go straight to the rank-1
+   trajectory × inverse-depth backbone (sweep keeper 2), which subsumes the
+   series, gives every piece a depth, and self-flags mis-segmentation.
+3. Seeding membership = own-motion-explained features only (F104's
+   coverage chaining is for override support, not segmentation — F114's
+   requirement-dependence again).
+4. Standing: zero-motion identity snap; K2b gate isolation; certifier on
+   the kitchen aligner output; per-piece c (reads 1.403/1.844/1.708 across
+   rounds on ONE scene — unstable to segmentation); the unbuilt iteration
+   (sweep keeper 1: certifier-driven per-(piece,frame) repair loop).
+Then F101 routing and the heavy-masking cascade re-verification. Inspector
+layers (1 routed / 4 scene-model / 5 aligner) remain the user's audit;
+every future output also reports the captured-fraction table.
 
 Still queued behind it, unchanged: refactor formation-state estimation upstream
 without changing pixels (`V_front`, `T_rear`, PSF weights/choice, forward residual,

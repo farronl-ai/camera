@@ -640,7 +640,26 @@ def factory_truth_model(canvas=False):
     return model, truth
 
 
-def model_from_pass1(images, ref=None, verbose=False):
+# Round B hook. An external decomposition may replace pass-1's layer masks
+# WITHOUT touching anything else in the model: the motion fits, the propagation,
+# the geometry grouping, the menu and every KAT downstream stay exactly as round
+# A built them, so a segmentation is scored through an unchanged instrument.
+# `None` (the default) is byte-identical to round A — verified by re-running
+# `floor` and diffing all five rungs.
+#
+#   layer_decompose.py sets `forward_certify.SEGMENTER = fn` and then calls the
+#   existing commands; nothing else in this module knows the difference.
+#
+# A segmentation is a list of dicts, one per layer:
+#   mask   bool (h, w)  — where the layer's appearance is OBSERVED (certifiable)
+#   extent bool (h, w)  — optional; where the SURFACE EXISTS, visible or not
+#   peak   float        — the layer's focal frame (drives the focal weighting)
+#   order  float        — optional nearness proxy, SMALLER is NEARER (default peak)
+#   name   str          — optional label
+SEGMENTER = None          # callable(images, ref) -> list[dict] | None
+
+
+def model_from_pass1(images, ref=None, verbose=False, segmentation=None):
     """A scene model built the way pass 1 already builds one — nothing new invented.
 
     Every quantity is a pass-1 output, reached through `twoframe`'s own public
@@ -680,8 +699,20 @@ def model_from_pass1(images, ref=None, verbose=False):
     textured = gradient >= TF._REFINE_MIN_GRADIENT if hasattr(TF, "_REFINE_MIN_GRADIENT") \
         else gradient >= TF.A._REFINE_MIN_GRADIENT
 
+    if segmentation is None and SEGMENTER is not None:
+        segmentation = SEGMENTER(images, ref)
+
     raw_layers, fit_supports = [], []
-    for index, pair in enumerate(kept):
+    if segmentation is not None:
+        for entry in segmentation:
+            raw_layers.append({"mask": entry["mask"], "extent": entry.get("extent"),
+                               "pair": entry.get("name", ""), "level": 0,
+                               "peak": float(entry["peak"]),
+                               "order": float(entry.get("order", entry["peak"])),
+                               "depth": float(np.median(depth[entry["mask"]]))
+                               if entry["mask"].any() else 0.0})
+            fit_supports.append(entry["mask"] & textured & common)
+    for index, pair in (enumerate(kept) if segmentation is None else ()):
         owned = owner == index
         _fit_masks, dense = TF.layer_masks(energies, pair, owned & common, gradient)
         for level, dense_mask in enumerate(dense):
@@ -703,8 +734,11 @@ def model_from_pass1(images, ref=None, verbose=False):
     # Unclaimed pixels (morphology losses, untextured strays) join the layer whose
     # mask is nearest. A partition with holes would report its own holes as
     # unexplained; the holes are not evidence about the composite.
+    # An external segmentation is TRINARY on purpose: its unclaimed pixels are its
+    # boundary-band and unknown states, and filling them into a mask would certify
+    # exactly the pixels it declined to own. It supplies its own extents instead.
     claimed = np.logical_or.reduce([entry["mask"] for entry in raw_layers])
-    if not claimed.all():
+    if segmentation is None and not claimed.all():
         stack = np.stack([entry["mask"] for entry in raw_layers], 0).astype(np.uint8)
         distances = np.stack([cv2.distanceTransform(1 - m, cv2.DIST_L2, 5)
                               for m in stack], 0)
@@ -771,8 +805,11 @@ def model_from_pass1(images, ref=None, verbose=False):
             group_of[i] = len(group_members)
             group_members.append([i])
 
-    layers = [Layer(mask=entry["mask"], group=group_of[i], order=entry["peak"],
-                    name=f"pair{entry['pair']}/L{entry['level']}")
+    layers = [Layer(mask=entry["mask"], group=group_of[i],
+                    order=entry.get("order", entry["peak"]),
+                    name=(entry["pair"] if segmentation is not None
+                          else f"pair{entry['pair']}/L{entry['level']}"),
+                    extent=entry.get("extent"))
               for i, entry in enumerate(raw_layers)]
     model = SceneModel(shape=(h, w), n_frames=n, ref=ref, layers=layers)
     group_masks = [np.logical_or.reduce([raw_layers[i]["mask"] for i in members])

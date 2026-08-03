@@ -1044,3 +1044,99 @@ sharpness is given up, and that is the open item in R5.
    future ablation must be re-ported rather than assumed.
 6. **Raising the refusal fallback question again** (does a refused-everywhere
    pair want a third frame?). NOT ATTEMPTED; H5's answer stands.
+
+---
+
+# Round 4 — the runtime retirements, 2026-08-02
+
+Fifth Opus round. Code touched: `src/focusstack/twoframe.py`,
+`tests/test_twoframe_route.py` (96 tests, was 94). Retirement 3
+(licence-before-render) was NOT attempted — the session was time-boxed and the
+manager ranked it last; it remains open exactly as I5.1 states it.
+
+## R4.1 Retirement 1 — `SURFACE_SIGMA` retired into physics, and the half it did
+## not cover
+
+Ported F115's cross-convolution faithfully first: `m (x) disk(R_r)` against
+`r (x) disk(R_m)`, radii `c*|k - peak|` with `c = 1.161`. The port reproduces
+`research/scene_model.py kat` to three decimals (defocus 1/2/4/6/8/12 all 1.000
+against the global sigma's 0.931/0.759 at 8/12; shift 2.0 -> 0.986, 4.0 -> 0.691;
+occluder 0.010/0.003/0.002) — that is the port's own known-answer test.
+
+**And faithful was not enough.** On the routed kitchen box 1 went 6.14/61 ->
+10.42/156 with its focus energy RISING 41.8 -> 56.1: F112's defect returning
+crisper. Diagnosis, measured: `SURFACE_SIGMA` had two jobs.
+
+1. absorbing the residual defocus DIFFERENCE — retired exactly by the physics;
+2. POOLING the decision. A per-pixel level agreement is not evidence about a
+   SURFACE — a textured intruder crosses the occluded surface's level at
+   scattered pixels, and matching the defocus exactly makes the test see those
+   coincidences (agreement inside box 1 rose 8.9% -> 14.3% for the member that
+   renders the pot in front of the bottle). F108's wall, again.
+
+Job 2's window is borrowed, not chosen: the test polices the FOCUS CONTEST, and
+the contest is decided on energies pooled by `content_aware_energies`'s own
+`smooth_ksize`, so a gate may not be finer-grained than the decision it polices.
+Read from that function's signature so the two cannot drift.
+
+| variant | factory GT-SSIM | box 1 | box 2 | box 3 | box 4 | flank |
+|---|---:|---:|---:|---:|---:|---:|
+| recorded (global sigma=4) | 0.979453 | 6.14/61 | 3.49/17 | 3.31/101 | 6.23/127 | 1.114 / 0.57% |
+| cross-convolution only | 0.981607 | 10.42/156 | 3.81/19 | 4.16/84 | 6.62/122 | 1.275 / 0.90% |
+| pooling only (sigma=4) | 0.981893 | 1.81/5 | 2.10/12 | 1.57/86 | 1.60/94 | 0.845 / 0.02% |
+| **both (shipped)** | **0.984385** | **1.20/2** | **2.04/13** | **1.19/19** | **1.08/4** | **0.897 / 0.01%** |
+
+Both halves earn their place: pooling alone leaves box 3 and box 4 maxima at 86
+and 94 against 19 and 4; cross-convolution alone fails as above. Quorum measured,
+not assumed: majority pooling reads factory 0.978678 (below the recorded bar) and
+opening leaves box 2 at 3.58/20 over its 3.49/17. Window 5/7/9/11 reads
+0.984209 / 0.984312 / 0.984385 / 0.984376 — a plateau, not a knee. `SIGMA0`
+0.5/1.0/2.0 reads 0.984518 / 0.984385 / 0.983964, not load-bearing.
+
+**The cost, measured and shown.** Whole-frame mean focus energy 48.08 -> 43.46
+(reference frame 42.69): the composite refuses more and is less sharpened. By
+eye (`out/certify/C_retirement1.png`) the Lubriderm label is untouched and the
+flank is unchanged, while box 1's pot and box 4's rag lose texture toward the
+reference. The GT-free arbiter agrees with the change: the certifier reads the
+new base composite at **7.8911** levels against the recorded 9.5242.
+
+## R4.2 Retirement 2 — the pair-aware refusal, and what the ground truth said
+
+F111's designated repair, implemented as a trinary preference in the two-member
+fallback chain: sharp member, then a PRESENT member the appearance evidence
+licenses, then the reference. It is licensed by the retirement above —
+`align._occlusion_mask` says outright that "photometric agreement cannot be used
+in a focus stack, [since] frames legitimately disagree wherever defocus
+differs", and that sentence is exactly what the cross-convolution retires.
+
+Large-motion, pair (0,3), which owns 94.6% of the playing-card box: F82 withdraws
+the correctly-fitted member 0 over 99.7% of the frame, so the box came back
+reference-defocused. It now keeps **47.4%** of the box, focus energy **31.6 ->
+74.2** (reference 31.6, sharp source frame 0 152.4), review crops in
+`out/certify/C_largemotion.png`.
+
+**Two restrictions, both forced by the factory's ground truth.** Unrestricted,
+the preference costs the factory 0.984385 -> 0.981380, and on the pixels it
+claims the ground truth says its content is WORSE than the reference fallback it
+replaced (5.23 vs 4.37 levels) — the research KAT's own recorded limit arriving
+("an appearance test cannot separate two surfaces that look the same"). So the
+evidence must DISCRIMINATE (if both members read same-surface it has not answered
+F82's question) and the member must be MODELLED SHARPER than the reference at the
+pixel. With both, the factory reads **0.984455** (+0.00007 — the ground truth no
+longer objects) and the box keeps 47.4% instead of 64.6%.
+
+## R4.3 NEGATIVE deliverables
+
+1. **A per-scene `c`.** The shipped 1.161 is the factory's. On large-motion it
+   over-blurs the member by ~2x (`R_ref` 7.05 px where the picture says ~3), and
+   the kitchen's own regression is 0.684. The kitchen/factory bars are insensitive
+   across 0.4-1.161 (factory 0.984595 / 0.984692 / 0.984385) and collapse at 2.0.
+   `c` does not transfer, and nothing in the runtime measures it.
+2. **Cleaning F82's speckled seed.** The pair's layer boundary covers 31.9% of the
+   large-motion frame (a clean split would be 1-2%), so it looked like the cause
+   of the blanket refusal. Opening/closing it at the pooling window moves member
+   0's usable share 7.5% -> 8.1% and nothing else: `depth_step` (11.1%) plus a
+   19 px differential is enough on its own. Hypothesis rejected.
+3. **A displaced copy of the SAME fine texture** reads 0.61 agreement at 12 px —
+   the instrument's recorded limit, and the reason F82's geometric check is
+   restricted rather than removed.

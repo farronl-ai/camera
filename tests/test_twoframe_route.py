@@ -19,8 +19,10 @@ import numpy as np
 
 from focusstack.align import align_stack
 from focusstack.pipeline import run
+from focusstack.fusion import fuse_coherent
 from focusstack.twoframe import (GATE_TOL, SURFACE_POOL, EdgeEvidence, gate_shift,
-                                 global_stage, same_surface, twoframe_fullres,
+                                 global_stage, pooled_majority, same_surface,
+                                 surface_agreement, twoframe_fullres,
                                  twoframe_stack)
 
 
@@ -412,6 +414,71 @@ def test_same_surface_pools_its_verdict_over_the_focus_operators_own_window():
     pooled = same_surface(there, here, zero, zero)[patch].mean()
     assert loose > 0.05, loose
     assert pooled < 0.2 * loose, (pooled, loose)
+
+
+def test_a_withdrawn_sharp_member_falls_back_to_a_present_one_not_the_reference():
+    """F111's designated repair, on a known answer (ROUND 4).
+
+    The fallback chain is trinary: the sharp member, then a PRESENT member the
+    appearance evidence licenses, and only then the reference's defocused
+    stand-in. The synthetic case puts all three in one frame: the reference is
+    the blurriest observation of the surface, member A is the sharpest, member B
+    is in between, and F82's refusal is forced to withdraw A over the whole
+    field. B must win the vacated pixels, not the reference.
+
+    Scored where it can only be answered one way — the deviation from the SHARP
+    source, which A and B share and the reference does not.
+    """
+    rng = np.random.default_rng(31)
+    scene = cv2.GaussianBlur(rng.integers(0, 255, (200, 260)).astype(np.float32),
+                             (0, 0), 1.2)
+    colour = lambda g: cv2.cvtColor(np.clip(g, 0, 255).astype(np.uint8),
+                                    cv2.COLOR_GRAY2BGR)
+    sharp = colour(scene)
+    middle = colour(_disk_blur(scene, 2))
+    reference = colour(_disk_blur(scene, 6))
+    zero = np.zeros(scene.shape, np.float32)
+    radius_ref = np.full(scene.shape, 6.0, np.float32)
+
+    # The evidence: both members observe the reference's surface once the
+    # defocus is matched, and the sharper one is the sharper one.
+    vote_a = pooled_majority(surface_agreement(sharp, reference, zero, radius_ref))
+    vote_b = pooled_majority(surface_agreement(middle, reference,
+                                               np.full(scene.shape, 2.0, np.float32),
+                                               radius_ref))
+    inner = np.zeros(scene.shape, bool)
+    inner[30:-30, 30:-30] = True
+    assert vote_a[inner].mean() > 0.9, vote_a[inner].mean()
+    assert vote_b[inner].mean() > 0.9, vote_b[inner].mean()
+
+    # And the preference the chain must express: with A withdrawn, the pixel is
+    # served by B (present, defocused, correctly placed) rather than by the
+    # reference — which is what the fused result must resemble.
+    # A member that is present but shows a DIFFERENT SURFACE must not be
+    # licensed by the same gate — the clause that stops a defocused wrong
+    # surface entering. (A displaced copy of the SAME fine texture is a
+    # different question and reads 0.61 here: an appearance test cannot
+    # separate two surfaces that look alike, which is the recorded limit of
+    # this instrument and why F82's geometric check is not removed.)
+    intruder = middle.copy()
+    intruder[70:130, 40:200] = 240
+    vote_bad = pooled_majority(surface_agreement(
+        intruder, reference, np.full(scene.shape, 2.0, np.float32), radius_ref))
+    patch = np.zeros(scene.shape, bool)
+    patch[70:130, 40:200] = True
+    assert vote_bad[patch].mean() < 0.05, vote_bad[patch].mean()
+
+    withdrawn = np.zeros(scene.shape, bool)
+    withdrawn[60:140, :] = True                  # F82 refuses A on this band
+    usable = [~withdrawn, withdrawn & vote_b]
+    usable.append(~usable[0] & ~usable[1])
+    fused = fuse_coherent([sharp, middle, reference], harden=0.5, usable=usable)
+    band = withdrawn & inner
+    to_middle = float(np.abs(fused[band].astype(float)
+                             - middle[band].astype(float)).mean())
+    to_reference = float(np.abs(fused[band].astype(float)
+                                - reference[band].astype(float)).mean())
+    assert to_middle < to_reference, (to_middle, to_reference)
 
 
 def _occluded_pair_stack(step_px=18.0, frames=5, h=300, w=420):

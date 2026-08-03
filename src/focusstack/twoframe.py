@@ -871,7 +871,50 @@ def agreement_budget(low_member, low_reference, tol=GATE_TOL):
             + SURFACE_NOISE)
 
 
-def same_surface(member, reference, radius_member, radius_reference,
+def surface_agreement(member, reference, radius_member=None,
+                      radius_reference=None, sigma0=SIGMA0, tol=GATE_TOL):
+    """The RAW per-pixel verdict, before it is pooled. See `same_surface`.
+
+    The radii are optional for one reason: a caller with no focal model (the
+    research decomposition harness compares two warped views of ONE frame, which
+    share a defocus by construction) has nothing to match, and zero radii make
+    the cross-convolution the identity. A caller that HAS a focal model must pass
+    it — the runtime always does.
+    """
+    zero = np.zeros(reference.shape[:2], np.float32)
+    radius_member = zero if radius_member is None else radius_member
+    radius_reference = zero if radius_reference is None else radius_reference
+    low_m, low_r = match_blur(member, reference, radius_member, radius_reference,
+                              sigma0)
+    disagreement = np.abs(low_m - low_r).max(axis=2)
+    return disagreement <= agreement_budget(low_m, low_r, tol)
+
+
+def pooled_unanimous(agree, pool=SURFACE_POOL):
+    """True only where NOTHING in the pixel's own pooling window disagrees."""
+    if pool <= 1:
+        return agree
+    return cv2.erode(agree.astype(np.uint8), np.ones((pool, pool), np.uint8)) > 0
+
+
+def pooled_majority(agree, pool=SURFACE_POOL):
+    """True where MOST of the pixel's own pooling window agrees.
+
+    The same window as `pooled_unanimous` and the same evidence; only the quorum
+    differs, and it differs because the two callers face opposite costs. Where a
+    member is competing against another admissible observation, admitting a wrong
+    surface is the expensive error and the verdict must be unanimous. Where the
+    only alternative is the reference's defocused stand-in (the third tier of
+    `twoframe_stack`'s fallback chain), refusing is not free either, and the
+    question being asked is regional — so the region votes. One half is the
+    midpoint of a binary vote, not a tuned number.
+    """
+    if pool <= 1:
+        return agree
+    return cv2.boxFilter(agree.astype(np.float32), -1, (pool, pool)) >= 0.5
+
+
+def same_surface(member, reference, radius_member=None, radius_reference=None,
                  sigma0=SIGMA0, tol=GATE_TOL, pool=SURFACE_POOL):
     """Where does `member` observe the same surface as the unwarped `reference`?
 
@@ -888,14 +931,9 @@ def same_surface(member, reference, radius_member, radius_reference,
     radius must NOT trip it (the premise), a displacement inside GATE_TOL must
     not, the exposure residual must not, and a displaced occluder must.
     """
-    low_m, low_r = match_blur(member, reference, radius_member, radius_reference,
-                              sigma0)
-    disagreement = np.abs(low_m - low_r).max(axis=2)
-    agree = disagreement <= agreement_budget(low_m, low_r, tol)
-    if pool > 1:
-        agree = cv2.erode(agree.astype(np.uint8),
-                          np.ones((pool, pool), np.uint8)) > 0
-    return agree
+    return pooled_unanimous(
+        surface_agreement(member, reference, radius_member, radius_reference,
+                          sigma0, tol), pool)
 
 
 def _pair_refusal(frames, ref, table, dense, depth_step, shape):
@@ -1179,16 +1217,18 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
         # (rendered through the identity) agrees with itself everywhere, so this
         # never leaves a pair with nothing — and where it does, the reference
         # fallback below is what covers it.
-        agreement = None
+        agreement = evidence_raw = None
         if surface:
             # Each member is matched to the reference's OWN defocus and vice
             # versa (`same_surface`), so the test needs each side's disk radius:
             # the validated proxy `c * |frame - peak|` on `focal_field`'s
             # per-pixel focal frame, which is already in the composite's geometry.
-            agreement = [np.ones((h, w), bool) if frame == ref
-                         else same_surface(image, images[ref],
-                                           blur_radii(peak, frame), radius_ref)
-                         for image, frame in zip(rendered, frames)]
+            evidence_raw = [np.ones((h, w), bool) if frame == ref
+                            else surface_agreement(image, images[ref],
+                                                   blur_radii(peak, frame),
+                                                   radius_ref)
+                            for image, frame in zip(rendered, frames)]
+            agreement = [pooled_unanimous(a) for a in evidence_raw]
 
         usable = None
         if len(rendered) == 1:
@@ -1223,8 +1263,62 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
                     # content is correctly placed by definition, merely defocused.
                     # Admitted ONLY where both members are refused, so the
                     # architecture stays two-frame everywhere it is confident.
+                    #
+                    # ROUND 4 — F111's designated repair, and the preference is
+                    # TRINARY. F82's refusal is a SUSPICION about visibility: it
+                    # is geometric by construction, because `align._occlusion_mask`
+                    # says outright that "photometric agreement cannot be used in
+                    # a focus stack, [since] frames legitimately disagree wherever
+                    # defocus differs". The physical same-surface test above is
+                    # precisely the retirement of that sentence — it removes the
+                    # defocus difference before comparing — so the suspicion can
+                    # now be answered by measurement instead of standing
+                    # unchallenged. Where it is the ONLY objection left and the
+                    # appearance evidence does not object, a PRESENT observation
+                    # placed by a VERIFIED geometry is preferred to the
+                    # reference's defocused stand-in. Measured on large-motion,
+                    # where F82 withdraws the correctly-fitted member over 99.7%
+                    # of the pair: the sharp member is admitted on 64.6% of the
+                    # playing-card box, and the OTHER member — whose own fit the
+                    # gate contradicted and whose copy of the box sits ~8 px out
+                    # of place — is admitted on 15.7% and loses the focus contest
+                    # where it is. A defocused WRONG surface cannot enter: the
+                    # gate is the same test, on the same evidence.
+                    #
+                    # Two restrictions, both measured on the factory's GROUND
+                    # TRUTH, which is the only arbiter here that cannot be talked
+                    # to. Unrestricted, the preference costs it 0.984385 ->
+                    # 0.981380 — the research KAT's own recorded limit arriving
+                    # ("an appearance test cannot separate two surfaces that look
+                    # the same; that is why VISIBILITY is checked geometrically
+                    # before admission"). So:
+                    #   * the evidence must DISCRIMINATE, not merely permit. If
+                    #     BOTH members read same-surface, appearance has not
+                    #     answered F82's question and the geometric refusal
+                    #     stands. F103's vacuous-consistency rule, one level in.
+                    #   * the member must be MODELLED SHARPER than the reference
+                    #     at the pixel — that is what "preferable to the
+                    #     reference-DEFOCUSED fallback" means, and by the modelled
+                    #     circle of confusion rather than a measured contrast
+                    #     (PLAYBOOK §0c). Where the reference is the sharper
+                    #     observation there is nothing to gain and a geometry to
+                    #     lose.
+                    # With both, the factory reads 0.984455 (+0.00007, i.e. the
+                    # ground truth no longer objects) and the box keeps 47.4%.
+                    covered = usable[0] | usable[1]
+                    second = [np.zeros((h, w), bool) for _ in frames]
+                    if evidence_raw is not None:
+                        votes = [pooled_majority(a) for a in evidence_raw]
+                        for layer, is_refused in enumerate(refused_member):
+                            if is_refused:
+                                continue          # contradicted geometry: never
+                            other = votes[1 - layer]
+                            sharper = blur_radii(peak, frames[layer]) < radius_ref
+                            second[layer] = (~covered & valids[layer] & sharper
+                                             & votes[layer] & ~other)
                     rendered.append(images[ref])
-                    usable.append(~usable[0] & ~usable[1])
+                    usable = [u | s for u, s in zip(usable, second)]
+                    usable.append(~covered & ~second[0] & ~second[1])
             fused = fuse_coherent(rendered, harden=harden, usable=usable)
         candidates.append(fused)
         valid_here = np.logical_and.reduce(valids)

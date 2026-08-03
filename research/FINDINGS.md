@@ -5,6 +5,51 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F117 — The runtime retirements: physics in the default path, and a licence honestly left alone
+
+Round C (Opus, time-boxed, manager-verified: factory 0.984455 and the kitchen
+box table reproduced exactly; both evidence crops inspected; 96 tests).
+Retirements 1–2 shipped in `src/focusstack/twoframe.py`; retirement 3
+(licence-before-render) DROPPED per time-box, still open.
+
+**Retirement 1: `SURFACE_SIGMA` had two jobs, and the research port covered
+only one.** The faithful cross-convolution port reproduced its KAT to three
+decimals and then FAILED box 1 (6.14/61 → 10.42/156, F112's defect returning
+crisper): the global sigma had also been POOLING the decision. Shipped as
+cross-convolution + unanimous verdict over `content_aware_energies`' own
+smoothing window (borrowed, not invented; 5/7/9/11 sweep is a plateau).
+Runtime results: four boxes **1.20/2 · 2.04/13 · 1.19/19 · 1.03/17** (were
+6.14/61 · 3.49/17 · 3.31/101 · 6.23/127), flank **0.897 / 0.01%>12**, factory
+**0.984455**, sentinels byte-identical, large-motion still declined.
+**Honest cost:** the kitchen default is now more conservative — 67.6% of
+routed pixels changed, whole-frame focus energy 48.1 → 43.5 (reference 42.7);
+box 1's pot and box 4's rag lose texture toward the reference. The certifier
+backs the trade (input-routed 9.52 → 7.89; second pass on the new base 7.17),
+and the factory's ground truth gained +0.005 — but the USER's eyes validated
+the old default, and layer 1 of the inspector is now this new output: their
+re-inspection is the outstanding audit.
+
+**Retirement 2: pair-aware refusal, licensed by retirement 1.** Where F82's
+geometric suspicion was the ONLY objection, a present member the appearance
+evidence licenses now beats the reference fallback — trinary, with two
+restrictions the factory's ground truth wrote (evidence must DISCRIMINATE
+between members; the member must be modelled sharper than the reference;
+unrestricted, tier-2 content was worse than the fallback it replaced,
+0.9844 → 0.9814). Large-motion box: **47.4% recovered**, focus energy
+31.6 → 74.2 (frame 0 holds 152.4) — legible but soft and mottled. **The 14 px
+licence stays**: the repaired composite does not yet match the shipped
+override's crispness there.
+
+Open from the round: the blur-rate constant `c` DOES NOT TRANSFER across
+scenes (factory 1.161, kitchen 0.684, large-motion ~0.4 — it over-blurs 2×
+there) and nothing in the runtime measures it — pooling is currently
+absorbing the error; `research/layer_decompose.py` now runs with pooling via
+the default radii (flagged); the second pass's certified coverage on the new
+conservative base shrank to 29.6% and its box-1 max reads 62 vs its recorded
+61 — the second pass's rewrite role shrinks as the default grows
+reference-faithful, which is the expected dynamic on the way to the aligner
+contract.
+
 ## F116 — Contour continuity: the veto that polices position, not contrast
 
 Round B3a (Opus, manager-verified: kitchen bars reproduced through the module's

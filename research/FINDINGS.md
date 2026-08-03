@@ -5,6 +5,73 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F115 — The scene-model second pass ships a composite, and aggregation turns out to buy nothing
+
+Round B2 of the scene-model arc (FRONTIER §7b), Opus-built.
+`research/scene_model.py` assembles per-layer appearance from the frames and
+rewrites the routed two-frame composite ONLY where B1 owns the pixel and the
+certifier prefers the result. `forward_certify.py`, `src/**` and `tests/**` are
+byte-identical to F114 — the file-scope allowance to add a certifier hook was
+measured unnecessary and not used. Write-up in `research/scenemodel_NOTES.md`.
+
+**`SURFACE_SIGMA` is retired by physics.** F112 logged the low-pass scale as an
+unresolved §12.3 split (factory wants 2, kitchen wants 8, 4.0 clears every bar);
+F112/R5 named the invariant and did not build it. The answer is not to make the
+low-pass EXCEED the residual defocus difference but to REMOVE it exactly: two
+observations of one surface satisfy `m (x) disk(R_r) == r (x) disk(R_m)`, so
+each is convolved with the OTHER's disk. Cross-convolution, no PSF-family
+mismatch (PLAYBOOK §0: defocus is a disk), radii integer by construction, `R =
+c·|k − peak|` with `c` regressed from the certifier's own KAT-2'd radius search
+— **1.161 px/frame against the factory's true 1.15**. On the COMMITTED fixture
+and the committed pass marks it clears all four F112/R3 clauses and is exact
+where σ=4 failed: disk defocus at 8 and 12 px reads **1.000 / 1.000** against
+0.931 / 0.759, while a moved occluder still reads 0.002–0.010. One scale-free
+number survives (`SIGMA0`, the sampling scale) and a 0.5/1.0/2.0 sweep does not
+move either verdict. NOT yet ported into `twoframe.same_surface` — `src/**` was
+read-only.
+
+**Bars.** Factory GT-SSIM **0.979453 → 0.981104** (certifier 3.3051 → 2.9080).
+Kitchen certifier **9.5242 → 8.7700** on a rewrite covering 25.4% of the crop,
+byte-identical elsewhere (asserted in code). The F112 knob is REPAIRED: its
+certifier differential goes from 2.13× the frame mean to **0.54×**, i.e. quieter
+than average. The F108 flank box goes 0.57% → 0.40% > 12, and the 10 surviving
+pixels sit at x662–669 y240–242 — the knob's own top edge, above its recorded
+10×70 box. The pale sliver resolves into real background structure.
+
+**The round's main result is a negative.** Once averaging across a focus
+disagreement OR an unverified geometry is forbidden — and both must be —
+multi-frame aggregation beats the per-region best SINGLE admissible frame by
++0.0032 on the factory and **−0.0407 on the kitchen, i.e. not at all**. The
+second pass's win came from better ADMISSION, not from more data. Getting there
+cost an F106 violation the eyes caught and no aggregate did: a first build
+averaged any frame within 1.0 px of the sharpest modelled radius, including the
+41-of-72 (frame, layer) fits whose gate returned UNVERIFIABLE and kept the global
+affine. It scored BETTER on the certifier and was visibly softer (Lubriderm
+label illegible; focus energy on rewritten pixels 0.969× the input, now
+**1.133×**). The suspicion of a certifier sharpness bias was then tested rather
+than assumed — the same composite Gaussian-blurred scores 9.52 → 9.68 → 10.12 →
+11.10 at σ 0/0.5/1/2, so **the certifier has no sharpness bias on the kitchen**;
+it was blind, not wrong, and an image killed the story for the third time (§12.8).
+
+**Ordering is non-load-bearing, measured.** The visibility test uses no ordering
+at all (F114 §9: F83's bit refuses on both scenes), and against the ordered
+variant it produces IDENTICAL composites — the occlusion refusal fires on 0.025%
+/ 0.160% of owned pixel-frames, because B1's 5 px boundary band already declines
+a wider ribbon than the adjacent layers' differential motion. decompose_NOTES
+§9's prediction, confirmed: it becomes load-bearing the moment anything completes
+occluded content, and nothing here does.
+
+**The factory remainder, re-attributed:** motion +0.0020, segmentation +0.0047,
+and **assembly + render 0.0122 — of which 0.0105 is ONE round-trip resample of
+the ground truth**. 86% of what survives true masks and true geometry is the
+price of moving a frame, so B3's target is not a better estimator. (The oracle
+ladder's first build substituted the true TOTAL shift into the residual's slot
+and scored 0.9414 against the estimate's 0.9811 — F110's trap, same ladder,
+caught by the same discipline.) Also open: a visible sharpness step at the
+rewrite frontier (high-frequency 5.30 vs low-frequency 2.28, so not a gain
+mismatch); the kitchen's radius-model residual is 3.5× its own slope, which is
+F114's ramp quantization arriving in a new instrument.
+
 ## F114 — Decomposition by focal signature: ownership is requirement-dependent, and a layer is a quantization of a ramp
 
 Round B1 (Opus, manager-verified: ladder and kitchen KAT-4 re-run and

@@ -121,6 +121,19 @@ five keepers, ranked:**
    Pass-1 groups propose, certified residual decides, complexity penalized —
    this single principle subsumes the promotion list's fit-uncertainty
    tolerance, cut proposal, gate isolation, and per-piece veto.
+6. **Capture range is a contract (round 3's load-bearing find, generalized —
+   third occurrence of this bug class).** The dense fitter believes nothing
+   beyond ±CONTOUR_HALF (6 px); F107 hit the same shape at 24 MP; F108's
+   wall was its evidence-side twin. Principle: an estimator's validity
+   envelope is an explicit precondition — assert |fit − prior| within
+   capture mechanically (a boundary-landing fit is a FLAG, not a
+   measurement), and the pipeline must deliver every question into some
+   instrument's envelope via chained priors. Pass 1 is not merely a guide;
+   it is the coarse stage of a mandatory coarse-to-fine chain. Corollary
+   warning: `c` read 1.403 then 1.844 on the SAME scene across rounds — it
+   is fit jointly with segmentation and inherits its errors; under the
+   rank-1 backbone, estimate it from all pieces' focal ladders jointly.
+
 The value instrument was BUILT and KAT'd during the sweep (manager
 scratchpad; promote to research/ next session): per-tile Laplacian-energy
 ratio vs the reference, plus the ENVELOPE (per-tile max over all 12 frames)

@@ -1,0 +1,1316 @@
+"""Scene-model reconstruction — round B2 of the scene-model second pass.
+
+Where this sits. Round A (`forward_certify.py`, F113) built the ARBITER: a
+forward renderer that scores a candidate composite plus pass-1's scene model
+against the RAW frames in their own geometry. Round B1 (`layer_decompose.py`,
+F114) replaced pass-1's focus-contest winner map with a focal-signature
+DECOMPOSITION carrying trinary ownership. Neither round changed a pixel of any
+composite. This round does: it assembles per-layer appearance from the frames
+and writes a scene-model composite.
+
+REFINEMENT, NOT REPLACEMENT. The input is the routed two-frame composite that
+ships today (`focusstack.twoframe.twoframe_stack` on the exposure-normalized
+stack). The second pass rewrites a pixel ONLY where B1's decomposition OWNS it
+and the assembled appearance survives the certifier; boundary-band, unknown and
+un-assembled pixels keep the input composite's value BYTE-IDENTICALLY. That is
+F101's non-regression-by-construction and F106's trinary application, applied to
+a reconstruction: rewrite / keep / never-degrade.
+
+The hybrid model (F114). Discrete layers are ownership at OCCLUSION boundaries;
+continuous-ramp content (the kitchen countertop recedes in 1/Z) is not a stack of
+layers and is not this round's to rewrite — pass 1's winner map is already a good
+BLUR map there. Rewrite authority is exactly B1's owned regions.
+
+The four things assembly has to get right, and where each rule comes from:
+
+  1. GEOMETRY — one rigid transform per (frame, layer): the global affine
+     composed with the layer's own propagated shift, collapsed to a rigid
+     translation where the layer's own material edges prefer that, verified by
+     `twoframe.gate_shift`. Composed once, resampled once (PLAYBOOK §0: every
+     resample softens).
+  2. VISIBILITY — an observation may only be used where the frame actually saw
+     the surface. F114 §9 measured that the occlusion ORDERING is a focal-peak
+     proxy whose independent guard (F83's contour bit) REFUSES, so this module
+     does not lean on ordering at all: a pixel is declined if ANY other layer's
+     footprint, warped into that frame's geometry and pulled back through this
+     layer's own map, covers it. Ordering-free by construction, and the price is
+     measured (`orderguard`).
+  3. ADMISSION — the PHYSICAL same-surface test (see `same_surface_physical`).
+     This is the per-pixel version F112/R5 designed and did not build, and it
+     retires `SURFACE_SIGMA`'s §12.3 two-scene split.
+  4. AGGREGATION — never average across a focus disagreement (F79/F31): decide
+     first, reconstruct second. Only the SHARPEST admitted observation and the
+     others that share its blur to within a pixel are averaged, and each of those
+     must agree with the sharpest one.
+
+NO COMPLETION. Where assembly has nothing admissible the input composite's pixel
+stands. F114 forbids placing content that is occluded in the frames that own it,
+and nothing here does.
+
+    .venv/bin/python research/scene_model.py kat        # the physical test, known answers
+    .venv/bin/python research/scene_model.py slope      # the blur ladder's own KAT
+    .venv/bin/python research/scene_model.py factory    # bar A: GT-SSIM + the ladder
+    .venv/bin/python research/scene_model.py kitchen    # bars B/C/D + both ledgers
+    .venv/bin/python research/scene_model.py orderguard # what the ordering-free rule costs
+    .venv/bin/python research/scene_model.py render     # out/inspect/kitchen_scenemodel.png
+"""
+from __future__ import annotations
+
+import glob
+import os
+import sys
+import time
+from dataclasses import dataclass, field
+
+import cv2
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", "src"))
+sys.path.insert(0, HERE)
+
+from focusstack import twoframe as TF  # noqa: E402
+from focusstack.align import _homogeneous  # noqa: E402
+from focusstack.io import to_gray_float  # noqa: E402
+import forward_certify as FC  # noqa: E402
+import layer_decompose as LD  # noqa: E402
+
+OUT = os.path.abspath(os.path.join(HERE, "..", "out", "certify"))
+INSPECT = os.path.abspath(os.path.join(HERE, "..", "out", "inspect"))
+KITCHEN = os.path.join(HERE, "data", "mobiledepth", "Figure3", "kitchen")
+
+# --- constants, and where each one comes from --------------------------------
+# The residual low-pass that survives after two observations have been matched to
+# a common defocus. It is the SAMPLING SCALE: below one pixel the disk PSF, the
+# bilinear kernel of the module's single resample, and the pixel grid itself are
+# not distinguishable, so a disagreement at that scale is not evidence about
+# which surface is being observed. `kat` measures the verdict's sensitivity to it.
+SIGMA0 = 1.0
+# Two observations belong to the same "equal-blur set" if their modelled disk
+# radii differ by less than this. Same derivation, same number: a sub-pixel
+# difference in circle-of-confusion is below the grid. This is what stops a
+# defocused copy being averaged into a sharp one (F79/F31) WITHOUT a tuned
+# sharpness threshold — the set is defined by the physics, not by a percentile.
+EQUAL_BLUR_TOL = 1.0
+# A rewritten region needs at least this many certified pixels before the
+# certifier is allowed to arbitrate it. `MIN_COVERAGE` frames is the certifier's
+# own quorum; 200 px is `estimate_radii`'s own minimum weight for a fit to be
+# scored at all. Borrowed, not chosen.
+MIN_ARBITRABLE = 200
+# Smallest rewritten component that gets its own veto verdict. `twoframe`'s own
+# statement of the smallest thing worth calling a layer.
+MIN_REGION = TF.MIN_LAYER_PIXELS
+
+
+# ---------------------------------------------------------------------------
+# The physical same-surface test — F112/R5's unbuilt design
+# ---------------------------------------------------------------------------
+# F112 shipped `same_surface` with ONE global low-pass scale, `SURFACE_SIGMA`,
+# and logged it as an unresolved §12.3 split: the analytic factory (which has
+# ground truth) wants 2, the kitchen boxes want 8, and 4.0 was the smallest value
+# clearing every bar. DEVSTYLE §12.3 says a threshold two scenes want opposite
+# values for is the wrong instrument, and names the cure: find the physical
+# invariant it is standing in for. R5 named it exactly:
+#
+#     "The low-pass must exceed the RESIDUAL DEFOCUS DIFFERENCE between the two
+#      frames, and that is a per-pixel quantity the module already has the
+#      ingredients for: `peak` is the focal frame per pixel and the arc's
+#      validated blur proxy is distance from the object's focal frame."
+#
+# So do not exceed the difference — REMOVE it, exactly. Two observations of one
+# latent surface are
+#
+#     m = L (x) disk(R_m)        r = L (x) disk(R_r)
+#     R(k, p) = c * |k - peak(p)|      the disk radius, c measured per scene
+#
+# so blurring EACH by the OTHER's disk makes them identical:
+#
+#     m (x) disk(R_r)  ==  L (x) disk(R_m) (x) disk(R_r)  ==  r (x) disk(R_m)
+#
+# CROSS-CONVOLUTION, and it is exact — no PSF family mismatch, because the family
+# used to match is the family the physics uses (PLAYBOOK §0: real defocus is a
+# DISK). A Gaussian second-moment match was tried first and measured: it leaves a
+# family residual that grows with radius (agreement 0.867 at 12 px against 1.000
+# here). Disk radii are integers by construction, so the ladder is the exact
+# parameter space and not a discretization of it.
+#
+# The BUDGET is F112's, unchanged and unretuned: a GATE_TOL displacement times
+# the local gradient (F106's unexplained-motion rule asked per pixel),
+# `normalize_exposure`'s measured multiplicative residual, and the sensor noise
+# floor. Replacing that linearization with the exact statement it approximates —
+# minimize the disagreement over a shift grid at +-GATE_TOL, charge only the
+# sub-grid remainder to the gradient — was built and MEASURED WORSE on the
+# committed fixture, on every row: the search buys a moved occluder a
+# GATE_TOL-wide sliver at each edge of the strip it vacated (0.263 admitted at a
+# 4 px move against 0.010 linearized) and simultaneously admits MORE of a 4 px
+# misregistration (0.885 vs 0.691). The linearization is not merely cheaper here,
+# it is the tighter bound. Recorded as a negative deliverable, not repeated.
+
+
+def _disk_ladder(image: np.ndarray, radius_max: float):
+    """`image` convolved with every disk radius up to `radius_max`, integer grid."""
+    top = int(np.ceil(max(0.0, float(radius_max))))
+    stack = [FC.defocus(image, r) for r in range(top + 1)]
+    return np.stack(stack, 0)
+
+
+def _select(stack: np.ndarray, radius_map: np.ndarray):
+    """Per-pixel pick from a ladder — a spatially varying convolution."""
+    index = np.clip(np.rint(radius_map).astype(np.int32), 0, len(stack) - 1)
+    h, w = radius_map.shape
+    yy, xx = np.indices((h, w))
+    return stack[index, yy, xx]
+
+
+def _gradient_magnitude(blurred: np.ndarray) -> np.ndarray:
+    gx = cv2.Sobel(blurred, cv2.CV_32F, 1, 0, ksize=3) / 8.0
+    gy = cv2.Sobel(blurred, cv2.CV_32F, 0, 1, ksize=3) / 8.0
+    return np.sqrt(gx * gx + gy * gy)
+
+
+def match_blur(member: np.ndarray, reference: np.ndarray,
+               radius_member: np.ndarray, radius_reference: np.ndarray,
+               sigma0: float = SIGMA0):
+    """Bring two observations to a COMMON defocus by cross-convolution.
+
+    Each is convolved with the OTHER's disk, which is exact for two observations
+    of one latent surface. `sigma0` is then applied to both identically — the
+    sampling-scale residual that the disk model, the bilinear resample and the
+    pixel grid share, and it cancels no structure because it is common.
+    """
+    r_m = np.maximum(radius_member, 0.0).astype(np.float32)
+    r_r = np.maximum(radius_reference, 0.0).astype(np.float32)
+    low_m = _select(_disk_ladder(member.astype(np.float32), r_r.max()), r_r)
+    low_r = _select(_disk_ladder(reference.astype(np.float32), r_m.max()), r_m)
+    if sigma0 > 0:
+        low_m = cv2.GaussianBlur(low_m, (0, 0), sigma0)
+        low_r = cv2.GaussianBlur(low_r, (0, 0), sigma0)
+    return low_m, low_r
+
+
+def agreement_budget(low_member: np.ndarray, low_reference: np.ndarray,
+                     tol: float = TF.GATE_TOL) -> np.ndarray:
+    """What a disagreement is ALLOWED to be, in levels. F112's terms, unchanged."""
+    return (tol * np.maximum(_gradient_magnitude(low_member),
+                             _gradient_magnitude(low_reference)).max(axis=2)
+            + TF.SURFACE_GAIN * np.maximum(low_member, low_reference).max(axis=2)
+            + TF.SURFACE_NOISE)
+
+
+def same_surface_physical(member, reference, radius_member, radius_reference,
+                          sigma0: float = SIGMA0, tol: float = TF.GATE_TOL):
+    """`twoframe.same_surface`, with its one free scale replaced by physics.
+
+    Returns a bool mask: True where the two observations, once brought to a
+    COMMON defocus by cross-convolution, agree to within what a GATE_TOL
+    displacement, the exposure residual and sensor noise can explain.
+
+    Known-answer tested in `kat`, on the COMMITTED fixture and against the
+    committed pass marks, so it and the global-sigma version are directly
+    comparable on the four questions F112/R3 asked.
+    """
+    low_m, low_r = match_blur(member, reference, radius_member, radius_reference,
+                              sigma0)
+    disagreement = np.abs(low_m - low_r).max(axis=2)
+    return disagreement <= agreement_budget(low_m, low_r, tol)
+
+
+# ---------------------------------------------------------------------------
+# The blur ladder's scale, measured rather than assumed
+# ---------------------------------------------------------------------------
+def blur_slope(model, appearances, supports, raw, peaks, verbose=False):
+    """Disk radius per frame of focal distance, `c`, for one scene.
+
+    PLAYBOOK §0c closes contrast-over-gradient blur estimation. The instrument
+    used here is the certifier's own forward radius search, which KAT-2 measured
+    recovering a KNOWN radius exactly (100%) on every rung including from a real
+    imperfect composite. This regresses its per (frame, layer) answers against
+    the focal distance the ladder already asserts:
+
+        r(k, i) = c * |k - peak_i|     ->    c = sum(r*d) / sum(d*d)
+
+    Through the origin, because a layer at its own focal frame is in focus by the
+    definition of a focal peak. The factory's own constant is BLUR_PER_STEP =
+    1.15, which is `slope`'s known answer.
+    """
+    report, _cost = FC.estimate_radii(model, appearances, supports, raw,
+                                      update=False)
+    numerator = denominator = 0.0
+    rows = []
+    for (k, i), (radius, _gain, _mae, count) in report.items():
+        if count <= 0 or i >= len(peaks):
+            continue
+        distance = abs(k - peaks[i])
+        numerator += radius * distance
+        denominator += distance * distance
+        rows.append((k, i, distance, radius))
+    slope = numerator / denominator if denominator > 0 else 0.0
+    if verbose:
+        residual = np.array([r - slope * d for _k, _i, d, r in rows])
+        print(f"    blur slope c = {slope:.3f} px per frame of focal distance "
+              f"({len(rows)} (frame, layer) radii, residual rms "
+              f"{float(np.sqrt((residual ** 2).mean())):.2f} px)")
+    return float(slope), rows
+
+
+# ---------------------------------------------------------------------------
+# Assembly
+# ---------------------------------------------------------------------------
+@dataclass
+class Assembly:
+    composite: np.ndarray            # crop geometry, the scene-model composite
+    base: np.ndarray                 # crop geometry, the input routed composite
+    rewritten: np.ndarray            # crop geometry, bool
+    layer_of: np.ndarray             # crop geometry, int32 (-1 where not rewritten)
+    best_frame: np.ndarray           # crop geometry, int32 (-1 where none)
+    scoped_null: np.ndarray          # crop geometry, per-region best SINGLE frame
+    crop: tuple
+    dec: object
+    slope: float
+    diag: dict = field(default_factory=dict)
+
+
+def _geometry(images, dec, verbose=False):
+    """One rigid transform per (frame, layer) — the two-frame discipline.
+
+    The menu, the arbiter and the gate are all pass 1's own. `twoframe_stack`
+    builds exactly this menu per (frame, layer) for the two frames it elects; the
+    only thing added here is that it is built for EVERY frame, because a
+    reconstruction that needs all N cannot get them from a stage that renders two
+    (F113's closing note).
+
+    Trinary per F106/F110: VERIFIED applies the layer shift, CONTRADICTED refuses
+    the observation outright (a fit the evidence contradicts may not be softened
+    into the global affine — that is the silent invention the gate exists to
+    stop), UNVERIFIABLE declines the correction and keeps the global stage's
+    geometry without throwing the observation away.
+    """
+    n = len(images)
+    ref = dec.diag["ref"]
+    h, w = images[0].shape[:2]
+    coarse, warps, common = dec.diag["coarse"], dec.diag["warps"], dec.diag["common"]
+    labels, peak = dec.labels, dec.diag["peak"]
+    grays = [to_gray_float(c).astype(np.float32) / 255.0 for c in coarse]
+    ref_gray = grays[ref]
+    gradient = cv2.magnitude(
+        cv2.Sobel(ref_gray * 255.0, cv2.CV_32F, 1, 0, ksize=3),
+        cv2.Sobel(ref_gray * 255.0, cv2.CV_32F, 0, 1, ksize=3))
+    textured = gradient >= TF.A._REFINE_MIN_GRADIENT
+    from focusstack.fusion import depth_from_focus
+    evidence = TF.EdgeEvidence(grays, ref, depth_from_focus(coarse), common, peak)
+
+    shifts = dec.diag["layer_shift"]
+    matrices, verdicts = {}, {}
+    tally = {"verified": 0, "contradicted": 0, "unverifiable": 0}
+    for i in range(len(dec.masks)):
+        support = (labels == i)
+        indices = evidence.indices_in(support & textured & common)
+        for k in range(n):
+            base = np.eye(3) if warps[k] is None else _homogeneous(warps[k])
+            if k == ref:
+                matrices[(k, i)] = np.eye(3)
+                verdicts[(k, i)] = ("verified", 0.0, "reference")
+                tally["verified"] += 1
+                continue
+            dx, dy = shifts[(k, i)]
+            composed = base @ np.array([[1.0, 0.0, dx], [0.0, 1.0, dy],
+                                        [0.0, 0.0, 1.0]])
+            rigid = TF._rigidify(composed, support, (h, w))
+            inverse = np.linalg.inv(base)
+            best = None
+            for name, candidate in (("affine", composed), ("rigid", rigid)):
+                check = evidence.residual_translation(k, indices, inverse @ candidate)
+                if check is None:
+                    continue
+                if best is None or check["rms"] < best[0] - 1e-6:
+                    best = (check["rms"], name, candidate)
+            chosen = composed if best is None else best[2]
+            status, statistic, reason = TF.gate_shift(evidence, k, indices,
+                                                      inverse @ chosen)
+            tally[status] += 1
+            if status == "contradicted":
+                matrices[(k, i)] = None
+            elif status == "unverifiable":
+                matrices[(k, i)] = base
+            else:
+                matrices[(k, i)] = chosen
+            verdicts[(k, i)] = (status, statistic,
+                                f"{'—' if best is None else best[1]}; {reason}")
+    if verbose:
+        total = sum(tally.values())
+        print(f"    geometry: {tally['verified']} verified, "
+              f"{tally['unverifiable']} unverifiable (global affine kept), "
+              f"{tally['contradicted']} contradicted (observation refused) "
+              f"of {total} (frame, layer) pairs")
+    return matrices, verdicts, tally
+
+
+def _visibility(images, dec, matrices, k, i, order_guard="any"):
+    """Where frame k can legitimately be read for layer i, in reference geometry.
+
+    Ordering-free by default, and that is deliberate. F114 §9: the layer order is
+    a focal-peak proxy and F83's contour bit, the one independent cue that could
+    guard its DIRECTION, refuses on today's factory (`near_is_low=None`). An
+    assembly that only skipped NEARER layers would be trusting that direction. So
+    every other layer's footprint is treated as a possible occluder: a pixel is
+    declined if the footprint of any layer j != i, carried into frame k's
+    geometry by ITS OWN transform and pulled back through layer i's, lands on it.
+    In reference geometry the two footprints are disjoint, so what this actually
+    refuses is the DIFFERENTIAL-MOTION band at each shared boundary — exactly the
+    strip where an occluder swung — and `orderguard` measures the price against
+    the ordered variant.
+    """
+    h, w = images[0].shape[:2]
+    matrix = matrices[(k, i)]
+    if matrix is None:
+        return np.zeros((h, w), bool)
+    inside = FC.warp_back(np.ones((h, w), np.float32), matrix, (h, w), 0.0) > 0.999
+    occupied = np.zeros((h, w), np.float32)
+    for j in range(len(dec.masks)):
+        if j == i:
+            continue
+        if order_guard == "nearer" and dec.order[j] >= dec.order[i]:
+            continue
+        other = matrices[(k, j)]
+        if other is None:
+            continue
+        footprint = (dec.labels == j).astype(np.float32)
+        occupied = np.maximum(occupied, FC.warp_forward(footprint, other, (h, w), 0.0))
+    if occupied.any():
+        back = FC.warp_back(occupied, matrix, (h, w), 0.0)
+        inside &= back < 0.001
+    return inside
+
+
+def assemble(images, ref=None, order_guard="any", verbose=False, raw=None,
+             dec=None, matrices=None):
+    """Build the scene-model composite. Returns an `Assembly`.
+
+    Nothing is written outside B1's OWNED pixels, and nothing is written where
+    the frames have nothing admissible to say. `dec` and `matrices` override B1's
+    decomposition and the fitted geometry, which is how the factory's oracle
+    rungs substitute a known answer for one estimated quantity at a time.
+    """
+    n = len(images)
+    ref = n // 2 if ref is None else ref
+    raw = images if raw is None else raw
+    h, w = images[0].shape[:2]
+    t0 = time.time()
+
+    base_composite, info = TF.twoframe_stack(images, ref)
+    crop = tuple(info["crop"])
+    x0, y0, x1, y1 = crop
+    if verbose:
+        print(f"    input routed composite {base_composite.shape}, crop {crop} "
+              f"({time.time() - t0:.1f}s)")
+
+    dec = LD.decompose(images, ref, verbose=verbose) if dec is None else dec
+    if matrices is None:
+        matrices, verdicts, tally = _geometry(images, dec, verbose=verbose)
+    else:
+        verdicts, tally = {}, {"oracle": len(matrices)}
+
+    # The certifier's model, on B1's decomposition, with the geometry frozen on
+    # the NULL appearance exactly as round A freezes it — so the same model that
+    # will judge the rewrite also supplies the blur ladder that builds it, and
+    # neither is fitted to the candidate.
+    model, _diag = FC.model_from_pass1(images, ref,
+                                       segmentation=dec.segmentation())
+    null = images[ref][y0:y1, x0:x1]
+    null_canvas, null_support = FC.place(null, crop, model.shape)
+    null_app, null_sup = FC.layer_views(model, null_canvas, null_support)
+    FC.select_geometry(model, null_app, null_sup, raw)
+    canvas, support = FC.place(base_composite, crop, model.shape)
+    appearances, supports = FC.layer_views(model, canvas, support)
+    slope, _rows = blur_slope(model, appearances, supports, raw, dec.peaks,
+                              verbose=verbose)
+
+    # Per-pixel focal peak, with the LAYER's peak standing in where the two focus
+    # operators did not agree (B1's `evidenced` channel). A pixel that was
+    # labelled but not measured takes its layer's answer and is not pretended to
+    # carry its own.
+    peak = dec.diag["peak"].astype(np.float32)
+    evidenced = dec.diag["evidenced"]
+    peak_used = peak.copy()
+    for i in range(len(dec.masks)):
+        here = (dec.labels == i) & ~evidenced
+        peak_used[here] = dec.peaks[i]
+
+    reference = images[ref].astype(np.float32)
+    radius_ref = slope * np.abs(ref - peak_used)
+
+    owned = dec.state == LD.OWNED
+    observations = np.zeros((n, h, w, 3), np.float32)
+    admitted = np.zeros((n, h, w), bool)
+    for k in range(n):
+        # ONE resample per (frame, layer): the composed transform is applied
+        # directly to the ORIGINAL frame (PLAYBOOK §0 — compose, resample once).
+        # Layers sharing a matrix share the resample.
+        done = {}
+        for i in range(len(dec.masks)):
+            here = owned & (dec.labels == i)
+            if not here.any():
+                continue
+            matrix = matrices[(k, i)]
+            if matrix is None:
+                continue
+            key = matrix.tobytes()
+            if key not in done:
+                done[key] = FC.warp_back(images[k].astype(np.float32), matrix,
+                                         (h, w), 0.0)
+            observations[k][here] = done[key][here]
+            visible = _visibility(images, dec, matrices, k, i,
+                                  order_guard=order_guard)
+            admitted[k] |= here & visible
+        if not admitted[k].any():
+            continue
+        radius_k = slope * np.abs(k - peak_used)
+        agree = same_surface_physical(observations[k], reference,
+                                      radius_k, radius_ref)
+        admitted[k] &= agree
+
+    # --- aggregation: the sharpest MUTUALLY-AGREEING subset -------------------
+    # F79/F31: decision, then reconstruction, never an average across a focus
+    # disagreement. The decision is which observations belong to the sharpest
+    # EQUAL-BLUR set; only inside that set is anything averaged, and the set is
+    # defined by the modelled circle of confusion rather than by a measured
+    # sharpness (PLAYBOOK §0c forbids the latter).
+    radii = np.stack([slope * np.abs(k - peak_used) for k in range(n)], 0)
+    big = np.float32(1e9)
+    masked_radii = np.where(admitted, radii, big)
+    best_frame = np.argmin(masked_radii, axis=0).astype(np.int32)
+    any_admitted = admitted.any(axis=0)
+    best_frame[~any_admitted] = -1
+    yy, xx = np.indices((h, w))
+    best_radius = masked_radii[np.clip(best_frame, 0, n - 1), yy, xx]
+
+    lows = np.stack([cv2.GaussianBlur(observations[k], (0, 0), SIGMA0)
+                     for k in range(n)], 0)
+    sharpest_low = lows[np.clip(best_frame, 0, n - 1), yy, xx]
+    budget = agreement_budget(sharpest_low, sharpest_low)
+
+    total = np.zeros((h, w, 3), np.float32)
+    weight = np.zeros((h, w), np.float32)
+    members = np.zeros((h, w), np.int32)
+    for k in range(n):
+        equal_blur = admitted[k] & any_admitted & (radii[k] <= best_radius
+                                                   + EQUAL_BLUR_TOL)
+        mutual = np.abs(lows[k] - sharpest_low).max(axis=2) <= budget
+        keep = equal_blur & mutual
+        keep |= (best_frame == k) & any_admitted        # the sharpest is always in
+        # Sharpness-weighted inside an equal-blur set: monotone in the modelled
+        # circle of confusion, so the marginally sharper member leads and the
+        # weights are nearly uniform by construction.
+        w_k = (1.0 / (1.0 + radii[k])) * keep
+        total += w_k[..., None] * observations[k]
+        weight += w_k
+        members += keep.astype(np.int32)
+
+    assembled = np.zeros((h, w, 3), np.float32)
+    have = weight > 0
+    assembled[have] = total[have] / weight[have][..., None]
+
+    # --- the region-scoped null: per owned region, the best SINGLE frame ------
+    # F114 §7: the global null (one defocused reference frame) is a carpet that
+    # hides region-scale defects, and per-layer appearance is the material for a
+    # scoped one. This is the same assembly with the aggregation removed —
+    # exactly one admissible observation per region, the sharpest.
+    scoped = np.zeros((h, w, 3), np.float32)
+    scoped[have] = observations[np.clip(best_frame, 0, n - 1), yy, xx][have]
+
+    full_base = np.zeros((h, w, 3), np.float32)
+    full_base[y0:y1, x0:x1] = base_composite
+    rewrite = owned & have
+    rewrite[:y0] = rewrite[y1:] = False
+    rewrite[:, :x0] = rewrite[:, x1:] = False
+    out = full_base.copy()
+    out[rewrite] = assembled[rewrite]
+    scoped_full = full_base.copy()
+    scoped_full[rewrite] = scoped[rewrite]
+
+    layer_of = np.where(rewrite, dec.labels, -1).astype(np.int32)
+    composite = np.clip(out[y0:y1, x0:x1], 0, 255).astype(np.uint8)
+    scoped_null = np.clip(scoped_full[y0:y1, x0:x1], 0, 255).astype(np.uint8)
+    # BYTE-IDENTITY, asserted rather than hoped for (bar D).
+    keep_mask = ~rewrite[y0:y1, x0:x1]
+    assert np.array_equal(composite[keep_mask], base_composite[keep_mask]), \
+        "non-owned pixels are not byte-identical to the input composite"
+    assert np.array_equal(scoped_null[keep_mask], base_composite[keep_mask])
+
+    if verbose:
+        print(f"    rewritten {rewrite.mean() * 100:5.2f}% of the frame "
+              f"({rewrite.sum() / max(1, owned.sum()) * 100:.1f}% of OWNED); "
+              f"mean members per rewritten pixel "
+              f"{float(members[rewrite].mean()) if rewrite.any() else 0:.2f}; "
+              f"{time.time() - t0:.1f}s")
+    return Assembly(
+        composite=composite, base=base_composite,
+        rewritten=rewrite[y0:y1, x0:x1], layer_of=layer_of[y0:y1, x0:x1],
+        best_frame=np.where(rewrite, best_frame, -1)[y0:y1, x0:x1],
+        scoped_null=scoped_null, crop=crop, dec=dec, slope=slope,
+        diag={"model": model, "matrices": matrices, "verdicts": verdicts,
+              "tally": tally, "admitted": admitted, "members": members,
+              "info": info, "rewrite_full": rewrite, "peak_used": peak_used,
+              "any_admitted": any_admitted, "owned": owned, "ref": ref})
+
+
+# ---------------------------------------------------------------------------
+# Certification of the rewrite, globally and per region
+# ---------------------------------------------------------------------------
+def regions_of(assembly: Assembly, min_area=MIN_REGION):
+    """Connected components of the rewrite, per layer. Reference geometry."""
+    rewrite = assembly.diag["rewrite_full"]
+    labels = assembly.dec.labels
+    found = []
+    for i in range(len(assembly.dec.masks)):
+        here = (rewrite & (labels == i)).astype(np.uint8)
+        if here.sum() == 0:
+            continue
+        count, tagged, stats, _c = cv2.connectedComponentsWithStats(here, 8)
+        for tag in range(1, count):
+            if stats[tag][4] < min_area:
+                continue
+            found.append({"layer": i, "mask": tagged == tag,
+                          "area": int(stats[tag][4]),
+                          "box": (int(stats[tag][0]), int(stats[tag][1]),
+                                  int(stats[tag][0] + stats[tag][2]),
+                                  int(stats[tag][1] + stats[tag][3]))})
+    found.sort(key=lambda r: -r["area"])
+    return found
+
+
+def certify_candidates(assembly: Assembly, raw, candidates):
+    """Score several composites through ONE frozen model. Returns Certifications."""
+    model = assembly.diag["model"]
+    crop = assembly.crop
+    region = np.zeros(model.shape, bool)
+    region[crop[1]:crop[3], crop[0]:crop[2]] = True
+    results = {}
+    for label, composite in candidates:
+        canvas, support = FC.place(composite, crop, model.shape)
+        appearances, supports = FC.layer_views(model, canvas, support)
+        model.radii, model.gains = {}, {}
+        FC.estimate_radii(model, appearances, supports, raw)
+        results[label] = FC.certify(model, composite, crop, raw, region=region)
+    return results, region
+
+
+def apply_veto(assembly: Assembly, scene_result, base_result, regions,
+               verbose=False):
+    """Never-degrade: revert every region the certifier does not prefer.
+
+    Trinary, and the third state is the honest one. A region with too little
+    certified evidence is UNARBITRATED — the instrument has no verdict there, and
+    F106's rule is that an unexplained change must be refused, not waved through.
+    So it is reverted too, and counted separately from the regions the certifier
+    actively vetoed.
+    """
+    delta = scene_result.unexplained - base_result.unexplained
+    scored = (np.minimum(scene_result.coverage, base_result.coverage)
+              >= FC.MIN_COVERAGE)
+    verdicts = []
+    reverted = np.zeros(assembly.dec.labels.shape, bool)
+    for entry in regions:
+        here = entry["mask"] & scored
+        count = int(here.sum())
+        if count < MIN_ARBITRABLE:
+            state, value = "unarbitrated", float("nan")
+            reverted |= entry["mask"]
+        else:
+            value = float(delta[here].mean())
+            if value > 0.0:
+                state, _ = "vetoed", reverted.__ior__(entry["mask"])
+            else:
+                state = "kept"
+        verdicts.append(dict(entry, state=state, differential=value,
+                             certified=count))
+    if verbose:
+        counts = {}
+        for entry in verdicts:
+            counts[entry["state"]] = counts.get(entry["state"], 0) + 1
+        print(f"    never-degrade veto over {len(verdicts)} regions: "
+              + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
+    return verdicts, reverted
+
+
+def finalize(assembly: Assembly, reverted):
+    """Apply the veto and return the final composite (crop geometry)."""
+    x0, y0, x1, y1 = assembly.crop
+    out = assembly.composite.copy()
+    revert_here = reverted[y0:y1, x0:x1] & assembly.rewritten
+    out[revert_here] = assembly.base[revert_here]
+    final_rewrite = assembly.rewritten & ~revert_here
+    assert np.array_equal(out[~final_rewrite], assembly.base[~final_rewrite])
+    return out, final_rewrite
+
+
+# ---------------------------------------------------------------------------
+# KAT — the physical same-surface test, against the questions F112/R3 asked
+# ---------------------------------------------------------------------------
+def _kat_scene():
+    """The COMMITTED fixture, unchanged — `tests/test_twoframe_route.py`'s own.
+
+    Reusing the existing KAT's scene and its pass marks is the point: it makes
+    the physical test and the global-sigma one directly comparable on the four
+    questions F112/R3 asked, instead of on a fixture chosen after the fact.
+    """
+    rng = np.random.default_rng(4)
+    texture = cv2.GaussianBlur(rng.integers(0, 255, (300, 400)).astype(np.uint8),
+                               (0, 0), 2)
+    scene = cv2.cvtColor(texture, cv2.COLOR_GRAY2BGR).astype(np.float32)
+    inner = np.zeros(scene.shape[:2], bool)
+    inner[40:-40, 40:-40] = True
+    return scene, inner
+
+
+def kat() -> None:
+    """Known-answer test before belief (§12.1), and directly comparable to R3.
+
+    R3's table for the GLOBAL sigma=4 version is quoted alongside, measured on
+    the same fixture. The row that must differ is the defocus row: a global
+    low-pass can only absorb a defocus difference up to its own scale, so R3
+    measured it failing at 8 px (0.931) and 12 px (0.759). A CROSS-CONVOLVED
+    test has no scale to run out of.
+    """
+    scene, inner = _kat_scene()
+    zero = np.zeros(scene.shape[:2], np.float32)
+    ones = np.ones(scene.shape[:2], np.float32)
+    print("=" * 78)
+    print("KAT — the PHYSICAL same-surface test, against known answers")
+    print("=" * 78)
+    print("  Fixture and pass marks are the committed ones\n"
+          "  (`tests/test_twoframe_route.py::test_same_surface_is_blind_to_defocus`).\n"
+          "  Agreement is measured on the inner region, away from the borders.\n")
+
+    print("  (a) DISK DEFOCUS — the premise. Bar > 0.97.")
+    print(f"  {'radius (px)':>12} {'agreement':>10} {'verdict':>8}   R3 sigma=4")
+    r3 = {1: "1.000", 2: "1.000", 4: "0.999", 6: "0.983", 8: "0.931", 12: "0.759"}
+    for radius in (1, 2, 4, 6, 8, 12):
+        agree = same_surface_physical(FC.defocus(scene, radius), scene,
+                                      ones * radius, zero)
+        value = float(agree[inner].mean())
+        print(f"  {radius:12d} {value:10.3f} {'PASS' if value > 0.97 else 'FAIL':>8}"
+              f"   {r3[radius]:>10}")
+
+    print(f"\n  (b) A DISPLACEMENT THE GEOMETRY TOLERATES must not trip it "
+          f"(GATE_TOL = {TF.GATE_TOL} px). Bar > 0.97 up to GATE_TOL.")
+    print(f"  {'shift (px)':>12} {'agreement':>10} {'verdict':>8}   R3 sigma=4")
+    r3 = {0.5: "1.000", 1.0: "1.000", 1.5: "1.000", 2.0: "0.981", 4.0: "0.800"}
+    for shift in (0.5, 1.0, TF.GATE_TOL, 2.0, 4.0):
+        moved = cv2.warpAffine(scene, np.float32([[1, 0, shift], [0, 1, 0]]),
+                               (scene.shape[1], scene.shape[0]),
+                               borderMode=cv2.BORDER_REFLECT)
+        agree = same_surface_physical(moved, scene, zero, zero)
+        value = float(agree[inner].mean())
+        mark = "PASS" if (shift > TF.GATE_TOL or value > 0.97) else "FAIL"
+        print(f"  {shift:12.1f} {value:10.3f} {mark:>8}   {r3[shift]:>10}")
+
+    print(f"\n  (c) THE EXPOSURE RESIDUAL must not trip it "
+          f"(SURFACE_GAIN = {TF.SURFACE_GAIN}; measured max on the sweep 1.85%).")
+    print(f"  {'gain':>12} {'agreement':>10} {'verdict':>8}   R3 sigma=4")
+    r3 = {1.015: "1.000", 1.019: "1.000", 1.05: "0.455"}
+    for gain in (1.015, 1.019, 1.05):
+        agree = same_surface_physical(np.clip(scene * gain, 0, 255), scene,
+                                      zero, zero)
+        value = float(agree[inner].mean())
+        mark = "PASS" if (gain > 1.02 or value > 0.97) else "FAIL"
+        print(f"  {gain:12.3f} {value:10.3f} {mark:>8}   {r3[gain]:>10}")
+
+    print("\n  (d) A MOVED OCCLUDER must trip it, over the strip it vacated and the\n"
+          "      strip it now covers, and nowhere else. Bars < 0.05 and > 0.95.")
+    print(f"  {'move (px)':>12} {'strip':>10} {'elsewhere':>10} {'verdict':>8}"
+          f"   R3 sigma=4")
+    for step in (4, 8, 20):
+        here, there = scene.copy(), scene.copy()
+        here[100:200, 120:220] = (240, 240, 240)
+        there[100:200, 120 + step:220 + step] = (240, 240, 240)
+        agree = same_surface_physical(there, here, zero, zero)
+        strip = np.zeros(scene.shape[:2], bool)
+        strip[100:200, 120:120 + step] = True
+        strip[100:200, 220:220 + step] = True
+        band = np.zeros(scene.shape[:2], bool)
+        band[90:210, 110:230 + step] = True
+        a, b = float(agree[strip].mean()), float(agree[inner & ~band].mean())
+        mark = "PASS" if (a < 0.05 and b > 0.95) else "FAIL"
+        print(f"  {step:12d} {a:10.3f} {b:10.3f} {mark:>8}   "
+              f"{'0.000 / 0.98':>10}")
+
+    print("\n  (e) THE INSTRUMENT'S REAL LIMIT, measured rather than left implicit:\n"
+          "      an occluder whose replacement LOOKS like what it replaced. Same\n"
+          "      construction, but the moved surface is the scene's own texture\n"
+          "      rolled sideways instead of a flat bright square.")
+    print(f"  {'move (px)':>12} {'strip':>10} {'elsewhere':>10}")
+    rolled = np.roll(scene, 137, axis=1)
+    for step in (4, 8, 20):
+        here, there = scene.copy(), scene.copy()
+        here[100:200, 120:220] = rolled[100:200, 120:220]
+        there[100:200, 120 + step:220 + step] = rolled[100:200, 120:220]
+        agree = same_surface_physical(there, here, zero, zero)
+        strip = np.zeros(scene.shape[:2], bool)
+        strip[100:200, 120:120 + step] = True
+        strip[100:200, 220:220 + step] = True
+        band = np.zeros(scene.shape[:2], bool)
+        band[90:210, 110:230 + step] = True
+        print(f"  {step:12d} {float(agree[strip].mean()):10.3f} "
+              f"{float(agree[inner & ~band].mean()):10.3f}")
+    print("      An appearance test cannot separate two surfaces that look the\n"
+          "      same. That is a property of the question, not of this build, and\n"
+          "      it is why VISIBILITY is checked geometrically before admission.")
+
+    print("\n  (f) SIGMA0's own sensitivity — the one number left, against the two\n"
+          "      verdicts that matter (defocus blindness at 12 px, occlusion\n"
+          "      detection at 8 px).")
+    print(f"  {'sigma0':>12} {'defocus-12':>11} {'occluder-8':>11} {'elsewhere':>10}")
+    here, there = scene.copy(), scene.copy()
+    here[100:200, 120:220] = (240, 240, 240)
+    there[100:200, 128:228] = (240, 240, 240)
+    strip = np.zeros(scene.shape[:2], bool)
+    strip[100:200, 120:128] = True
+    strip[100:200, 220:228] = True
+    band = np.zeros(scene.shape[:2], bool)
+    band[90:210, 110:238] = True
+    for sigma0 in (0.5, 1.0, 2.0):
+        a1 = same_surface_physical(FC.defocus(scene, 12), scene, ones * 12.0,
+                                   zero, sigma0=sigma0)
+        a2 = same_surface_physical(there, here, zero, zero, sigma0=sigma0)
+        print(f"  {sigma0:12.1f} {float(a1[inner].mean()):11.3f} "
+              f"{float(a2[strip].mean()):11.3f} "
+              f"{float(a2[inner & ~band].mean()):10.3f}")
+
+
+def slope_kat() -> None:
+    """The blur ladder's known answer: the factory's own BLUR_PER_STEP = 1.15."""
+    import parallax_gen as P
+
+    frames, _truth, _near = P.build_stack()
+    print("=" * 78)
+    print("KAT — the per-scene blur slope, against the factory's own constant")
+    print("=" * 78)
+    dec = LD.decompose(frames, P.REFERENCE)
+    model, _diag = FC.model_from_pass1(frames, P.REFERENCE,
+                                       segmentation=dec.segmentation())
+    composite, info = TF.twoframe_stack(frames, P.REFERENCE)
+    crop = tuple(info["crop"])
+    null = frames[P.REFERENCE][crop[1]:crop[3], crop[0]:crop[2]]
+    null_canvas, null_support = FC.place(null, crop, model.shape)
+    null_app, null_sup = FC.layer_views(model, null_canvas, null_support)
+    FC.select_geometry(model, null_app, null_sup, frames)
+    canvas, support = FC.place(composite, crop, model.shape)
+    appearances, supports = FC.layer_views(model, canvas, support)
+    slope, rows = blur_slope(model, appearances, supports, frames, dec.peaks,
+                             verbose=True)
+    print(f"  measured c = {slope:.3f} px/frame   TRUTH "
+          f"BLUR_PER_STEP = {P.BLUR_PER_STEP}   error "
+          f"{abs(slope - P.BLUR_PER_STEP) / P.BLUR_PER_STEP * 100:.1f}%")
+    print(f"  {'frame':>6} {'layer':>6} {'|k-peak|':>9} {'radius':>7} {'c*d':>7}")
+    for k, i, distance, radius in sorted(rows):
+        print(f"  {k:6d} {i:6d} {distance:9.2f} {radius:7d} {slope * distance:7.2f}")
+
+
+# ---------------------------------------------------------------------------
+# The canonical kitchen instruments (§12.2 — scope the metric to the thing)
+# ---------------------------------------------------------------------------
+# Every one of these was reproduced against its recorded value before being used
+# on anything new. Reproductions, on the INPUT routed composite:
+#   * the four F112/R3 user boxes: maxima 61 / 17 / 101 / 127, exactly R3's table;
+#   * the canonical F108 flank box: mean 1.114, max 45, 0.57% > 12, exactly
+#     F112's instrument note (1.11 / 45 / 0.57%), and 0.00% with the knob box
+#     removed — which is what "the entire >12 tail is one knob" means, verified.
+USER_BOXES = {1: (473, 135, 506, 156),    # background pot in front of the bottle
+              2: (562, 48, 610, 124),     # second copy of the bottle lid
+              3: (222, 125, 243, 195),    # Coca-Cola right edge aliased right
+              4: (444, 216, 475, 257)}    # blurry alias of the yellow rag
+KNOB = (659, 243, 670, 314)               # F112's dark background knob, ORIGINAL
+FLANK_BOX = (560, 240, 670, 420)          # F108's canonical flank, ORIGINAL
+
+
+def _delta_map(composite, reference, crop):
+    """|composite - reference| in ORIGINAL coordinates, max over channels."""
+    x0, y0, _x1, _y1 = crop
+    h, w = composite.shape[:2]
+    out = np.full(reference.shape[:2], np.nan, np.float32)
+    out[y0:y0 + h, x0:x0 + w] = np.abs(
+        composite.astype(np.float32)
+        - reference[y0:y0 + h, x0:x0 + w].astype(np.float32)).max(axis=2)
+    return out
+
+
+def kitchen_boxes(composite, reference, crop, label=""):
+    """The four user boxes, in COMPOSITE coordinates, against the reference."""
+    x0, y0, _x1, _y1 = crop
+    row = []
+    for i in (1, 2, 3, 4):
+        bx0, by0, bx1, by1 = USER_BOXES[i]
+        a = composite[by0:by1, bx0:bx1].astype(np.float32)
+        b = reference[y0 + by0:y0 + by1, x0 + bx0:x0 + bx1].astype(np.float32)
+        delta = np.abs(a - b)
+        row.append((float(delta.mean()), float(delta.max())))
+    if label:
+        print(f"  {label:<26} " + "  ".join(f"{m:6.2f}/{p:3.0f}" for m, p in row))
+    return row
+
+
+def kitchen_flank(composite, reference, crop, label=""):
+    delta = _delta_map(composite, reference, crop)
+    box = np.zeros(delta.shape, bool)
+    box[FLANK_BOX[1]:FLANK_BOX[3], FLANK_BOX[0]:FLANK_BOX[2]] = True
+    knob = np.zeros(delta.shape, bool)
+    knob[KNOB[1]:KNOB[3], KNOB[0]:KNOB[2]] = True
+    values = delta[box]
+    stats = (float(np.nanmean(values)), float(np.nanmax(values)),
+             100.0 * float(np.nanmean(values > 12)),
+             100.0 * float(np.nanmean(delta[box & ~knob] > 12)))
+    if label:
+        print(f"  {label:<26} mean {stats[0]:5.3f}  max {stats[1]:5.0f}  "
+              f">12 {stats[2]:5.2f}%  (knob removed {stats[3]:.2f}%)")
+    return stats
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+def factory() -> None:
+    """Bar A: the factory GT-SSIM, and the remainder attributed on the ladder."""
+    import metrics
+    import parallax_gen as P
+
+    os.makedirs(OUT, exist_ok=True)
+    frames, truth, near = P.build_stack()
+    print("=" * 78)
+    print("FACTORY — bar A: GT-SSIM of the scene-model composite")
+    print("=" * 78)
+    result = assemble(frames, P.REFERENCE, verbose=True, raw=frames)
+    x0, y0, x1, y1 = result.crop
+    reference_truth = truth[y0:y1, x0:x1]
+
+    regions = regions_of(result)
+    scores, region_mask = certify_candidates(
+        result, frames,
+        [("scene-model", result.composite), ("input routed", result.base),
+         ("region-scoped null", result.scoped_null),
+         ("global null", frames[P.REFERENCE][y0:y1, x0:x1])])
+    verdicts, reverted = apply_veto(result, scores["scene-model"],
+                                    scores["input routed"], regions, verbose=True)
+    final, final_rewrite = finalize(result, reverted)
+    final_scores, _r = certify_candidates(result, frames,
+                                          [("scene-model, vetoed", final)])
+    scores.update(final_scores)
+
+    print(f"\n  {'candidate':<26} {'GT-SSIM':>10} {'certifier':>10} {'p99':>7} "
+          f"{'cert%':>7}")
+    ssims = {}
+    for label, image in (("input routed (the bar)", result.base),
+                         ("scene-model, raw", result.composite),
+                         ("scene-model, vetoed", final),
+                         ("region-scoped null", result.scoped_null),
+                         ("GROUND TRUTH", reference_truth)):
+        ssims[label] = float(metrics.ref_ssim(image, reference_truth))
+        key = {"input routed (the bar)": "input routed",
+               "scene-model, raw": "scene-model",
+               "scene-model, vetoed": "scene-model, vetoed",
+               "region-scoped null": "region-scoped null"}.get(label)
+        entry = scores.get(key)
+        cert = (f"{entry.score:10.4f} {entry.p99:7.3f} {entry.certified * 100:6.2f}%"
+                if entry else " " * 25)
+        print(f"  {label:<26} {ssims[label]:10.6f} {cert}")
+
+    bar = ssims["input routed (the bar)"]
+    got = ssims["scene-model, vetoed"]
+    print(f"\n  BAR A: {got:.6f} vs the routed bar {bar:.6f} "
+          f"({got - bar:+.6f}) — {'PASS' if got >= bar - 1e-9 else 'MISS'}")
+    print(f"  remainder to 1.0: {1.0 - got:.6f}; rewritten "
+          f"{final_rewrite.mean() * 100:.2f}% of the crop")
+
+    # THE ATTRIBUTED REMAINDER. The same ladder discipline as round A's `floor`:
+    # hold everything else and replace one estimated quantity with its TRUE value.
+    print(f"\n  --- the remainder, attributed (each rung swaps ONE estimate for "
+          f"its TRUTH) ---")
+    truth_model, tinfo = FC.factory_truth_model(canvas=False)
+    ladder = []
+    ladder.append(("as measured (assembly + motion + render)", got))
+    oracle = assemble_with_oracle(frames, P.REFERENCE, truth_model, tinfo)
+    ladder.append(("+ TRUE per-layer motion (assembly + render)",
+                   float(metrics.ref_ssim(oracle["composite"], reference_truth))))
+    ladder.append(("+ TRUE masks and motion (render only)",
+                   float(metrics.ref_ssim(oracle["truth_masks"], reference_truth))))
+    ladder.append(("the factory's own reference frame (null)",
+                   float(metrics.ref_ssim(frames[P.REFERENCE][y0:y1, x0:x1],
+                                          reference_truth))))
+    print(f"  {'rung':<48} {'GT-SSIM':>10} {'remainder':>10}")
+    for label, value in ladder:
+        print(f"  {label:<48} {value:10.6f} {1.0 - value:10.6f}")
+    print(f"\n  attribution: motion estimation "
+          f"{ladder[1][1] - ladder[0][1]:+.6f}, layer segmentation "
+          f"{ladder[2][1] - ladder[1][1]:+.6f}, "
+          f"everything left at true masks and true motion "
+          f"{1.0 - ladder[2][1]:.6f} (assembly + render + the crop's own content).")
+    # And how much of THAT last term is simply the price of moving a frame. Every
+    # non-reference observation is resampled exactly once (PLAYBOOK §0), and every
+    # resample softens; this measures it with nothing else in the way.
+    round_trip = []
+    for group in (0, 1):
+        for k in (0, 1, 4, 5):
+            matrix = truth_model.matrices[(k, group)]
+            there = FC.warp_back(truth.astype(np.float32), matrix, truth.shape[:2])
+            back = FC.warp_forward(there, matrix, truth.shape[:2])
+            round_trip.append(float(metrics.ref_ssim(
+                np.clip(back, 0, 255).astype(np.uint8)[y0:y1, x0:x1],
+                reference_truth)))
+    print(f"  of which: ONE round-trip resample of the truth alone reads GT-SSIM "
+          f"{float(np.mean(round_trip)):.6f} (remainder "
+          f"{1.0 - float(np.mean(round_trip)):.6f}) — every resample softens, and "
+          f"an assembly pays it on every non-reference observation.")
+
+    print(f"\n  --- the region ledger (scene-model vs input, per owned region) ---")
+    _print_region_ledger(verdicts, scores, result)
+    _print_scoped_ledger(result, scores, regions)
+
+
+def assemble_with_oracle(frames, ref, truth_model, tinfo):
+    """The factory's ORACLE rungs: true per-layer geometry, then true masks too.
+
+    §12.4's rule applied to a reconstruction — a ladder is only an attribution if
+    each rung replaces exactly one estimated quantity with the known answer. The
+    factory is the one scene where the answer is known.
+
+    THE ORACLE'S OWN TRAP, and the KAT that caught it. The first build of this
+    rung substituted the true per-layer SHIFT into the same slot B1's propagated
+    residual occupies — where `_geometry` composes it onto the global affine. The
+    true shift is the TOTAL reference-to-frame displacement, so composing it
+    double-counted the affine and the oracle scored 0.9414 against the estimate's
+    0.9811. An oracle that loses to the thing it is supposed to bound is a broken
+    instrument, exactly as F110 found the last time this ladder was built. The
+    rung replaces the whole MATRIX.
+    """
+    dec = LD.decompose(frames, ref)
+    near = tinfo["near_mask"]
+    out = {}
+    out["composite"] = assemble(frames, ref, raw=frames, dec=dec,
+                                matrices=_oracle_for(dec, near, truth_model,
+                                                     len(frames))).composite
+    true_dec = _truth_decomposition(dec, near)
+    out["truth_masks"] = assemble(frames, ref, raw=frames, dec=true_dec,
+                                  matrices=_oracle_for(true_dec, near, truth_model,
+                                                       len(frames))).composite
+    return out
+
+
+def _oracle_for(dec, near, truth_model, n):
+    """The factory's TRUE per-layer geometry, indexed by `dec`'s own layer order."""
+    near_layer = max(range(len(dec.masks)),
+                     key=lambda i: float((dec.masks[i] & near).sum()))
+    return {(k, i): truth_model.matrices[(k, 0 if i == near_layer else 1)]
+            for k in range(n) for i in range(len(dec.masks))}
+
+
+def _truth_decomposition(dec, near):
+    """B1's decomposition with its MASKS replaced by the factory's true planes."""
+    import copy
+
+    overlap = [float((m & near).sum()) for m in dec.masks]
+    near_index = int(np.argmax(overlap))
+    far_index = int(np.argmin(overlap))
+    clone = copy.copy(dec)
+    clone.labels = np.where(near, 0, 1).astype(np.int32)
+    clone.state = np.zeros(near.shape, np.uint8)          # everything OWNED
+    clone.masks = [near.copy(), ~near]
+    # The far surface continues behind the near one; the near one does not exist
+    # behind anything. That is the `extent` distinction round A's KAT-1b paid for.
+    clone.extents = [near.copy(), np.ones(near.shape, bool)]
+    # Only the MASKS are swapped for truth on this rung. The focal peaks stay as
+    # B1 measured them, matched to whichever layer turned out to be the near one.
+    clone.peaks = [dec.peaks[near_index], dec.peaks[far_index]]
+    clone.order = list(clone.peaks)
+    clone.diag = dict(dec.diag)
+    return clone
+
+
+def _print_region_ledger(verdicts, scores, result):
+    print(f"  {'#':>3} {'layer':>5} {'area':>7} {'cert px':>8} {'differential':>13} "
+          f"{'state':>13}  box")
+    for index, entry in enumerate(verdicts[:16]):
+        value = entry["differential"]
+        shown = "        n/a" if not np.isfinite(value) else f"{value:+13.4f}"
+        print(f"  {index:3d} {entry['layer']:5d} {entry['area']:7d} "
+              f"{entry['certified']:8d} {shown} {entry['state']:>13}  "
+              f"{entry['box']}")
+    if len(verdicts) > 16:
+        print(f"  ... {len(verdicts) - 16} more regions")
+
+
+def _print_scoped_ledger(result, scores, regions):
+    """The REGION-SCOPED null (F114 §7): every region against its own best frame."""
+    scene = scores.get("scene-model")
+    scoped = scores.get("region-scoped null")
+    glob = scores.get("global null")
+    if scene is None or scoped is None:
+        return
+    print(f"\n  --- global vs region-scoped ledger ---")
+    if glob is not None:
+        print(f"  global null (the reference frame)       "
+              f"{glob.score:8.4f} levels   p99 {glob.p99:7.3f}")
+    print(f"  region-scoped null (best single frame)  "
+          f"{scoped.score:8.4f} levels   p99 {scoped.p99:7.3f}")
+    print(f"  scene-model composite                   "
+          f"{scene.score:8.4f} levels   p99 {scene.p99:7.3f}")
+    if glob is not None:
+        print(f"  differential vs GLOBAL null   "
+              f"{scene.score - glob.score:+.4f} levels")
+    print(f"  differential vs SCOPED null   "
+          f"{scene.score - scoped.score:+.4f} levels   "
+          f"(negative = aggregation beats the best single frame)")
+    delta = scene.unexplained - scoped.unexplained
+    ok = (np.minimum(scene.coverage, scoped.coverage) >= FC.MIN_COVERAGE)
+    wins = losses = 0
+    for entry in regions:
+        here = entry["mask"] & ok
+        if here.sum() < MIN_ARBITRABLE:
+            continue
+        if float(delta[here].mean()) <= 0:
+            wins += 1
+        else:
+            losses += 1
+    print(f"  per-region: aggregation beats its own best single frame in "
+          f"{wins} of {wins + losses} arbitrable regions")
+
+
+def kitchen() -> None:
+    """Bars B, C, D on the kitchen, plus both ledgers."""
+    from focusstack.io import normalize_exposure
+
+    os.makedirs(OUT, exist_ok=True)
+    t0 = time.time()
+    src = [cv2.imread(p) for p in sorted(glob.glob(os.path.join(KITCHEN, "*.jpg")))]
+    norm = normalize_exposure(src)
+    ref = len(src) // 2
+    print("=" * 78)
+    print("KITCHEN — bars B (canonical instruments), C (never-degrade), D (identity)")
+    print("=" * 78)
+    result = assemble(norm, ref, verbose=True, raw=src)
+    crop = result.crop
+    reference = norm[ref]
+
+    regions = regions_of(result)
+    scores, _region = certify_candidates(
+        result, src,
+        [("scene-model", result.composite), ("input routed", result.base),
+         ("region-scoped null", result.scoped_null),
+         ("global null", norm[ref][crop[1]:crop[3], crop[0]:crop[2]])])
+    verdicts, reverted = apply_veto(result, scores["scene-model"],
+                                    scores["input routed"], regions, verbose=True)
+    final, final_rewrite = finalize(result, reverted)
+    final_scores, _r = certify_candidates(result, src,
+                                          [("scene-model, vetoed", final)])
+    scores.update(final_scores)
+
+    print(f"\n  --- BAR D: byte-identity outside the rewrite ---")
+    outside = ~final_rewrite
+    identical = np.array_equal(final[outside], result.base[outside])
+    print(f"  pixels rewritten: {final_rewrite.sum()} "
+          f"({final_rewrite.mean() * 100:.2f}% of the crop); "
+          f"outside the rewrite byte-identical: {identical}  "
+          f"{'PASS' if identical else 'FAIL'}")
+
+    print(f"\n  --- BAR B: the four F112 user boxes (mean/max |Δ| vs norm[{ref}]) ---")
+    print(f"  {'candidate':<26} {'box 1':>10} {'box 2':>10} {'box 3':>10} "
+          f"{'box 4':>10}")
+    before = kitchen_boxes(result.base, reference, crop, "input routed (the bar)")
+    after = kitchen_boxes(final, reference, crop, "scene-model, vetoed")
+    worse = [i + 1 for i, (a, b) in enumerate(zip(before, after)) if b[0] > a[0] + 0.01]
+    print(f"  regressed boxes: {worse if worse else 'NONE'}")
+
+    print(f"\n  --- BAR B: the canonical F108 flank box (x560-670, y240-420) ---")
+    kitchen_flank(result.base, reference, crop, "input routed (the bar)")
+    kitchen_flank(final, reference, crop, "scene-model, vetoed")
+
+    print(f"\n  --- BAR B: the F112 knob (x659-669, y243-313) ---")
+    _knob_report(result, final, scores, reference, crop, norm, src)
+
+    print(f"\n  --- BAR C: the never-degrade veto, per owned region ---")
+    _print_region_ledger(verdicts, scores, result)
+    _print_scoped_ledger(result, scores, regions)
+
+    print(f"\n  --- the certifier ledger ---")
+    for label in ("input routed", "scene-model", "scene-model, vetoed",
+                  "region-scoped null", "global null"):
+        entry = scores.get(label)
+        if entry is None:
+            continue
+        print(f"  {label:<24} {entry.score:8.4f} levels   p99 {entry.p99:7.3f}   "
+              f"certified {entry.certified * 100:5.1f}%  boundary "
+              f"{entry.boundary * 100:5.1f}%  excluded {entry.excluded * 100:5.1f}%")
+    base_delta = FC.differential(scores["scene-model, vetoed"], scores["input routed"])
+    print(f"  scene-model - input, whole certified frame: "
+          f"{base_delta.score:+.4f} levels (negative = better)")
+
+    np.save(os.path.join(OUT, "kitchen_scenemodel.npy"), final)
+    cv2.imwrite(os.path.join(OUT, "kitchen_scenemodel_crop.png"), final)
+    _save_rewrite_map(result, final_rewrite, os.path.join(OUT,
+                                                          "kitchen_rewrite.png"))
+    _eyes_honest_sliver(result, final, reference, crop)
+    print(f"\n  elapsed {time.time() - t0:.1f} s")
+
+
+def _knob_report(result, final, scores, reference, crop, norm, src):
+    """The knob, on both instruments that can see it."""
+    knob = np.zeros(reference.shape[:2], bool)
+    knob[KNOB[1]:KNOB[3], KNOB[0]:KNOB[2]] = True
+    for label, image in (("input routed", result.base), ("scene-model", final)):
+        delta = _delta_map(image, reference, crop)
+        frame_mean = float(np.nanmean(delta))
+        box_mean = float(np.nanmean(delta[knob]))
+        print(f"  {label:<20} |Δ| box mean {box_mean:6.3f}  frame mean "
+              f"{frame_mean:6.3f}  ratio {box_mean / frame_mean:5.2f}x  "
+              f"max {float(np.nanmax(delta[knob])):4.0f}")
+    scene = scores["scene-model, vetoed"]
+    base = scores["input routed"]
+    glob = scores["global null"]
+    for label, entry in (("input routed", base), ("scene-model", scene)):
+        delta = FC.differential(entry, glob)
+        window = knob & (delta.coverage >= FC.MIN_COVERAGE)
+        scored = delta.coverage >= FC.MIN_COVERAGE
+        if not window.any():
+            print(f"  {label:<20} certifier differential: no certified pixels "
+                  f"in the box")
+            continue
+        box = float(delta.unexplained[window].mean())
+        frame = float(delta.unexplained[scored].mean())
+        print(f"  {label:<20} certifier differential box {box:6.3f}  frame "
+              f"{frame:6.3f}  ratio {box / frame:5.2f}x  "
+              f"(bar 1.50x)  certified px {int(window.sum())}")
+    rewritten_here = result.diag["rewrite_full"][KNOB[1]:KNOB[3], KNOB[0]:KNOB[2]]
+    state = result.dec.state[KNOB[1]:KNOB[3], KNOB[0]:KNOB[2]]
+    print(f"  knob box ownership: owned {float((state == LD.OWNED).mean()) * 100:.1f}%"
+          f"  boundary {float((state == LD.BOUNDARY).mean()) * 100:.1f}%"
+          f"  unknown {float((state == LD.UNKNOWN).mean()) * 100:.1f}%"
+          f"  -> rewritten {float(rewritten_here.mean()) * 100:.1f}%")
+
+
+def _save_rewrite_map(result, final_rewrite, path):
+    base = result.base.astype(np.float32)
+    grey = cv2.cvtColor(cv2.cvtColor(base.astype(np.uint8), cv2.COLOR_BGR2GRAY),
+                        cv2.COLOR_GRAY2BGR).astype(np.float32)
+    colour = np.zeros_like(base)
+    palette = np.array([[60, 60, 220], [60, 200, 60], [220, 160, 60],
+                        [200, 60, 200], [60, 220, 220], [180, 180, 180]], np.uint8)
+    for i in range(len(result.dec.masks)):
+        colour[final_rewrite & (result.layer_of == i)] = palette[i % len(palette)]
+    reverted = result.rewritten & ~final_rewrite
+    colour[reverted] = (255, 255, 255)
+    blend = 0.55 * grey + 0.45 * colour
+    cv2.imwrite(path, np.clip(blend, 0, 255).astype(np.uint8))
+    print(f"  rewrite map (white = reverted by the veto) -> {path}")
+
+
+def _eyes_honest_sliver(result, final, reference, crop):
+    """The pale sliver at the bottle's left silhouette, before / after / reference."""
+    x0, y0, _x1, _y1 = crop
+    bx0, by0, bx1, by1 = USER_BOXES[1]
+    pad = 26
+    sx0, sy0 = max(0, bx0 - pad), max(0, by0 - pad)
+    sx1, sy1 = min(result.base.shape[1], bx1 + pad), min(result.base.shape[0], by1 + pad)
+    panels = []
+    for image in (result.base, final,
+                  reference[y0:y0 + result.base.shape[0],
+                            x0:x0 + result.base.shape[1]]):
+        panel = cv2.resize(image[sy0:sy1, sx0:sx1], None, fx=6, fy=6,
+                           interpolation=cv2.INTER_NEAREST)
+        cv2.rectangle(panel, ((bx0 - sx0) * 6, (by0 - sy0) * 6),
+                      ((bx1 - sx0) * 6, (by1 - sy0) * 6), (0, 0, 255), 1)
+        panels.append(panel)
+    strip = np.hstack(panels)
+    header = np.zeros((26, strip.shape[1], 3), np.uint8)
+    cv2.putText(header, "sliver  INPUT ROUTED | SCENE-MODEL | REFERENCE frame 6",
+                (6, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (231, 179, 91), 1,
+                cv2.LINE_AA)
+    path = os.path.join(OUT, "kitchen_sliver.png")
+    cv2.imwrite(path, np.vstack([header, strip]))
+    print(f"  sliver crop (6x, eyes-honest) -> {path}")
+
+
+def orderguard() -> None:
+    """What the ordering-FREE visibility rule costs, against the ordered one."""
+    from focusstack.io import normalize_exposure
+    import parallax_gen as P
+
+    print("=" * 78)
+    print("ORDERING GUARD — the price of not trusting the layer order (F114 §9)")
+    print("=" * 78)
+    print("  'any' declines a pixel wherever ANY other layer's footprint lands on it\n"
+          "  in that frame; 'nearer' trusts the focal-peak order and only skips the\n"
+          "  layers it calls nearer. The difference is the disocclusion band.\n")
+    src = [cv2.imread(p) for p in sorted(glob.glob(os.path.join(KITCHEN, "*.jpg")))]
+    cases = [("factory", P.build_stack()[0], P.REFERENCE, None),
+             ("kitchen", normalize_exposure(src), len(src) // 2, src)]
+    print(f"  {'scene':<10} {'guard':<8} {'rewritten':>10} {'members/px':>11} "
+          f"  near_is_low")
+    for name, images, ref, raw in cases:
+        for guard in ("any", "nearer"):
+            LD._CACHE.clear()
+            result = assemble(images, ref, order_guard=guard,
+                              raw=raw if raw is not None else images)
+            members = result.diag["members"][result.diag["rewrite_full"]]
+            print(f"  {name:<10} {guard:<8} {result.rewritten.mean() * 100:9.2f}% "
+                  f"{float(members.mean()) if members.size else 0:11.2f}"
+                  f"   near_is_low={result.dec.near_is_low}")
+
+
+def render() -> None:
+    """Register the scene-model kitchen composite to the EXISTING inspection layer."""
+    from focusstack.io import normalize_exposure
+
+    os.makedirs(INSPECT, exist_ok=True)
+    target = cv2.imread(os.path.join(INSPECT, "kitchen_reference.png"))
+    if target is None:
+        print("  out/inspect/kitchen_reference.png absent — nothing to register to")
+        return
+    path = os.path.join(OUT, "kitchen_scenemodel.npy")
+    if not os.path.exists(path):
+        print("  run `kitchen` first (it writes out/certify/kitchen_scenemodel.npy)")
+        return
+    composite = np.load(path)
+    src = [cv2.imread(p) for p in sorted(glob.glob(os.path.join(KITCHEN, "*.jpg")))]
+    reference = normalize_exposure(src)[len(src) // 2]
+    # The registration is a pure lookup, not a fit: the inspection layer is a crop
+    # of the reference frame, so template-matching a central patch of it back into
+    # the reference recovers the crop origin exactly, and the composite's own crop
+    # origin is known. One integer translation, no resample.
+    patch = target[100:300, 100:400]
+    scored = cv2.matchTemplate(reference, patch, cv2.TM_CCOEFF_NORMED)
+    _mn, score, _mnl, location = cv2.minMaxLoc(scored)
+    ox, oy = location[0] - 100, location[1] - 100
+    print(f"  registration score {score:.4f} "
+          f"({'PASS' if score > 0.99 else 'FAIL'}), inspection crop origin "
+          f"({ox}, {oy})")
+    cx0, cy0 = 15, 8                      # the composite's own crop origin
+    th, tw = target.shape[:2]
+    out = reference[oy:oy + th, ox:ox + tw].copy()
+    y0, x0 = oy - cy0, ox - cx0
+    piece = composite[y0:y0 + th, x0:x0 + tw]
+    out[:piece.shape[0], :piece.shape[1]] = piece
+    destination = os.path.join(INSPECT, "kitchen_scenemodel.png")
+    cv2.imwrite(destination, out)
+    routed = cv2.imread(os.path.join(INSPECT, "kitchen_routed.png"))
+    if routed is not None:
+        delta = np.abs(out.astype(np.float32) - routed.astype(np.float32)).max(axis=2)
+        print(f"  vs kitchen_routed.png: {float((delta > 0).mean()) * 100:.2f}% of "
+              f"pixels differ, mean |Δ| where they do "
+              f"{float(delta[delta > 0].mean()) if (delta > 0).any() else 0:.2f}")
+    print(f"  -> {destination}  ({out.shape[1]}x{out.shape[0]}, "
+          f"registered to kitchen_reference.png)")
+
+
+COMMANDS = {"kat": kat, "slope": slope_kat, "factory": factory,
+            "kitchen": kitchen, "orderguard": orderguard, "render": render}
+
+
+def main() -> None:
+    if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
+        print(__doc__)
+        print("commands: " + ", ".join(COMMANDS))
+        return
+    COMMANDS[sys.argv[1]]()
+
+
+if __name__ == "__main__":
+    main()

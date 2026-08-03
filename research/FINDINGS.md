@@ -5,6 +5,54 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F118 — The aligner exists: the transform is solved, the wall smear is unconstructable, and one decision remains
+
+Aligner rounds 1–2 (Opus, manager-verified: commits and evidence images
+inspected; the ladder's arithmetic checked). `research/aligner.py` implements
+the FRONTIER contract: piecewise-affine backward fields cut at occluding
+contours, gaps proposed by geometry and vetoed by photometry, one resample,
+output `(aligned, usable, report)` consumed by UNMODIFIED `fuse_perband`.
+
+**The contract's ceiling is real and high.** On the factory with TRUE pieces:
+**0.986238** — above every path ever measured here (runtime two-frame
+0.984455), 0.0032 from the one-resample floor. Transform estimation is
+SOLVED: worst 0.159 px, worth 0.00002 of score. **The wall-smear class is
+structurally absent**: zero occluded pixels leaked on the factory (truth
+adjudicated), and on the kitchen the signature test passes with per-frame
+proof — every non-reference frame gaps the wall band the cocoa tin's parallax
+sweeps (49–79% gapped; reference 0%), and the fused tile shows no smear and
+no doubled edge.
+
+**The model-order finding (both halves cost a failed attempt):** rotation and
+magnification are depth-INDEPENDENT (why one global affine carries
+breathing), parallax is a per-piece translation — so **2 DoF decides the
+cut** (6-DoF fits fired zero merges: extrapolation noise 1.75–53 px swamps
+agreement) **and 6 DoF, refit once on merged support, is the transform**
+(2-DoF transforms cost 0.9862 → 0.9756: the global prior's linear part is
+depth-contaminated). The affine-agreement merge converges 24 → 5 monotonely
+and bought two thirds of the piece term (+0.0098 of +0.0154; K4 recovered
+pieces 0.9707 → **0.9807** with gaps, 0.9457 without — the gaps themselves
+buy +0.035 on imperfect pieces). Added physics the factory forced: pieces
+with equal travel are at one depth and cannot occlude each other; occlusion
+order comes from parallax magnitude (better than F83's focal-peak proxy).
+
+**The kitchen names the one remaining decision.** Under-segmentation of the
+wrong half: the ramp correctly stays whole, but the discrete objects share
+the counter's affine (differential parallax ~ `GATE_TOL`, consumed by the
+merge) — box 4 reads 10.05/81 vs the routed default's 1.03/17, attributed to
+the cut, while box 3's mean BEATS routed and every box is a sharpening, not
+a wash (focus energy ≥ reference in all four). Mean 57.2% of pixel-frames
+gapped, photometric veto dominant (27.2%) — the veto doing its job on a
+geometry that is wrong. The decision: **the merge tolerance must be a
+fit-uncertainty (model-selection) test, not the resolution bound
+`GATE_TOL`** — and nothing yet PROPOSES a cut from motion (a merge can only
+remove, so recall can only fall). Zero-motion anchor fails ONLY at a 1 px
+off-footprint rim (identity to 0.0026 px, zero interior gaps) — an identity
+snap closes it; F101 demands byte-identity before any promotion. `c` is
+confirmed per-scene (true-piece factory 1.120, recovered 1.212, kitchen
+1.403; the runtime still carries 1.161 unmeasured). The full 8-item
+promotion list is in `research/aligner_NOTES.md` Round 2.
+
 ## F117 — The runtime retirements: physics in the default path, and a licence honestly left alone
 
 Round C (Opus, time-boxed, manager-verified: factory 0.984455 and the kitchen

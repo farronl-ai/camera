@@ -222,20 +222,29 @@ yet ported to `twoframe.same_surface`). Research-only so far: the second pass
 lives in `research/scene_model.py` and rewrites the routed composite behind
 strict-subset vetoes.
 
-DONE also — round B3a (F116): the contour-continuity veto closed the arc's
-standing miss (every user box at or under its routed max; both known
-residuals repaired by eye). Open risk: the kitchen's 19.1% contour flag rate
-is unadjudicated by any ground truth — the user's eyes on the inspector's
-scene-model layer are the audit.
+DONE also — B3a (F116, contour continuity), round C (F117, runtime
+retirements: cross-convolution + pooling in the default path, pair-aware
+refusal; licence-before-render DROPPED, still open), and aligner rounds 1–2
+(F118): `research/aligner.py` implements the FRONTIER contract end to end —
+transform solved, wall-smear class structurally impossible, kitchen run
+end-to-end through unmodified `fuse_perband`.
 
-NEXT — round B3b: the temporally-coherent per-layer motion series
-(pass-1-as-prior per the FRONTIER charter amendment; F115 measured the
-factory's own remainder is 86% resample cost, so B3b's case must be argued on
-the kitchen's certifier ledger, not the factory). THEN round C, runtime
-integration: route the second pass per F101 (byte-identical sentinels), port
-the physical same-surface into `twoframe.py` (re-running F112's boxes — it is
-stricter at 4 px), pair-aware refusal for large-motion, and the
-licence-before-render economy fix.
+NEXT — the aligner promotion arc, in order (full 8-item list in
+`aligner_NOTES.md` Round 2):
+1. Replace the merge tolerance with a fit-uncertainty (model-selection)
+   test — BOTH scenes' residual segmentation error is this one decision.
+2. Something must PROPOSE cuts from motion (the merge only removes; the
+   kitchen's objects were never seeded apart from the counter).
+3. Close the zero-motion anchor (identity snap + half-pixel border slack —
+   currently a 1 px off-footprint rim, zero interior gaps).
+4. `travel` → displacement at the piece centroid (occlusion order rests on
+   it); isolate the K2b gate (a live defect since the merge cleaned the cut
+   set); per-piece photometric veto (27% whole-frame withdrawal needs a
+   diagnosis); certifier on the kitchen aligner output.
+Then F101 routing into the pipeline (byte-identical sentinels), and the
+cascade re-verification under heavy masking per FRONTIER's integration
+expectation. The user's eyes on the inspector layers (1 routed / 4
+scene-model / 5 aligner) remain the standing audit.
 
 Still queued behind it, unchanged: refactor formation-state estimation upstream
 without changing pixels (`V_front`, `T_rear`, PSF weights/choice, forward residual,

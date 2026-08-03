@@ -53,6 +53,7 @@ and nothing here does.
     .venv/bin/python research/scene_model.py factory    # bar A: GT-SSIM + the ladder
     .venv/bin/python research/scene_model.py kitchen    # bars B/C/D + both ledgers
     .venv/bin/python research/scene_model.py orderguard # what the ordering-free rule costs
+    .venv/bin/python research/scene_model.py boundary   # a REJECTED clause, priced (§23)
     .venv/bin/python research/scene_model.py render     # out/inspect/kitchen_scenemodel.png
 """
 from __future__ import annotations
@@ -712,6 +713,24 @@ def apply_veto(assembly: Assembly, scene_result, base_result, regions,
 # the frontier test is F112's own agreement budget.
 
 
+def cluster_pool(assembly: Assembly, scene_result, base_result):
+    """The cluster clause's own pooled differential and quorum, in CROP geometry.
+
+    One source of truth: `local_veto` thresholds it, and `boundary` (§23) asks it
+    the separate question of whether the certifier has spoken at all.
+    """
+    x0, y0, x1, y1 = assembly.crop
+    delta = (scene_result.unexplained - base_result.unexplained)[y0:y1, x0:x1]
+    scored = (np.minimum(scene_result.coverage, base_result.coverage)
+              >= FC.MIN_COVERAGE)[y0:y1, x0:x1]
+    box = (LOCAL_WINDOW, LOCAL_WINDOW)
+    total = cv2.boxFilter((delta * scored).astype(np.float32), -1, box,
+                          normalize=False)
+    count = cv2.boxFilter(scored.astype(np.float32), -1, box, normalize=False)
+    quorum = count >= MIN_ARBITRABLE
+    return np.where(quorum, total / np.maximum(count, 1.0), 0.0), quorum
+
+
 def local_veto(assembly: Assembly, scene_result, base_result, reverted,
                verbose=False):
     """Clause 2: revert every cluster the certifier prefers the input at.
@@ -730,15 +749,7 @@ def local_veto(assembly: Assembly, scene_result, base_result, reverted,
     """
     x0, y0, x1, y1 = assembly.crop
     keep = assembly.rewritten & ~reverted[y0:y1, x0:x1]
-    delta = (scene_result.unexplained - base_result.unexplained)[y0:y1, x0:x1]
-    scored = (np.minimum(scene_result.coverage, base_result.coverage)
-              >= FC.MIN_COVERAGE)[y0:y1, x0:x1]
-    box = (LOCAL_WINDOW, LOCAL_WINDOW)
-    total = cv2.boxFilter((delta * scored).astype(np.float32), -1, box,
-                          normalize=False)
-    count = cv2.boxFilter(scored.astype(np.float32), -1, box, normalize=False)
-    quorum = count >= MIN_ARBITRABLE
-    pooled = np.where(quorum, total / np.maximum(count, 1.0), 0.0)
+    pooled, quorum = cluster_pool(assembly, scene_result, base_result)
     worse = keep & quorum & (pooled > 0.0)
     if verbose:
         print(f"    local clause: {int(worse.sum())} px reverted "
@@ -778,6 +789,17 @@ def quiet_frontier(assembly: Assembly, keep, radius=FRONTIER_SLACK, verbose=Fals
     This is NOT feathering (F79; negative deliverable 6 of the first round):
     nothing is blended, nothing is softened, no depth boundary is crossed. The
     rewrite withdraws, hard, to where its own edge is quiet.
+
+    THIS CLAUSE IS NOT MONOTONE IN ITS INPUT, and anything placed in front of it
+    inherits that. `bad` is seeded by the loud pixels that are ON the frontier,
+    so REMOVING a loud pixel upstream removes the seed and the 2 px disc it would
+    have grown. Measured (§23): a clause that withdrew 4805 px before this one
+    deleted 32 of the 653 loud frontier pixels, this clause's own withdrawal fell
+    5976 -> 5349 px, and **438 pixels the shipped pipeline reverts survived** —
+    7 of them inside the F112 knob, which took the knob from 0.95x to 1.58x and
+    broke its bar. A new refusal is only safely composable AFTER this clause, where
+    it can only remove. Any future clause must be priced in both orders, and the
+    strict-subset assertion is what catches it.
 
     ONE application, deliberately. Reverting the loud frontier exposes a new
     frontier, and iterating to a fixed point is unbounded in principle and
@@ -1642,6 +1664,139 @@ def orderguard() -> None:
           "  occluded content, and it becomes load-bearing the moment one does.")
 
 
+# ---------------------------------------------------------------------------
+# A REJECTED clause, kept as its own measurement (§23)
+# ---------------------------------------------------------------------------
+# "Abstention near a geometric boundary is refusal": inside B1's own boundary
+# band, dilated by this module's own `FRONTIER_SLACK`, a rewrite survives only
+# with a POSITIVE certifier verdict at quorum. Licence: F92 (a curved object's
+# limb is never trustworthy from a moved frame) and F106 (what cannot be
+# arbitrated must not be applied). No new tuned number — both constants already
+# exist above, and "positive" is the region rule's own zero.
+#
+# It is not wired into `veto_all`, because measurement says it does not do the
+# job it was designed for and cannot: the two residual defects it was aimed at
+# are 3.6-6.6 px and a median 10.1 px OUTSIDE the zone. It is kept runnable so
+# the negative is reproducible rather than merely asserted (`boundary`).
+
+
+def _boundary_clause(assembly, scene_result, base_result, keep):
+    """Withdraw every zone pixel the certifier has not positively certified."""
+    x0, y0, x1, y1 = assembly.crop
+    band = assembly.dec.diag["band"][y0:y1, x0:x1]
+    disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                     (2 * FRONTIER_SLACK + 1,) * 2)
+    zone = cv2.dilate(band.astype(np.uint8), disc).astype(bool)
+    pooled, quorum = cluster_pool(assembly, scene_result, base_result)
+    return keep & ~(zone & ~(quorum & (pooled <= 0.0))), zone
+
+
+def _price_boundary(images, ref, raw, name, truth=None):
+    """A / B / C: shipped, clause-before-frontier, clause-after-frontier."""
+    result = assemble(images, ref, raw=raw)
+    if truth is not None:
+        x0, y0, x1, y1 = result.crop
+        truth = truth[y0:y1, x0:x1]
+    regions = regions_of(result)
+    scores, _r = certify_candidates(result, raw,
+                                    [("scene-model", result.composite),
+                                     ("input routed", result.base)])
+    scene, base = scores["scene-model"], scores["input routed"]
+    _v, reverted = apply_veto(result, scene, base, regions)
+    keep2, _n = local_veto(result, scene, base, reverted)
+    a, _f, _res = quiet_frontier(result, keep2)
+    b, _f, _res = quiet_frontier(result, _boundary_clause(result, scene, base,
+                                                          keep2)[0])
+    c, _zone = _boundary_clause(result, scene, base, a)
+    variants = {"A shipped (5ec37d7)": a, "B clause then frontier": b,
+                "C frontier then clause": c}
+    composites = {k: finalize(result, reverted, m)[0] for k, m in variants.items()}
+    final_scores, _r = certify_candidates(result, raw, list(composites.items()))
+    print(f"\n  --- {name} ---")
+    print(f"  {'variant':<24} {'kept px':>8} {'certifier':>10} "
+          f"{'subset of A':>12} {'withdrawn':>10}"
+          + ("   GT-SSIM" if truth is not None else ""))
+    for label, mask in variants.items():
+        subset = "yes" if not (mask & ~a).any() else f"NO (+{int((mask & ~a).sum())})"
+        extra = ""
+        if truth is not None:
+            import metrics
+            extra = f"  {float(metrics.ref_ssim(composites[label], truth)):9.6f}"
+        print(f"  {label:<24} {int(mask.sum()):8d} "
+              f"{final_scores[label].score:10.4f} {subset:>12} "
+              f"{int((a & ~mask).sum()):10d}{extra}")
+    return result, reverted, variants, composites, scores
+
+
+def boundary() -> None:
+    """Price the REJECTED boundary-abstention clause, and show it changing nothing.
+
+    Runs the clause in both composable orders on both scenes, and writes the
+    four-panel defect crops with the clause's own composite in the third panel.
+    §12.8: the picture is the deliverable, the table is the argument.
+    """
+    from focusstack.io import normalize_exposure
+    import metrics
+    import parallax_gen as P
+
+    os.makedirs(OUT, exist_ok=True)
+    print("=" * 78)
+    print("BOUNDARY-ABSTENTION — a rejected clause, priced (§23)")
+    print("=" * 78)
+    src = [cv2.imread(p) for p in sorted(glob.glob(os.path.join(KITCHEN, "*.jpg")))]
+    norm = normalize_exposure(src)
+    ref = len(src) // 2
+    result, reverted, variants, composites, scores = _price_boundary(
+        norm, ref, src, "kitchen")
+    reference = norm[ref]
+    crop = result.crop
+    knob = np.zeros(reference.shape[:2], bool)
+    knob[KNOB[1]:KNOB[3], KNOB[0]:KNOB[2]] = True
+    glob_s, _r = certify_candidates(result, src,
+                                    [("g", norm[ref][crop[1]:crop[3],
+                                                     crop[0]:crop[2]])])
+    final_scores, _r = certify_candidates(result, src, list(composites.items()))
+    print(f"\n  {'variant':<24} {'knob':>7} {'box1':>5} {'box2':>5} {'box3':>5} "
+          f"{'box4':>5} {'flank>12':>9}")
+    for label, image in composites.items():
+        differential = FC.differential(final_scores[label], glob_s["g"])
+        window = knob & (differential.coverage >= FC.MIN_COVERAGE)
+        scored = differential.coverage >= FC.MIN_COVERAGE
+        ratio = (float(differential.unexplained[window].mean())
+                 / float(differential.unexplained[scored].mean()))
+        boxes = kitchen_boxes(image, reference, crop)
+        flank = kitchen_flank(image, reference, crop)
+        print(f"  {label:<24} {ratio:6.2f}x "
+              + " ".join(f"{b[1]:5.0f}" for b in boxes) + f" {flank[2]:8.2f}%")
+    print(f"  bars: knob <= 1.50x, box maxima <= 61 / 17 / 101 / 127, "
+          f"flank not worse than 0.23%")
+
+    frames, truth, _near = P.build_stack()
+    _price_boundary(frames, P.REFERENCE, frames, "factory", truth=truth)
+
+    # the pictures: ROUTED | SHIPPED | + clause | REFERENCE
+    cx0, cy0 = crop[0], crop[1]
+    reference_crop = reference[cy0:cy0 + result.base.shape[0],
+                               cx0:cx0 + result.base.shape[1]]
+    for index, ((bx0, by0, bx1, by1), caption) in DEFECT_CROPS.items():
+        panels = [cv2.resize(image[by0:by1, bx0:bx1], None, fx=6, fy=6,
+                             interpolation=cv2.INTER_NEAREST)
+                  for image in (result.base, composites["A shipped (5ec37d7)"],
+                                composites["C frontier then clause"],
+                                reference_crop)]
+        strip = np.hstack(panels)
+        header = np.zeros((44, strip.shape[1], 3), np.uint8)
+        cv2.putText(header, f"defect {index} — {caption}", (6, 17),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (231, 179, 91), 1, cv2.LINE_AA)
+        cv2.putText(header, f"x{bx0}-{bx1} y{by0}-{by1}   ROUTED | SHIPPED "
+                            f"(5ec37d7) | + boundary-abstention clause | "
+                            f"REFERENCE frame 6", (6, 35),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.42, (200, 200, 200), 1, cv2.LINE_AA)
+        path = os.path.join(OUT, f"B2R3_defect{index}.png")
+        cv2.imwrite(path, np.vstack([header, strip]))
+        print(f"  defect {index} crop (6x) -> {path}")
+
+
 def render() -> None:
     """Register the scene-model kitchen composite to the EXISTING inspection layer."""
     from focusstack.io import normalize_exposure
@@ -1689,7 +1844,7 @@ def render() -> None:
 
 COMMANDS = {"kat": kat, "slope": slope_kat, "localkat": local_kat,
             "factory": factory, "kitchen": kitchen, "orderguard": orderguard,
-            "render": render}
+            "boundary": boundary, "render": render}
 
 
 def main() -> None:

@@ -861,3 +861,126 @@ that was fixed from one that was never there.
 * **The eyes beat the aggregates for the fourth time in this project's record**
   (§12.8, and F115 counted three). This time the aggregate that was blind was
   itself a never-degrade veto built to protect against exactly this.
+
+## 23. Micro-round B2R3: the boundary-abstention clause, REJECTED on measurement
+
+The two residual defects of §19–§20 were diagnosed as one class — rewrites that
+cannot be positively arbitrated **and** sit at a layer silhouette — and the cure
+proposed was one clause with no new tuned number:
+
+> *Abstention near a geometric boundary is refusal.* Inside B1's own boundary
+> band (`dec.diag["band"]`, half-width `BAND = 5`), dilated by this module's own
+> `FRONTIER_SLACK = ceil(GATE_TOL) = 2` px, a rewrite survives only with a
+> POSITIVE certifier verdict at quorum; abstention or no coverage reverts.
+
+Licence: F92 (a curved object's limb is view-dependent and never trustworthy
+from a moved frame) and F106 (what cannot be arbitrated must not be applied).
+Built exactly as specified — `scene_model.py boundary` prices it — and **not
+shipped.** The shipping path is byte-identical to 5ec37d7.
+
+### Predictions, pre-registered, against outcomes
+
+| # | prediction | outcome |
+|---|---|---|
+| 1 | the box-1 fleck reverts (uncertified, limb-adjacent) | **FALSE** — 0 of its 11 px are in the zone |
+| 2 | the box-4 junction reverts, the rag's interior sharpening survives | **HALF** — interior survives; the junction loses 11 of 104 new-structure px |
+| 3 | the knob repair survives (interior, certified) | **FALSE in the principled order** — 1.58×, the brief's own hard stop |
+| 4 | the factory barely moves | **TRUE** — 0.982061 → 0.982060 |
+
+### The measurements
+
+| variant | kept px | certifier | subset of A | knob | box 1/2/3/4 max | flank | factory GT-SSIM |
+|---|---:|---:|---|---:|---|---:|---:|
+| **A shipped (5ec37d7)** | 69294 | **8.6971** | — | **0.95×** | 98 / 16 / 101 / 116 | 0.23% | **0.982061** |
+| B clause **then** frontier | 64489 | 8.7419 | **NO (+438)** | **1.58× FAIL** | 101 / **28** / 101 / 116 | 0.30% | 0.982030 |
+| C frontier **then** clause | 66030 | 8.7252 | yes, −3264 | 1.05× | 98 / 17 / 101 / 116 | 0.22% | 0.982060 |
+
+Order B is the principled one — a refusal belongs with the cluster clause it
+modifies, so the frontier clause sees the true final frontier — and it fails two
+bars. Order C is the only safe one, holds every bar, and **fixes neither defect**
+for a cost of 0.028 certifier levels and 3264 pixels. Two rejections for two
+different reasons, and both are worth keeping.
+
+### 23a. Why order B breaks the knob: `quiet_frontier` is NOT monotone in its input
+
+The knob box is 31.4% BOUNDARY and 44.0% of it lies inside the dilated zone, so
+the obvious suspicion is that the clause ate certified repair pixels. It did
+not: of the 438 px that B keeps and A reverts, **0 are in the zone and 0 are
+positively certified.** The mechanism is the frontier clause's own shape.
+`bad = keep & ~inner & loud` is SEEDED by loud pixels lying ON the frontier, and
+each seed grows a 2 px disc. Deleting a seed upstream deletes its disc. The
+clause removed 32 of the 653 loud frontier pixels, `quiet_frontier`'s own
+withdrawal fell 5976 → 5349 px, and 438 pixels the shipped pipeline reverts
+survived — 7 of them inside the knob, which is the whole 0.95× → 1.58×.
+
+**Shrinking a rewrite mask can make a downstream clause withdraw LESS.** This is
+a composition hazard for every future refusal in this module, not a fact about
+this one, and it is now recorded in `quiet_frontier`'s docstring. Two
+consequences: a new clause is only safely composable AFTER the frontier clause,
+where it can only remove; and **the strict-subset assertion is the instrument
+that catches it** — B was caught by the subset check before any bar was read.
+
+### 23b. Why the clause cannot reach either defect: the diagnosis was wrong
+
+Both halves of "at or near a layer silhouette, with no certifier coverage" fail
+against measurement.
+
+* **Box 1's fleck is not near a boundary B1 knows about.** It is layer 5 on both
+  sides, 3.6–6.6 px from the nearest band pixel and therefore **8.6–11.6 px from
+  the nearest label edge**. No dilation of B1's band by a constant this module
+  already owns reaches it. §15 recorded the reason without naming it: "the
+  rewrite reaches into the Lubriderm bottle as a wedge that crosses its left
+  silhouette" — a wedge crossing a silhouette *is* the statement that B1 put no
+  edge there. **A clause licensed by F92 cannot be cashed through a
+  decomposition that does not know the limb exists.**
+* **Box 4's junction is interior and largely certified.** Median distance to the
+  band **10.1 px**; of its 104 new-structure pixels, **60 have a cluster quorum
+  and all 60 are positively certified**. The clause is not entitled to them and
+  the brief's "no certifier coverage to defend it" is not what the instrument
+  says.
+
+### 23c. What the round did settle: both residuals are geometry, not detail
+
+The escape clause offered was "PROVEN sharper-than-reference content — focus
+energy up AND structure matching a raw far-focused frame". **Both defects clear
+the focus-energy half and fail on inspection, and they fail the same way.**
+
+Box 1's fleck, printed pixel by pixel (BGR, reference | routed | shipped):
+
+```
+y151  x483  ( 22, 80, 92) ( 19, 77, 89) ( 91,177,190)     dark -> BRIGHT
+y151  x484  (135,189,200) (131,185,196) ( 77,167,181)   bright -> DARK
+```
+
+The dark/bright silhouette edge has been **translated one pixel right**, not
+resolved. Focus energy rises 102.0 → 108.1 because a *moved* edge carries more
+energy than a soft one, not because anything was resolved. Box 4 is the same
+story two rows wide: the shelf/shadow contour's row means go
+`179 127 67 38` (routed) → `183 157 117 35` (shipped) against
+`165 133 88 43` (reference) — the contour is displaced ~2 rows and steepened,
+which is what the eye reads as *blocky*, and focus energy rises 64.9 → 82.8
+against the reference's 44.1. See `out/certify/B2R3_defect{1,2,3}.png`.
+
+**Focus energy cannot serve as evidence that rewritten content is real.** It is
+monotone in edge contrast and blind to edge POSITION, so a displaced silhouette
+scores exactly like a resolved one. F112/R5.2's counter-instrument survives as a
+counter-instrument — it correctly refuses the "everything got softer" story —
+but §20.3's reading of box 4 ("most of what remains is a sharpening the eye
+reads as blocky") is **withdrawn**: it is a 2 px contour displacement. Box 1's
+MISS at max 98 stands, now proven rather than argued.
+
+### 23d. Recommendation
+
+Ship nothing. The residual class is **sub-arbitrable interior geometry**: too
+small for the certifier (§16's KAT floor is a few dozen pixels), too far from
+any boundary B1 draws for a geometric refusal, and invisible to `agreement_budget`
+because at a high-contrast contour the budget is tens of levels (median 13.9 at
+d3a) while the defect is a 1–2 px *displacement* that stays inside it. The
+missing instrument is not another veto over the existing evidence — it is a
+statement about **contour continuity**: a rewrite may not move a strong image
+contour that both the input and the reference agree on. That is a new arbiter
+with its own KAT, which is B3's size, not a micro-round's.
+
+Also open, and cheap: 26% of the frontier at d3a is loud AGAIN after one
+application (33 of 126), so the residual-loud-frontier figure of §17 (653 of
+9489, 6.9%) is concentrated exactly where the eye complains.

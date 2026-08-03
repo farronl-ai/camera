@@ -14,9 +14,49 @@ frontier ledgers and completed scans are in Git history. Status:
 | 4 | Transparent/transmissive foreground | NEXT | Separate factory with saved foreground, background, opacity/extinction, coverage, and both clean observations. Never relax opaque complete-core ownership. |
 | 5 | First-party real optical truth | BLOCKED on capture | Controlled macro/product bracket with removable occluder or known target, RAW if possible, aperture/focus metadata, and an occluder-free latent reference. |
 | 6 | N-frame and multiple-occluder recovery | LATER | Ordered multilayer formation state, per-layer observability, identity fallback when ownership is ambiguous. |
-| 7 | Alignment and focus breathing | ACTIVE | F81 depth-binned transforms; F82 disocclusion refusal (factory 0.8754 -> 0.9660 -> 0.9785). F83 front/back ordering works but one-sided refusal loses. F84 locates the real blocker: bins are ranges, not objects — the kitchen bottle's bin spans 55% of the frame and is fitted to +2.3 px where the bottle needs +19.2, and the near-residual headline never measured it. Next: residual-driven bin splitting until each bin is homogeneous. Veiling is closed as a hard mask (loses in all regimes); as a soft down-weight it is what `harden` already does. |
+| 7 | Alignment: two-frame follow-ups | ACTIVE | Arc complete through F112 (two-frame route shipped, beats shipped path on the factory, user-validated on kitchen). Remaining, ranked: replace `SURFACE_SIGMA`'s two-scene compromise with the physical per-pixel low-pass keyed on `\|frame − peak\|` (designed in `twoframe_NOTES.md`); pair-aware refusal preferring a present-but-defocused member (repairs large-motion, moves the route boundary); licence check before the discarded-composite render. |
+| 7b | Scene-model second pass (analysis-by-synthesis) | NEXT | User concept, 2026-08-02 — see section below. Pass 1's outputs (per-frame motions, layer elections, occlusion ordering, same-surface provenance) initialize an inverse-rendering pass that assembles per-LAYER appearance from every frame after detransform and re-renders the composite from the scene model, certified by forward-render consistency against the RAW frames. First build: the certifier alone (§12 — instrument before mechanism). |
 | 8 | Stack-gap recovery | LATER | Mild remnant-anchored deconvolution only where no frame is sharp; estimate scale without the known under-deconvolution bias. |
 | 9 | Noise-adaptive focal evidence | LATER | Separate focus energy from sensor/ISP high-frequency energy, especially in low light. |
+
+## Scene-model second pass (user concept, recorded 2026-08-02)
+
+The current engine decomposes frames into regions and bands with orthogonal
+extraction strategies and reconstructs piece by piece. Those pass-1 results are
+precisely the initialization a second, physically-grounded pass needs: by then
+we KNOW how each frame moved (lateral, forward/back, rotation), how focus
+stepped through the scene, which pieces stand in front of and behind which
+corners, and which observations survive detransform. The second pass inverts
+the viewpoint: instead of warping frames to the reference and holding a
+per-pixel contest, it assembles a SCENE — per-layer appearance built from every
+frame's usable observations in the LAYER's own coordinates — and renders the
+composite from the model once. Fusion disappears as a concept; frames stop
+being the units, so seams between frames cannot exist. Refusal upgrades from
+"fall back to the reference" to physical completion: content occluded in some
+frames is visible in others, and the model may keep it from where it was seen.
+
+Sketch: (1) scene model from pass-1 provenance — layers, per-layer per-frame
+rigid motions, focal ladder, occlusion order; (2) per-layer appearance from
+detransformed, visibility- and `same_surface`-gated observations; (3) composite
+in depth order with formation-model mattes at boundaries (the
+`OCCLUSION_FORMATION` contract already models how defocused occluder edges
+mix); (4) certify by forward-rendering every source frame from the model
+(transform + per-layer defocus) and comparing to the actual frame — iterate
+where the residual exceeds noise, refuse where iteration cannot close.
+
+The certifier is valuable before any reconstruction exists, and it evades
+F81a's trap: it scores against the RAW frames in their own geometry, which
+alignment never touches — the first no-reference-safe arbiter for real scenes.
+Its KAT: on the routed kitchen output it must light up exactly the known
+residuals (the F112 knob, the pale sliver) and nothing else; on the factory it
+must reproduce the GT-SSIM ranking.
+
+Standing cautions that bind this pass: F81's joint estimator registered best
+and INVENTED motion on the zero-motion sentinel — the pass must be routed
+(F101) and trinary (F106), engaging only where pass-1 provenance leaves
+something unexplained, sentinels byte-identical by construction. And F56's
+licence discipline applies to completion: the model may only place content some
+frame actually observed, never synthesize it.
 
 ## F78 validation contract
 

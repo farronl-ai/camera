@@ -5,6 +5,54 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F113 — The certifier: forward-render consistency is the first GT-free arbiter
+
+Round A of the scene-model second-pass arc (FRONTIER §7b), Opus-built,
+manager-verified (KAT-3 and KAT-4 re-run and reproduced exactly; scope and
+evidence overlays inspected). `research/forward_certify.py` renders every
+source frame from a candidate composite plus pass-1's scene model (layers,
+motions, focal ladder, exposure gains) and compares against the RAW frames in
+their own geometry — evading F81a, since alignment never touches those.
+
+**KATs 1–3 pass.** Renderer vs the factory at true parameters: MAE 0.42 levels
+(0.12 after the factory's own uint8 truncation), identity at the reference.
+The per-layer defocus estimator recovers known radii 100% exactly and degrades
+LOUDLY under injected geometry error (residual 1.66 → 6.42) — blur does not
+silently absorb misregistration. Ranking: two-frame 5.96 < shipped 6.51,
+agreeing with GT-SSIM; the ground-truth composite scores best of all four (no
+sharpness penalty); self-consistency 0.0000.
+
+**KAT-4, honestly split.** On the routed kitchen: the pale sliver localizes at
+rank 3/16 absolute; the verified-clean flank is QUIET at all nine detector
+settings; the F112 knob is elevated 2.3× with the right sign but is NOT
+localizable — ~7× under the real-scene detection floor. Measured, not excused,
+and it is round B's acceptance test.
+
+**The floor is attributed, and the attribution is the finding.** Factory
+decomposition of the model-error floor: renderer+PSF+exposure 0.44, +motion
+0.81, +layer segmentation +2.93 (3.6× everything else, localized p99 47.6) =
+3.92; the null candidate's own defocus adds only 0.71. Pass-1's layer masks
+are the focus contest's winner map — **a fusion SELECTOR shaped like a
+decomposition** — and any second pass assembling per-layer appearance inherits
+that error multiplied. Fix the decomposition before building on it. Because
+segmentation error is shared by every candidate, the certifier's primary
+output is the DIFFERENTIAL (candidate − null) map; the absolute map is a
+model-error carpet. Real-scene sensitivity today: ~10 levels absolute, a few
+levels differential, certified coverage 65.6% on the kitchen.
+
+§12 paid three times inside the round: swapped layer radii in the truth model;
+disocclusion invented by nearest-fill and then certified as observed; and the
+whole instrument ranking the factory composites BACKWARDS while it took the
+composed global affine as the only geometry. A broken instrument does not look
+broken — it looks like data.
+
+Also measured for round B: per-layer motion beyond the global affine is worth
+only −0.10 levels on the kitchen; the focal ladder is the largest single term
+(−2.79); a per-layer scalar gain absorbs `normalize_exposure` to 0.015 levels
+(solved, don't build for it); and raw per-frame fits from the existing
+estimator produce non-physical motion series (−18.83 px beside −5.26) — a
+reconstruction needing all N frames cannot get them frame-by-frame.
+
 ## F112 — The focus contest's missing precondition: both members must see the same surface
 
 Fourth Opus round, manager-steered mid-diagnosis and manager-verified. The user

@@ -214,12 +214,16 @@ inspector once.
 
 ## Immediate next move
 
-Two-frame follow-ups, ranked in F112/F111: replace `SURFACE_SIGMA` (an
-unresolved §12.3 two-scene split at 4.0) with the physical per-pixel low-pass
-keyed on `|frame − peak|` designed in `twoframe_NOTES.md`; a pair-aware refusal
-that prefers a present-but-defocused member would repair large-motion and move
-the route's boundary; the licence check could precede rendering the discarded
-composite (~4 s wasted).
+The scene-model second pass (FRONTIER §7b), in managed rounds. Round A is DONE
+(F113): the forward-render certifier exists, KAT'd, and attributes 3.6× of the
+model-error floor to pass-1's layer masks — a fusion selector shaped like a
+decomposition. Round B: a physical layer decomposition, judged by the
+certifier's attributed floor dropping and the F112 knob becoming localizable;
+then per-layer appearance assembly. Round C: routing/integration (F101
+pattern, byte-identical sentinels), where the licence-before-render economy
+fix rides along. The two-frame follow-ups (physical `SURFACE_SIGMA`,
+pair-aware refusal) are absorbed by this pass's visibility reasoning, not
+parallel work.
 
 Still queued behind it, unchanged: refactor formation-state estimation upstream
 without changing pixels (`V_front`, `T_rear`, PSF weights/choice, forward residual,

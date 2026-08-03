@@ -646,3 +646,161 @@ instrument) at a residual the two-frame pair cannot reach.
    and its greedy merge ORDER changed under a resize round trip (the same pairs, a
    different order).
 5. `--enhance` still untouched (F56 does not licence it for a stitched composite).
+
+---
+
+# Runtime integration — routing, 2026-08-02
+
+Third Opus session. The architecture is now in the package
+(`src/focusstack/twoframe.py`) and ROUTED from `pipeline.run`; `align.py`,
+`fusion.py` and `motion_groups.py` were not touched. 92 tests pass (85 + 7).
+
+```
+focusstack shots/*.jpg -o out.png -v          # route on by default
+focusstack shots/*.jpg -o out.png --no-twoframe-route
+```
+
+## I1. The port, known-answer tested before use
+
+A port is a new instrument (§12.1), so the runtime module was required to
+reproduce the research numbers exactly before anything was wired to it. It does,
+to every printed digit:
+
+| KAT | research | port |
+|---|---|---|
+| global stage vs `align_stack(depth_bins=0)` | 0 | **0** |
+| analytic factory GT-SSIM | 0.971310 | **0.971310** |
+| +8 px injected layer error, gate off / on | 0.928212 / 0.970986 | **0.928212 / 0.970986** |
+| kitchen flank mean / max / >12 | 2.16 / 10 / 0.00% | **2.16 / 10 / 0.00%** |
+| full-res transfer at 2x (vs floor 0.95, control 7.08) | 2.41, 1.21% | **2.41, 1.21%** |
+
+Ported: pair election, the focal-weighted edge-refined fit, the verified geometry
+choice, the validity gate with repair, F82 pair refusal with reference fallback,
+the multiband stitch, and the F107 transfer (used above `WORKING_WIDTH = 1100`).
+NOT ported, deliberately: every ablation knob (`fit="ecc"`, blanket rigid/affine
+layer geometry, hard paste, mask erosion, oracle shifts). Those were settled in
+F110; reopening one means re-running the research harness, not adding a runtime
+parameter. The one test hook kept is `inject`, because the gate's acceptance test
+is the reason the gate exists.
+
+The full-res comparison has a trap worth restating: compare the native output
+against the analysis run INSIDE the same call (`working_fused`), not against a
+separately-elected working run. Across two elections the same KAT reads 3.91
+instead of 2.41 — it is measuring the pair merge order's sensitivity to a resize
+round trip (H7 item 4), not the transfer.
+
+## I2. The routing rule, as VALIDATED — and the half of it that was wrong
+
+The brief's candidate: engage where the shipped alignment's motion-group override
+fired. Measured decisions:
+
+| scene | groups overridden | two-frame max layer shift | licence | route |
+|---|---:|---:|---:|---|
+| analytic factory | 0 | (not built) | — | shipped, byte-identical |
+| zero-motion | 0 (screened) | (not built) | — | shipped, byte-identical |
+| small-motion | 0 (screened) | (not built) | — | shipped, byte-identical |
+| kitchen | 2 | 2.1 px | 14.0 | **TWO-FRAME** |
+| IMG-46 | 1 | 6.9 px | 20.2 | **TWO-FRAME** |
+| large-motion | 3 | **19.2 px** | 14.0 | shipped (composite discarded) |
+
+**Half of it holds, and half of it was falsified on large-motion.** Firing is the
+right NECESSARY condition: it is the shipped path's own measurement that a
+compact object's motion disagrees with its depth bin by >5 px at the object's own
+location, i.e. that the scene strands an object. Where it does not fire, no
+two-frame work is started at all, so the factory's 0.9728 and the sentinels are
+preserved by construction rather than by measurement.
+
+But firing is NOT sufficient. On large-motion the override fires on three groups
+and the two-frame path loses the very object F103 fixed:
+
+> The playing-card box is sharpest at frame 0 of 14 and needs +18.9 px. The pair
+> elects frame 0 for it and fits it CORRECTLY (verified at 0.51 px) — and then
+> F82's disocclusion refusal withdraws that member over 91% of the pair's area,
+> because the ribbon it must refuse is as wide as the correction. The box comes
+> back reference-defocused: `out/depth_align/ROUTE_largemotion_{box,wordmark}.png`
+> shows the shipped output's crisp "LAS VEGAS" beside the composite's blur, and a
+> template match of the reference frame's own box scores 1.000 against the
+> composite (it IS the reference) and 0.910 against the shipped output.
+
+This is not a surprise so much as a prediction coming due: §2 above stated the
+architecture's licence as falsifiable before any of this was measured — "it holds
+only where each region's layers each have a frame that is both sharp and
+near-reference enough to place. It would fail on a sweep whose near object is
+sharpest at an extreme." Large-motion is that sweep. The kitchen is its opposite
+and that is exactly why it wins there: the bottle is sharpest AT the reference,
+so the correction is not needed at all.
+
+**The validated rule is therefore two-part**, and the second half is a question
+only the composite can answer, so it is asked after building it:
+
+1. the shipped alignment's motion-group override fired (a stranded object), and
+2. the composite placed every elected layer within the arc's own refinement
+   scale — `align._REFINE_MAX_FRACTION`, 1.5% of the frame diagonal.
+
+The scale is borrowed rather than invented: that constant is already this
+project's statement of how large a per-region displacement can be before it stops
+being a refinement of the global warp and becomes re-registration. Two frames are
+the wrong instrument for re-registration — 2.7x the shift sensitivity of an
+N-frame fusion (H1), and a refusal with only one other source to fall back to.
+The separation is not marginal: 2.1 and 6.9 px served, 19.2 px declined.
+
+Rejected alternatives for the second half:
+* **A no-reference quality A/B between the two outputs.** F81a: no-reference
+  metrics cannot adjudicate an alignment change. A coin toss wearing a number.
+* **The concession statistic** — the contrast-weighted share of the frame where
+  the composite withdraws an elected member and leaves nothing sharp behind.
+  Measures the defect directly and is honest, but reads factory 7.2%, kitchen
+  5.0%, IMG-46 5.3%, large-motion 26.3%: the separation is 5x where the
+  displacement rule's is 3-9x, and its own focal tolerance is a second threshold
+  that moves with sweep length. Kept as the mechanism explanation, not the gate.
+
+## I3. Per-scene validation (small data only, DEVSTYLE §13)
+
+* **factory / zero-motion / small-motion: BYTE-IDENTICAL** to the pre-route
+  pipeline output (`np.array_equal`, not a metric). Large-motion too, since a
+  declined composite is discarded.
+* **kitchen: routed, and the F108 acceptance holds on the shipped pipeline's own
+  output** — flank mean |Δ| **2.24**, max **11**, **0.00%** over 12, against the
+  shipped path's 6.69 / 67 / 17.67%. The bar was mean ≤ 2.2: missed by 0.04, and
+  the cause is measured, not hand-waved — `normalize_exposure` applies a ±1.5%
+  per-frame gain to the members (the reference's own gain is exactly 1.0), so the
+  same composite reads 2.16 from raw sources and 2.24 from normalized ones, while
+  the shipped baseline moves 5.98 → 6.69 for the same reason. The structural half
+  of the bar (0.00% over 12) passes exactly.
+* **IMG-46: routed** (1 group overridden, 6.9 px of 20.2). The bottle label is
+  sharp and clean in both paths — `out/img46/ROUTE_bottle.png`, reference |
+  shipped | routed — with no doubling or ghosting in the routed crop. Call it
+  neutral-to-slightly-crisper by eye; nothing here justifies a stronger claim.
+* **large-motion: declined**, evidence above.
+
+## I4. Deliberate integration choices
+
+* **`enhance` is skipped on the routed path** and says so in the log. F56 licences
+  it for the fused output of frames the caller can point at; a stitched
+  per-region composite is not that, and the licence does not transfer (§6).
+* **Exposure normalization** is applied to the frames the route registers itself,
+  because a per-frame channel gain commutes with the warp.
+* **`--method` other than `perband` declines the route**, since the two-frame
+  path fuses per-band internally and would silently ignore the request.
+* **The routed output keeps its own crop**, which differs from the shipped crop by
+  a pixel or two; `--depth-out`/`--boundary-out` still describe the shipped
+  aligned stack.
+
+## I5. What remains
+
+1. **The cost of a declined composite.** Large-motion builds the two-frame render
+   (~4 s) and throws it away. The displacement is knowable from the layer fits
+   alone, so the decision could be taken before rendering — worth doing if the
+   route ever runs on big stacks.
+2. **The second half of the rule has one real scene on each side** (kitchen and
+   IMG-46 served, large-motion declined) plus two synthetic ones in the tests.
+   That is thin, and the honest statement is that the SCALE is borrowed from a
+   validated constant rather than fitted to these three points.
+3. **The large-motion mechanism is a repairable defect, not a law.** The elected
+   member was correct and the refusal withdrew it; F82's ribbon is being applied
+   at full width to a pair whose other member cannot cover it. A pair-aware
+   refusal that prefers a defocused-but-present observation over a
+   reference-defocused one might reclaim that scene — and would move the route's
+   boundary, so it should be measured before the licence is tuned.
+4. Items H7.2-H7.5 (the unverifiable layer, the degenerate single-frame regions,
+   full-res provenance sensitivity, `--enhance`) are untouched by this pass.

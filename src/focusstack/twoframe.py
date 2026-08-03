@@ -56,7 +56,7 @@ import numpy as np
 from . import align as A
 from . import motion_groups as MG
 from .focus import content_aware_energies
-from .fusion import depth_from_focus, fuse_perband, multiband_blend
+from .fusion import depth_from_focus, fuse_coherent, multiband_blend
 from .io import to_gray_float
 
 # --- geometry of the analysis, all pixel-scaled (see WORKING_WIDTH) ----------
@@ -674,6 +674,90 @@ def _rigidify(matrix, mask, shape):
                      [0.0, 0.0, 1.0]])
 
 
+# --------------------------------------------------------------------------
+# Stage 3c — the precondition of the focus contest: are the two members even
+# looking at the same surface?
+# --------------------------------------------------------------------------
+# ROUND 3. The user marked four defects in the routed kitchen output and all
+# four are one mechanism, which the architecture's own §2 claim did not survive:
+#
+#   "Geometry and focus are co-diagnostic: the layer a frame gets wrong is, by
+#    construction, the layer it is defocused in, so the focus contest discards
+#    it without being told to."
+#
+# That holds only if BOTH members observe the SAME SURFACE at the pixel. Where
+# parallax has swung an occluder, they do not — one member sees the foreground
+# and the other sees the background it uncovered — and then the focus contest
+# is not comparing two renderings of one surface, it is comparing two different
+# objects. It reliably picks the more TEXTURED one, which is not the nearer one.
+# Measured on the kitchen: in the box where the background pot renders in front
+# of the Lubriderm bottle, the pair's near-layer mask covers 0.0% of the box,
+# because the bottle's own surface there is smooth white and loses the focus
+# contest to sharp print on a pot 2 m behind it. Every evidence-driven gate in
+# the module is downstream of that mask, so all of them were blind together —
+# F108's wall, recurring one level in.
+#
+# The precondition is testable without texture, and PLAYBOOK §0 supplies the
+# test in one line: DEFOCUS IS A LOW-PASS, ALWAYS. Two observations of one
+# surface must therefore agree once both are low-passed past their own defocus,
+# no matter how textureless the surface is; two different surfaces do not, and
+# their disagreement is the contrast between them. So the member is admitted
+# only where its low-passed appearance agrees with the REFERENCE's — the
+# reference being the one frame that is unwarped and therefore the authority on
+# what is visible in the composite's own geometry.
+#
+# Trinary, never ramped (F106): a pixel is served by a member, or it is not.
+#
+# What "agree" is allowed to mean is set by measurement, not by taste, and every
+# term is something already measured elsewhere in the arc:
+#   * a residual displacement of up to GATE_TOL px is the module's own statement
+#     of a fit that verified, so a disagreement a GATE_TOL shift explains is not
+#     evidence of a different surface — it is subtracted as `tol * |grad|`. This
+#     is F106's unexplained-motion rule asked per pixel: refuse what no motion
+#     the geometry admits can account for.
+#   * `normalize_exposure` leaves a per-frame multiplicative residual; measured
+#     on this sweep the largest is 1.85%, so 2% of the local level is allowed.
+#   * sensor noise survives the low-pass at well under one level (measured p99
+#     0.6-0.9 for sigma 3-8), so one level is allowed for it.
+SURFACE_SIGMA = 4.0          # px; must exceed the residual defocus difference
+SURFACE_GAIN = 0.02          # share of level, from normalize_exposure's residual
+SURFACE_NOISE = 1.0          # levels, from the blurred noise floor
+
+
+def _lowpass(image, sigma=SURFACE_SIGMA):
+    return cv2.GaussianBlur(image.astype(np.float32), (0, 0), sigma)
+
+
+def _gradient_magnitude(blurred):
+    gx = cv2.Sobel(blurred, cv2.CV_32F, 1, 0, ksize=3) / 8.0
+    gy = cv2.Sobel(blurred, cv2.CV_32F, 0, 1, ksize=3) / 8.0
+    return np.sqrt(gx * gx + gy * gy)
+
+
+def same_surface(member, reference, sigma=SURFACE_SIGMA, tol=GATE_TOL):
+    """Where does `member` observe the same surface as the unwarped `reference`?
+
+    Both are already in the composite's (reference's) geometry. Returns a bool
+    mask: True where the low-passed appearances agree to within what a GATE_TOL
+    displacement, the exposure residual and sensor noise can explain; False
+    where they do not, which means the member is showing different content —
+    an occluder that moved, or its own copy of one, standing where the
+    composite's geometry says something else is visible.
+
+    Known-answer tested in `tests/test_twoframe_route.py`: pure defocus (a disk
+    blur, which is what real defocus is) must NOT trip it, a sub-pixel shift
+    must not trip it, and a displaced occluder must.
+    """
+    member_low = _lowpass(member, sigma)
+    reference_low = _lowpass(reference, sigma)
+    disagreement = np.abs(member_low - reference_low).max(axis=2)
+    explained = (tol * np.maximum(_gradient_magnitude(member_low),
+                                  _gradient_magnitude(reference_low)).max(axis=2)
+                 + SURFACE_GAIN * np.maximum(member_low, reference_low).max(axis=2)
+                 + SURFACE_NOISE)
+    return disagreement <= explained
+
+
 def _pair_refusal(frames, ref, table, dense, depth_step, shape):
     """Per-frame usable masks for one pair, by F82's rule.
 
@@ -721,7 +805,7 @@ def _pair_refusal(frames, ref, table, dense, depth_step, shape):
 # The architecture.
 # --------------------------------------------------------------------------
 def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
-                   inject=None):
+                   surface=True, inject=None):
     """Per-region two-frame fusion of a focus stack. Returns (fused, info).
 
     `harden`   passed to `fuse_perband` for each pair, as the shipped path does.
@@ -729,6 +813,10 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
                observation does not exist (F82 disocclusion), falling back to the
                other member and, where both are refused, to the unwarped
                reference. Refusal with no fallback is measurably worse than none.
+    `surface`  admit each member only where its low-passed appearance agrees
+               with the unwarped reference's, i.e. only where the two are
+               observing the SAME SURFACE. This is the precondition the focus
+               contest needs and never had; see `same_surface`.
     `gate`     forward-verify every layer geometry before applying it. A
                CONTRADICTED fit refuses its member; an UNVERIFIABLE one declines
                the correction and keeps the global stage's geometry.
@@ -938,13 +1026,39 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
                                     borderValue=0) == 255)
             used.add(frame)
 
+        # THE PRECONDITION, per member: a member may only be consulted where it
+        # observes the same surface the reference does. The reference member
+        # (rendered through the identity) agrees with itself everywhere, so this
+        # never leaves a pair with nothing — and where it does, the reference
+        # fallback below is what covers it.
+        agreement = None
+        if surface:
+            agreement = [np.ones((h, w), bool) if frame == ref
+                         else same_surface(image, images[ref])
+                         for image, frame in zip(rendered, frames)]
+
         usable = None
         if len(rendered) == 1:
-            fused = rendered[0] if not refused_member[0] else images[ref]
+            if refused_member[0]:
+                fused = images[ref]
+            elif agreement is not None and not agreement[0].all():
+                # A degenerate one-frame region still has a second observation
+                # available: the unwarped reference. Admitted exactly where the
+                # elected frame is showing something else, and nowhere else.
+                # The fallback is carried in `usable` as one entry MORE than the
+                # pair has frames, which is the convention `twoframe_fullres`
+                # already reads to re-append the reference at native scale.
+                usable = [agreement[0], ~agreement[0]]
+                rendered = [rendered[0], images[ref]]
+                fused = fuse_coherent(rendered, harden=harden, usable=usable)
+            else:
+                fused = rendered[0]
         else:
-            if refusal or any(refused_member):
+            if refusal or surface or any(refused_member):
                 usable = (_pair_refusal(frames, ref, table, dense, depth_step, (h, w))
                           if refusal else [np.ones((h, w), bool) for _ in frames])
+                if agreement is not None:
+                    usable = [m & a for m, a in zip(usable, agreement)]
                 for layer, is_refused in enumerate(refused_member):
                     if is_refused:
                         usable[layer] = np.zeros((h, w), bool)
@@ -958,12 +1072,13 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
                     # architecture stays two-frame everywhere it is confident.
                     rendered.append(images[ref])
                     usable.append(~usable[0] & ~usable[1])
-            fused = fuse_perband(rendered, harden=harden, usable=usable)
+            fused = fuse_coherent(rendered, harden=harden, usable=usable)
         candidates.append(fused)
         valid_here = np.logical_and.reduce(valids)
         refused = 0.0
-        if refusal and len(rendered) > 1 and usable is not None:
-            refused = float(np.mean([1.0 - m[owned].mean() for m in usable[:2]]))
+        if usable is not None:
+            refused = float(np.mean([1.0 - m[owned].mean()
+                                     for m in usable[:len(frames)]]))
         diagnostics.append({"pair": pair, "shifts": shifts, "refused": refused,
                             "verdicts": verdicts, "gated": list(refused_member),
                             "frames": list(frames), "usable": usable,
@@ -1045,7 +1160,7 @@ def twoframe_fullres(natives, working_width=WORKING_WIDTH, ref=None, **kwargs):
             if len(usable) > len(rendered):
                 rendered.append(natives[ref])
         candidates.append(rendered[0] if len(rendered) == 1
-                          else fuse_perband(rendered, harden=harden, usable=usable))
+                          else fuse_coherent(rendered, harden=harden, usable=usable))
 
     if len(candidates) == 1:
         fused = candidates[0]

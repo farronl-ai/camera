@@ -89,6 +89,30 @@ silhouettes warped per frame, dilated by that frame's modeled defocus
 radius). The irreducible residue is the reference's OWN defocused-edge matte
 band — a few mixed pixels that stay trinary (matte or refuse) forever.
 
+**The transform, designed (2026-08-02, follows from the contract).** The
+per-frame transform is NON-STANDARD by necessity: a backward sampling field,
+PIECEWISE-SMOOTH — one affine per scene piece (a plane under small camera
+motion induces an affine flow, so rigid objects and planar ramps are each one
+piece; the counter's receding parallax is linear in image coordinates) —
+DISCONTINUOUS exactly at occluding contours (near content jumps relative to
+far; the F81 blend that smoothed this jump is the soft geometry F106
+outlawed), with GAPS computed from the model (nearer pieces' silhouettes
+warped by their own transforms, dilated by their defocus radius per frame,
+F83) and vetoed by photometry (cross-convolution): geometry proposes,
+photometry vetoes, nothing un-vetoes. CORRECTION TO B1: pieces must be cut at
+DEPTH DISCONTINUITIES (occluding contours), never at depth values — ramps
+stay whole or fake step-seams appear inside smooth surfaces. The two hard
+sub-problems: (1) silhouette-exact registration — each frame's near-piece
+transform must land its contour on the reference contour within the matte
+band (F116's instrument becomes a per-frame alignment GATE, not an auditor);
+(2) per-piece motion where the piece is defocused — the temporally-coherent
+motion SERIES (B3b, now load-bearing): fit on sharp frames, interpolate
+through blurred ones, pass-1 as prior. Known honest limits: transparency
+(the glass pitcher) breaks one-surface-per-pixel and self-vetoes to
+near-frame fallback; speculars are viewpoint-attached and gap per frame.
+Application stays one resample (`remap` accepts a discontinuous field);
+`fuse_perband` + `usable` consumes the output unchanged.
+
 **Pass 1 is a GUIDE, not a constraint (user principle, 2026-08-02).** The
 whole reason pass 2 exists is that pass 1 is imperfect — so no pass-1 quantity
 (motion, masks, focal ladder, ownership) is gospel to the second pass. Each is

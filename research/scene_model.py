@@ -86,12 +86,6 @@ KITCHEN = os.path.join(HERE, "data", "mobiledepth", "Figure3", "kitchen")
 # not distinguishable, so a disagreement at that scale is not evidence about
 # which surface is being observed. `kat` measures the verdict's sensitivity to it.
 SIGMA0 = 1.0
-# Two observations belong to the same "equal-blur set" if their modelled disk
-# radii differ by less than this. Same derivation, same number: a sub-pixel
-# difference in circle-of-confusion is below the grid. This is what stops a
-# defocused copy being averaged into a sharp one (F79/F31) WITHOUT a tuned
-# sharpness threshold — the set is defined by the physics, not by a percentile.
-EQUAL_BLUR_TOL = 1.0
 # A rewritten region needs at least this many certified pixels before the
 # certifier is allowed to arbitrate it. `MIN_COVERAGE` frames is the certifier's
 # own quorum; 200 px is `estimate_radii`'s own minimum weight for a fit to be
@@ -363,7 +357,7 @@ def _visibility(images, dec, matrices, k, i, order_guard="any"):
     h, w = images[0].shape[:2]
     matrix = matrices[(k, i)]
     if matrix is None:
-        return np.zeros((h, w), bool)
+        return np.zeros((h, w), bool), np.zeros((h, w), bool)
     inside = FC.warp_back(np.ones((h, w), np.float32), matrix, (h, w), 0.0) > 0.999
     occupied = np.zeros((h, w), np.float32)
     for j in range(len(dec.masks)):
@@ -376,10 +370,11 @@ def _visibility(images, dec, matrices, k, i, order_guard="any"):
             continue
         footprint = (dec.labels == j).astype(np.float32)
         occupied = np.maximum(occupied, FC.warp_forward(footprint, other, (h, w), 0.0))
+    visible = inside
     if occupied.any():
         back = FC.warp_back(occupied, matrix, (h, w), 0.0)
-        inside &= back < 0.001
-    return inside
+        visible = inside & (back < 0.001)
+    return inside, visible
 
 
 def assemble(images, ref=None, order_guard="any", verbose=False, raw=None,
@@ -442,6 +437,10 @@ def assemble(images, ref=None, order_guard="any", verbose=False, raw=None,
     owned = dec.state == LD.OWNED
     observations = np.zeros((n, h, w, 3), np.float32)
     admitted = np.zeros((n, h, w), bool)
+    # What each refusal stage actually costs, in owned-pixel-frames. Reported
+    # because an inactive gate is a finding, not a detail (§12.2).
+    refusals = {"no geometry": 0, "outside the frame": 0, "occluded": 0,
+                "different surface": 0, "admitted": 0, "owned frames": 0}
     for k in range(n):
         # ONE resample per (frame, layer): the composed transform is applied
         # directly to the ORIGINAL frame (PLAYBOOK §0 — compose, resample once).
@@ -451,56 +450,83 @@ def assemble(images, ref=None, order_guard="any", verbose=False, raw=None,
             here = owned & (dec.labels == i)
             if not here.any():
                 continue
+            refusals["owned frames"] += int(here.sum())
             matrix = matrices[(k, i)]
             if matrix is None:
+                refusals["no geometry"] += int(here.sum())
                 continue
             key = matrix.tobytes()
             if key not in done:
                 done[key] = FC.warp_back(images[k].astype(np.float32), matrix,
                                          (h, w), 0.0)
             observations[k][here] = done[key][here]
-            visible = _visibility(images, dec, matrices, k, i,
-                                  order_guard=order_guard)
+            inside, visible = _visibility(images, dec, matrices, k, i,
+                                          order_guard=order_guard)
+            refusals["outside the frame"] += int((here & ~inside).sum())
+            refusals["occluded"] += int((here & inside & ~visible).sum())
             admitted[k] |= here & visible
         if not admitted[k].any():
             continue
         radius_k = slope * np.abs(k - peak_used)
         agree = same_surface_physical(observations[k], reference,
                                       radius_k, radius_ref)
+        refusals["different surface"] += int((admitted[k] & ~agree).sum())
         admitted[k] &= agree
+        refusals["admitted"] += int(admitted[k].sum())
 
     # --- aggregation: the sharpest MUTUALLY-AGREEING subset -------------------
     # F79/F31: decision, then reconstruction, never an average across a focus
-    # disagreement. The decision is which observations belong to the sharpest
-    # EQUAL-BLUR set; only inside that set is anything averaged, and the set is
-    # defined by the modelled circle of confusion rather than by a measured
-    # sharpness (PLAYBOOK §0c forbids the latter).
-    radii = np.stack([slope * np.abs(k - peak_used) for k in range(n)], 0)
+    # disagreement. The decision picks the sharpest admitted observation; only
+    # observations that share its blur EXACTLY may join it, and the set is
+    # defined by the modelled circle of confusion, never by a measured sharpness
+    # (PLAYBOOK §0c forbids the latter). Disk radii are integers by
+    # construction, so "shares its blur" needs no tolerance: it is equality.
+    #
+    # TWO members may only be averaged if BOTH their geometries VERIFIED. This
+    # is F106 at the reconstruction stage and it was learned here the expensive
+    # way. A first build averaged over any admitted frame within a pixel of the
+    # sharpest radius, including the 41-of-72 (frame, layer) pairs whose fit was
+    # UNVERIFIABLE and therefore fell back to the global affine. Averaging two
+    # observations placed by two unverified geometries is a photometric blend of
+    # two geometries — the exact thing F106 forbids — and on the kitchen it
+    # visibly softened the Lubriderm label, which the sweep moves ~3 px/frame.
+    # An unverifiable observation is still USED (F110's trinary keeps it); it is
+    # simply used alone, as a one-hot decision, never blended.
+    radii = np.rint(np.stack([slope * np.abs(k - peak_used) for k in range(n)], 0))
+    verified = np.zeros((n, h, w), bool)
+    for (k, i), entry in verdicts.items():
+        if entry[0] == "verified":
+            verified[k] |= (dec.labels == i)
+    if not verdicts:                       # oracle geometry: verified by fiat
+        verified[:] = True
     big = np.float32(1e9)
     masked_radii = np.where(admitted, radii, big)
     best_frame = np.argmin(masked_radii, axis=0).astype(np.int32)
     any_admitted = admitted.any(axis=0)
     best_frame[~any_admitted] = -1
     yy, xx = np.indices((h, w))
-    best_radius = masked_radii[np.clip(best_frame, 0, n - 1), yy, xx]
+    pick = np.clip(best_frame, 0, n - 1)
+    best_radius = masked_radii[pick, yy, xx]
+    best_verified = verified[pick, yy, xx]
 
     lows = np.stack([cv2.GaussianBlur(observations[k], (0, 0), SIGMA0)
                      for k in range(n)], 0)
-    sharpest_low = lows[np.clip(best_frame, 0, n - 1), yy, xx]
+    sharpest_low = lows[pick, yy, xx]
     budget = agreement_budget(sharpest_low, sharpest_low)
 
     total = np.zeros((h, w, 3), np.float32)
     weight = np.zeros((h, w), np.float32)
     members = np.zeros((h, w), np.int32)
     for k in range(n):
-        equal_blur = admitted[k] & any_admitted & (radii[k] <= best_radius
-                                                   + EQUAL_BLUR_TOL)
+        equal_blur = admitted[k] & any_admitted & (radii[k] == best_radius)
         mutual = np.abs(lows[k] - sharpest_low).max(axis=2) <= budget
-        keep = equal_blur & mutual
+        keep = equal_blur & mutual & verified[k] & best_verified
         keep |= (best_frame == k) & any_admitted        # the sharpest is always in
         # Sharpness-weighted inside an equal-blur set: monotone in the modelled
-        # circle of confusion, so the marginally sharper member leads and the
-        # weights are nearly uniform by construction.
+        # circle of confusion, so the marginally sharper member leads. Inside the
+        # set the radii are equal, so the weights are uniform by construction —
+        # the expression is kept because it states the intent, not because it
+        # discriminates.
         w_k = (1.0 / (1.0 + radii[k])) * keep
         total += w_k[..., None] * observations[k]
         weight += w_k
@@ -551,7 +577,8 @@ def assemble(images, ref=None, order_guard="any", verbose=False, raw=None,
         diag={"model": model, "matrices": matrices, "verdicts": verdicts,
               "tally": tally, "admitted": admitted, "members": members,
               "info": info, "rewrite_full": rewrite, "peak_used": peak_used,
-              "any_admitted": any_admitted, "owned": owned, "ref": ref})
+              "any_admitted": any_admitted, "owned": owned, "ref": ref,
+              "refusals": refusals})
 
 
 # ---------------------------------------------------------------------------
@@ -835,8 +862,19 @@ def _delta_map(composite, reference, crop):
     return out
 
 
-def kitchen_boxes(composite, reference, crop, label=""):
-    """The four user boxes, in COMPOSITE coordinates, against the reference."""
+def kitchen_boxes(composite, reference, crop, label="", energy=False):
+    """The four user boxes, in COMPOSITE coordinates, against the reference.
+
+    F112/R6.4 rejected this metric as an ARBITER and the reason matters here:
+    it is scored against the reference frame, so "refuse everything" scores
+    perfectly and any legitimate sharpening of a locally-defocused background
+    scores WORSE. It is reported because it is the recorded bar, and it is
+    reported next to the box's mean FOCUS ENERGY — F112/R5.2's own instrument —
+    which moves the opposite way when the change is a sharpening rather than a
+    defect. Neither number is a verdict alone; the certifier's region ledger is.
+    """
+    from focusstack.focus import focus_measure
+
     x0, y0, _x1, _y1 = crop
     row = []
     for i in (1, 2, 3, 4):
@@ -844,9 +882,13 @@ def kitchen_boxes(composite, reference, crop, label=""):
         a = composite[by0:by1, bx0:bx1].astype(np.float32)
         b = reference[y0 + by0:y0 + by1, x0 + bx0:x0 + bx1].astype(np.float32)
         delta = np.abs(a - b)
-        row.append((float(delta.mean()), float(delta.max())))
+        focus = float(focus_measure(
+            to_gray_float(composite).astype(np.float32))[by0:by1, bx0:bx1].mean())
+        row.append((float(delta.mean()), float(delta.max()), focus))
     if label:
-        print(f"  {label:<26} " + "  ".join(f"{m:6.2f}/{p:3.0f}" for m, p in row))
+        cells = ("  ".join(f"{f:10.1f}" for _m, _p, f in row) if energy
+                 else "  ".join(f"{m:6.2f}/{p:3.0f}" for m, p, _f in row))
+        print(f"  {label:<26} {cells}")
     return row
 
 
@@ -857,12 +899,21 @@ def kitchen_flank(composite, reference, crop, label=""):
     knob = np.zeros(delta.shape, bool)
     knob[KNOB[1]:KNOB[3], KNOB[0]:KNOB[2]] = True
     values = delta[box]
+    outside = box & ~knob & (delta > 12)
     stats = (float(np.nanmean(values)), float(np.nanmax(values)),
              100.0 * float(np.nanmean(values > 12)),
              100.0 * float(np.nanmean(delta[box & ~knob] > 12)))
     if label:
+        where = ""
+        if outside.any():
+            ys, xs = np.nonzero(outside)
+            # WHERE the tail is, not just how big: the knob's own recorded box is
+            # a 10x70 box for a 30x70 object (round A, §7.3), so a tail one or
+            # two rows outside it is still the knob.
+            where = (f"  [{int(outside.sum())} px at x{xs.min()}-{xs.max()} "
+                     f"y{ys.min()}-{ys.max()}]")
         print(f"  {label:<26} mean {stats[0]:5.3f}  max {stats[1]:5.0f}  "
-              f">12 {stats[2]:5.2f}%  (knob removed {stats[3]:.2f}%)")
+              f">12 {stats[2]:5.2f}%  (knob box removed {stats[3]:.2f}%){where}")
     return stats
 
 
@@ -1117,7 +1168,11 @@ def kitchen() -> None:
     before = kitchen_boxes(result.base, reference, crop, "input routed (the bar)")
     after = kitchen_boxes(final, reference, crop, "scene-model, vetoed")
     worse = [i + 1 for i, (a, b) in enumerate(zip(before, after)) if b[0] > a[0] + 0.01]
-    print(f"  regressed boxes: {worse if worse else 'NONE'}")
+    print(f"  regressed on |Δ| vs the reference: {worse if worse else 'NONE'}")
+    print(f"  the counter-instrument — mean FOCUS ENERGY in the same boxes "
+          f"(higher = sharper):")
+    kitchen_boxes(result.base, reference, crop, "input routed", energy=True)
+    kitchen_boxes(final, reference, crop, "scene-model, vetoed", energy=True)
 
     print(f"\n  --- BAR B: the canonical F108 flank box (x560-670, y240-420) ---")
     kitchen_flank(result.base, reference, crop, "input routed (the bar)")
@@ -1191,8 +1246,10 @@ def _save_rewrite_map(result, final_rewrite, path):
     grey = cv2.cvtColor(cv2.cvtColor(base.astype(np.uint8), cv2.COLOR_BGR2GRAY),
                         cv2.COLOR_GRAY2BGR).astype(np.float32)
     colour = np.zeros_like(base)
+    # No grey in the palette: the base is drawn greyscale, so a grey layer would
+    # be invisible exactly where the map has something to say.
     palette = np.array([[60, 60, 220], [60, 200, 60], [220, 160, 60],
-                        [200, 60, 200], [60, 220, 220], [180, 180, 180]], np.uint8)
+                        [200, 60, 200], [60, 220, 220], [40, 140, 255]], np.uint8)
     for i in range(len(result.dec.masks)):
         colour[final_rewrite & (result.layer_of == i)] = palette[i % len(palette)]
     reverted = result.rewritten & ~final_rewrite
@@ -1243,16 +1300,38 @@ def orderguard() -> None:
     cases = [("factory", P.build_stack()[0], P.REFERENCE, None),
              ("kitchen", normalize_exposure(src), len(src) // 2, src)]
     print(f"  {'scene':<10} {'guard':<8} {'rewritten':>10} {'members/px':>11} "
-          f"  near_is_low")
+          f"{'OCCLUDED':>9}   near_is_low")
+    kept = {}
     for name, images, ref, raw in cases:
         for guard in ("any", "nearer"):
-            LD._CACHE.clear()
             result = assemble(images, ref, order_guard=guard,
                               raw=raw if raw is not None else images)
+            kept[(name, guard)] = result
             members = result.diag["members"][result.diag["rewrite_full"]]
+            counts = result.diag["refusals"]
             print(f"  {name:<10} {guard:<8} {result.rewritten.mean() * 100:9.2f}% "
                   f"{float(members.mean()) if members.size else 0:11.2f}"
+                  f" {counts['occluded'] / max(1, counts['owned frames']) * 100:8.3f}%"
                   f"   near_is_low={result.dec.near_is_low}")
+    print("\n  the same runs, by refusal stage (share of owned pixel-frames)")
+    print(f"  {'scene':<10} {'guard':<8} {'no geom':>8} {'off-frame':>10} "
+          f"{'occluded':>9} {'diff surface':>13} {'admitted':>9}")
+    for key, result in kept.items():
+        counts = result.diag["refusals"]
+        total = max(1, counts["owned frames"])
+        print(f"  {key[0]:<10} {key[1]:<8} "
+              f"{counts['no geometry'] / total * 100:7.2f}% "
+              f"{counts['outside the frame'] / total * 100:9.2f}% "
+              f"{counts['occluded'] / total * 100:8.3f}% "
+              f"{counts['different surface'] / total * 100:12.2f}% "
+              f"{counts['admitted'] / total * 100:8.2f}%")
+    print("\n  Read the OCCLUDED column first. B1's boundary band already declines a\n"
+          "  5 px ribbon at every layer boundary, and on both scenes the differential\n"
+          "  motion between adjacent layers is smaller than that ribbon — so the\n"
+          "  visibility test has almost nothing left to refuse, and the two guards are\n"
+          "  indistinguishable. That is decompose_NOTES §9's own prediction, measured:\n"
+          "  ordering is non-load-bearing for a reconstruction that does NOT complete\n"
+          "  occluded content, and it becomes load-bearing the moment one does.")
 
 
 def render() -> None:

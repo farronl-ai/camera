@@ -20,6 +20,7 @@ import numpy as np
 from focusstack.align import align_stack
 from focusstack.pipeline import run
 from focusstack.twoframe import (GATE_TOL, EdgeEvidence, gate_shift, global_stage,
+                                 twoframe_fullres,
                                  twoframe_stack)
 
 
@@ -219,3 +220,41 @@ def test_the_ported_gate_separates_a_correct_fit_from_a_wrong_one():
     status, statistic, _why = gate_shift(evidence, 1, indices, (-12.0 + 8.0, 0.0))
     assert status == "contradicted", (status, statistic)
     assert abs(statistic - 8.0) < 1.0, statistic
+
+
+def test_the_full_resolution_transfer_agrees_with_its_own_analysis():
+    """Above the working width the geometry is carried to native pixels by matrix
+    conjugation (F107). The KAT feeds a 2x upscale as the 'natives' and asks
+    whether the native result, brought back down, matches the working-scale run
+    it came from — measured against this KAT's own resample floor, because no
+    transfer can score below the 2x-up/area-down round trip itself.
+    """
+    stack, ref = _stranded_object_stack(step_px=6.0)
+    h, w = stack[0].shape[:2]
+    natives = [cv2.resize(f, (2 * w, 2 * h), interpolation=cv2.INTER_CUBIC)
+               for f in stack]
+    native, info = twoframe_fullres(natives, working_width=w, ref=ref)
+    working = info["working_fused"]
+    scale = info["scale"]
+    assert abs(scale - 2.0) < 1e-6
+
+    wx0, wy0, wx1, wy1 = info["working_crop"]
+    nx0, ny0, nx1, ny1 = info["crop"]
+    x0 = int(np.ceil(max(wx0, nx0 / scale))) + 4
+    y0 = int(np.ceil(max(wy0, ny0 / scale))) + 4
+    x1 = int(min(wx1, nx1 / scale)) - 4
+    y1 = int(min(wy1, ny1 / scale)) - 4
+    left = working[y0 - wy0:y1 - wy0, x0 - wx0:x1 - wx0].astype(np.float32)
+    right = native[int(y0 * scale) - ny0:int(y1 * scale) - ny0,
+                   int(x0 * scale) - nx0:int(x1 * scale) - nx0]
+    down = cv2.resize(right, (left.shape[1], left.shape[0]),
+                      interpolation=cv2.INTER_AREA).astype(np.float32)
+    transfer = float(np.abs(down - left).max(axis=2).mean())
+
+    floor = cv2.resize(natives[ref], (w, h), interpolation=cv2.INTER_AREA)
+    floor = float(np.abs(floor[y0:y1, x0:x1].astype(np.float32)
+                         - stack[ref][y0:y1, x0:x1].astype(np.float32))
+                  .max(axis=2).mean())
+    control = float(np.abs(stack[ref][y0:y1, x0:x1].astype(np.float32) - left)
+                    .max(axis=2).mean())
+    assert transfer < max(4.0 * floor, control), (transfer, floor, control)

@@ -1017,7 +1017,7 @@ def twoframe_fullres(natives, working_width=WORKING_WIDTH, ref=None, **kwargs):
                         interpolation=cv2.INTER_AREA) for f in natives]
     if ref is None:
         ref = len(small) // 2
-    _working_fused, info = twoframe_stack(small, ref, **kwargs)
+    working_fused, info = twoframe_stack(small, ref, **kwargs)
 
     S = np.diag([scale, scale, 1.0])
     S_inv = np.diag([1.0 / scale, 1.0 / scale, 1.0])
@@ -1060,6 +1060,8 @@ def twoframe_fullres(natives, working_width=WORKING_WIDTH, ref=None, **kwargs):
     common = np.logical_and.reduce(valids)
     x0, y0, x1, y1 = A._largest_valid_rectangle(common)
     info["scale"] = scale
+    info["working_crop"] = info["crop"]
+    info["working_fused"] = working_fused
     info["crop"] = (x0, y0, x1, y1)
     return fused[y0:y1, x0:x1].copy(), info
 

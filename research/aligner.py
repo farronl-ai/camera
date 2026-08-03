@@ -87,6 +87,32 @@ GATE_TOL = SM.TF.GATE_TOL
 # asserts this value. If the instrument's convention ever changes, that KAT fails
 # loudly instead of the affine fit quietly diverging (§12.1).
 MATCH_SIGN = 1.0
+# The affine-agreement merge (round 2) iterates fit -> merge -> refit to a fixed
+# point. The cap exists only so a pathological scene cannot spin: piece count is
+# strictly decreasing per round and asserted, so the loop terminates on its own.
+MERGE_MAX_ROUNDS = 8
+# Points sampled from a candidate merge's own support when its two affines are
+# compared. The comparison is a mean over the support, so a few thousand points
+# resolve it far below GATE_TOL; the cap is only there to keep the pairwise sweep
+# cheap when a scene over-segments into dozens of pieces.
+MERGE_SAMPLE = 3000
+# Degrees of freedom of a PIECE's residual motion, on top of the whole-frame affine
+# the global stage already fitted. Two, not six, and this is physics rather than
+# thrift: rotation and magnification (the camera's breathing) are DEPTH-INDEPENDENT
+# — exactly the property that makes breathing separable from parallax and lets ONE
+# global affine carry both — while PARALLAX is a translation whose magnitude is
+# linear in inverse depth. So a piece's residual relative to the global affine is,
+# to first order, a pure TRANSLATION: two unknowns against thousands of
+# normal-profile constraints, which stays determined on a small piece where six
+# unknowns do not (§12.4/§12.6). Round 1 fitted six per piece and paid for it in the
+# merge: over-segmented pieces of ONE surface disagreed by 1.75-53 px purely from
+# the linear part's extrapolation noise, so motion agreement was unmeasurable and
+# the merge could not fire at all. The bar this must clear is unchanged (K2, 0.2 px).
+PIECE_DOF = 2
+# ...and the model order of the FINAL transform, once the merge has produced pieces
+# large enough to determine it. Round 1's K2 bar (0.159 px on true pieces) is a
+# 6-DoF number and stays one.
+FINAL_DOF = 6
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +273,18 @@ def _material_sites(gray, mask, exclude):
     return edges & inside & mask & ~exclude
 
 
-def fit_affine(ref_gray, frame, prior, sites, shape, iterations=3):
+def reference_cache(ref_gray):
+    """The reference's normals and contour profiles — computed once, not per fit.
+
+    Pure economy (§13): the merge refits every piece several times over, and these
+    two arrays depend only on the reference frame.
+    """
+    nx, ny = SM._unit_normals(ref_gray)
+    return nx, ny, SM._contour_profiles(ref_gray, nx, ny)
+
+
+def fit_affine(ref_gray, frame, prior, sites, shape, iterations=3, cache=None,
+               dof=6):
     """Residual affine of one piece, from normal-profile displacements.
 
     F116 measured this matcher against known answers: +1.00/+2.00 px read
@@ -261,10 +298,10 @@ def fit_affine(ref_gray, frame, prior, sites, shape, iterations=3):
     residual exceeds 2.5 MAD are dropped, twice.
     """
     matrix = np.asarray(prior, np.float64).copy()
-    nx, ny = SM._unit_normals(ref_gray)
-    prof_ref = SM._contour_profiles(ref_gray, nx, ny)
+    nx, ny, prof_ref = reference_cache(ref_gray) if cache is None else cache
     ys, xs = np.nonzero(sites)
-    if len(xs) < 24:
+    floor = 4 * dof                     # §12.4: four constraints per unknown
+    if len(xs) < floor:
         return matrix, {"sites": 0, "residual": float("nan"), "ok": False}
     cx, cy = (shape[1] - 1) / 2.0, (shape[0] - 1) / 2.0
     history = []
@@ -275,30 +312,36 @@ def fit_affine(ref_gray, frame, prior, sites, shape, iterations=3):
         prof_warp = SM._contour_profiles(_gray(warped), nx, ny)
         shift, peak = SM._match_dense(prof_ref, prof_warp)
         good = (peak[ys, xs] >= MG.MIN_PEAK) & (np.abs(shift[ys, xs]) < SM.CONTOUR_HALF)
-        if good.sum() < 24:
+        if good.sum() < floor:
             break
         gx, gy = xs[good] - cx, ys[good] - cy
         d = MATCH_SIGN * shift[ys[good], xs[good]].astype(np.float64)
         n_x, n_y = nx[ys[good], xs[good]].astype(np.float64), ny[ys[good], xs[good]].astype(np.float64)
         history.append(float(np.sqrt((d ** 2).mean())))
-        design = np.stack([n_x * gx, n_x * gy, n_x, n_y * gx, n_y * gy, n_y], 1)
+        if dof == 2:
+            design = np.stack([n_x, n_y], 1)
+        else:
+            design = np.stack([n_x * gx, n_x * gy, n_x, n_y * gx, n_y * gy, n_y], 1)
         weight = np.ones(len(d))
         for _trim in range(2):
             solution, *_ = np.linalg.lstsq(design * weight[:, None], d * weight, rcond=None)
             residual = np.abs(design @ solution - d)
             mad = np.median(residual) + 1e-6
             weight = (residual <= 2.5 * 1.4826 * mad).astype(np.float64)
-            if weight.sum() < 24:
+            if weight.sum() < floor:
                 weight = np.ones(len(d))
                 break
         step = np.eye(3)
-        step[0, 0] += solution[0]
-        step[0, 1] += solution[1]
-        step[1, 0] += solution[3]
-        step[1, 1] += solution[4]
-        # The fit is in centred coordinates; translate the centre back out.
-        step[0, 2] = solution[2] - solution[0] * cx - solution[1] * cy
-        step[1, 2] = solution[5] - solution[3] * cx - solution[4] * cy
+        if dof == 2:
+            step[0, 2], step[1, 2] = solution[0], solution[1]
+        else:
+            step[0, 0] += solution[0]
+            step[0, 1] += solution[1]
+            step[1, 0] += solution[3]
+            step[1, 1] += solution[4]
+            # The fit is in centred coordinates; translate the centre back out.
+            step[0, 2] = solution[2] - solution[0] * cx - solution[1] * cy
+            step[1, 2] = solution[5] - solution[3] * cx - solution[4] * cy
         matrix = matrix @ step
     return matrix, {"sites": int(good.sum()) if len(history) else 0,
                     "residual": history[-1] if history else float("nan"),
@@ -339,6 +382,194 @@ def motion_series(matrices, counts, pieces, n, ref, prior):
             out[(k, piece)] = identity + slope * (k - ref)
         diag[piece] = slope
     return out, diag
+
+
+# ---------------------------------------------------------------------------
+# 2b. THE AFFINE-AGREEMENT MERGE (round 2) — a cut must be earned by MOTION
+#
+# Round 1 measured the whole remaining gap into the piece CUT, and measured WHY:
+# `depth_from_focus`'s field has no threshold that both closes the true silhouette
+# ribbon and stays quiet inside one surface (24 pieces where truth has 3, cut
+# precision 23.71%). Per DEVSTYLE §12.3 that means the threshold is the wrong
+# instrument and a physical invariant is standing behind it. The invariant: TWO
+# PIECES SEPARATED BY A SPURIOUS CUT HAVE THE SAME MOTION. So the depth/focal jump
+# is demoted to a SEED that proposes candidate cuts, and the arbiter is the
+# measured per-piece affine — the same quantity the occlusion-order clause already
+# trusts, and the reason the finder becomes scene-independent (a ramp has no jump
+# to seed a cut, and an object standing on the ramp disagrees in motion whether or
+# not its focal peak resolves).
+# ---------------------------------------------------------------------------
+def _label_boundary(labels):
+    """Pixels where the label map changes — the cut set of THESE pieces.
+
+    After a merge the old watershed boundary is no longer the cut set: the cuts
+    that were merged away are gone, and only the surviving boundaries may seed the
+    silhouette gate or claim the reference's matte band.
+    """
+    field = labels.astype(np.float32)
+    kernel = np.ones((3, 3), np.uint8)
+    return (cv2.dilate(field, kernel) - cv2.erode(field, kernel)) > 0
+
+
+def _adjacency(labels, pieces):
+    """Shared 4-neighbour border length for every pair of pieces that touch.
+
+    Only ADJACENT pieces are merge candidates: a surface is contiguous (F93), so
+    two pieces on opposite sides of the frame agreeing in motion is a coincidence
+    of depth, not evidence that they are one piece.
+    """
+    keep = np.isin(labels, list(pieces))
+    counts = {}
+    for a, b, ka, kb in ((labels[:, :-1], labels[:, 1:], keep[:, :-1], keep[:, 1:]),
+                         (labels[:-1, :], labels[1:, :], keep[:-1, :], keep[1:, :])):
+        mask = (a != b) & ka & kb
+        if not mask.any():
+            continue
+        lo = np.minimum(a[mask], b[mask]).astype(np.int64)
+        hi = np.maximum(a[mask], b[mask]).astype(np.int64)
+        key, tally = np.unique(lo * (labels.max() + 1) + hi, return_counts=True)
+        for value, count in zip(key, tally):
+            pair = (int(value // (labels.max() + 1)), int(value % (labels.max() + 1)))
+            counts[pair] = counts.get(pair, 0) + int(count)
+    return counts
+
+
+def _affine_gap(m_a, m_b, xs, ys):
+    """RMS displacement between two affines over a support — in PIXELS.
+
+    Two candidate pieces are one surface iff ONE affine explains both, so the
+    comparison must be of the FIELDS over the support they would share, not of the
+    matrix entries (which have no common unit) and not of translation magnitude
+    alone (round 1's `travel`, which cannot see a rotation or a scale difference —
+    its own recorded crudeness, note 4).
+    """
+    a, b = np.asarray(m_a, np.float64), np.asarray(m_b, np.float64)
+    d = a - b
+    dx = d[0, 0] * xs + d[0, 1] * ys + d[0, 2]
+    dy = d[1, 0] * xs + d[1, 1] * ys + d[1, 2]
+    return float(np.sqrt((dx ** 2 + dy ** 2).mean()))
+
+
+def _support_sample(labels, members, rng):
+    ys, xs = np.nonzero(np.isin(labels, list(members)))
+    if len(xs) > MERGE_SAMPLE:
+        pick = rng.choice(len(xs), MERGE_SAMPLE, replace=False)
+        ys, xs = ys[pick], xs[pick]
+    return xs.astype(np.float64), ys.astype(np.float64)
+
+
+def merge_agreeing(labels, pieces, series, slopes, n, tol=None, verbose=False):
+    """Merge adjacent pieces whose fitted motion AGREES. Returns (labels, info).
+
+    Two clauses, and the difference between them is whether a measurement exists:
+
+    * AGREEMENT — both groups measured their own motion, and one affine explains
+      both supports to within `GATE_TOL` in every frame. That is the definition of
+      one surface, and it is a measurement, not a threshold on a proxy field.
+    * ADOPTION — a group whose motion is UNVERIFIABLE (no material-edge evidence in
+      any frame; `motion_series` gave it the global prior per F106) cannot agree
+      with anything, because agreement is a measurement. It also cannot stand alone:
+      an island too small or too smooth to measure, kept separate, asserts a
+      surface boundary no evidence supports AND keeps whole-frame geometry inside
+      a piece that may be nowhere near it. It is absorbed by the neighbour it
+      shares the longest border with — the surface it is most embedded in — and the
+      refit that follows re-measures the pair JOINTLY, so a wrong adoption shows up
+      as the merged piece's own fit residual rather than being locked in.
+
+    Chaining is the hazard (a~b, b~c, a!~c would merge a near piece to a far one
+    through an intermediate). Guarded two ways: candidates are consumed in
+    increasing order of disagreement, and each test is between the two GROUPS'
+    area-weighted affines, so a group that has already grown must still explain the
+    newcomer's support. Piece count is strictly decreasing, asserted by the caller.
+    """
+    tol = GATE_TOL if tol is None else tol
+    rng = np.random.default_rng(0)
+    parent = {p: p for p in pieces}
+    members = {p: [p] for p in pieces}
+    area = {p: float((labels == p).sum()) for p in pieces}
+    matrices = {p: {k: np.asarray(series[(k, p)], np.float64) for k in range(n)}
+                for p in pieces}
+
+    def find(p):
+        while parent[p] != p:
+            parent[p] = parent[parent[p]]
+            p = parent[p]
+        return p
+
+    def unite(a, b):
+        ra, rb = find(a), find(b)
+        if ra == rb:
+            return False
+        if area[ra] < area[rb]:
+            ra, rb = rb, ra
+        weight = area[ra] + area[rb]
+        for k in range(n):
+            matrices[ra][k] = (matrices[ra][k] * area[ra]
+                               + matrices[rb][k] * area[rb]) / weight
+        parent[rb] = ra
+        members[ra] = members[ra] + members[rb]
+        area[ra] = weight
+        return True
+
+    borders = _adjacency(labels, pieces)
+    unverifiable = {p for p in pieces if slopes.get(p) is None}
+    # --- clause 1: agreement, cheapest candidate first ------------------------
+    candidates = []
+    for (a, b), length in borders.items():
+        if a in unverifiable or b in unverifiable:
+            continue
+        xs, ys = _support_sample(labels, (a, b), rng)
+        gap = max(_affine_gap(series[(k, a)], series[(k, b)], xs, ys)
+                  for k in range(n))
+        candidates.append((gap, length, a, b))
+    candidates.sort()
+    agreed = kept = 0
+    for gap, _length, a, b in candidates:
+        ra, rb = find(a), find(b)
+        if ra == rb:
+            continue
+        xs, ys = _support_sample(labels, members[ra] + members[rb], rng)
+        group_gap = max(_affine_gap(matrices[ra][k], matrices[rb][k], xs, ys)
+                        for k in range(n))
+        if group_gap <= tol:
+            unite(a, b)
+            agreed += 1
+        else:
+            kept += 1
+    # --- clause 2: adoption of the unmeasurable -------------------------------
+    adopted = 0
+    for piece in sorted(unverifiable, key=lambda p: area[p]):
+        neighbours = [(length, other) for (a, b), length in borders.items()
+                      for other in ((b,) if a == piece else (a,) if b == piece else ())
+                      if find(other) != find(piece)]
+        if not neighbours:
+            continue
+        neighbours.sort()
+        if unite(piece, neighbours[-1][1]):
+            adopted += 1
+    out = np.zeros(labels.shape, np.int32) - 1
+    for index, root in enumerate(sorted({find(p) for p in pieces})):
+        out[np.isin(labels, members[root])] = index
+    stranded = out < 0
+    if stranded.any():                      # sub-MIN_PIECE residue: nearest piece
+        out[stranded] = 0 if not (~stranded).any() else out[~stranded][
+            cv2.distanceTransformWithLabels(stranded.astype(np.uint8) * 255,
+                                            cv2.DIST_L2, 3,
+                                            labelType=cv2.DIST_LABEL_PIXEL)[1][stranded] - 1]
+    info = {"merges": agreed + adopted, "agreed": agreed, "adopted": adopted,
+            "held": kept, "before": len(pieces),
+            "after": len({find(p) for p in pieces}),
+            "gaps": sorted(round(c[0], 3) for c in candidates)}
+    if verbose:
+        print(f"    merge: {info['before']} -> {info['after']} pieces "
+              f"({agreed} agreed within {tol} px, {adopted} unmeasurable adopted, "
+              f"{kept} cuts HELD by motion disagreement)")
+        if candidates:
+            print(f"      pairwise disagreement px: "
+                  f"{', '.join(f'{g:.2f}' for g, *_ in candidates[:6])}"
+                  f"{' ...' if len(candidates) > 6 else ''}  "
+                  f"max {max(c[0] for c in candidates):.2f}")
+    return out, info
 
 
 # ---------------------------------------------------------------------------
@@ -439,6 +670,7 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
     ref_gray = _gray(frames[ref])
 
     # --- the global affine prior, from the same instrument, whole-frame ---------
+    cache = reference_cache(ref_gray)
     prior = {}
     whole = np.ones(shape, bool)
     sites_all = _material_sites(ref_gray, whole, np.zeros(shape, bool))
@@ -447,7 +679,7 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
             prior[k] = np.eye(3)
             continue
         prior[k], _ = fit_affine(ref_gray, frames[k].astype(np.float32),
-                                 np.eye(3), sites_all, shape)
+                                 np.eye(3), sites_all, shape, cache=cache)
 
     # --- pieces, from globally-aligned frames ---------------------------------
     global_aligned = []
@@ -462,38 +694,82 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
         # The ORACLE rung: true pieces substituted for the recovered ones so the
         # ladder can attribute the remainder (F115's discipline, and F110's trap —
         # substitute ONE term, never a term plus its consequences).
-        edge = cv2.morphologyEx((labels % 2).astype(np.uint8), cv2.MORPH_GRADIENT,
-                                np.ones((3, 3), np.uint8)) > 0
+        edge = _label_boundary(labels)
         pdiag = {"cut": edge, "ribbon": edge, "n_pieces": len(np.unique(labels))}
     pieces = piece_table(labels)
 
-    # --- one affine per piece per frame ---------------------------------------
-    fitted, counts, fits = {}, {}, {}
-    band_exclude = _dilate(pdiag["cut"], SM.CONTOUR_HALF + SM.CONTOUR_SPAN)
-    if matrices is None:
+    # --- one affine per piece per frame, then the AGREEMENT MERGE to a fixed point
+    def fit_pieces(labels, pieces, cut, dof=None):
+        dof = PIECE_DOF if dof is None else dof
+        fitted, counts, fits = {}, {}, {}
+        band_exclude = _dilate(cut, SM.CONTOUR_HALF + SM.CONTOUR_SPAN)
         for piece in pieces:
-            mask = labels == piece
-            sites = _material_sites(ref_gray, mask, band_exclude)
+            sites = _material_sites(ref_gray, labels == piece, band_exclude)
             for k in range(n):
                 if k == ref:
                     fitted[(k, piece)] = np.eye(3)
                     counts[(k, piece)] = 0
                     continue
                 matrix, info = fit_affine(ref_gray, frames[k].astype(np.float32),
-                                          prior[k], sites, shape)
-                # A piece with too little material-edge evidence to overdetermine
-                # six unknowns (§12.4) is UNVERIFIABLE, not wrong: it keeps the
-                # global prior and contributes no weight to the series.
-                if not info["ok"] or info["sites"] < 4 * 6:
+                                          prior[k], sites, shape, cache=cache,
+                                          dof=dof)
+                # GRADUATED MODEL ORDER, §12.4 read forwards rather than as a veto:
+                # a piece that cannot overdetermine six unknowns may still
+                # overdetermine two, and the 2-DoF model is the physics of parallax
+                # (a depth-dependent translation on top of the global affine). Only
+                # a piece that cannot determine even that is UNVERIFIABLE, and then
+                # it keeps the global prior per F106 — it does NOT get the identity.
+                if dof > 2 and (not info["ok"] or info["sites"] < 4 * dof):
+                    matrix, info = fit_affine(ref_gray, frames[k].astype(np.float32),
+                                              prior[k], sites, shape, cache=cache,
+                                              dof=2)
+                    if info["ok"] and info["sites"] >= 8:
+                        info = dict(info, dof=2)
+                if not info["ok"] or info["sites"] < 4 * min(dof, info.get("dof", dof)):
                     fitted[(k, piece)] = np.asarray(prior[k], float)
                     counts[(k, piece)] = 0
                 else:
                     fitted[(k, piece)] = matrix
                     counts[(k, piece)] = info["sites"]
                 fits[(k, piece)] = info
+        return fitted, counts, fits
+
+    merge_log = []
+    if matrices is None:
+        cut = pdiag["cut"]
+        for _round in range(MERGE_MAX_ROUNDS):
+            fitted, counts, fits = fit_pieces(labels, pieces, cut)
+            series, slopes = motion_series(fitted, counts, pieces, n, ref, prior)
+            if len(pieces) < 2:
+                break
+            merged, info = merge_agreeing(labels, pieces, series, slopes, n,
+                                          verbose=verbose)
+            merge_log.append(info)
+            if info["merges"] == 0:
+                break
+            after = piece_table(merged)
+            # Monotone by construction (a merge only unites); ASSERTED because a
+            # fixed-point loop that can grow is a loop that can spin.
+            assert 0 < len(after) < len(pieces), (len(after), len(pieces))
+            labels, pieces = merged, after
+            cut = _label_boundary(labels)
+        # The merge is decided; now the TRANSFORM. The two want different model
+        # orders and the reason is the PRIOR: the whole-frame affine's linear part
+        # is a compromise across depths (it absorbs some of the differential
+        # parallax as shear/scale), so a piece can only shed it with six degrees of
+        # freedom — measured, not assumed: on TRUE pieces the 6-DoF refit reads
+        # 0.159 px worst against 3.570 px for the 2-DoF fit, because translation
+        # alone cannot undo a wrong linear part away from the sites' centroid. Six
+        # DoF is safe HERE and was not safe during the merge, because the merge ran
+        # on small over-segmented pieces and this runs on the merged ones.
+        fitted, counts, fits = fit_pieces(labels, pieces, cut, dof=FINAL_DOF)
         series, slopes = motion_series(fitted, counts, pieces, n, ref, prior)
+        pdiag = dict(pdiag)
+        pdiag["cut"] = cut
+        pdiag["n_pieces"] = len(pieces)
     else:
         series, slopes, fitted = matrices, {}, matrices
+        fits = {}
 
     # --- the blur rate, measured on THIS scene, from series-aligned frames -----
     provisional = []
@@ -610,6 +886,7 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
               "c": c, "peaks": peaks, "radius": radius, "measured_radii": measured_radii,
               "matrices": series, "raw_matrices": fitted, "prior": prior,
               "slopes": slopes, "fits": fits, "stages": stages, "gates": gates,
+              "merge": merge_log,
               "cut": pdiag["cut"], "ribbon": pdiag["ribbon"], "ref": ref,
               "withheld": float(np.mean([1.0 - u.mean() for u in usable]))}
     return aligned, usable, report
@@ -974,8 +1251,221 @@ def ladder(frames, truth, truth_image, recovered) -> dict:
     return rungs
 
 
+# ---------------------------------------------------------------------------
+# ROUND 2: THE KITCHEN — the real scene, and the contract's signature test
+# ---------------------------------------------------------------------------
+KITCHEN = os.path.join(HERE, "data", "mobiledepth", "Figure3", "kitchen")
+INSPECT = os.path.abspath(os.path.join(HERE, "..", "out", "inspect"))
+# `align_stack`'s own crop on this stack, so the canonical box coordinates in
+# `scene_model` (which are COMPOSITE coordinates of the routed path) apply
+# unchanged. Measured, not assumed: printed by the command below.
+KITCHEN_CROP = (15, 8, 742, 510)
+# The wall right of the cocoa tin, in INSPECTION coordinates: the place the F116
+# wall smear lived. Far frames must be GAPPED here, because the tin's parallax put
+# it over this wall in those frames, so they never observed it.
+WALL_BOX = (285, 50, 365, 170)
+
+
+def _gap_ledger(report, label=""):
+    """Per-frame gap statistics, attributed to the clause that withdrew them.
+
+    F114 predicts large holes on this scene; the failure mode to NAME is silent
+    over-refusal, which is invisible in any aggregate and obvious here.
+    """
+    keys = ["footprint", "occlusion", "gate", "photometry"]
+    print(f"  {label}per-frame GAP fraction, attributed to the clause that took it")
+    print(f"  {'k':>3}{'off-footprint':>15}{'occlusion':>11}{'gate':>9}"
+          f"{'photometry':>12}{'matte+dil':>11}{'TOTAL gap':>11}")
+    rows = []
+    for k, ledger in enumerate(report["stages"]):
+        values = [ledger[key] for key in keys] + [ledger["final"]]
+        parts = [1.0 - values[0]] + [values[i] - values[i + 1] for i in range(4)]
+        rows.append(parts + [1.0 - ledger["final"]])
+        print(f"  {k:>3}" + "".join(f"{100 * p:>14.2f}%" if i == 0 else
+                                    f"{100 * p:>10.2f}%" if i == 1 else
+                                    f"{100 * p:>8.2f}%" if i == 2 else
+                                    f"{100 * p:>11.2f}%" if i == 3 else
+                                    f"{100 * p:>10.2f}%"
+                                    for i, p in enumerate(parts))
+              + f"{100 * (1 - ledger['final']):>10.2f}%")
+    mean = np.array(rows).mean(axis=0)
+    print(f"  mean gap {100 * mean[-1]:.2f}% of pixel-frames  "
+          f"(footprint {100 * mean[0]:.2f}, occlusion {100 * mean[1]:.2f}, "
+          f"gate {100 * mean[2]:.2f}, photometry {100 * mean[3]:.2f}, "
+          f"matte {100 * mean[4]:.2f})")
+    return mean
+
+
+def _piece_map(report, reference, path):
+    labels = report["labels"]
+    palette = [(60, 180, 75), (245, 130, 48), (0, 130, 200), (240, 50, 230),
+               (70, 240, 240), (210, 245, 60), (0, 0, 200), (128, 128, 0),
+               (255, 225, 25), (145, 30, 180), (0, 128, 128), (170, 110, 40)]
+    tint = np.zeros(labels.shape + (3,), np.uint8)
+    for index, piece in enumerate(report["pieces"]):
+        tint[labels == piece] = palette[index % len(palette)]
+    blend = (0.55 * reference + 0.45 * tint).astype(np.uint8)
+    blend[report["cut"]] = (255, 255, 255)
+    cv2.imwrite(path, blend)
+
+
+def _wall_gap_figure(aligned, usable, report, reference, fused, origin, path):
+    """The contract's SIGNATURE: far frames gapped where the tin hid the wall."""
+    ox, oy = origin
+    x0, y0, x1, y1 = (WALL_BOX[0] + ox, WALL_BOX[1] + oy,
+                      WALL_BOX[2] + ox, WALL_BOX[3] + oy)
+    tiles, stats = [], []
+    for k, (image, mask) in enumerate(zip(aligned, usable)):
+        crop = image[y0:y1, x0:x1].astype(np.float32).copy()
+        hole = ~mask[y0:y1, x0:x1]
+        crop[hole] = 0.30 * crop[hole] + 0.70 * np.array([0, 0, 255], np.float32)
+        stats.append(float(hole.mean()))
+        tiles.append(np.clip(crop, 0, 255).astype(np.uint8))
+    cx0, cy0 = KITCHEN_CROP[0], KITCHEN_CROP[1]
+    tiles.append(fused[y0 - cy0:y1 - cy0, x0 - cx0:x1 - cx0])
+    tiles.append(reference[y0:y1, x0:x1])
+    scale, columns = 2, 7
+    height, width = tiles[0].shape[:2]
+    rows = int(np.ceil(len(tiles) / columns))
+    sheet = np.full((rows * (height * scale + 16), columns * (width * scale + 6), 3),
+                    32, np.uint8)
+    for index, tile in enumerate(tiles):
+        big = cv2.resize(tile, (width * scale, height * scale),
+                         interpolation=cv2.INTER_NEAREST)
+        r, c = divmod(index, columns)
+        oy0, ox0 = r * (height * scale + 16), c * (width * scale + 6)
+        sheet[oy0 + 16:oy0 + 16 + height * scale, ox0:ox0 + width * scale] = big
+        name = ("FUSED" if index == len(tiles) - 2 else "REFERENCE"
+                if index == len(tiles) - 1
+                else f"k={index} gap {100 * stats[index]:.0f}%")
+        cv2.putText(sheet, name, (ox0 + 2, oy0 + 12), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.35, (255, 255, 255), 1, cv2.LINE_AA)
+    cv2.imwrite(path, sheet)
+    return stats
+
+
+def sentinel() -> None:
+    """ZERO-MOTION ANCHOR: identity transforms, zero gaps (F101's standing bar).
+
+    Built exactly as `tests/test_twoframe_route.py::_still_stack` builds it — frames
+    that differ only by sensor noise, so nothing moved and nothing may be withheld.
+    """
+    print("\nZERO-MOTION SENTINEL — identity transforms, zero gaps expected")
+    source = cv2.imread(sorted(os.listdir(KITCHEN)) and
+                        os.path.join(KITCHEN, sorted(os.listdir(KITCHEN))[6]))
+    base = cv2.resize(source, (source.shape[1] // 2, source.shape[0] // 2))
+    rng = np.random.default_rng(11)
+    frames = [np.clip(base + rng.normal(0, 2, base.shape), 0, 255).astype(np.uint8)
+              for _ in range(4)]
+    aligned, usable, report = align(frames, ref=1)
+    worst = max(float(np.abs(np.asarray(report["matrices"][(k, p)]) - np.eye(3)).max())
+                for k in range(len(frames)) for p in report["pieces"])
+    gaps = [float((~u).mean()) for u in usable]
+    print(f"  pieces {len(report['pieces'])}  worst |M - I| entry {worst:.2e}  "
+          f"per-frame gap {['%.4f%%' % (100 * g) for g in gaps]}")
+    print(f"  VERDICT {'PASS' if max(gaps) < 1e-9 and worst < 1e-3 else 'SEE ABOVE'}"
+          f" (zero gaps: {max(gaps) == 0.0})")
+
+
+def kitchen() -> None:
+    """The aligner on the real scene, handed to the UNMODIFIED fusion cascade."""
+    import time
+    from focusstack.io import normalize_exposure
+
+    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(INSPECT, exist_ok=True)
+    t0 = time.time()
+    paths = sorted(os.path.join(KITCHEN, name) for name in os.listdir(KITCHEN)
+                   if name.endswith(".jpg"))
+    src = [cv2.imread(p) for p in paths]
+    norm = normalize_exposure(src)
+    ref = 6
+    print("=" * 78)
+    print(f"KITCHEN — {len(src)} frames {src[0].shape[1]}x{src[0].shape[0]}, "
+          f"reference {ref}, exposure-normalized")
+    print("=" * 78)
+    _g, global_report = align_stack(norm, motion="affine", depth_bins=0,
+                                    return_report=True)
+    print(f"  align_stack's own crop {global_report['crop']} "
+          f"(the canonical box coordinates live in it; "
+          f"{'matches' if tuple(global_report['crop']) == KITCHEN_CROP else 'DIFFERS FROM'}"
+          f" KITCHEN_CROP)")
+    aligned, usable, report = align(norm, ref=ref, verbose=True)
+    print(f"\n  PIECES {len(report['pieces'])}   travel px/frame "
+          f"{ {p: round(v, 2) for p, v in report['travel'].items()} }")
+    print(f"  order (nearest first) {report['order']}")
+    print(f"  same-depth groups (cannot occlude each other) {report['groups']}")
+    print(f"  c measured on THIS scene {report['c']:.3f} px/frame "
+          f"(F117: factory 1.161, kitchen 0.684 — do NOT import)   "
+          f"peaks {report['peaks']}")
+    areas = {p: int((report['labels'] == p).sum()) for p in report['pieces']}
+    print(f"  piece areas {areas}")
+    _piece_map(report, norm[ref], os.path.join(OUT, "kitchen_pieces.png"))
+    print(f"\n  --- GAP STATISTICS (F114 predicts large holes) ---")
+    _gap_ledger(report)
+
+    x0, y0, x1, y1 = KITCHEN_CROP
+    fused = fuse_perband([a[y0:y1, x0:x1] for a in aligned],
+                         usable=[u[y0:y1, x0:x1] for u in usable])
+    cv2.imwrite(os.path.join(OUT, "kitchen_fused.png"), fused)
+    reference = norm[ref]
+    print(f"\n  --- THE FOUR F112 USER BOXES (mean/max |Δ| vs norm[{ref}]) ---")
+    print(f"  {'candidate':<26} {'box 1':>10} {'box 2':>10} {'box 3':>10} "
+          f"{'box 4':>10}")
+    print(f"  {'routed default (recorded)':<26} {'1.20/  2':>10} {'2.04/ 13':>10} "
+          f"{'1.19/ 19':>10} {'1.03/ 17':>10}")
+    SM.kitchen_boxes(fused, reference, KITCHEN_CROP, "aligner + gaps + fuse_perband")
+    print(f"  the counter-instrument — mean FOCUS ENERGY in the same boxes:")
+    SM.kitchen_boxes(fused, reference, KITCHEN_CROP, "aligner", energy=True)
+    SM.kitchen_boxes(reference[y0:y1, x0:x1], reference, KITCHEN_CROP,
+                     "reference frame", energy=True)
+    print(f"\n  --- THE F108 FLANK BOX (x560-670, y240-420) vs norm[{ref}] ---")
+    print(f"  {'routed default (recorded)':<26} mean 0.897  >12 0.01%")
+    SM.kitchen_flank(fused, reference, KITCHEN_CROP, "aligner + gaps")
+
+    # --- the inspector layer, registered to the EXISTING reference layer -------
+    target = cv2.imread(os.path.join(INSPECT, "kitchen_reference.png"))
+    origin = (x0, y0)
+    if target is None:
+        print("\n  out/inspect/kitchen_reference.png absent — registration skipped")
+    else:
+        patch = target[100:300, 100:400]
+        scored = cv2.matchTemplate(reference, patch, cv2.TM_CCOEFF_NORMED)
+        _mn, score, _ml, location = cv2.minMaxLoc(scored)
+        ox, oy = location[0] - 100, location[1] - 100
+        origin = (ox, oy)
+        th, tw = target.shape[:2]
+        layer = reference[oy:oy + th, ox:ox + tw].copy()
+        piece = fused[oy - y0:oy - y0 + th, ox - x0:ox - x0 + tw]
+        layer[:piece.shape[0], :piece.shape[1]] = piece
+        cv2.imwrite(os.path.join(INSPECT, "kitchen_aligner.png"), layer)
+        print(f"\n  inspector layer registration score {score:.4f} "
+              f"({'PASS' if score >= 0.99 else 'FAIL'}), crop origin ({ox}, {oy}) "
+              f"-> out/inspect/kitchen_aligner.png")
+
+    print(f"\n  --- THE WALL-SMEAR TEST (wall right of the cocoa tin, "
+          f"inspection x{WALL_BOX[0]}-{WALL_BOX[2]} y{WALL_BOX[1]}-{WALL_BOX[3]}) ---")
+    stats = _wall_gap_figure(aligned, usable, report, reference, fused, origin,
+                             os.path.join(OUT, "kitchen_wall_gaps.png"))
+    print("  gap fraction inside the wall box, per frame: "
+          + "  ".join(f"k{k}:{100 * s:.0f}%" for k, s in enumerate(stats)))
+    print(f"  reference frame k={ref} gap {100 * stats[ref]:.0f}% "
+          f"(must be 0 by construction); "
+          f"frames furthest from it {100 * stats[0]:.0f}% / {100 * stats[-1]:.0f}%")
+    print(f"  -> out/aligner/kitchen_wall_gaps.png "
+          f"(red = GAP; last two tiles are the FUSED result and the reference)")
+    print(f"\n  elapsed {time.time() - t0:.1f} s")
+
+
 def main() -> None:
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
+    if which == "kitchen":
+        kitchen()
+        sentinel()
+        return
+    if which == "sentinel":
+        sentinel()
+        return
     frames, truth_image, _near = P.build_stack()
     truth = factory_truth()
     print(f"\nANALYTIC FACTORY: {P.FRAMES} frames, reference {P.REFERENCE}, "

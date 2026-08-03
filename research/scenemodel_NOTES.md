@@ -984,3 +984,317 @@ with its own KAT, which is B3's size, not a micro-round's.
 Also open, and cheap: 26% of the frontier at d3a is loud AGAIN after one
 application (33 of 126), so the residual-loud-frontier figure of §17 (653 of
 9489, 6.9%) is concentrated exactly where the eye complains.
+
+---
+
+# ROUND B3a — CONTOUR CONTINUITY: the instrument, and the clause it licenses
+
+§23d closed the last micro-round with a charter rather than a fix: *the missing
+instrument is a statement about contour continuity — a rewrite may not move a
+strong image contour that both the input and the reference agree on.* This
+section builds it, known-answer-tests it, and ships it as clause 4 of the veto
+stack. `research/scene_model.py` is again the only file changed; `src/**`,
+`tests/**`, `forward_certify.py` and `layer_decompose.py` are untouched, 94 tests
+pass.
+
+```
+.venv/bin/python research/scene_model.py contourkat  # NEW: the instrument's KAT
+.venv/bin/python research/scene_model.py kitchen     # writes out/certify/B3_defect{1,3}.png
+```
+
+## 24. Why the evidence already in the module cannot see a displaced contour
+
+Worth stating once, because it is the argument for spending a round on an
+instrument instead of a threshold. Every arbiter this module owns is blind to
+edge POSITION, and each for its own reason:
+
+| evidence | why it cannot see a 1-2 px contour displacement |
+|---|---|
+| the certifier, pooled (§16) | its floor is a few dozen pixels; box 1's defect is 6 |
+| `agreement_budget` (§17.3) | at a steep contour the budget is TENS of levels (median 13.9 at the junction) and a 1 px displacement of a steep edge stays inside it |
+| B1's boundary band (§23b) | both defects are 3.6-11.6 px from any edge the decomposition drew |
+| focus energy (§23c) | monotone in edge CONTRAST, blind to edge POSITION — both defects RAISE it while moving a contour |
+
+The last row is the one that matters most: the module's own counter-instrument
+does not merely fail to catch this class, it *endorses* it. Any instrument that
+replaces it has to measure position directly.
+
+## 25. The instrument
+
+> A rewrite may not MOVE a strong contour that the input composite and the
+> reference frame AGREE on.
+
+`contour_continuity(candidate, base, reference)`. All three images are already
+in reference geometry, so **no motion is being fitted** — this is a test of
+STASIS. That is why F92's material/limb distinction does not apply here and is
+deliberately not used: a limb that has not moved between two observations in one
+geometry is exactly as much a fixed contour as a printed edge is. (§15's wedge
+crossing the Lubriderm silhouette is a limb, and it is precisely the contour the
+clause has to hold still.)
+
+The measurement is the arc's most-validated one, applied densely instead of at
+sparse features: **correlate GRADIENT profiles along the contour normal**
+(PLAYBOOK — not intensity, because defocus biases an intensity profile outward;
+integrate a little along the edge; trust only the normal component). The
+arithmetic is `motion_groups._match`'s, unchanged, vectorized over every pixel
+with one `cv2.remap` per (normal offset, tangent offset) pair.
+
+Three matches per site:
+
+```
+d_agree = shift(base -> reference)     do the two observations agree?
+d_move  = shift(base -> candidate)     did the rewrite move it?
+d_ref   = shift(reference -> candidate)
+```
+
+AGREED = a confident match (`motion_groups.MIN_PEAK`, borrowed) at
+`|d_agree| <= CONTOUR_TOL`. VIOLATION = the rewrite moved that contour past the
+same tolerance away from BOTH observations — a rewrite that moves a contour
+*towards* the reference is not moving a contour they agree on.
+
+**The instrument works for exactly the reason PLAYBOOK records as a hazard.**
+"A blurred profile correlates CONFIDENTLY against a sharp one at about zero
+shift" is a defocus bias when you are estimating motion. Here it is the required
+property: a legitimate sharpening must read ZERO, and it does (§26a).
+
+**The constants, and where each comes from.** `CONTOUR_TOL = 0.5` px is the only
+new number and it is not tuned: half a pixel is the largest displacement that
+cannot carry a contour to a different pixel of the grid the composite is stored
+on. It is used TWICE and identically — to define AGREEMENT and to define
+MOVEMENT — so the clause says one thing: *the rewrite may not disagree with the
+two observations by more than they disagree with each other.* Sites are Canny's,
+at `_material_features`' own 60/180 on the same smoothed uint8, so "strong
+contour" is the repo's existing definition. The profile geometry
+(`CONTOUR_HALF = 6`, `CONTOUR_SPAN = 1`) is chosen on the KAT sweep in §26b and
+on no bar.
+
+## 26. KAT — four questions, before the clause was wired to anything
+
+`scene_model.py contourkat`.
+
+### 26a. The correlator, against exactly-known answers
+
+A 150-level step edge in a textured field, displaced by a known amount.
+
+| candidate | measured | truth | peak |
+|---|---:|---:|---:|
+| identity | 0.000 | 0.00 | 1.000 |
+| shift +0.25 px | 0.169 | 0.25 | 0.970 |
+| shift +0.50 px | 0.500 | 0.50 | 0.867 |
+| shift +1.00 px | **1.000** | 1.00 | 1.000 |
+| shift +2.00 px | **2.000** | 2.00 | 1.000 |
+| SHARPENED (disk 1 -> sharp) | **-0.000** | 0.00 | 0.970 |
+| SHARPENED (disk 2 -> sharp) | **-0.000** | 0.00 | 0.890 |
+| SHARPENED (disk 4 -> sharp) | **0.005** | 0.00 | 0.637 |
+
+Exact at 1 and 2 px; the sharpening rows read zero and flag **0 of 120** agreed
+sites. The 0.25 px row under-reads (0.169) and is reported rather than hidden —
+it is below the tolerance either way, so it cannot change a verdict, but the
+instrument is not linear down there.
+
+### 26b. The profile geometry, chosen on the KAT and not on a bar
+
+One strip of the factory's own TRUTH pasted into the input composite and
+translated by a known amount. A translation in x moves a contour by `shift * nx`
+along ITS OWN normal, so a horizontal contour translated horizontally has not
+moved: the known answer is **per site**, not per strip, and the hit rate is
+scored only against sites whose own normal can see the injected motion. (Scored
+against every agreed site in the strip instead, the same rows read 32.5% and
+47.0% — the aperture problem, not a miss.)
+
+| half | span | hit @1 px | hit @2 px | 0 px control |
+|---:|---:|---:|---:|---:|
+| 4 | 0 | 59.5% | 72.2% | 0 |
+| 4 | 1 | 59.7% | 74.7% | 0 |
+| 4 | 2 | 58.1% | 76.5% | 0 |
+| 6 | 0 | 70.1% | 74.1% | 0 |
+| **6** | **1** | **70.9%** | **78.4%** | **0** |
+| 6 | 2 | 68.2% | 80.4% | 0 |
+| 8 | 0 | 55.6% | 68.4% | 0 |
+| 8 | 1 | 56.5% | 72.1% | 0 |
+| 8 | 2 | 53.8% | 73.6% | 0 |
+
+The rule, fixed before the table was read: maximize the **1 px** hit rate — the
+size of the defect class this exists for — with a clean 0 px control. That picks
+(6, 1) uniquely. Every row's control is 0 and no row's off-strip false-alarm
+rate exceeds 0.00%, so the choice is a sensitivity choice, not a
+sensitivity/specificity trade.
+
+### 26c. False alarms on legitimate sharpening, adjudicated by GROUND TRUTH
+
+The hard question, and the factory is the one scene that can answer it. The
+candidate is the factory's own assembled composite after the SHIPPED (106e2f5)
+veto stack — sharper-but-mostly-unmoved contours in abundance. A flag is a FALSE
+ALARM only if the rewrite put the contour CLOSER to the truth than the input had
+it, and that is measurable here.
+
+| | |
+|---|---:|
+| agreed contour px inside the rewrite | 4114 |
+| FLAGGED | **6 (0.15%)** |
+| of those, closer to truth after the rewrite (= FALSE ALARM) | **2 (0.049% of tested sites)** |
+| median \|contour − truth\| at the flagged sites, input -> rewrite | 0.26 -> **0.52** px |
+| the same, at the sites the clause KEEPS | 0.04 -> **0.05** px |
+
+Two readings. The clause's false-alarm rate on real legitimate sharpening is
+**0.049%**, and four of its six factory flags are genuine — the rewrite really
+did move those contours away from the truth. And the bottom row is the cleanest
+statement of what the instrument is not doing: on the 4108 contours it leaves
+alone, the rewrite holds them 0.05 px from the truth, i.e. it is not policing
+sharpening at all.
+
+### 26d. The two kitchen residuals, from their coordinates alone
+
+The instrument is run on the whole frame with no knowledge of either box; the
+boxes are read off afterwards.
+
+| residual | agreed px | FLAGGED | max \|d\| |
+|---|---:|---:|---:|
+| box 1 fleck (inspection x482-484 y150-153) | 3 | **2** | 1.68 px |
+| box 4 shelf junction (x431-492 y192-270) | 43 | **17** | 1.61 px |
+
+Both. Over the whole kitchen rewrite it flags **209 of 1094** agreed contour px
+(19.10%) against the factory's 0.15% — a 127x difference between the two scenes
+that is itself a finding (§29.1).
+
+## 27. The clause, and where it is allowed to sit
+
+`steady_contours`, clause 4 of `veto_all`. The candidate tested is the composite
+the pipeline would actually ship at that point — `keep` applied to the base — not
+the raw assembly, because a displacement the earlier clauses already reverted is
+not this clause's to punish. Reversion reuses `quiet_frontier`'s machinery
+unchanged: the violating site plus everything within `FRONTIER_SLACK =
+ceil(GATE_TOL) = 2` px of it, ONE application. No new tuned number.
+
+**Its position is forced, not preferred.** §23a measured `quiet_frontier` to be
+NON-MONOTONE in its input — its `bad` set is seeded by loud pixels lying ON the
+frontier, so deleting a rewrite pixel upstream deletes a seed and its 2 px disc,
+and a clause placed in front of it made it withdraw LESS (438 rescued pixels, 7
+inside the knob, 0.95x -> 1.58x). Placed after it, a clause can only remove. The
+assertion in `veto_all` proves it did, and it is the instrument that would catch
+the mistake before any bar was read.
+
+The ladder, one clause per rung (kitchen):
+
+| rung | rewritten | certifier | knob | box 1 | box 2 | box 3 | box 4 |
+|---|---:|---:|---:|---|---|---|---|
+| input routed | — | 9.5242 | 2.13x | **61** | **17** | **101** | **127** |
+| V0 = B2, region veto only | 25.0% | 8.7599 | 0.54x | 107 | 63 | 101 | 116 |
+| V3 = 106e2f5 shipped | 19.0% | 8.6971 | 0.95x | 98 | 16 | 101 | 116 |
+| **V4 + contour clause (B3a)** | **18.60%** | **8.7210** | **1.01x** | **61** | **16** | **101** | **119** |
+
+1421 px, 2.1% of the kept rewrite. It is the cheapest clause in the stack by
+pixels and the only one that fixes box 1.
+
+## 28. Re-acceptance bars, measured
+
+| bar | routed | 106e2f5 | B3a | verdict |
+|---|---:|---:|---:|---|
+| factory GT-SSIM >= 0.979453 (hard floor) | 0.979453 | 0.982061 | **0.982034** | **PASS**, −0.000028 vs 106e2f5 |
+| factory certifier | 3.3051 | 2.6725 | **2.6730** | +0.0005, flat |
+| kitchen certifier (must beat routed 9.5242) | 9.5242 | 8.6971 | **8.7210** | **PASS**, +0.0239 vs 106e2f5 |
+| kitchen, whole certified frame vs input | — | −0.8290 | **−0.8313** | improved |
+| F112 knob <= 1.50x | 2.13x | 0.95x | **1.01x** | **PASS** |
+| F108 flank > 12 | 0.57% / max 45 | 0.23% / max 29 | **0.23% / max 29** | **PASS**, identical |
+| **box 1 max <= 61** | 61 | 98 (MISS) | **61** | **PASS — the arc's standing miss is closed** |
+| box 2 max <= 17 | 17 | 16 | **16** | **PASS** |
+| box 3 max <= 101 | 101 | 101 | **101** | **PASS** |
+| box 4 max <= 127 | 127 | 116 | **119** | **PASS** |
+| registration of the inspection layer | — | 1.0000 | **1.0000** | **PASS** |
+| tests | 94 | 94 | **94** | **PASS** |
+| byte-identity outside the rewrite | — | asserted | **asserted** | **PASS** |
+| strict subset of 106e2f5's rewrite | — | — | **0 rescued, identical where both write** | **PASS** |
+
+Strict-subset ledger: kitchen 69294 -> **67873** px, factory 117314 -> **117245**
+px, 0 rescued on either scene, pixel-identical where both write. So every pixel
+of this composite is either the shipped routed input or a pixel 106e2f5 already
+had, and 106e2f5's is a strict subset of B2's — the chain from §17 is unbroken.
+
+### The two residuals, by eye and by number
+
+`out/certify/B3_defect{1,3}.png` (ROUTED | 106e2f5 SHIPPED | CONTOUR-VETOED |
+REFERENCE, 6x; the flagged sites are drawn in red on the third panel) and
+`out/certify/B3_defect3_band.png` (the junction at 12x).
+
+1. **Box 1 — the fleck is GONE.** Five of its six pixels revert; the sixth,
+   (483, 150), goes with them once the geometry chosen in §26b flags two sites
+   instead of one. Box 1's max |Δ| falls to exactly the routed 61 with **zero**
+   pixels above it, and its mean is the best of any composite in the arc (6.14
+   routed, 7.48 B2, 6.19 at 106e2f5, **5.46**). Focus energy 44.8 against
+   106e2f5's 44.7 and the routed 41.8 — the withdrawal did **not** cost the
+   box's resolved background structure, which is the outcome §19 could not get.
+2. **Box 4 — the junction is repaired, and §23c's own instrument says so.** Row
+   means across the contour (x431-492):
+
+   | row | routed | 106e2f5 | contour-vetoed | reference |
+   |---:|---:|---:|---:|---:|
+   | 202 | 134.5 | 160.0 | **142.9** | 140.6 |
+   | 203 | 83.1 | 124.5 | **93.5** | 101.5 |
+
+   106e2f5 was 25 and 41 levels off the reference at the two rows that carry the
+   contour; B3a is 2 and 8. At row 202 the vetoed composite is **closer to the
+   reference than the routed input is.** By eye the staircase of dark bites into
+   the yellow is gone and the edge reads as the reference does, with a small
+   jagged remnant near the middle-left. Box 4's max rises 116 -> 119 and its mean
+   falls 5.02 -> 4.71: reverting toward the input necessarily moves the max
+   toward the input's own 127, and 119 is inside the bar.
+
+## 29. NEGATIVES, surprises, and honest limits
+
+1. **The kitchen flags 19.10% of its agreed contour pixels and the factory
+   0.15%.** A 127x ratio. Some of it is real — the kitchen assembly does displace
+   contours, which is the whole premise of the round — but 209 flagged sites is
+   far more than the two residuals account for, and the clause reverts 1421 px on
+   their account with no ground truth to adjudicate a single one. The factory's
+   adjudicated 0.049% false-alarm rate is the ONLY calibrated number here and it
+   comes from a scene whose blur model residual is 0.25x its slope against the
+   kitchen's 3.5x (§13.1). **This bound does not transfer, and it is the round's
+   largest open risk.**
+2. **The clause costs certifier levels on both scenes** (kitchen +0.0239,
+   factory +0.0005 and −0.000028 GT-SSIM). Small, and expected: the certifier
+   cannot see this defect class (§24), so anything the clause does is invisible to
+   it except as lost rewrite. But it means the certifier can never *confirm* this
+   clause, only fail to object — and a clause its own arbiter cannot score is a
+   clause that needs an external check every time it changes.
+3. **The instrument under-reads sub-pixel displacements below ~0.3 px** (0.169
+   measured at 0.25 px, §26a) and its 1 px hit rate is **70.9%**, not 100%. It
+   does not find every displaced contour; it finds enough of each cluster that
+   the 2 px slack covers it. A defect that displaced exactly one isolated contour
+   pixel with an unlucky normal would survive.
+4. **The aperture problem is real and unfixed.** A contour can only be tested
+   along its own normal, so a displacement parallel to a contour is invisible to
+   this instrument by construction. On the injected KAT that is 55% of the strip's
+   agreed sites. Combining differently-oriented contours around one outline
+   (PLAYBOOK's cure for the motion case) is available and was not built: it would
+   turn a per-pixel test into a per-object one, which is a different clause.
+5. **`CONTOUR_SPAN = 1` is a locality/noise trade, priced in §26b and not free.**
+   span 2 has a better 2 px hit rate (80.4% vs 78.4%) and finds ONE of the fleck's
+   three sites instead of two — which is exactly the difference between box 1 at
+   83 and box 1 at 61. The KAT rule (maximize the 1 px rate) was fixed before that
+   was known, and the table is printed in full so the choice is visible.
+6. **Not tried: reverting the whole connected cluster** rather than a 2 px disc.
+   The brief allowed it; the kitchen's largest rewrite component is 79019 px, so
+   "the cluster" is not a local object and reverting it would be a region veto
+   with extra steps. The disc is what `quiet_frontier` already does and it is what
+   the evidence supports — a displaced contour is a statement about a 1-2 px
+   neighbourhood.
+
+## 30. What B3 proper should take from here
+
+* **The instrument, not just the clause.** `contour_continuity` answers "did this
+  edit move a contour" for any candidate against any two agreeing observations.
+  A temporally-coherent motion series will produce composites whose contours must
+  also hold still, and this is the arbiter that can say so — the certifier
+  cannot, and F115 proved focus energy must not be asked.
+* **The general rule this round adds.** §22 recorded *a never-degrade rule that
+  evaluates only at one scale grants unconditional authority at every scale below
+  it.* B3a adds the orthogonal one: **a never-degrade rule that evaluates only
+  one QUANTITY grants unconditional authority over every other quantity.** Four
+  clauses of appearance evidence could not see a 1 px displacement because none
+  of them was measuring position. Before adding a fifth clause over the same
+  evidence, ask what the evidence is blind to.
+* **The factory is the only scene that can adjudicate a false alarm**, and it
+  did so here for the first time in this arc (§26c). Every future veto in this
+  module should be run through the factory's ground truth in the same way — flag,
+  then ask the truth which side of the flag is right — rather than reported as a
+  raw rate.

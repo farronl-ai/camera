@@ -1684,9 +1684,12 @@ def factory() -> None:
         result, scores["scene-model"], scores["input routed"], regions,
         verbose=True)
     region_only, region_rewrite = finalize(result, reverted)
+    previous, previous_rewrite = finalize(result, reverted,
+                                          vstats["shipped_106e2f5"])
     final_scores, _r = certify_candidates(
         result, frames, [("scene-model, vetoed", final),
-                         ("region veto only", region_only)])
+                         ("region veto only", region_only),
+                         ("shipped 106e2f5", previous)])
     scores.update(final_scores)
 
     print(f"\n  {'candidate':<26} {'GT-SSIM':>10} {'certifier':>10} {'p99':>7} "
@@ -1695,6 +1698,7 @@ def factory() -> None:
     for label, image in (("input routed (the bar)", result.base),
                          ("scene-model, raw", result.composite),
                          ("region veto only (B2)", region_only),
+                         ("shipped 106e2f5", previous),
                          ("scene-model, vetoed", final),
                          ("region-scoped null", result.scoped_null),
                          ("GROUND TRUTH", reference_truth)):
@@ -1702,6 +1706,7 @@ def factory() -> None:
         key = {"input routed (the bar)": "input routed",
                "scene-model, raw": "scene-model",
                "region veto only (B2)": "region veto only",
+               "shipped 106e2f5": "shipped 106e2f5",
                "scene-model, vetoed": "scene-model, vetoed",
                "region-scoped null": "region-scoped null"}.get(label)
         entry = scores.get(key)
@@ -1719,6 +1724,16 @@ def factory() -> None:
     print(f"  what the LOCAL clauses cost bar A: "
           f"{got - ssims['region veto only (B2)']:+.6f} GT-SSIM against B2's "
           f"region-only composite ({ssims['region veto only (B2)']:.6f})")
+    print(f"  what the CONTOUR clause costs bar A: "
+          f"{got - ssims['shipped 106e2f5']:+.6f} against 106e2f5's "
+          f"{ssims['shipped 106e2f5']:.6f} — the price of its false alarms, on "
+          f"the one scene that can adjudicate them")
+    print(f"  STRICT SUBSET LEDGER: 106e2f5 shipped "
+          f"{int(previous_rewrite.sum())} px; this rewrite "
+          f"{int(final_rewrite.sum())} px; rescued (must be 0) "
+          f"{int((final_rewrite & ~previous_rewrite).sum())}; pixel-identical "
+          f"where both write "
+          f"{np.array_equal(final[final_rewrite], previous[final_rewrite])}")
 
     # THE ATTRIBUTED REMAINDER. The same ladder discipline as round A's `floor`:
     # hold everything else and replace one estimated quantity with its TRUE value.

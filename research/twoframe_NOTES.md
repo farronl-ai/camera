@@ -804,3 +804,243 @@ Rejected alternatives for the second half:
    boundary, so it should be measured before the licence is tuned.
 4. Items H7.2-H7.5 (the unverifiable layer, the degenerate single-frame regions,
    full-res provenance sensitivity, `--enhance`) are untouched by this pass.
+
+---
+
+# Round 3 — the precondition the focus contest never had, 2026-08-02
+
+Fourth Opus round. The user inspected the ROUTED kitchen output region by region
+and marked four defects. Code touched: `src/focusstack/twoframe.py` and
+`tests/test_twoframe_route.py` (94 tests, was 92). `research/twoframe.py` was
+deliberately NOT mirrored — see R6.
+
+```
+.venv/bin/python -m pytest -q tests/test_twoframe_route.py    # 9 tests, 2 new
+```
+
+## R1. Verdict first
+
+**All four marked defects are one mechanism, and the architecture's own §2 claim
+is what failed.** §2 said geometry and focus are co-diagnostic: "the layer a
+frame gets wrong is, by construction, the layer it is defocused in, so the focus
+contest discards it without being told to." That holds only if both members
+observe the SAME SURFACE at the pixel. Where parallax has swung an occluder they
+do not — one member sees the foreground, the other sees the background it
+uncovered — and the contest is then comparing two different objects. It picks
+the more TEXTURED one, which is not the nearer one.
+
+The measurement that settles it, taken before anything was changed: in flaw 1's
+box (the background pot rendering IN FRONT of the Lubriderm bottle) the pair's
+own near-layer mask `dense[0]` covers **0.0%** of the box. The bottle's surface
+there is smooth white; the pot 2 m behind it carries sharp print; frame 11 wins
+the focus contest on every pixel, so the layer mask assigns the bottle's own
+silhouette to the FAR layer and hands it to frame 11. Every evidence-driven gate
+in the module — `_pair_refusal`, the depth step, the layer boundary — is
+downstream of that mask, so all of them were blind together. **This is F108's
+wall recurring one level in**: not "no local evidence about focus", but "no local
+evidence about focus that means what the code assumes it means".
+
+Two changes close it. Measured on the routed pipeline output, against the
+reference frame, in the user's own boxes:
+
+| user box | before mean / max | after mean / max | shipped path, same box |
+|---|---:|---:|---:|
+| 1 pot in front of the bottle | 23.08 / 131 | **5.96 / 61** | 15.13 / 140 |
+| 2 second copy of the lid | 13.66 / 122 | **3.55 / 17** | 4.19 / 103 |
+| 3 Coca-Cola right edge alias | 9.52 / 85 | **3.82 / 101** | 16.35 / 125 |
+| 4 blurry alias of the rag | 11.62 / 132 | **6.10 / 127** | 21.05 / 149 |
+
+and everywhere else:
+
+| quantity | before | after | bar |
+|---|---:|---:|---|
+| analytic factory GT-SSIM (two-frame) | 0.971310 | **0.979453** | ≥ 0.9700 |
+| shipped depth-bin path, identical crop | 0.972808 | 0.972808 | — |
+| kitchen F108 flank mean / max / >12 | 2.24 / 11 / 0.00% | **0.76 / 9 / 0.00%** | ≤ 2.3, 0% |
+| factory / zero-motion / small-motion | byte-identical | **byte-identical** | required |
+| large-motion | declined (19.2 px > 14.0) | **declined (19.2 px > 14.0)** | required |
+
+**The factory regression that blocked promotion since F109 is gone.** The
+two-frame path scored 0.9658 (F109), 0.9713 (F110), and now **0.9795** — it
+BEATS the shipped depth-bin path by +0.0066 on the analytic factory, on the
+identical crop, having lost to it by 0.0070 two rounds ago. F110's "what is left
+is the architecture" was right about the category and wrong about which part:
+it was the FUSION, not the stitch or the degenerate regions.
+
+## R2. Fix 1 — a pair must be fused coherently, not per band
+
+`twoframe_stack` fused each pair with `fuse_perband(..., harden=0.5)`, commented
+"as the shipped path does". The analogy is false and the manager's steer named it
+exactly: in the shipped path every frame shares ONE geometry, so per-band soft
+weights only ever mix two renderings of the same surface in the same place. Pair
+members are misregistered BY DESIGN outside their own layer, so choosing which
+member supplies a pixel is choosing between two GEOMETRIES — and F106 says a
+geometric decision cannot be soft. Per-band soft weights leak the misplaced
+member's coarse bands wherever the energy contrast is weak.
+
+`fuse_perband`'s own docstring documents this failure for unstable N-frame stacks
+and routes them to `fuse_coherent`; the guard is `len(images) > 2`, so pairs were
+excluded from the protection they need MOST. `fuse_coherent` makes one shared
+edge-aware decision, one-hots the winner (fine detail from exactly one source, so
+no double edge can form) and still feathers coarse transitions through the
+Gaussian weight pyramid. Both call sites now use it.
+
+Measured alone, without the second fix:
+
+| | flank | box 1 | box 2 | box 3 | box 4 | factory |
+|---|---:|---:|---:|---:|---:|---:|
+| before | 2.24 | 23.08 | 13.66 | 9.52 | 11.62 | 0.971310 |
+| fuse_coherent only | **1.01** | 41.47 | 13.35 | **6.12** | 15.76 | 0.971310 |
+
+Read honestly, this is a **partial** result and the steer's prediction that it
+would close flaws 2/3/4 held for exactly one of them:
+
+* **flaw 3 closed** — that alias really was per-band soft mixing (9.52 → 6.12,
+  and the doubled edge is gone by eye).
+* **the flank halved**, which is F108's own acceptance region.
+* **flaw 1 got WORSE** (23.08 → 41.47), as predicted: one-hotting makes the
+  contest's wrong winner win outright, so the pot renders crisply instead of
+  faintly.
+* **flaws 2 and 4 barely moved.** They are not soft mixing; 2 is a disocclusion
+  ghost and 4 is a doubled silhouette, and a one-hot decision reproduces both.
+* **the analytic factory is BYTE-IDENTICAL** with either fusion. Its two planes
+  are textured everywhere, so the contest is unanimous and one-hotting changes
+  nothing — which is precisely why two rounds of factory scoring never saw this.
+
+## R3. Fix 2 — the same-surface precondition (`same_surface`)
+
+The steer's own agreement clause, implemented at the scope the measurement
+demanded. It proposed using `layer_masks` as an ownership prior and allowing the
+focus contest only in the contested ribbon where the members agree geometrically.
+The ownership half cannot work here and R1 says why: **the layer mask is built
+from the same broken contest** (`dense[0]` = 0.0% inside flaw 1's box), so a
+prior taken from it hands flaw 1 to the wrong member and the box is nowhere near
+a "ribbon". The AGREEMENT half is the load-bearing part, and it must apply
+everywhere, not only in a ribbon.
+
+The test needs no texture, and PLAYBOOK §0 supplies it in one line: **defocus is
+a low-pass, always.** Two observations of one surface must therefore agree once
+both are low-passed past their own defocus, however textureless the surface is;
+two different surfaces do not, and their disagreement is the contrast between
+them. So each member is admitted only where its low-passed appearance agrees with
+the **unwarped reference's** — the reference being the one frame that is the
+authority on what is VISIBLE in the composite's own geometry. Trinary and hard,
+never ramped (F106).
+
+What "agree" may mean is set by measurement, and every term is borrowed:
+
+* a residual displacement up to `GATE_TOL` (1.5 px) is the module's own statement
+  of a fit that VERIFIED, so a disagreement that a `GATE_TOL` shift explains is
+  subtracted as `tol · |∇|`. This is F106's unexplained-motion rule asked per
+  pixel — refuse what no motion the geometry admits can account for. It is also
+  what stops the test firing along every correctly-registered edge in the frame.
+* `normalize_exposure` leaves a multiplicative residual; measured on this sweep
+  the largest is 1.85% (frame 4 reads 0.9815), so 2% of the local level is free.
+* sensor noise survives the low-pass at p99 = 0.6–0.9 levels, so 1 level is free.
+
+A refused member falls back to the pair's other member, and where both are
+refused, to the unwarped reference — §5.3's measured fallback, unchanged. The
+reference member agrees with itself everywhere, so a pair containing the
+reference always has a source. **Degenerate one-frame regions now get the same
+treatment**: a lone elected frame that disagrees with the reference is covered by
+the reference there, carried as one `usable` entry more than the pair has frames,
+which is the convention `twoframe_fullres` already reads.
+
+### KAT before belief (§12.1), `tests/test_twoframe_route.py`
+
+| question | answer |
+|---|---|
+| does DISK defocus trip it? (the premise) | radius 1/2/4/6 px → agreement 1.000 / 1.000 / 0.999 / 0.983 |
+| …at larger radii? | 8 px → 0.931, 12 px → 0.759 — **it does**, see R5 |
+| does a shift the geometry tolerates trip it? | 0.5 / 1.0 / 1.5 px → 1.000; 2 px → 0.981; 4 px → 0.800 |
+| does the exposure residual trip it? | ×1.015 / ×1.02 → 1.000; ×1.05 → 0.455 |
+| does a MOVED occluder trip it? | 4/8/20 px → agreement 0.000 in the vacated and newly-covered strips, 0.987–0.984 everywhere else |
+
+The knees sit exactly where they were designed to: at `GATE_TOL` for
+displacement, at the measured gain for exposure, and at zero for a real occlusion
+swap.
+
+## R4. `SURFACE_SIGMA` — two scenes want opposite values, and it is logged as such
+
+The low-pass scale is the one free number, and it behaves exactly as DEVSTYLE
+§12.3 warns:
+
+| sigma | factory GT-SSIM | flank | box 1 | box 2 | box 3 | box 4 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2 | **0.981650** | 0.81 | 11.98 | 4.45 | 4.85 | 8.56 |
+| 3 | 0.980871 | 0.78 | 9.84 | 3.95 | 4.15 | 7.52 |
+| **4 (shipped)** | **0.979453** | **0.76** | **5.96** | **3.55** | **3.82** | **6.10** |
+| 6 | 0.976212 | 0.80 | 4.53 | 2.83 | 3.15 | 3.95 |
+| 8 | 0.974249 | 0.85 | 3.66 | 2.28 | 2.56 | 2.60 |
+
+The factory (which has GROUND TRUTH) wants it small; the kitchen boxes want it
+large. The box metric is measured against the reference frame and therefore
+rewards refusal tautologically, so it is NOT a fair arbiter of this number and
+was not used as one — 4.0 is the smallest value that clears every acceptance bar,
+and the KAT says what it buys: a disk defocus of radius ≤ 6 px does not trip the
+test. Every value in the table beats the pre-round state on every column, so the
+choice is not load-bearing for the result; it is load-bearing for how much
+sharpness is given up, and that is the open item in R5.
+
+## R5. Honest costs and what is NOT fixed
+
+1. **The physical invariant behind `SURFACE_SIGMA` was not built.** The low-pass
+   must exceed the RESIDUAL DEFOCUS DIFFERENCE between the two frames, and that
+   is a per-pixel quantity the module already has the ingredients for: `peak` is
+   the focal frame per pixel and the arc's validated blur proxy is distance from
+   the object's focal frame (PLAYBOOK §0c forbids contrast-based blur
+   estimation). A spatially-varying low-pass keyed on `|frame − peak|` would
+   remove the threshold. Not attempted — economy, and the fixed value clears
+   every bar.
+2. **Refusal roughly doubles**, per pair over its own area: (6,8) 0.12 → 0.16,
+   (6,11) 0.19 → 0.31, (11,11) 0.00 → 0.41, (9,11) 0.15 → 0.30, (4,6) 0.00 →
+   0.14. The composite is now within 2 levels of the reference over 67.7% of the
+   frame, against 20.7% before. That reads alarming and is not: mean focus energy
+   over the frame goes **15.03 → 15.56** (reference 13.08), i.e. the output is
+   SHARPER than before while agreeing with the reference far more often. The
+   refusals land where the member was wrong.
+3. **A faint pale sliver survives at the Lubriderm's left silhouette in flaw 1**
+   (`out/inspect/ROUND3_flaw1.png`, a few px wide). Small, at a silhouette, and
+   unexplained. Logged, not chased.
+4. **Box 3's max rises 85 → 101** while its mean halves. Seven pixels in one 3×3
+   cluster on the Coke bottle's cap ring, where the composite is SHARPER than the
+   reference; p99 in that box is 38. Not a new artifact by eye.
+5. **Box 4's reference is defocused**, so its "vs reference" number is not a
+   clean bar and is reported with the shipped path as a second comparator
+   (21.05). Boxes 1 and 2 have a locally sharp reference and are fair bars;
+   box 3's reference is sharp on the bottle.
+6. **`out/inspect/img46_routed.png` is now STALE.** IMG-46's frames are not in
+   the repo, so that inspection layer could not be regenerated; only the kitchen
+   layer was. The round-3 change certainly moves IMG-46's routed output.
+7. **The 2-frame vs N-frame fusion question is now open again.** `fuse_coherent`
+   was chosen for pairs on mechanism, and it is right; but `fuse_perband`'s
+   `len(images) > 2` guard is still there in `fusion.py` and still excludes every
+   2-image caller from the protection. Not touched — out of scope this round, and
+   it is a shipped-path change.
+
+## R6. NEGATIVE deliverables and deliberate non-actions — this round
+
+1. **`fuse_coherent` alone as the whole fix.** REJECTED as sufficient, with
+   numbers (R2): it closes flaw 3 and halves the flank, makes flaw 1 nearly twice
+   as bad, and leaves flaws 2 and 4 where they were. Kept, because it is right
+   and because the precondition needs a one-hot decision to be worth making.
+2. **An ownership prior taken from `layer_masks`.** REJECTED on measurement:
+   `dense[0]` covers 0.0% of flaw 1's box, so the prior is built from the very
+   contest that failed. The layer masks remain what they always were — support
+   for the fits and the seed for F82's ribbon — and are not promoted to
+   ownership.
+3. **Restricting the agreement test to the layer boundary ribbon.** REJECTED:
+   flaw 1's box is deep inside layer 1's mask, not in any ribbon, so a
+   ribbon-scoped test cannot fire there at all.
+4. **Choosing `SURFACE_SIGMA` by the four boxes.** REJECTED as an instrument
+   (§12.2): the boxes are scored against the reference, so "refuse everything"
+   scores perfectly. The factory's ground truth is the arbiter that cannot be
+   gamed that way, and it wants the opposite; 4.0 is the smallest value clearing
+   all bars.
+5. **Mirroring the fix into `research/twoframe.py`.** NOT DONE, deliberately.
+   That module is the F109/F110 ablation harness and the recorded ladders in this
+   note must stay reproducible from it; changing its fusion would silently
+   invalidate every row above. The runtime module is now ahead of it, and any
+   future ablation must be re-ported rather than assumed.
+6. **Raising the refusal fallback question again** (does a refused-everywhere
+   pair want a third frame?). NOT ATTEMPTED; H5's answer stands.

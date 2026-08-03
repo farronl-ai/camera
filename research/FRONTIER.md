@@ -75,6 +75,20 @@ contract does not remove is MISPLACEMENT — a wrong transform still puts real
 content in the wrong place — so the certifier (F113) and contour continuity
 (F116) remain the alignment auditors.
 
+**The viewpoint caveat (user, same directive).** Different angles see
+different pieces behind corners, and the output CANNOT include everything: it
+is committed to ONE viewpoint, the reference angle, whose depth ordering
+defines per pixel WHICH surface is visible. A frame contributes at p iff it
+observed THAT surface, uncontaminated. Content another angle saw around a
+corner is real and is DISCARDED anyway — at the reference angle it has no
+pixel; forcing it in is the pot-in-front-of-bottle class. This is F82's dual:
+F82 refuses reference pixels a moved frame lacks; this withholds frame
+content the reference viewpoint cannot legally receive. Both directions of
+`usable` are computable from the scene model (ownership at reference; layer
+silhouettes warped per frame, dilated by that frame's modeled defocus
+radius). The irreducible residue is the reference's OWN defocused-edge matte
+band — a few mixed pixels that stay trinary (matte or refuse) forever.
+
 **Pass 1 is a GUIDE, not a constraint (user principle, 2026-08-02).** The
 whole reason pass 2 exists is that pass 1 is imperfect — so no pass-1 quantity
 (motion, masks, focal ladder, ownership) is gospel to the second pass. Each is

@@ -478,6 +478,18 @@ measured against.
    the factory). It is kept because it is the only channel that can see F112's
    mechanism at all, and removed cheaply (`contest=False`) if B2 finds it
    costing coverage it needs.
+7. **Two sub-instruments were ABLATED but not known-answer tested** — §12.1 half
+   done, and named rather than glossed. (a) The two-operator evidence test: its
+   rejection fraction is reported (63.3% / 68.5% evidenced) and its effect is
+   visible in the ladder, but nothing measured its false-rejection rate against
+   a scene where the right answer per pixel is known. (b) The blur-matched
+   MIRROR-PAIR construction feeding `same_surface`: `same_surface` itself is
+   KAT'd in `tests/test_twoframe_route.py` (defocus and sub-pixel shift must not
+   trip it; a moved occluder must), but the mirror-pair framing — that
+   `radius ∝ |k − p|` makes the two frames' blur equal by construction — is new
+   here and was validated only by its ablation, not by a synthetic pair with a
+   known answer. Both are cheap to close and neither is load-bearing for §1's
+   numbers; do not build on either without closing it.
 
 ---
 

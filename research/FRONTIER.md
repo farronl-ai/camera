@@ -89,6 +89,43 @@ silhouettes warped per frame, dilated by that frame's modeled defocus
 radius). The irreducible residue is the reference's OWN defocused-edge matte
 band — a few mixed pixels that stay trinary (matte or refuse) forever.
 
+**CONCEPTUAL SWEEP (manager, 2026-08-03, while the guide-wiring round ran) —
+five keepers, ranked:**
+1. **The iteration was chartered and never built.** Analysis-by-synthesis
+   means a LOOP: the certifier is the likelihood, and a (piece × frame)
+   whose render residual exceeds noise gets a targeted REFIT — F110's
+   gate-repair pattern ("the verification measured HOW") promoted to the
+   aligner. Today the certifier only scores after the fact.
+2. **Rank-1 motion backbone.** All piece motions in all frames are one
+   camera trajectory times per-piece inverse depth: shift ∝ t_xy(k)/Z_p,
+   scale ∝ t_z(k)/Z_p — the motion table is rank one. Fit THAT: defocused
+   frames inherit motion from the shared trajectory (the B3b series
+   dissolves), every piece gets a depth (physical occlusion ordering), the
+   equivalence test becomes "same 1/Z within uncertainty," rank-1 outliers
+   are mis-segmentations self-flagged. F89 already measured the confirming
+   fact (object residual scales with frame motion and holds direction).
+   Cross-instrument audit for free: focal-peak depth must agree with motion
+   depth per piece.
+3. **Silhouettes at the owner's focal peak (F99 applied to ownership).**
+   Defocus pushes edges outward, so ownership contours drawn from the
+   reference's blurred view are dilated by up to R_ref around every
+   object blurred in the reference — a biased ring where gaps/vetoes
+   concentrate. Measure each object's contour in ITS peak frame, transform
+   into reference geometry.
+4. **The value-added instrument.** Every kitchen bar was "|Δ| vs reference
+   not worse" — bars a perfect reference-copy passes with zeros, which is
+   why the collapse was invisible to the ledger and instant to the user's
+   eyes. Standing instrument: fraction of pixels SHARPER than the reference
+   AND certifier-consistent, per region. No output ships without it again.
+5. **Piece structure = model selection under the certifier likelihood.**
+   Pass-1 groups propose, certified residual decides, complexity penalized —
+   this single principle subsumes the promotion list's fit-uncertainty
+   tolerance, cut proposal, gate isolation, and per-piece veto.
+Flagged unknowns, low priority: rolling-shutter shear under drift
+(sub-pixel at this drift, unmeasured); per-piece blur slope c (uniform only
+if the focus sweep is diopter-uniform — testable from per-piece peak
+curves).
+
 **DIAGNOSIS OF THE REFERENCE-COLLAPSE (user + manager, 2026-08-03 — read
 this before building anything).** The user inspected all layers and is
 right: every current output is essentially the reference plus a sliver of

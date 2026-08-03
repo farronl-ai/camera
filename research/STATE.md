@@ -99,13 +99,16 @@ acceptance cap relaxed together, since a small region asking a large correction 
 exactly what they reject. Object integrity is a MERGE rule; keep the tolerance ≤2 px
 or genuinely different depth planes merge and the result collapses.
 
-**Then the per-region two-frame architecture** (user proposal, not yet built):
-per region pick the frame where its foreground is sharpest and the frame where its
-background is sharpest, align that pair, run it through the base processor, stitch.
-It plays to the engine's most-validated path. Two cautions: the stitch reintroduces
-exactly the boundary problems this arc fought and needs its own validated stage
-(F79 already found hard region-copy seams unacceptable); and `--enhance` is licensed
-for exactly two frames ≤1600 px (F56), so a stitched composite is outside it.
+**The per-region two-frame architecture (user design) is BUILT and SHIPPED
+(F109–F112)** — `src/focusstack/twoframe.py`, routed in `pipeline.run` (default
+on, `--no-twoframe-route`). Route rule: engage iff the motion-group override
+fired AND every elected layer sits within the refinement licence (1.5% of the
+diagonal); factory/zero/small stay shipped byte-identical, large-motion is
+honestly vetoed. As of F112 (pair fusion one-hot via `fuse_coherent` + the
+`same_surface` precondition) it BEATS the shipped path on the analytic factory
+(0.9795 vs 0.9728) and the user's four marked kitchen defects are closed.
+`--enhance` is correctly skipped on the routed path (F56's licence does not
+cover a stitched composite).
 
 ## Standing rules for this area
 
@@ -211,10 +214,12 @@ inspector once.
 
 ## Immediate next move
 
-Remove focus breathing at the global stage, then re-measure object separation
-before touching the region machinery (see "What is not solved" above). The
-magnification signal is clean and monotone; the current global affine compromises
-between it and depth-varying parallax, which F81 established cannot be co-fitted.
+Two-frame follow-ups, ranked in F112/F111: replace `SURFACE_SIGMA` (an
+unresolved §12.3 two-scene split at 4.0) with the physical per-pixel low-pass
+keyed on `|frame − peak|` designed in `twoframe_NOTES.md`; a pair-aware refusal
+that prefers a present-but-defocused member would repair large-motion and move
+the route's boundary; the licence check could precede rendering the discarded
+composite (~4 s wasted).
 
 Still queued behind it, unchanged: refactor formation-state estimation upstream
 without changing pixels (`V_front`, `T_rear`, PSF weights/choice, forward residual,

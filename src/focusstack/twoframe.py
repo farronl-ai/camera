@@ -808,7 +808,11 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
                    surface=True, inject=None):
     """Per-region two-frame fusion of a focus stack. Returns (fused, info).
 
-    `harden`   passed to `fuse_perband` for each pair, as the shipped path does.
+    `harden`   passed to `fuse_coherent` for each pair, where it smooths the
+               guided weights BEFORE the one-hot member decision. Pair members
+               are misregistered by design outside their own layer, so the
+               member choice is geometric and must be hard (F106) — per-band
+               soft fusion is the mechanism that produced F112's aliases.
     `refusal`  withhold each member where the pair's own layer boundary says its
                observation does not exist (F82 disocclusion), falling back to the
                other member and, where both are refused, to the unwarped

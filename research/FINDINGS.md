@@ -5,6 +5,67 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F112 — The focus contest's missing precondition: both members must see the same surface
+
+Fourth Opus round, manager-steered mid-diagnosis and manager-verified. The user
+inspected the routed kitchen output and marked four defects (pot rendered in
+front of the Lubriderm bottle; a faint second lid; a Coke-edge alias; a rag
+alias). All four were ONE mechanism, in two halves.
+
+**Half one (the steer): pair fusion made a geometric decision softly.** Pair
+members are misregistered BY DESIGN outside their own layer, so choosing which
+member supplies a pixel is choosing between two geometries — and per-band soft
+weights (`fuse_perband`, harden 0.5, commented "as the shipped path does") leak
+the misplaced member's coarse bands wherever energy contrast is weak. That IS
+the faint-alias signature. The disease and its cure were already in the repo:
+`fuse_perband`'s own docstring routes unstable N-frame stacks to `fuse_coherent`
+(one shared edge-aware decision, made ONE-HOT before multiband reconstruction),
+but the `len(images) > 2` guard excluded pairs — the caller that needs it
+unconditionally. Fix: every pair now fuses through `fuse_coherent`.
+
+**Half two (the agent, measured before changing anything): F109 §2's claim
+holds only if both members observe the same surface.** "The layer a member gets
+wrong is the layer it is defocused in" fails where parallax swung an occluder:
+the members then see different OBJECTS, and the contest picks the more textured
+one, not the nearer one. In flaw 1's box the pair's near-layer mask covered
+0.0% — the bottle's smooth white silhouette lost every pixel to the sharp pot
+print behind it, and every downstream gate (`_pair_refusal`, depth step, layer
+boundary) was blind together because all are keyed on that mask. This is F108's
+wall one level in, and it is why the steer's layer-mask ownership prior was
+measured unusable and rightly abandoned. Fix: `same_surface` — defocus is a
+low-pass, so one surface still agrees once both members are low-passed and two
+surfaces do not; each member is admitted only where its low-passed appearance
+agrees with the unwarped reference (a `GATE_TOL` shift, the measured 2%
+exposure residual and a 1-level noise floor are explained). KAT'd both ways:
+defocus/shift/gain must not trip it; a moved occluder must, at 0.000 in the
+vacated and covered strips.
+
+**Verified numbers.** Factory GT-SSIM (runtime module, manager-reproduced
+exactly): 0.971310 → **0.979453**, now BEATING shipped 0.972808 — F109's
+promotion blocker is gone, and F110's "what is left is the architecture" was
+right about the category but wrong about the part: it was the fusion. Fix 1
+alone is factory byte-identical (its planes are textured everywhere — why two
+rounds of factory scoring never saw this) and makes flaw 1 WORSE (one-hots the
+wrong winner): the precondition is not optional. All four user boxes clean by
+manager's eyes (`out/inspect/ROUND3_flaw{1..4}.png`). Sentinels byte-identical;
+large-motion still declined. 94 tests.
+
+**Instrument note (§12).** The round's recorded flank 0.76/9/0.00% was measured
+on registered 8-bit inspection layers. On the CANONICAL F108 instrument
+(original coordinates, vs the normalized reference frame) the composite reads
+mean **1.11** (was 2.24), max 45, 0.57% > 12 — the entire >12 tail is one
+30×70 px dark background knob at (659–669, 243–313) where the one-hot decision
+now picks a single darker/crisper member rendering instead of the old soft
+blend toward the reference. Sub-visible at 1×; recorded, not excused.
+
+Open, ranked: `SURFACE_SIGMA` is an unresolved §12.3 split (factory wants 2,
+the kitchen boxes want 8; 4.0 is the smallest value clearing every bar; the
+physical per-pixel version is designed in `twoframe_NOTES.md`, unbuilt); a
+faint pale sliver survives at the bottle's left silhouette; the knob above;
+`fuse_perband`'s `len > 2` guard still excludes every other 2-image caller in
+`fusion.py`; the `img46_routed.png` inspector layer is STALE (IMG-46 frames are
+not in the repo).
+
 ## F111 — The two-frame route ships: engaged where it wins, vetoed where it loses
 
 Third Opus round, manager-verified (port KATs exact; byte-identity reproduced

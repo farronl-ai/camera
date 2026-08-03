@@ -40,6 +40,11 @@ exposure residual and a 1-level noise floor are explained). KAT'd both ways:
 defocus/shift/gain must not trip it; a moved occluder must, at 0.000 in the
 vacated and covered strips.
 
+**USER-VALIDATED.** The user re-inspected the routed kitchen output against
+the shipped path and the reference frame in the inspector and judged it "by
+far the best" — the four marks that opened this round are closed by the same
+eyes that made them.
+
 **Verified numbers.** Factory GT-SSIM (runtime module, manager-reproduced
 exactly): 0.971310 → **0.979453**, now BEATING shipped 0.972808 — F109's
 promotion blocker is gone, and F110's "what is left is the architecture" was

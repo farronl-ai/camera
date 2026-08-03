@@ -523,3 +523,20 @@ measured against.
   second option.
 * The knob needs a region-scoped null, not a better global model (§7). B2's
   per-layer appearance is exactly the material for one.
+
+---
+
+## Manager reproduction note (same day)
+
+The committed code reproduces deterministically at: segmentation term
+**+0.138**, full model floor **1.367** (the report's +0.100 / 1.328 came from a
+pre-final state). The verdict is unchanged — 2.925 → 0.138 is a 21× cut, far
+past the "at most half" bar. Kitchen KAT-4 reproduced exactly as reported
+(knob not clustered, sliver found, flank ZERO at all nine settings). The
+`floor` command's closing prose claimed segmentation still dominates motion —
+stale after this round's own result — and now computes its verdict from the
+measured rungs. Differential heat remaining on the kitchen concentrates in the
+deep-background band where this round measured the model crudest (ramp
+quantization, `RADIUS_MAX` saturation): the "fifteen larger differentials"
+above the knob are mostly model error, not undiscovered composite defects,
+which is one more argument for round B2's region-scoped null.

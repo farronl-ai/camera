@@ -1452,14 +1452,15 @@ def floor_factory() -> None:
     print(f"    + pass-1 LAYER SEGMENTATION                {rung3 - rung1:+7.3f}")
     print(f"    = the full model floor (rung 4)            {rung4:7.3f}")
     print(f"    the NULL CANDIDATE's own defocus adds      {rung5 - rung4:+7.3f}")
-    print(f"\n  The null bound ({rung5:.3f}) is therefore NOT mostly the null candidate:\n"
-          f"  {rung4 / rung5 * 100:.0f}% of it is the model, and within the model the LAYER\n"
-          "  SEGMENTATION is the dominant term by a factor of ~3.6 over motion. That is\n"
-          "  the single most useful number this round produces for the reconstruction\n"
-          "  pass, and it is the reason the certifier reports a DIFFERENTIAL map as well\n"
-          "  as an absolute one: segmentation error is shared by every candidate scored\n"
-          "  through the same model, so it cancels in candidate-minus-null and stops\n"
-          "  masquerading as a defect in the composite.")
+    seg = rung3 - rung1
+    mot = rung2 - rung1
+    lead = ("LAYER SEGMENTATION" if seg > mot else "MOTION estimation")
+    print(f"\n  The null bound ({rung5:.3f}) is NOT mostly the null candidate:\n"
+          f"  {rung4 / rung5 * 100:.0f}% of it is the model, and within the model the\n"
+          f"  {lead} is the dominant term (segmentation {seg:+.3f}, motion {mot:+.3f}).\n"
+          "  Segmentation error is shared by every candidate scored through the same\n"
+          "  model, so it cancels in candidate-minus-null — which is why the certifier\n"
+          "  reports a DIFFERENTIAL map as well as an absolute one.")
 
 
 def kat4_null() -> None:

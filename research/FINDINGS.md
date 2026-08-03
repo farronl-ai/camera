@@ -5,6 +5,59 @@ lab notebook; superseded experiments and their reports remain in Git history.
 Read `MISSION.md` first, then this file, `OCCLUSION_FORMATION.md`, and
 `STATE.md`.
 
+## F114 — Decomposition by focal signature: ownership is requirement-dependent, and a layer is a quantization of a ramp
+
+Round B1 (Opus, manager-verified: ladder and kitchen KAT-4 re-run and
+reproduced; committed code gives segmentation **+0.138**, floor **1.367** —
+the report's 0.100/1.328 was pre-final; verdict unchanged).
+`research/layer_decompose.py` replaces pass-1's winner-map masks with a dense
+focal-signature decomposition carrying trinary ownership (owned /
+boundary-band / unknown; band half-width 5 px = the focus operator's pooling
+radius, derived not tuned).
+
+**The F98 reopening was justified, and the answer is requirement-dependent.**
+Under the OWNERSHIP requirement (content assembly) the decomposition wins
+decisively on the factory: purity 0.754/0.898 → **0.989/0.996** against true
+plane masks, cross-plane contamination 16.1%/13.1% → **0.6%/0.5%**, the
+attributed segmentation term 2.925 → **0.138** (21×; +1.895 in the
+coverage-control configuration with the boundary band off — both reported,
+and the control also puts 1–3 clusters inside the verified-clean flank, which
+is the measured argument FOR the band). Under pass 1's SUPPORT requirement on
+the continuous-depth kitchen it does not beat the winner map at matched
+coverage — F98's negative stands where it was measured and does not extend.
+
+**The kitchen's lesson: a depth LAYER is a quantization of a depth RAMP.**
+The countertop recedes continuously; one disk radius per band is a poor
+forward model (bands saturate `RADIUS_MAX`). Pass 1's winner map is a bad
+ownership map and a good BLUR map — it groups by which frame is sharpest,
+which is exactly what the renderer consumes. The scene model wants a hybrid:
+discrete ownership where occlusion boundaries exist, continuous blur/depth
+elsewhere.
+
+**Knob attribution moved; still not localized.** With the new masks the
+absolute floor drops (10.90 → 9.52) and the sliver improves (absolute rank
+3 → 1), flank stays at ZERO clusters at all nine settings — but the knob's
+peak (18.5) sits under ~15 larger localized differentials concentrated in the
+deep-background band where the model is crudest. Those are model error, not
+undiscovered defects. It needs a REGION-SCOPED null (per-layer appearance is
+the material for one), not a better rank.
+
+**Stale claim caught: F83's ordering bit REFUSES on today's factory** —
+`occlusion_order.py` prints `near_is_low_index=None` (truth: True), share
+0.542 vs its own 0.05 margin, most likely since F96 enriched surface texture.
+Contour localization still holds (5.1 px). FINDINGS' "global polarity bit
+voted correctly" is corrected here: occlusion ordering is currently a
+focal-peak proxy whose guard refuses, and it is NOT reliable enough to
+assemble content that some frames occlude. Certifier/GT agreement held
+throughout (two-frame 3.31 < shipped 4.15; GT composite wins outright).
+
+For round B2: trinary fractions factory 81.0/17.2/1.8, kitchen 57.4/35.4/7.2
+(near layers own least — 18.6%); **motion is now the largest model term**
+(+0.812 of 1.367), and raw per-frame fits are non-physical (−18.83 px beside
+−5.26) — a temporally-coherent per-layer motion series is the missing
+estimator; kitchen certified coverage 43.3% with the drop honestly
+reclassified (24.0% boundary, ~23% declined, ~9.7% clipping).
+
 ## F113 — The certifier: forward-render consistency is the first GT-free arbiter
 
 Round A of the scene-model second-pass arc (FRONTIER §7b), Opus-built,

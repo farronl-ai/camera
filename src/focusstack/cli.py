@@ -69,6 +69,16 @@ def build_parser() -> argparse.ArgumentParser:
         "measured motion disagrees with the depth fit by more than 5 px).",
     )
     p.add_argument(
+        "--no-twoframe-route",
+        action="store_true",
+        help="Disable the two-frame route. By default, a stack whose motion-group "
+        "override actually fired — the measured signature of an object the depth "
+        "bins strand — is fused by the per-region two-frame architecture instead "
+        "(elect the frame pair each region is sharpest in, warp each member "
+        "rigidly, fuse the pair, stitch). Stacks where the override does not fire "
+        "are untouched and byte-identical either way.",
+    )
+    p.add_argument(
         "--focus-measure",
         dest="focus_method",
         choices=["laplacian", "gradient", "tenengrad", "mod_laplacian", "content_aware"],
@@ -178,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
             align_depth_bins=args.align_depth_bins,
             align_depth_model=args.align_depth_model,
             align_motion_override=not args.no_motion_override,
+            twoframe_route=not args.no_twoframe_route,
             focus_method=args.focus_method,
             levels=args.levels,
             harden=args.harden,

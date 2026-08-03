@@ -115,6 +115,37 @@ GATE_CONVERGED = 0.05        # px; a repair iterates to here, not merely to GATE
 # geometry is carried to native resolution by exact matrix conjugation (F107).
 WORKING_WIDTH = 1100
 
+# The architecture's LICENCE, and the second half of the routing rule.
+#
+# F109 stated this regime as a falsifiable claim before anything was measured:
+# the two-frame architecture holds "only where each region's layers each have a
+# frame that is both sharp and NEAR-REFERENCE enough to place. It would fail on a
+# sweep whose near object is sharpest at an extreme." The kitchen is the good
+# case — the bottle is sharpest AT the reference, so the +19.97 px correction the
+# whole F99-F108 arc fought for is simply not needed. The large-motion sweep is
+# the predicted bad case, and it fails exactly as predicted: the playing-card box
+# is sharpest at frame 0 of 14 and needs +18.9 px, the pair elects frame 0 and
+# fits it correctly (verified at 0.51 px) — and then F82's disocclusion refusal
+# withdraws that member over 91% of the pair's area, because the ribbon it must
+# refuse is as wide as the correction. The box returns reference-defocused, and
+# the shipped override's sharp, correctly-placed "LAS VEGAS" is lost.
+#
+# So the licence is a DISPLACEMENT scale, and it is borrowed rather than invented:
+# `align._REFINE_MAX_FRACTION` (1.5% of the frame diagonal) is the arc's existing
+# statement of how large a per-region displacement can be before it stops being a
+# refinement of the global warp and becomes re-registration. Two frames are the
+# wrong instrument for re-registration — they carry 2.7x the shift sensitivity of
+# an N-frame fusion (F110) and their refusal has only one other source to fall
+# back to. Measured max layer shift: kitchen 2.1 px (limit 14.0), IMG-46 6.9 px
+# (limit 20.2), large-motion 19.2 px (limit 14.0, declined).
+SHIFT_LICENCE_FRACTION = A._REFINE_MAX_FRACTION
+
+
+def shift_licence(shape) -> float:
+    """Largest layer displacement the two-frame path may be trusted with, in px."""
+    h, w = shape[:2]
+    return SHIFT_LICENCE_FRACTION * float(np.hypot(h, w))
+
 
 # --------------------------------------------------------------------------
 # Stage 1 — the global affine, and the matrices needed to compose with it.
@@ -946,10 +977,21 @@ def twoframe_stack(images, ref=None, harden=0.5, refusal=True, gate=True,
              else multiband_blend(candidates, stitch_weights))
 
     x0, y0, x1, y1 = A._largest_valid_rectangle(common)
+    # The largest displacement any elected member had to be moved by. This is the
+    # architecture's own report on whether it is refining or re-registering, and
+    # it is the second half of the routing rule (see SHIFT_LICENCE_FRACTION).
+    applied = [float(np.hypot(s[0], s[1])) for d in diagnostics for s in d["shifts"]
+               if s is not None]
+    biggest = max(applied) if applied else 0.0
+    # Measured at the ANALYSIS resolution, and compared there, so the full-res
+    # transfer inherits the verdict rather than re-deriving it in native pixels.
+    licence = shift_licence((h, w))
     info = {"tiles": tiles, "pairs": kept, "owner": owner, "peak": peak,
             "crop": (x0, y0, x1, y1), "diagnostics": diagnostics,
             "frames_used": sorted(used),
-            "refusals": sum(sum(d["gated"]) for d in diagnostics)}
+            "refusals": sum(sum(d["gated"]) for d in diagnostics),
+            "max_layer_shift": biggest, "shift_licence": licence,
+            "within_licence": biggest <= licence}
     return fused[y0:y1, x0:x1].copy(), info
 
 

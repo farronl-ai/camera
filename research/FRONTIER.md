@@ -51,12 +51,25 @@ Its KAT: on the routed kitchen output it must light up exactly the known
 residuals (the F112 knob, the pale sliver) and nothing else; on the factory it
 must reproduce the GT-SSIM ranking.
 
+**Pass 1 is a GUIDE, not a constraint (user principle, 2026-08-02).** The
+whole reason pass 2 exists is that pass 1 is imperfect — so no pass-1 quantity
+(motion, masks, focal ladder, ownership) is gospel to the second pass. Each is
+a prior with more than enough information to initialize the most likely
+physical scenario; where forward-render consistency contradicts a pass-1
+estimate, the second pass may revise it, with the certifier as the likelihood
+and pass 1 as the prior. Concretely (post-F114): motion is the largest
+remaining model term, and a temporally-coherent per-layer motion series
+refined against render residual — initialized from, not clamped to, pass-1
+fits — is the designated round B3.
+
 Standing cautions that bind this pass: F81's joint estimator registered best
-and INVENTED motion on the zero-motion sentinel — the pass must be routed
-(F101) and trinary (F106), engaging only where pass-1 provenance leaves
-something unexplained, sentinels byte-identical by construction. And F56's
-licence discipline applies to completion: the model may only place content some
-frame actually observed, never synthesize it.
+and INVENTED motion on the zero-motion sentinel — revision under the principle
+above must therefore be routed (F101) and trinary (F106), engaging only where
+pass-1 provenance leaves something unexplained, sentinels byte-identical by
+construction, and every revision must beat the prior on held-out physics (the
+raw frames), never merely on the quantity it optimized. And F56's licence
+discipline applies to completion: the model may only place content some frame
+actually observed, never synthesize it.
 
 ## F78 validation contract
 

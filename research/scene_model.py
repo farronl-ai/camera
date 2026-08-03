@@ -71,6 +71,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "src"))
 sys.path.insert(0, HERE)
 
+from focusstack import motion_groups as MG  # noqa: E402
 from focusstack import twoframe as TF  # noqa: E402
 from focusstack.align import _homogeneous  # noqa: E402
 from focusstack.io import to_gray_float  # noqa: E402
@@ -264,6 +265,7 @@ def blur_slope(model, appearances, supports, raw, peaks, verbose=False):
 class Assembly:
     composite: np.ndarray            # crop geometry, the scene-model composite
     base: np.ndarray                 # crop geometry, the input routed composite
+    reference: np.ndarray            # crop geometry, the reference FRAME
     rewritten: np.ndarray            # crop geometry, bool
     layer_of: np.ndarray             # crop geometry, int32 (-1 where not rewritten)
     best_frame: np.ndarray           # crop geometry, int32 (-1 where none)
@@ -581,6 +583,7 @@ def assemble(images, ref=None, order_guard="any", verbose=False, raw=None,
               f"{time.time() - t0:.1f}s")
     return Assembly(
         composite=composite, base=base_composite,
+        reference=images[ref][y0:y1, x0:x1].copy(),
         rewritten=rewrite[y0:y1, x0:x1], layer_of=layer_of[y0:y1, x0:x1],
         best_frame=np.where(rewrite, best_frame, -1)[y0:y1, x0:x1],
         scoped_null=scoped_null, crop=crop, dec=dec, slope=slope,
@@ -830,6 +833,227 @@ def quiet_frontier(assembly: Assembly, keep, radius=FRONTIER_SLACK, verbose=Fals
     return mask, int((keep & grown).sum()), residual
 
 
+# ---------------------------------------------------------------------------
+# CONTOUR CONTINUITY — the instrument F115 said was missing (round B3a)
+# ---------------------------------------------------------------------------
+# F115's closing diagnosis: the two residual defects are neither detail nor
+# noise, they are DISPLACED CONTOURS, and no evidence the module already owns can
+# see them.
+#
+#   * the certifier cannot: §16's KAT puts its floor at a few dozen pixels and
+#     both defects are under it (6 px and ~104 px spread over 78 rows);
+#   * `agreement_budget` cannot: at a high-contrast contour the budget is TENS of
+#     levels (median 13.9 at the shelf junction) and a 1 px displacement of a
+#     steep edge stays inside it;
+#   * B1's boundary band cannot: §23b measured both defects 3.6-11.6 px away from
+#     any edge the decomposition drew;
+#   * and focus energy MUST NOT, because it is monotone in edge contrast and
+#     blind to edge POSITION — both defects RAISE it while moving a contour
+#     (§23c). That is the whole reason a new instrument is needed and not a new
+#     threshold on an old one.
+#
+# The statement the module is missing is about POSITION, so the instrument has to
+# measure position:
+#
+#     A rewrite may not MOVE a strong contour that the input composite and the
+#     reference frame AGREE on.
+#
+# Both observations already live in reference geometry, so no motion is being
+# fitted and F92's material/limb distinction does not apply — this is a test of
+# STASIS, not of motion, and a limb that has not moved between two frames in the
+# same geometry is exactly as much a fixed contour as a printed edge is.
+#
+# The measurement is the arc's most-validated one (PLAYBOOK: correlate GRADIENT
+# profiles, not intensity; integrate along the edge; trust only the normal
+# component), applied densely instead of at sparse features, and it is the right
+# instrument here for the specific reason PLAYBOOK records as a HAZARD elsewhere:
+# "a blurred profile correlates confidently against a sharp one at about zero
+# shift". For motion estimation that is a defocus bias. For this question it is
+# the required property — a legitimate sharpening must read ZERO.
+
+# The instrument's geometry. Profiles run +-CONTOUR_HALF px along the contour
+# normal and are averaged over +-CONTOUR_SPAN px along the contour. Both are
+# small on purpose: the box-1 residual is 6 px in total, and the sparse fitter's
+# own +-28/+-24 (`motion_groups.PROFILE_HALF/SPAN`) would average it away
+# entirely. CHOSEN ON THE KAT, not on any bar: `contourkat` (b') sweeps
+# half in {4, 6, 8} x span in {0, 1, 2} and prints all nine rows. The rule is
+# "maximize the 1 px hit rate — the size of the defect class — with a clean 0 px
+# control", and it picks (6, 1) uniquely; the table is in scenemodel_NOTES §24.
+CONTOUR_HALF = 6
+CONTOUR_SPAN = 1
+# The displacement a contour is allowed. HALF A PIXEL is not a tuned number: it
+# is the largest displacement that cannot carry a contour to a different pixel of
+# the grid the composite is stored on, so below it "the contour moved" is not a
+# statement about the image that was written. It is used TWICE and identically —
+# to decide that the input and the reference AGREE about where a contour is, and
+# to decide that the rewrite has MOVED it — so the clause says exactly one thing:
+# *the rewrite may not disagree with the two observations by more than they
+# disagree with each other.* `contourkat` measures the population on both sides
+# of it rather than asserting it.
+CONTOUR_TOL = 0.5
+
+
+def _unit_normals(gray: np.ndarray):
+    """Unit contour normals, from the same smoothed Sobel `_material_features` uses."""
+    smoothed = cv2.GaussianBlur(gray, (5, 5), 0)
+    gx = cv2.Sobel(smoothed, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(smoothed, cv2.CV_32F, 0, 1, ksize=3)
+    magnitude = np.hypot(gx, gy) + 1e-6
+    return (gx / magnitude).astype(np.float32), (gy / magnitude).astype(np.float32)
+
+
+def _contour_profiles(gray, nx, ny, half=CONTOUR_HALF, span=CONTOUR_SPAN):
+    """Intensity across the contour at EVERY pixel — `motion_groups._profile`, dense.
+
+    One `remap` per (normal offset, tangent offset) pair over the whole frame,
+    which is why a per-pixel version of a per-feature instrument is affordable at
+    all. Returns `(2*half+1, H, W)`.
+    """
+    h, w = gray.shape
+    xx, yy = np.meshgrid(np.arange(w, dtype=np.float32),
+                         np.arange(h, dtype=np.float32))
+    tx, ty = -ny, nx
+    out = np.empty((2 * half + 1, h, w), np.float32)
+    for j, t in enumerate(range(-half, half + 1)):
+        acc = np.zeros((h, w), np.float32)
+        for s in range(-span, span + 1):
+            acc += cv2.remap(gray, xx + t * nx + s * tx, yy + t * ny + s * ty,
+                             cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+        out[j] = acc / (2 * span + 1)
+    return out
+
+
+def _match_dense(pa: np.ndarray, pb: np.ndarray):
+    """`motion_groups._match`, vectorized over pixels. Returns (shift, peak).
+
+    Identical arithmetic — gradient of the mean-removed profile, a full
+    normalized cross-correlation, a parabolic sub-pixel peak — so the sparse
+    instrument's validation carries over, and `contourkat` (a) checks that it
+    does against known sub-pixel displacements.
+    """
+    ga = np.gradient(pa - pa.mean(axis=0, keepdims=True), axis=0)
+    gb = np.gradient(pb - pb.mean(axis=0, keepdims=True), axis=0)
+    denominator = np.sqrt((ga ** 2).sum(0) * (gb ** 2).sum(0)) + 1e-12
+    length = pa.shape[0]
+    correlation = np.empty((2 * length - 1,) + pa.shape[1:], np.float32)
+    for index, lag in enumerate(range(-(length - 1), length)):
+        if lag >= 0:
+            correlation[index] = (gb[lag:] * ga[:length - lag]).sum(0)
+        else:
+            correlation[index] = (gb[:length + lag] * ga[-lag:]).sum(0)
+    correlation /= denominator
+    best = np.argmax(correlation, axis=0)
+    yy, xx = np.indices(pa.shape[1:])
+    peak = correlation[best, yy, xx]
+    left = correlation[np.maximum(best - 1, 0), yy, xx]
+    right = correlation[np.minimum(best + 1, 2 * length - 2), yy, xx]
+    curvature = left - 2 * peak + right
+    offset = np.where(np.abs(curvature) > 1e-12,
+                      0.5 * (left - right) / np.where(np.abs(curvature) > 1e-12,
+                                                      curvature, 1.0), 0.0)
+    interior = (best > 0) & (best < 2 * length - 2)
+    shift = (best - (length - 1)).astype(np.float32) + np.where(interior, offset, 0.0)
+    return shift.astype(np.float32), peak.astype(np.float32)
+
+
+def _gray(image) -> np.ndarray:
+    return cv2.cvtColor(np.clip(image, 0, 255).astype(np.uint8),
+                        cv2.COLOR_BGR2GRAY).astype(np.float32)
+
+
+def contour_continuity(candidate, base, reference, tol=CONTOUR_TOL,
+                       half=CONTOUR_HALF, span=CONTOUR_SPAN):
+    """Where a candidate MOVES a contour the input and the reference agree on.
+
+    `base` is the input composite, `reference` the reference frame in the same
+    crop, `candidate` the composite under test. All three are in the SAME
+    geometry, which is the whole reason this question is answerable without
+    fitting any motion.
+
+    Contour sites are Canny's, on the same smoothed uint8 the repo's own edge
+    finder uses (`motion_groups._material_features`), so "strong contour" is not
+    a new definition either. At every site three profile matches are made along
+    the site's normal:
+
+        d_agree = shift(base -> reference)     do the two observations agree?
+        d_move  = shift(base -> candidate)     did the rewrite move it?
+        d_ref   = shift(reference -> candidate)
+
+    AGREED requires a confident match (`motion_groups.MIN_PEAK`, borrowed) at
+    |d_agree| <= tol. A VIOLATION requires the rewrite to have moved that contour
+    past the same tol away from BOTH observations — a rewrite that moves a
+    contour towards the reference is not moving a contour they agree on.
+    """
+    gray_b, gray_c, gray_r = _gray(base), _gray(candidate), _gray(reference)
+    nx, ny = _unit_normals(gray_b)
+    prof_b = _contour_profiles(gray_b, nx, ny, half, span)
+    prof_c = _contour_profiles(gray_c, nx, ny, half, span)
+    prof_r = _contour_profiles(gray_r, nx, ny, half, span)
+    d_agree, p_agree = _match_dense(prof_b, prof_r)
+    d_move, p_move = _match_dense(prof_b, prof_c)
+    d_ref, p_ref = _match_dense(prof_r, prof_c)
+
+    edges = cv2.Canny(cv2.GaussianBlur(gray_b.astype(np.uint8), (5, 5), 0),
+                      60, 180) > 0
+    margin = half + span + 2
+    inside = np.zeros(edges.shape, bool)
+    inside[margin:-margin, margin:-margin] = True
+    sites = edges & inside
+    agreed = sites & (p_agree >= MG.MIN_PEAK) & (np.abs(d_agree) <= tol)
+    violation = (agreed & (p_move >= MG.MIN_PEAK) & (np.abs(d_move) > tol)
+                 & (p_ref >= MG.MIN_PEAK) & (np.abs(d_ref) > tol))
+    return {"sites": sites, "agreed": agreed, "violation": violation,
+            "d_agree": d_agree, "d_move": d_move, "d_ref": d_ref,
+            "p_agree": p_agree, "p_move": p_move, "p_ref": p_ref}
+
+
+def steady_contours(assembly: Assembly, keep, radius=FRONTIER_SLACK, verbose=False):
+    """Clause 4: a rewrite may not move a contour the two observations agree on.
+
+    Composed LAST, and that placement is forced rather than chosen. §23a measured
+    `quiet_frontier` to be NON-MONOTONE in its input — its `bad` set is seeded by
+    loud pixels lying ON the frontier, so deleting a rewrite pixel upstream can
+    delete a seed and make it withdraw LESS (438 pixels survived that the shipped
+    pipeline reverts, 7 of them inside the F112 knob, taking it from 0.95x to
+    1.58x). A clause placed AFTER it can only remove, and the strict-subset
+    assertion is what proves it did.
+
+    The candidate tested is the composite the pipeline would actually ship at
+    this point — `keep` applied to the base — not the raw assembly, because a
+    contour displacement the earlier clauses already reverted is not this
+    clause's to punish.
+
+    Reversion reuses `quiet_frontier`'s machinery unchanged: the violating site
+    plus everything within `FRONTIER_SLACK = ceil(GATE_TOL)` px of it, once. A
+    displaced contour is a statement about a 1-2 px neighbourhood and GATE_TOL is
+    this arc's standing answer to "how far is a position undetermined"; the disc
+    is what reaches the rewritten pixels that did the displacing when the
+    violating site itself sits just outside the rewrite. ONE application, for
+    `quiet_frontier`'s reason: reverting to the input restores the agreed
+    contour, so a second pass would be a fresh revert with no new evidence.
+    """
+    candidate = assembly.base.copy()
+    candidate[keep] = assembly.composite[keep]
+    report = contour_continuity(candidate, assembly.base, assembly.reference)
+    changed = cv2.dilate((np.abs(candidate.astype(np.int16)
+                                 - assembly.base.astype(np.int16)).max(axis=2) > 0
+                          ).astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    violation = report["violation"] & changed
+    disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1,) * 2)
+    grown = (cv2.dilate(violation.astype(np.uint8), disc).astype(bool)
+             if violation.any() else violation)
+    mask = keep & ~grown
+    tested = report["agreed"] & changed
+    if verbose:
+        print(f"    contour clause: {int(violation.sum())} displaced contour px of "
+              f"{int(tested.sum())} agreed contour px in the rewrite "
+              f"({violation.sum() / max(1, tested.sum()) * 100:.2f}%); "
+              f"{int((keep & grown).sum())} px reverted at {radius} px slack "
+              f"({(keep & grown).sum() / max(1, keep.sum()) * 100:.1f}% of the "
+              f"kept rewrite)")
+    return mask, int((keep & grown).sum()), report
+
+
 def finalize(assembly: Assembly, reverted, rewrite=None):
     """Apply the veto and return the final composite (crop geometry).
 
@@ -847,15 +1071,32 @@ def finalize(assembly: Assembly, reverted, rewrite=None):
 
 
 def veto_all(assembly: Assembly, scene_result, base_result, regions,
-             verbose=False):
-    """The whole three-scale veto, in order, and the composite it leaves."""
+             verbose=False, contour=True):
+    """The whole FOUR-scale veto, in order, and the composite it leaves.
+
+    The order is not a preference. Clauses 1-3 are the correction round's
+    (region, cluster, frontier); clause 4 is round B3a's contour-continuity
+    rule, and §23a forces it to be LAST — `quiet_frontier` is non-monotone in its
+    input, so anything in front of it can make it withdraw LESS. Placed after it,
+    a clause can only remove, and the assertion below proves it did.
+    """
     verdicts, reverted = apply_veto(assembly, scene_result, base_result,
                                     regions, verbose=verbose)
     keep, n_local = local_veto(assembly, scene_result, base_result, reverted,
                                verbose=verbose)
     keep, n_front, residual = quiet_frontier(assembly, keep, verbose=verbose)
+    shipped_106e2f5 = keep.copy()
+    n_contour, report = 0, None
+    if contour:
+        keep, n_contour, report = steady_contours(assembly, keep, verbose=verbose)
+        # THE STRICT-SUBSET LEDGER (§17, §23a). The instrument that catches a
+        # non-monotone composition is the assertion, not the bar table.
+        assert not (keep & ~shipped_106e2f5).any(), \
+            "the contour clause rescued pixels 106e2f5 reverts"
     final, final_rewrite = finalize(assembly, reverted, keep)
-    stats = {"local": n_local, "frontier": n_front, "residual": residual}
+    stats = {"local": n_local, "frontier": n_front, "residual": residual,
+             "contour": n_contour, "contour_report": report,
+             "shipped_106e2f5": shipped_106e2f5}
     return verdicts, reverted, final, final_rewrite, stats
 
 
@@ -1096,6 +1337,241 @@ def local_kat() -> None:
           "  differential sensitivity. So the local clause has a floor of a few\n"
           "  dozen pixels no matter what window it pools over, and the defects that\n"
           "  fall through it are exactly why `quiet_frontier` exists.")
+
+
+def _displace_strip(image, box, shift):
+    """Translate one rectangle of an image by `shift` px in x. A KNOWN answer."""
+    bx0, by0, bx1, by1 = box
+    out = image.copy()
+    strip = image[by0:by1, bx0 - 8:bx1 + 8].astype(np.float32)
+    matrix = np.float32([[1, 0, shift], [0, 1, 0]])
+    moved = cv2.warpAffine(strip, matrix, (strip.shape[1], strip.shape[0]),
+                           flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+    out[by0:by1, bx0:bx1] = np.clip(moved[:, 8:-8], 0, 255).astype(np.uint8)
+    return out
+
+
+def contour_kat() -> None:
+    """KAT for the CONTOUR CONTINUITY instrument, before it is believed (§12.1).
+
+    Four questions, in the order that makes each one interpretable:
+
+      (a) does the dense correlator recover a KNOWN sub-pixel displacement, and
+          does it read ZERO when the only change is sharpness? (synthetic, so the
+          answer is exact and any failure is arithmetic, not scene)
+      (b) does it trip on a known 1 px and 2 px displacement injected into a real
+          composite, and what is the hit rate?
+      (c) what does it do to the factory's own legitimate sharpening — a
+          sharper-but-unmoved contour, which the assembly produces in abundance?
+          The factory has GROUND TRUTH, so every flag can be adjudicated: a flag
+          is a FALSE ALARM only if the candidate's contour is closer to the truth
+          than the input's is.
+      (d) does it flag the two kitchen residuals from their COORDINATES ALONE?
+          The instrument is not told the answer; it is run on the whole frame and
+          the boxes are read off afterwards.
+    """
+    import parallax_gen as P
+    from focusstack.io import normalize_exposure
+
+    print("=" * 78)
+    print("KAT — CONTOUR CONTINUITY, the instrument F115 said was missing")
+    print("=" * 78)
+
+    # (a) ------------------------------------------------------------------
+    print("\n  (a) THE CORRELATOR, against exactly-known answers. A step edge in a\n"
+          "      textured field, displaced by a known amount and/or blurred.")
+    rng = np.random.default_rng(11)
+    field = cv2.GaussianBlur(rng.integers(20, 90, (200, 200)).astype(np.uint8),
+                             (0, 0), 3).astype(np.float32)
+    edge = field.copy()
+    edge[:, 100:] += 150.0
+    edge = np.clip(edge, 0, 255)
+    base_rgb = cv2.cvtColor(edge.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+    probe = np.zeros(edge.shape, bool)
+    probe[40:160, 96:104] = True
+    print(f"  {'candidate':<34} {'measured shift':>15} {'truth':>8} {'peak':>7}")
+    cases = [("identity", 0.0, 0.0), ("shift +0.25 px", 0.25, 0.25),
+             ("shift +0.50 px", 0.5, 0.5), ("shift +1.00 px", 1.0, 1.0),
+             ("shift +2.00 px", 2.0, 2.0)]
+    for label, shift, truth in cases:
+        moved = cv2.warpAffine(edge, np.float32([[1, 0, shift], [0, 1, 0]]),
+                               (200, 200), borderMode=cv2.BORDER_REFLECT)
+        rgb = cv2.cvtColor(np.clip(moved, 0, 255).astype(np.uint8),
+                           cv2.COLOR_GRAY2BGR)
+        out = contour_continuity(rgb, base_rgb, base_rgb)
+        here = probe & out["sites"]
+        print(f"  {label:<34} {float(np.median(out['d_move'][here])):15.3f} "
+              f"{truth:8.2f} {float(np.median(out['p_move'][here])):7.3f}")
+    for radius in (1, 2, 4):
+        blurred = FC.defocus(cv2.cvtColor(edge.astype(np.uint8),
+                                          cv2.COLOR_GRAY2BGR), radius)
+        out = contour_continuity(base_rgb, blurred, base_rgb)
+        here = probe & out["sites"]
+        print(f"  {'SHARPENED (disk %d -> sharp)' % radius:<34} "
+              f"{float(np.median(out['d_move'][here])):15.3f} {0.0:8.2f} "
+              f"{float(np.median(out['p_move'][here])):7.3f}"
+              f"   flagged {int((out['violation'] & probe).sum())}"
+              f" of {int((out['agreed'] & probe).sum())}")
+    print("      The sharpening rows are the load-bearing ones: a legitimate\n"
+          "      sharpening must read ZERO, and PLAYBOOK's own defocus-bias\n"
+          "      HAZARD ('a blurred profile correlates confidently against a sharp\n"
+          "      one at about zero shift') is exactly the property that makes it.")
+
+    # (b) / (c) -------------------------------------------------------------
+    frames, truth, _near = P.build_stack()
+    result = assemble(frames, P.REFERENCE, raw=frames)
+    x0, y0, x1, y1 = result.crop
+    reference_truth = truth[y0:y1, x0:x1]
+
+    print("\n  (b) INJECTED DISPLACEMENTS in a real composite: one strip of the\n"
+          "      factory's own TRUTH, translated by a known amount, pasted into\n"
+          "      the input composite. Everything else is byte-identical.")
+    strip_box = (120, 120, 420, 300)
+    inside = np.zeros(result.base.shape[:2], bool)
+    inside[strip_box[1]:strip_box[3], strip_box[0]:strip_box[2]] = True
+    outside = ~cv2.dilate(inside.astype(np.uint8),
+                          np.ones((2 * CONTOUR_HALF + 1,) * 2, np.uint8)).astype(bool)
+    truth_base = result.base.copy()
+    truth_base[inside] = reference_truth[inside]
+    # A translation in x moves a contour by `shift * nx` along ITS OWN normal, so
+    # a horizontal contour translated horizontally has NOT moved and must not be
+    # flagged. That is the aperture problem, and it is the reason the raw hit
+    # rate is the wrong denominator: the KNOWN answer is per site, not per strip.
+    nx_map, _ny = _unit_normals(_gray(result.base))
+    print(f"  {'injected':<12} {'agreed':>7} {'observable':>11} {'FLAGGED':>8} "
+          f"{'raw':>7} {'HIT RATE':>9} {'outside':>9}")
+    for shift in (0.0, 1.0, 2.0):
+        candidate = (truth_base if shift == 0.0
+                     else _displace_strip(truth_base, strip_box, shift))
+        out = contour_continuity(candidate, result.base, reference_truth)
+        agreed_in = out["agreed"] & inside
+        observable = agreed_in & (np.abs(shift * nx_map) > CONTOUR_TOL)
+        flagged = out["violation"] & inside
+        false_out = (out["violation"] & outside).sum() / max(
+            1, (out["agreed"] & outside).sum())
+        print(f"  {shift:5.1f} px {'':<3} {int(agreed_in.sum()):7d} "
+              f"{int(observable.sum()):11d} {int(flagged.sum()):8d} "
+              f"{flagged.sum() / max(1, agreed_in.sum()):6.1%} "
+              f"{(flagged & observable).sum() / max(1, observable.sum()):8.1%} "
+              f"{false_out:8.2%}")
+    print("      Row 0.0 is the control: the same paste with NO displacement.\n"
+          "      'observable' counts only the sites whose own normal actually SEES\n"
+          "      the injected translation (|shift*nx| > tol); HIT RATE is against\n"
+          "      those, and the raw column is against every agreed site in the\n"
+          "      strip including the ones the displacement slides ALONG.\n"
+          "      'outside' is the same instrument on the untouched remainder.")
+
+    print("\n  (b') THE PROFILE GEOMETRY, chosen HERE and not on any bar. Nine\n"
+          "       (half, span) pairs against the 1 px and 2 px hit rates and the\n"
+          "       0 px control. The rule is: maximize the 1 px hit rate — the size\n"
+          "       of the defect class this exists for — with a clean control.")
+    print(f"  {'half':>5} {'span':>5} {'hit @1 px':>11} {'hit @2 px':>11} "
+          f"{'0 px control':>13}")
+    for half in (4, 6, 8):
+        for span in (0, 1, 2):
+            row = []
+            for shift in (1.0, 2.0, 0.0):
+                candidate = (truth_base if shift == 0.0
+                             else _displace_strip(truth_base, strip_box, shift))
+                out = contour_continuity(candidate, result.base, reference_truth,
+                                         half=half, span=span)
+                flagged = out["violation"] & inside
+                observable = (out["agreed"] & inside
+                              & (np.abs(shift * nx_map) > CONTOUR_TOL))
+                row.append((flagged & observable).sum() / max(1, observable.sum())
+                           if shift else int(flagged.sum()))
+            mark = "  <- shipped" if (half, span) == (CONTOUR_HALF,
+                                                      CONTOUR_SPAN) else ""
+            print(f"  {half:5d} {span:5d} {row[0]:10.1%} {row[1]:10.1%} "
+                  f"{row[2]:13d}{mark}")
+
+    print("\n  (c) THE FACTORY'S OWN SHARPENING, adjudicated against GROUND TRUTH.\n"
+          "      The candidate is the assembled composite after the SHIPPED veto\n"
+          "      stack. A flag is a FALSE ALARM only if the rewrite put the\n"
+          "      contour CLOSER to the truth than the input had it.")
+    regions = regions_of(result)
+    scores, _r = certify_candidates(result, frames,
+                                    [("scene-model", result.composite),
+                                     ("input routed", result.base)])
+    scene, base_score = scores["scene-model"], scores["input routed"]
+    _v, reverted = apply_veto(result, scene, base_score, regions)
+    keep, _n = local_veto(result, scene, base_score, reverted)
+    keep, _n, _res = quiet_frontier(result, keep)
+    shipped = result.base.copy()
+    shipped[keep] = result.composite[keep]
+    out = contour_continuity(shipped, result.base, result.reference)
+    changed = cv2.dilate((np.abs(shipped.astype(np.int16)
+                                 - result.base.astype(np.int16)).max(axis=2) > 0
+                          ).astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    tested = out["agreed"] & changed
+    flagged = out["violation"] & changed
+    # adjudicate: where does the TRUTH put the contour?
+    gray_b, gray_c = _gray(result.base), _gray(shipped)
+    gray_t = _gray(reference_truth)
+    nx, ny = _unit_normals(gray_b)
+    pb = _contour_profiles(gray_b, nx, ny)
+    d_bt, _p = _match_dense(pb, _contour_profiles(gray_t, nx, ny))
+    d_ct, _p = _match_dense(_contour_profiles(gray_c, nx, ny),
+                            _contour_profiles(gray_t, nx, ny))
+    closer = np.abs(d_ct) < np.abs(d_bt)
+    n_flag = int(flagged.sum())
+    print(f"      agreed contour px inside the rewrite : {int(tested.sum())}")
+    print(f"      FLAGGED                              : {n_flag} "
+          f"({n_flag / max(1, tested.sum()):.2%} of them)")
+    if n_flag:
+        print(f"      of the flagged, closer to TRUTH after the rewrite "
+              f"(= FALSE ALARM): {int((flagged & closer).sum())} "
+              f"({(flagged & closer).sum() / n_flag:.0%} of flags, "
+              f"{(flagged & closer).sum() / max(1, tested.sum()):.3%} of all "
+              f"agreed contour px in the rewrite)")
+        print(f"      median |contour - truth|: input {float(np.median(np.abs(d_bt[flagged]))):.2f} px"
+              f"  ->  rewrite {float(np.median(np.abs(d_ct[flagged]))):.2f} px")
+    print(f"      the same numbers on the contours the clause KEEPS: "
+          f"median |contour - truth| input "
+          f"{float(np.median(np.abs(d_bt[tested & ~flagged]))):.2f} px -> rewrite "
+          f"{float(np.median(np.abs(d_ct[tested & ~flagged]))):.2f} px")
+
+    # (d) -------------------------------------------------------------------
+    print("\n  (d) THE TWO KITCHEN RESIDUALS, from their COORDINATES ALONE. The\n"
+          "      instrument is run on the whole frame with no knowledge of either\n"
+          "      box; the boxes are read off the result afterwards.")
+    src = [cv2.imread(p) for p in sorted(glob.glob(os.path.join(KITCHEN, "*.jpg")))]
+    norm = normalize_exposure(src)
+    ref = len(src) // 2
+    kitchen_result = assemble(norm, ref, raw=src)
+    kregions = regions_of(kitchen_result)
+    kscores, _r = certify_candidates(kitchen_result, src,
+                                     [("scene-model", kitchen_result.composite),
+                                      ("input routed", kitchen_result.base)])
+    kscene, kbase = kscores["scene-model"], kscores["input routed"]
+    _v, kreverted = apply_veto(kitchen_result, kscene, kbase, kregions)
+    kkeep, _n = local_veto(kitchen_result, kscene, kbase, kreverted)
+    kkeep, _n, _res = quiet_frontier(kitchen_result, kkeep)
+    kshipped = kitchen_result.base.copy()
+    kshipped[kkeep] = kitchen_result.composite[kkeep]
+    kout = contour_continuity(kshipped, kitchen_result.base,
+                              kitchen_result.reference)
+    kchanged = cv2.dilate((np.abs(kshipped.astype(np.int16)
+                                  - kitchen_result.base.astype(np.int16)
+                                  ).max(axis=2) > 0).astype(np.uint8),
+                          np.ones((3, 3), np.uint8)).astype(bool)
+    kflag = kout["violation"] & kchanged
+    ktest = kout["agreed"] & kchanged
+    # the two residuals, in COMPOSITE coords (inspection + 1 in x, §15)
+    residuals = {"box 1 fleck  (x482-484 y150-153, insp)": (483, 151, 486, 154),
+                 "box 4 shelf junction (x431-492 y192-270)": (431, 192, 492, 270)}
+    print(f"  {'residual':<44} {'agreed':>7} {'FLAGGED':>8} {'max |d|':>8}")
+    for label, (bx0, by0, bx1, by1) in residuals.items():
+        window = np.zeros(kflag.shape, bool)
+        window[by0:by1, bx0:bx1] = True
+        here = kflag & window
+        agreed_here = ktest & window
+        peak = (float(np.abs(kout["d_move"][here]).max()) if here.any() else 0.0)
+        print(f"  {label:<44} {int(agreed_here.sum()):7d} {int(here.sum()):8d} "
+              f"{peak:8.2f}")
+    print(f"\n      whole kitchen rewrite: {int(kflag.sum())} flagged of "
+          f"{int(ktest.sum())} agreed contour px "
+          f"({kflag.sum() / max(1, ktest.sum()):.2%})")
 
 
 # ---------------------------------------------------------------------------
@@ -1423,9 +1899,12 @@ def kitchen() -> None:
         result, scores["scene-model"], scores["input routed"], regions,
         verbose=True)
     region_only, region_rewrite = finalize(result, reverted)
+    previous, previous_rewrite = finalize(result, reverted,
+                                          vstats["shipped_106e2f5"])
     final_scores, _r = certify_candidates(
         result, src, [("scene-model, vetoed", final),
-                      ("region veto only", region_only)])
+                      ("region veto only", region_only),
+                      ("shipped 106e2f5", previous)])
     scores.update(final_scores)
 
     print(f"\n  --- BAR D: byte-identity outside the rewrite ---")
@@ -1440,15 +1919,22 @@ def kitchen() -> None:
           f"{region_rewrite.sum() - final_rewrite.sum()} px "
           f"({(1 - final_rewrite.sum() / max(1, region_rewrite.sum())) * 100:.1f}% "
           f"of it) — cluster {vstats['local']}, frontier {vstats['frontier']}, "
+          f"contour {vstats['contour']}, "
           f"residual loud frontier {vstats['residual'][0]} of "
           f"{vstats['residual'][1]}")
+    print(f"  STRICT SUBSET LEDGER: 106e2f5 shipped {int(previous_rewrite.sum())} px; "
+          f"this rewrite {int(final_rewrite.sum())} px; "
+          f"rescued (must be 0) {int((final_rewrite & ~previous_rewrite).sum())}; "
+          f"pixel-identical where both write "
+          f"{np.array_equal(final[final_rewrite], previous[final_rewrite])}")
 
     print(f"\n  --- BAR B: the four F112 user boxes (mean/max |Δ| vs norm[{ref}]) ---")
     print(f"  {'candidate':<26} {'box 1':>10} {'box 2':>10} {'box 3':>10} "
           f"{'box 4':>10}")
     before = kitchen_boxes(result.base, reference, crop, "input routed (the bar)")
     kitchen_boxes(region_only, reference, crop, "region veto only (B2)")
-    after = kitchen_boxes(final, reference, crop, "scene-model, local veto")
+    kitchen_boxes(previous, reference, crop, "shipped 106e2f5")
+    after = kitchen_boxes(final, reference, crop, "+ contour clause (B3a)")
     worse = [i + 1 for i, (a, b) in enumerate(zip(before, after)) if b[0] > a[0] + 0.01]
     over = [i + 1 for i, (a, b) in enumerate(zip(before, after)) if b[1] > a[1]]
     print(f"  regressed on MEAN |Δ| vs the reference: {worse if worse else 'NONE'}")
@@ -1457,13 +1943,13 @@ def kitchen() -> None:
     print(f"  the counter-instrument — mean FOCUS ENERGY in the same boxes "
           f"(higher = sharper):")
     kitchen_boxes(result.base, reference, crop, "input routed", energy=True)
-    kitchen_boxes(region_only, reference, crop, "region veto only (B2)", energy=True)
-    kitchen_boxes(final, reference, crop, "scene-model, local veto", energy=True)
+    kitchen_boxes(previous, reference, crop, "shipped 106e2f5", energy=True)
+    kitchen_boxes(final, reference, crop, "+ contour clause (B3a)", energy=True)
 
     print(f"\n  --- BAR B: the canonical F108 flank box (x560-670, y240-420) ---")
     kitchen_flank(result.base, reference, crop, "input routed (the bar)")
-    kitchen_flank(region_only, reference, crop, "region veto only (B2)")
-    kitchen_flank(final, reference, crop, "scene-model, local veto")
+    kitchen_flank(previous, reference, crop, "shipped 106e2f5")
+    kitchen_flank(final, reference, crop, "+ contour clause (B3a)")
 
     print(f"\n  --- BAR B: the F112 knob (x659-669, y243-313) ---")
     _knob_report(result, final, scores, reference, crop, norm, src)
@@ -1474,6 +1960,7 @@ def kitchen() -> None:
 
     print(f"\n  --- the certifier ledger ---")
     for label in ("input routed", "scene-model", "region veto only",
+                  "shipped 106e2f5",
                   "scene-model, vetoed", "region-scoped null", "global null"):
         entry = scores.get(label)
         if entry is None:
@@ -1491,6 +1978,7 @@ def kitchen() -> None:
                                                           "kitchen_rewrite.png"))
     _eyes_honest_sliver(result, final, reference, crop)
     _defect_crops(result, region_only, final, reference, crop)
+    _b3_defect_crops(result, previous, final, reference, crop, vstats)
     print(f"\n  elapsed {time.time() - t0:.1f} s")
 
 
@@ -1534,6 +2022,81 @@ def _defect_crops(result, region_only, final, reference, crop):
         path = os.path.join(OUT, f"B2R2_defect{index}.png")
         cv2.imwrite(path, np.vstack([header, strip]))
         print(f"  defect {index} crop (6x) -> {path}")
+
+
+# The two residuals round B3a is aimed at, in COMPOSITE coordinates. Both are
+# §23c's, quoted from the record and not re-derived here: box 1's 6 px fleck
+# (inspection x482-484 y150-153, so composite x483-485) translates the bottle's
+# silhouette one pixel, and box 4's shelf junction displaces a contour ~2 rows.
+B3_CROPS = {
+    1: ((467, 128, 514, 164),
+        "box 1: the 6 px fleck — the silhouette translated ONE pixel"),
+    3: ((431, 192, 492, 270),
+        "box 4: the shelf junction — a contour displaced ~2 rows and steepened"),
+}
+
+
+def _b3_defect_crops(result, previous, final, reference, crop, vstats):
+    """ROUTED | 106e2f5 SHIPPED | CONTOUR-VETOED | REFERENCE, 6x nearest.
+
+    Same four-panel discipline as §20: without the previous shipped panel a
+    reader cannot tell a residual this round removed from one that was never
+    there. The flagged contour sites are marked on the third panel, because a
+    veto's evidence belongs in the same picture as its effect.
+    """
+    x0, y0, _x1, _y1 = crop
+    reference_crop = reference[y0:y0 + result.base.shape[0],
+                               x0:x0 + result.base.shape[1]]
+    report = vstats.get("contour_report")
+    for index, ((bx0, by0, bx1, by1), caption) in B3_CROPS.items():
+        panels = []
+        for name, image in (("routed", result.base), ("106e2f5", previous),
+                            ("contour", final), ("reference", reference_crop)):
+            panel = cv2.resize(image[by0:by1, bx0:bx1], None, fx=6, fy=6,
+                               interpolation=cv2.INTER_NEAREST)
+            if name == "contour" and report is not None:
+                ys, xs = np.nonzero(report["violation"][by0:by1, bx0:bx1])
+                for py, px in zip(ys, xs):
+                    cv2.rectangle(panel, (px * 6, py * 6),
+                                  (px * 6 + 5, py * 6 + 5), (0, 0, 255), 1)
+            panels.append(panel)
+        strip = np.hstack(panels)
+        header = np.zeros((44, strip.shape[1], 3), np.uint8)
+        cv2.putText(header, f"B3a defect {index} — {caption}", (6, 17),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (231, 179, 91), 1, cv2.LINE_AA)
+        cv2.putText(header, f"x{bx0}-{bx1} y{by0}-{by1}   ROUTED | SHIPPED "
+                            f"(106e2f5) | CONTOUR-VETOED (red = displaced contour "
+                            f"site) | REFERENCE frame 6", (6, 35),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.42, (200, 200, 200), 1, cv2.LINE_AA)
+        path = os.path.join(OUT, f"B3_defect{index}.png")
+        cv2.imwrite(path, np.vstack([header, strip]))
+        print(f"  B3a defect {index} crop (6x) -> {path}")
+
+    # The shelf junction at 12x and, next to it, §23c's own instrument: the
+    # row means across the contour. That table is what "displaced ~2 rows and
+    # steepened" was measured with, so it is what the repair has to be read on.
+    band = (431, 190, 492, 216)
+    strip = np.hstack([cv2.resize(image[band[1]:band[3], band[0]:band[2]], None,
+                                  fx=12, fy=12, interpolation=cv2.INTER_NEAREST)
+                       for image in (result.base, previous, final,
+                                     reference_crop)])
+    header = np.zeros((26, strip.shape[1], 3), np.uint8)
+    cv2.putText(header, "box 4 shelf junction at 12x — ROUTED | SHIPPED "
+                        "(106e2f5) | CONTOUR-VETOED | REFERENCE", (6, 18),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (231, 179, 91), 1, cv2.LINE_AA)
+    path = os.path.join(OUT, "B3_defect3_band.png")
+    cv2.imwrite(path, np.vstack([header, strip]))
+    print(f"  B3a shelf junction band (12x) -> {path}")
+    print(f"  §23c's instrument — row means across the junction contour "
+          f"(x{band[0]}-{band[2]}):")
+    print(f"  {'row':>5} {'routed':>8} {'106e2f5':>9} {'contour':>9} "
+          f"{'reference':>10}")
+    for y in range(200, 205):
+        cells = [float(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)[
+            y, band[0]:band[2]].mean())
+            for image in (result.base, previous, final, reference_crop)]
+        print(f"  {y:5d} {cells[0]:8.1f} {cells[1]:9.1f} {cells[2]:9.1f} "
+              f"{cells[3]:10.1f}")
 
 
 def _knob_report(result, final, scores, reference, crop, norm, src):
@@ -1843,6 +2406,7 @@ def render() -> None:
 
 
 COMMANDS = {"kat": kat, "slope": slope_kat, "localkat": local_kat,
+            "contourkat": contour_kat,
             "factory": factory, "kitchen": kitchen, "orderguard": orderguard,
             "boundary": boundary, "render": render}
 

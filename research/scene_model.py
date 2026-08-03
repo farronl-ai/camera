@@ -49,6 +49,7 @@ and nothing here does.
 
     .venv/bin/python research/scene_model.py kat        # the physical test, known answers
     .venv/bin/python research/scene_model.py slope      # the blur ladder's own KAT
+    .venv/bin/python research/scene_model.py localkat   # the LOCAL veto's arbiter
     .venv/bin/python research/scene_model.py factory    # bar A: GT-SSIM + the ladder
     .venv/bin/python research/scene_model.py kitchen    # bars B/C/D + both ledgers
     .venv/bin/python research/scene_model.py orderguard # what the ordering-free rule costs
@@ -91,9 +92,17 @@ SIGMA0 = 1.0
 # own quorum; 200 px is `estimate_radii`'s own minimum weight for a fit to be
 # scored at all. Borrowed, not chosen.
 MIN_ARBITRABLE = 200
-# Smallest rewritten component that gets its own veto verdict. `twoframe`'s own
-# statement of the smallest thing worth calling a layer.
-MIN_REGION = TF.MIN_LAYER_PIXELS
+# The smallest window over which the certifier may return a LOCAL verdict: the
+# quorum it already requires for a REGIONAL one, made square. Nothing new —
+# `ceil(sqrt(MIN_ARBITRABLE))` is the finest scale at which the never-degrade
+# rule can be asked the same question it is asked per region. See §15.
+LOCAL_WINDOW = int(np.ceil(np.sqrt(MIN_ARBITRABLE)))     # 15 px
+# How far a frontier revert carries past the pixel that earned it. `GATE_TOL` is
+# the displacement every gate and every budget in this arc already declines to
+# resolve, so it is also how far a frontier's true position is undetermined; a
+# revert that stops short of it leaves the undetermined side standing. Rounded
+# up to whole pixels. §15 prices 1 / 2 / 3 / 5 — the choice is not free.
+FRONTIER_SLACK = int(np.ceil(TF.GATE_TOL))               # 2 px
 
 
 # ---------------------------------------------------------------------------
@@ -584,8 +593,23 @@ def assemble(images, ref=None, order_guard="any", verbose=False, raw=None,
 # ---------------------------------------------------------------------------
 # Certification of the rewrite, globally and per region
 # ---------------------------------------------------------------------------
-def regions_of(assembly: Assembly, min_area=MIN_REGION):
-    """Connected components of the rewrite, per layer. Reference geometry."""
+def regions_of(assembly: Assembly):
+    """Connected components of the rewrite, per layer. Reference geometry.
+
+    EVERY component, with no minimum area — and that is the correction. The
+    first build filtered components below `twoframe.MIN_LAYER_PIXELS` out of the
+    ledger, on the reasonable-sounding grounds that a 30 px blob is not worth a
+    certifier verdict. But `apply_veto` only ever REMOVES pixels, so a component
+    that never reaches the ledger is not skipped, it is ADMITTED — written into
+    the composite with no verdict of any kind. A size filter in front of a veto
+    is a silent grant of authority. On the kitchen that was 30 components and
+    1304 px, and two of the manager's three defects lived in them.
+
+    Small components are still not arbitrable, and `apply_veto` still says so:
+    they fall under `MIN_ARBITRABLE` and are reverted as UNARBITRATED, which is
+    the rule the module already had (F106 — an unexplained change is refused,
+    not waved through). The rule did not need changing. It needed running.
+    """
     rewrite = assembly.diag["rewrite_full"]
     labels = assembly.dec.labels
     found = []
@@ -595,8 +619,6 @@ def regions_of(assembly: Assembly, min_area=MIN_REGION):
             continue
         count, tagged, stats, _c = cv2.connectedComponentsWithStats(here, 8)
         for tag in range(1, count):
-            if stats[tag][4] < min_area:
-                continue
             found.append({"layer": i, "mask": tagged == tag,
                           "area": int(stats[tag][4]),
                           "box": (int(stats[tag][0]), int(stats[tag][1]),
@@ -660,15 +682,159 @@ def apply_veto(assembly: Assembly, scene_result, base_result, regions,
     return verdicts, reverted
 
 
-def finalize(assembly: Assembly, reverted):
-    """Apply the veto and return the final composite (crop geometry)."""
+# ---------------------------------------------------------------------------
+# The LOCAL never-degrade clause — the correction round's whole subject
+# ---------------------------------------------------------------------------
+# The region veto is a mean over a region, and a mean can buy an aggregate
+# improvement by paying in localized new structure. On the kitchen it did
+# exactly that: ONE kept region (layer 5, 79019 px, -1.9503 levels) contains
+# three separate clusters the manager's eyes found, whose own local
+# differentials are +0.98, +3.15 and +3.87. That is the same bargain F106
+# outlawed for geometry — a soft average standing in for a decision — one level
+# up, at the appearance layer.
+#
+# The cure is not a new arbiter. It is the SAME never-degrade rule, asked at
+# every scale at which the rewrite is actually written:
+#
+#   1. per COMPONENT   `regions_of` no longer filters by area, so every
+#                      component gets a verdict and the unarbitrable ones
+#                      revert. (See its docstring — this was a hole, not a
+#                      threshold.)
+#   2. per CLUSTER     `local_veto` below: the certifier differential pooled
+#                      over the smallest window that still meets the
+#                      certifier's own quorum, thresholded at the same 0.0 the
+#                      region rule uses.
+#   3. per FRONTIER    `retreat_frontier` below: a rewrite may not END on a
+#                      step the surface cannot hide.
+#
+# No new free number is introduced by any of the three. `LOCAL_WINDOW` is
+# `MIN_ARBITRABLE` made square, the threshold is the region rule's own 0.0, and
+# the frontier test is F112's own agreement budget.
+
+
+def local_veto(assembly: Assembly, scene_result, base_result, reverted,
+               verbose=False):
+    """Clause 2: revert every cluster the certifier prefers the input at.
+
+    The region rule is "mean differential over >= MIN_ARBITRABLE certified
+    pixels must not be positive". This asks the identical question over the
+    smallest window that still holds that many certified pixels — a
+    `LOCAL_WINDOW` box, i.e. the quorum made square. Where the window does NOT
+    hold the quorum the clause ABSTAINS and the region verdict stands, because
+    issuing a verdict on less evidence than the module already demands would be
+    inventing sensitivity the certifier does not have (F113: real-scene
+    differential sensitivity is a few levels, and KAT-4 measured the knob at ~7x
+    under the localization floor).
+
+    Returns the surviving rewrite mask in CROP geometry, plus a count.
+    """
     x0, y0, x1, y1 = assembly.crop
-    out = assembly.composite.copy()
-    revert_here = reverted[y0:y1, x0:x1] & assembly.rewritten
-    out[revert_here] = assembly.base[revert_here]
-    final_rewrite = assembly.rewritten & ~revert_here
-    assert np.array_equal(out[~final_rewrite], assembly.base[~final_rewrite])
-    return out, final_rewrite
+    keep = assembly.rewritten & ~reverted[y0:y1, x0:x1]
+    delta = (scene_result.unexplained - base_result.unexplained)[y0:y1, x0:x1]
+    scored = (np.minimum(scene_result.coverage, base_result.coverage)
+              >= FC.MIN_COVERAGE)[y0:y1, x0:x1]
+    box = (LOCAL_WINDOW, LOCAL_WINDOW)
+    total = cv2.boxFilter((delta * scored).astype(np.float32), -1, box,
+                          normalize=False)
+    count = cv2.boxFilter(scored.astype(np.float32), -1, box, normalize=False)
+    quorum = count >= MIN_ARBITRABLE
+    pooled = np.where(quorum, total / np.maximum(count, 1.0), 0.0)
+    worse = keep & quorum & (pooled > 0.0)
+    if verbose:
+        print(f"    local clause: {int(worse.sum())} px reverted "
+              f"({worse.sum() / max(1, keep.sum()) * 100:.1f}% of the kept "
+              f"rewrite); {int((keep & ~quorum).sum())} px had no local quorum "
+              f"and kept their region's verdict")
+    return keep & ~worse, int(worse.sum())
+
+
+def quiet_frontier(assembly: Assembly, keep, radius=FRONTIER_SLACK, verbose=False):
+    """Clause 3: a rewrite may not END on a step the surface cannot hide.
+
+    The certifier cannot arbitrate everything, and the KAT says exactly where it
+    stops: a known +40-level square injected into the composite puts 65% of its
+    differential mass inside itself at 9x9 and only 24% at 5x5, and the whole
+    frame score moves +0.019 and +0.003 respectively. So a defect of a few dozen
+    pixels is UNDER the arbiter, at any pooling scale, and clause 2 will never
+    see one. Two of the manager's five defect clusters are that size.
+
+    What is still available on a cluster that small is the frontier itself. A
+    rewrite frontier is a place where the composite switches SOURCE, and the
+    switch is invisible exactly where the two sources agree. This module already
+    owns a per-pixel statement of how large a disagreement is explainable:
+    `agreement_budget` — a GATE_TOL displacement against the local gradient,
+    `normalize_exposure`'s residual, and the sensor noise floor (F112's terms,
+    unchanged). Applied to the switch instead of to the admission it says: at a
+    frontier pixel, `|rewrite - input|` must be within budget. Where it is not,
+    that pixel and everything within `FRONTIER_SLACK` of it reverts.
+
+    The budget's own physics puts the cost in the right place. On a smooth
+    surface the gradient term vanishes and the budget collapses to a few levels,
+    so a frontier crossing flat wall is cut back hard — which is precisely where
+    a seam is visible, because there is no texture to hide it behind. Along a
+    real edge the gradient term is tens of levels and the frontier is left
+    alone.
+
+    This is NOT feathering (F79; negative deliverable 6 of the first round):
+    nothing is blended, nothing is softened, no depth boundary is crossed. The
+    rewrite withdraws, hard, to where its own edge is quiet.
+
+    ONE application, deliberately. Reverting the loud frontier exposes a new
+    frontier, and iterating to a fixed point is unbounded in principle and
+    ruinous in measurement: at this radius three rounds take the F112 knob's
+    certifier ratio from 0.95x to 2.32x, i.e. they eat the repair the round
+    before this one bought. Each further round would be a fresh revert with no
+    new evidence behind it. The residual loud frontier is REPORTED instead
+    (kitchen: 653 px of 9489, 6.9%).
+    """
+    budget = agreement_budget(assembly.composite.astype(np.float32),
+                              assembly.base.astype(np.float32))
+    step = np.abs(assembly.composite.astype(np.float32)
+                  - assembly.base.astype(np.float32)).max(axis=2)
+    loud = step > budget
+    inner = cv2.erode(keep.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    bad = keep & ~inner & loud
+    disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1,) * 2)
+    grown = cv2.dilate(bad.astype(np.uint8), disc).astype(bool) if bad.any() else bad
+    mask = keep & ~grown
+    after = cv2.erode(mask.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    residual = int((mask & ~after & loud).sum()), int((mask & ~after).sum())
+    if verbose:
+        print(f"    frontier clause: {int(bad.sum())} loud frontier px, "
+              f"{int((keep & grown).sum())} reverted with them at "
+              f"{radius} px slack "
+              f"({(keep & grown).sum() / max(1, keep.sum()) * 100:.1f}% of the "
+              f"kept rewrite); residual loud frontier {residual[0]}/{residual[1]}")
+    return mask, int((keep & grown).sum()), residual
+
+
+def finalize(assembly: Assembly, reverted, rewrite=None):
+    """Apply the veto and return the final composite (crop geometry).
+
+    `rewrite` overrides the region veto's own mask with the one the local
+    clauses left; without it this is the region-only behaviour, which is what
+    the ledgers compare against.
+    """
+    x0, y0, x1, y1 = assembly.crop
+    if rewrite is None:
+        rewrite = assembly.rewritten & ~reverted[y0:y1, x0:x1]
+    out = assembly.base.copy()
+    out[rewrite] = assembly.composite[rewrite]
+    assert np.array_equal(out[~rewrite], assembly.base[~rewrite])
+    return out, rewrite
+
+
+def veto_all(assembly: Assembly, scene_result, base_result, regions,
+             verbose=False):
+    """The whole three-scale veto, in order, and the composite it leaves."""
+    verdicts, reverted = apply_veto(assembly, scene_result, base_result,
+                                    regions, verbose=verbose)
+    keep, n_local = local_veto(assembly, scene_result, base_result, reverted,
+                               verbose=verbose)
+    keep, n_front, residual = quiet_frontier(assembly, keep, verbose=verbose)
+    final, final_rewrite = finalize(assembly, reverted, keep)
+    stats = {"local": n_local, "frontier": n_front, "residual": residual}
+    return verdicts, reverted, final, final_rewrite, stats
 
 
 # ---------------------------------------------------------------------------
@@ -834,6 +1000,82 @@ def slope_kat() -> None:
         print(f"  {k:6d} {i:6d} {distance:9.2f} {radius:7d} {slope * distance:7.2f}")
 
 
+def local_kat() -> None:
+    """KAT for the LOCAL clause's instrument: does the differential localize?
+
+    §12.1 — a new instrument gets a known-answer test before it is believed, and
+    `local_veto` is a new instrument: it asks the certifier a question the
+    certifier has only ever been asked about whole regions. The known answer is
+    injected: a square of known SIZE and known amplitude, pasted into the input
+    composite at three well-certified sites. A perfect arbiter would put all of
+    the extra unexplained residual inside the square. A forward renderer cannot,
+    because it convolves the composite with each layer's defocus disk before
+    comparing — so this measures the certifier's own point spread, and with it
+    the size below which the local clause is guaranteed blind.
+    """
+    from focusstack.io import normalize_exposure
+
+    src = [cv2.imread(p) for p in sorted(glob.glob(os.path.join(KITCHEN, "*.jpg")))]
+    norm = normalize_exposure(src)
+    ref = len(src) // 2
+    print("=" * 78)
+    print("KAT — the LOCAL clause's arbiter, against injected defects of known size")
+    print("=" * 78)
+    result = assemble(norm, ref, verbose=True, raw=src)
+    x0, y0, _x1, _y1 = result.crop
+    sites = [(300, 200), (560, 300), (200, 380)]
+    candidates = [("base", result.base)]
+    for side in (5, 9, 15, 25):
+        image = result.base.copy()
+        for (cx, cy) in sites:
+            half = side // 2
+            patch = image[cy - half:cy + half + 1, cx - half:cx + half + 1]
+            image[cy - half:cy + half + 1, cx - half:cx + half + 1] = np.clip(
+                patch.astype(np.int32) + 40, 0, 255).astype(np.uint8)
+        candidates.append((f"square{side}", image))
+    scores, _region = certify_candidates(result, src, candidates)
+    base = scores["base"]
+
+    print(f"\n  three {'+40 level'} squares per candidate, at "
+          f"{', '.join(str(s) for s in sites)} (composite coords)\n")
+    print(f"  {'side':>5} {'frame score':>12} {'mass inside':>12} {'within 10 px':>13} "
+          f"{'pooled peak K=7':>16} {'K=15':>7} {'K=25':>7}")
+    yy, xx = np.indices(base.unexplained.shape)
+    for side in (5, 9, 15, 25):
+        entry = scores[f"square{side}"]
+        delta = entry.unexplained - base.unexplained
+        scored = (np.minimum(entry.coverage, base.coverage) >= FC.MIN_COVERAGE)
+        positive = np.maximum(delta, 0) * scored
+        total = max(float(positive.sum()), 1e-9)
+        inside = np.zeros(delta.shape, bool)
+        near = np.zeros(delta.shape, bool)
+        half = side // 2
+        for (cx, cy) in sites:
+            inside[cy + y0 - half:cy + y0 + half + 1,
+                   cx + x0 - half:cx + x0 + half + 1] = True
+            near |= ((xx - (cx + x0)) ** 2 + (yy - (cy + y0)) ** 2) <= 100
+        peaks = []
+        for window in (7, LOCAL_WINDOW, 25):
+            box = (window, window)
+            mass = cv2.boxFilter((delta * scored).astype(np.float32), -1, box,
+                                 normalize=False)
+            count = cv2.boxFilter(scored.astype(np.float32), -1, box,
+                                  normalize=False)
+            peaks.append(float(np.where(count > 0,
+                                        mass / np.maximum(count, 1), 0)[inside].max()))
+        print(f"  {side:5d} {entry.score - base.score:+12.4f} "
+              f"{float(positive[inside].sum()) / total:11.1%} "
+              f"{float(positive[near].sum()) / total:12.1%} "
+              f"{peaks[0]:16.2f} {peaks[1]:7.2f} {peaks[2]:7.2f}")
+    print("\n  Read the 5 and 9 rows against each other. A 9x9 defect is arbitrable\n"
+          "  — two thirds of its residual lands on itself and the frame score moves\n"
+          "  by 0.019 levels. A 5x5 one is NOT: a quarter lands on itself and the\n"
+          "  frame moves 0.003, which is under the certifier's own real-scene\n"
+          "  differential sensitivity. So the local clause has a floor of a few\n"
+          "  dozen pixels no matter what window it pools over, and the defects that\n"
+          "  fall through it are exactly why `quiet_frontier` exists.")
+
+
 # ---------------------------------------------------------------------------
 # The canonical kitchen instruments (§12.2 — scope the metric to the thing)
 # ---------------------------------------------------------------------------
@@ -940,11 +1182,13 @@ def factory() -> None:
         [("scene-model", result.composite), ("input routed", result.base),
          ("region-scoped null", result.scoped_null),
          ("global null", frames[P.REFERENCE][y0:y1, x0:x1])])
-    verdicts, reverted = apply_veto(result, scores["scene-model"],
-                                    scores["input routed"], regions, verbose=True)
-    final, final_rewrite = finalize(result, reverted)
-    final_scores, _r = certify_candidates(result, frames,
-                                          [("scene-model, vetoed", final)])
+    verdicts, reverted, final, final_rewrite, vstats = veto_all(
+        result, scores["scene-model"], scores["input routed"], regions,
+        verbose=True)
+    region_only, region_rewrite = finalize(result, reverted)
+    final_scores, _r = certify_candidates(
+        result, frames, [("scene-model, vetoed", final),
+                         ("region veto only", region_only)])
     scores.update(final_scores)
 
     print(f"\n  {'candidate':<26} {'GT-SSIM':>10} {'certifier':>10} {'p99':>7} "
@@ -952,12 +1196,14 @@ def factory() -> None:
     ssims = {}
     for label, image in (("input routed (the bar)", result.base),
                          ("scene-model, raw", result.composite),
+                         ("region veto only (B2)", region_only),
                          ("scene-model, vetoed", final),
                          ("region-scoped null", result.scoped_null),
                          ("GROUND TRUTH", reference_truth)):
         ssims[label] = float(metrics.ref_ssim(image, reference_truth))
         key = {"input routed (the bar)": "input routed",
                "scene-model, raw": "scene-model",
+               "region veto only (B2)": "region veto only",
                "scene-model, vetoed": "scene-model, vetoed",
                "region-scoped null": "region-scoped null"}.get(label)
         entry = scores.get(key)
@@ -970,7 +1216,11 @@ def factory() -> None:
     print(f"\n  BAR A: {got:.6f} vs the routed bar {bar:.6f} "
           f"({got - bar:+.6f}) — {'PASS' if got >= bar - 1e-9 else 'MISS'}")
     print(f"  remainder to 1.0: {1.0 - got:.6f}; rewritten "
-          f"{final_rewrite.mean() * 100:.2f}% of the crop")
+          f"{final_rewrite.mean() * 100:.2f}% of the crop "
+          f"(region veto alone {region_rewrite.mean() * 100:.2f}%)")
+    print(f"  what the LOCAL clauses cost bar A: "
+          f"{got - ssims['region veto only (B2)']:+.6f} GT-SSIM against B2's "
+          f"region-only composite ({ssims['region veto only (B2)']:.6f})")
 
     # THE ATTRIBUTED REMAINDER. The same ladder discipline as round A's `floor`:
     # hold everything else and replace one estimated quantity with its TRUE value.
@@ -1147,11 +1397,13 @@ def kitchen() -> None:
         [("scene-model", result.composite), ("input routed", result.base),
          ("region-scoped null", result.scoped_null),
          ("global null", norm[ref][crop[1]:crop[3], crop[0]:crop[2]])])
-    verdicts, reverted = apply_veto(result, scores["scene-model"],
-                                    scores["input routed"], regions, verbose=True)
-    final, final_rewrite = finalize(result, reverted)
-    final_scores, _r = certify_candidates(result, src,
-                                          [("scene-model, vetoed", final)])
+    verdicts, reverted, final, final_rewrite, vstats = veto_all(
+        result, scores["scene-model"], scores["input routed"], regions,
+        verbose=True)
+    region_only, region_rewrite = finalize(result, reverted)
+    final_scores, _r = certify_candidates(
+        result, src, [("scene-model, vetoed", final),
+                      ("region veto only", region_only)])
     scores.update(final_scores)
 
     print(f"\n  --- BAR D: byte-identity outside the rewrite ---")
@@ -1161,22 +1413,35 @@ def kitchen() -> None:
           f"({final_rewrite.mean() * 100:.2f}% of the crop); "
           f"outside the rewrite byte-identical: {identical}  "
           f"{'PASS' if identical else 'FAIL'}")
+    print(f"  the region veto alone kept {region_rewrite.sum()} px "
+          f"({region_rewrite.mean() * 100:.2f}%); the LOCAL clauses withdrew "
+          f"{region_rewrite.sum() - final_rewrite.sum()} px "
+          f"({(1 - final_rewrite.sum() / max(1, region_rewrite.sum())) * 100:.1f}% "
+          f"of it) — cluster {vstats['local']}, frontier {vstats['frontier']}, "
+          f"residual loud frontier {vstats['residual'][0]} of "
+          f"{vstats['residual'][1]}")
 
     print(f"\n  --- BAR B: the four F112 user boxes (mean/max |Δ| vs norm[{ref}]) ---")
     print(f"  {'candidate':<26} {'box 1':>10} {'box 2':>10} {'box 3':>10} "
           f"{'box 4':>10}")
     before = kitchen_boxes(result.base, reference, crop, "input routed (the bar)")
-    after = kitchen_boxes(final, reference, crop, "scene-model, vetoed")
+    kitchen_boxes(region_only, reference, crop, "region veto only (B2)")
+    after = kitchen_boxes(final, reference, crop, "scene-model, local veto")
     worse = [i + 1 for i, (a, b) in enumerate(zip(before, after)) if b[0] > a[0] + 0.01]
-    print(f"  regressed on |Δ| vs the reference: {worse if worse else 'NONE'}")
+    over = [i + 1 for i, (a, b) in enumerate(zip(before, after)) if b[1] > a[1]]
+    print(f"  regressed on MEAN |Δ| vs the reference: {worse if worse else 'NONE'}")
+    print(f"  RE-ACCEPTANCE BAR — max |Δ| over its routed value: "
+          f"{over if over else 'NONE'}  {'MISS' if over else 'PASS'}")
     print(f"  the counter-instrument — mean FOCUS ENERGY in the same boxes "
           f"(higher = sharper):")
     kitchen_boxes(result.base, reference, crop, "input routed", energy=True)
-    kitchen_boxes(final, reference, crop, "scene-model, vetoed", energy=True)
+    kitchen_boxes(region_only, reference, crop, "region veto only (B2)", energy=True)
+    kitchen_boxes(final, reference, crop, "scene-model, local veto", energy=True)
 
     print(f"\n  --- BAR B: the canonical F108 flank box (x560-670, y240-420) ---")
     kitchen_flank(result.base, reference, crop, "input routed (the bar)")
-    kitchen_flank(final, reference, crop, "scene-model, vetoed")
+    kitchen_flank(region_only, reference, crop, "region veto only (B2)")
+    kitchen_flank(final, reference, crop, "scene-model, local veto")
 
     print(f"\n  --- BAR B: the F112 knob (x659-669, y243-313) ---")
     _knob_report(result, final, scores, reference, crop, norm, src)
@@ -1186,8 +1451,8 @@ def kitchen() -> None:
     _print_scoped_ledger(result, scores, regions)
 
     print(f"\n  --- the certifier ledger ---")
-    for label in ("input routed", "scene-model", "scene-model, vetoed",
-                  "region-scoped null", "global null"):
+    for label in ("input routed", "scene-model", "region veto only",
+                  "scene-model, vetoed", "region-scoped null", "global null"):
         entry = scores.get(label)
         if entry is None:
             continue
@@ -1203,7 +1468,50 @@ def kitchen() -> None:
     _save_rewrite_map(result, final_rewrite, os.path.join(OUT,
                                                           "kitchen_rewrite.png"))
     _eyes_honest_sliver(result, final, reference, crop)
+    _defect_crops(result, region_only, final, reference, crop)
     print(f"\n  elapsed {time.time() - t0:.1f} s")
+
+
+# The three defects the manager's EYES found in B2's composite, which the
+# region-aggregate veto structurally could not see. COMPOSITE coordinates (the
+# inspection layer is the same picture shifted one pixel in x); each window is a
+# little larger than the reported defect so the surrounding content is visible.
+DEFECT_CROPS = {
+    1: ((540, 40, 617, 116),
+        "box 2: pale diagonal streak on the wall + spur on the pump limb"),
+    2: ((467, 128, 514, 164),
+        "box 1: pale line at the Lubriderm left silhouette"),
+    3: ((431, 192, 492, 270),
+        "box 4: dark streaks at the shelf edge + bright dashes right of the rag"),
+}
+
+
+def _defect_crops(result, region_only, final, reference, crop):
+    """ROUTED | B2 | corrected | REFERENCE, 6x nearest, for the three defects.
+
+    Four panels and not three: the round is a correction, so the composite it
+    corrects has to be in the picture. Without the B2 panel a reader cannot tell
+    a defect that was fixed from a defect that was never there.
+    """
+    x0, y0, _x1, _y1 = crop
+    reference_crop = reference[y0:y0 + result.base.shape[0],
+                               x0:x0 + result.base.shape[1]]
+    for index, ((bx0, by0, bx1, by1), caption) in DEFECT_CROPS.items():
+        panels = []
+        for image in (result.base, region_only, final, reference_crop):
+            panels.append(cv2.resize(image[by0:by1, bx0:bx1], None, fx=6, fy=6,
+                                     interpolation=cv2.INTER_NEAREST))
+        strip = np.hstack(panels)
+        header = np.zeros((44, strip.shape[1], 3), np.uint8)
+        cv2.putText(header, f"defect {index} — {caption}", (6, 17),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (231, 179, 91), 1, cv2.LINE_AA)
+        cv2.putText(header, f"x{bx0}-{bx1} y{by0}-{by1}   ROUTED (input) | B2 "
+                            f"region veto only | CORRECTED local veto | REFERENCE "
+                            f"frame 6", (6, 35),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.42, (200, 200, 200), 1, cv2.LINE_AA)
+        path = os.path.join(OUT, f"B2R2_defect{index}.png")
+        cv2.imwrite(path, np.vstack([header, strip]))
+        print(f"  defect {index} crop (6x) -> {path}")
 
 
 def _knob_report(result, final, scores, reference, crop, norm, src):
@@ -1379,8 +1687,9 @@ def render() -> None:
           f"registered to kitchen_reference.png)")
 
 
-COMMANDS = {"kat": kat, "slope": slope_kat, "factory": factory,
-            "kitchen": kitchen, "orderguard": orderguard, "render": render}
+COMMANDS = {"kat": kat, "slope": slope_kat, "localkat": local_kat,
+            "factory": factory, "kitchen": kitchen, "orderguard": orderguard,
+            "render": render}
 
 
 def main() -> None:

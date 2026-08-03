@@ -572,3 +572,292 @@ appearance level, and it is directly reusable for a motion series.
   3.5× the slope. F95's inverse-depth parameterization is the natural home.
 * **Large-motion** (§12). The refusal mechanism that F111 named is already
   built here; nobody has pointed it at the scene it was named for.
+
+---
+
+# CORRECTION ROUND (B2/R2) — the veto was blind at every scale below a region
+
+The manager's eyes found three defect classes inside B2's own composite, in the
+user's own acceptance boxes, that no aggregate in §1's table could see. This
+section is the diagnosis, the fix, and its measured price. `research/scene_model.py`
+is the only file changed; `src/**`, `tests/**`, `forward_certify.py` and
+`layer_decompose.py` are untouched. 94 tests pass.
+
+```
+.venv/bin/python research/scene_model.py localkat   # NEW: the local arbiter's KAT
+.venv/bin/python research/scene_model.py kitchen    # writes out/certify/B2R2_defect{1,2,3}.png
+```
+
+## 15. The overlay verdict, before anything was built
+
+B2's numbers reproduce exactly before diagnosis (§12.1): certifier 9.5242 →
+8.7700, 25.38% rewritten, boxes 61/17/101/127 → 107/63/101/116, knob 2.13× →
+0.54×. The manager's coordinates are in inspection-layer space; the inspection
+layer is the composite crop shifted **one pixel in x** (verified by exact array
+match, not by re-registration), so composite = inspection + 1 in x.
+
+Five distinct clusters, found by thresholding "new structure" — content that
+differs from BOTH the routed input and the reference frame — and overlaid on the
+rewrite map and its frontier:
+
+| cluster | where (composite coords) | px | component | local certifier Δ | median depth from the frontier |
+|---|---|---:|---|---:|---:|
+| box 2, wall streak | x588–592 y57–64 | 17 | region 0 (79019 px, KEPT) | **+3.87** | **1.4** |
+| box 2, pump spur | x545–567 y62–90 | 24 | **171 px component** | no coverage | **1.0** |
+| box 1, bottle line | x473–507 y135–156 | 111 | region 0 | **+0.98** | 8.2 |
+| box 4, shelf streak | x433–483 y196–214 | 147 | region 0 | **+3.15** | 8.0 |
+| box 4, bright dashes | x467–481 y248–266 | 18 | **31 px component** | no coverage | **1.0** |
+
+(baseline: over ALL rewritten pixels the median depth from the frontier is 12.6,
+and 6.7% lie within 1.5 px of it)
+
+**The hypothesis is half right, and the half that is wrong is the important
+half.** Three of the five clusters are frontier phenomena — but not the measured
+"sharpness step at the rewrite frontier" of §7. They are *rewrite islands*: two
+of them live in connected components of 171 and 31 pixels, and one sits on the
+1–2 px edge of a large one. The other two — the box 1 pale line and the box 4
+shelf streaks, which are also the two largest — sit **~8 px inside a solid
+rewrite**, at or below the frontier-adjacency of the rewrite as a whole. Frontier
+depth does not explain them. Globally the frontier is only a weak predictor:
+17.7% of new-structure pixels lie within 1.5 px of the frontier against 12.0% of
+all rewritten pixels.
+
+**The LIMB half of the hypothesis is right, and the picture shows why.** In
+`out/certify/B2R2_defect2.png` the rewrite reaches into the Lubriderm bottle as a
+wedge that crosses its left silhouette, and the pale line is at the wedge's tip.
+F92 exactly: the silhouette of a curved object is a limb, it slides with
+viewpoint, and the cross-convolved same-surface test cannot refuse it because a
+low-passed white bottle edge and a low-passed pale background agree.
+
+### 15a. The bug the overlay actually found: a size filter in front of a veto
+
+`regions_of` dropped every rewrite component below `TF.MIN_LAYER_PIXELS`. That
+reads like a sensible ledger tidy-up and is not one, because `apply_veto` only
+ever REMOVES pixels: **a component that never reaches the ledger is not skipped,
+it is admitted** — written with no verdict of any kind. On the kitchen that was
+30 components and 1304 px, 1.41% of the final rewrite, with ZERO certifier
+coverage between them, and it held two of the five defect clusters.
+
+The rule that should have governed them already existed and already says the
+right thing: fewer than `MIN_ARBITRABLE` certified pixels means UNARBITRATED,
+and F106 reverts an unarbitrated change rather than waving it through. Nothing
+needed inventing. The filter needed deleting.
+
+## 16. Known-answer test first: what can a LOCAL certifier verdict see?
+
+`local_veto` asks the certifier a question it has only ever been asked about
+whole regions, so it is a new instrument and gets a KAT before it is believed
+(§12.1, `scene_model.py localkat`). Three +40-level squares of known side are
+pasted into the input composite at well-certified sites; a perfect arbiter would
+put all the extra unexplained residual inside them, and a forward renderer
+cannot, because it convolves the composite with each layer's defocus disk before
+comparing.
+
+| side | frame score | positive mass inside the square | within 10 px | pooled peak K=7 | K=15 | K=25 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 5 | +0.0028 | **23.7%** | 31.0% | 14.76 | 3.41 | 1.22 |
+| 9 | +0.0191 | **65.5%** | 77.4% | 32.73 | 11.30 | 3.98 |
+| 15 | +0.0518 | 57.7% | 62.8% | 38.80 | 29.63 | 11.58 |
+| 25 | +0.2935 | 70.7% | 35.5% | 39.29 | 36.69 | 32.47 |
+
+(the "within 10 px" column is a fixed radius, so it falls again at side 25
+simply because a 25×25 square is wider than the disc that measures it)
+
+**A 9×9 defect is arbitrable; a 5×5 one is not, at any pooling scale.** Two
+thirds of a 9×9's residual lands on itself and the frame moves 0.019 levels; a
+quarter of a 5×5's does and the frame moves 0.003, under the certifier's own
+real-scene differential sensitivity (F113). This is the number that decided the
+design: a certifier-only local clause has a floor of a few dozen pixels, and
+three of the five defect clusters are under it. It is also KAT-4's finding
+arriving in a new place — the knob was "~7× under the real-scene detection
+floor" for the same reason.
+
+## 17. The local veto: one rule, three scales, no new free number
+
+> *A rewrite must be arbitrable at the scale at which it is written.*
+
+1. **per COMPONENT.** `regions_of` no longer filters by area, so every component
+   gets a verdict and the unarbitrable ones revert. (§15a — a hole, not a
+   threshold.)
+2. **per CLUSTER** (`local_veto`). The certifier differential pooled over
+   `LOCAL_WINDOW = ceil(sqrt(MIN_ARBITRABLE)) = 15` px — the quorum the region
+   rule already demands, made square — thresholded at the region rule's own
+   `> 0.0`. Where the window does not hold the quorum the clause **abstains** and
+   the region verdict stands (kitchen: 32011 px), because issuing a verdict on
+   less evidence than the module already demands would be inventing sensitivity
+   §16 says the certifier does not have.
+3. **per FRONTIER** (`quiet_frontier`). A frontier is where the composite
+   switches SOURCE, and the switch is invisible exactly where the two sources
+   agree. F112's `agreement_budget` is already a per-pixel statement of an
+   explainable difference (a GATE_TOL displacement against the local gradient,
+   the exposure residual, sensor noise); applied to the switch instead of to the
+   admission it says `|rewrite − input| ≤ budget` at every frontier pixel. Where
+   it is not, that pixel and everything within `FRONTIER_SLACK = ceil(GATE_TOL)
+   = 2` px of it reverts.
+
+The budget's own physics puts the cost in the right place with no help: on a
+smooth surface the gradient term vanishes and the budget collapses to a few
+levels, so a frontier crossing flat wall is cut back hard — which is exactly
+where a seam is visible — while along a real edge the budget is tens of levels
+and the frontier is left alone. **This is not feathering** (F79; negative
+deliverable 6 of the first round): nothing is blended, nothing is softened, no
+depth boundary is crossed. The rewrite withdraws, hard, to where its own edge is
+quiet.
+
+The three constants are `MIN_ARBITRABLE` made square, the region rule's own
+zero, and `GATE_TOL` rounded up. The correction introduces no new tuned number.
+
+### The structural guarantee that replaces "trust me"
+
+The corrected rewrite is a strict subset of B2's, and pixel-identical where both
+rewrite — **verified, 0 px changed that B2 did not change.** So every pixel of
+the corrected composite is either the shipped routed input or a pixel B2 already
+had, and the correction cannot have introduced a new artifact class. That is
+worth more than any amount of visual inspection of the parts nobody flagged.
+
+## 18. The ladder — one clause per rung (kitchen)
+
+| rung | rewritten | certifier | knob ratio | box 1 | box 2 | box 3 | box 4 | box1 focus | d1a/d1b/d2/d3a/d3b |
+|---|---:|---:|---:|---|---|---|---|---:|---|
+| input routed | — | 9.5242 | 2.13× | 6.14/**61** | 3.49/**17** | 3.31/**101** | 6.23/**127** | 41.8 | 0/0/0/0/0 |
+| V0 = B2, region veto only | 25.4% | 8.7700 | 0.54× | 7.48/107 | 2.63/63 | 3.33/101 | 5.00/116 | 54.7 | 17/24/114/147/18 |
+| V1 + every component judged | 25.0% | 8.7599 | 0.54× | 7.48/107 | 2.64/63 | 3.31/101 | 4.91/116 | 54.7 | 17/**0**/114/147/**0** |
+| V2 + cluster clause | 20.6% | 8.6916 | 0.59× | 7.26/107 | 2.64/63 | 3.31/101 | 4.91/116 | 50.5 | 17/0/**48**/136/0 |
+| **V3 + frontier clause (shipped)** | **19.0%** | **8.6971** | **0.95×** | 6.19/98 | 2.65/**16** | 3.31/**101** | 5.02/**116** | 44.7 | **0**/0/19/93/0 |
+
+Clause 1 is nearly free (−0.4% of the rewrite) and kills two of five clusters
+outright. Clause 2 is where the certifier improvement comes from (−0.068
+levels). Clause 3 is where the box maxima and the last frontier cluster come
+from, and it is the clause that costs.
+
+### What the frontier slack costs, priced rather than chosen
+
+| slack (one application) | rewritten | certifier | knob | box 2 max | d1a |
+|---:|---:|---:|---:|---:|---:|
+| none | 20.6% | 8.6916 | 0.59× | 63 | 17 |
+| 1 px | 19.9% | 8.6866 | 0.64× | 18 | 6 |
+| **2 px = ceil(GATE_TOL)** | **19.0%** | **8.6971** | **0.95×** | **16** | **0** |
+| 3 px | 18.1% | 8.7098 | 1.35× | 16 | 0 |
+| 5 px = the boundary band | 16.1% | 8.7551 | **2.42× FAIL** | 16 | 0 |
+
+and iterating the clause to a fixed point is where it turns destructive: at 2 px
+slack, two rounds take the knob to 2.32× and three to 3.17×. **One application,
+deliberately** — each further round is a fresh revert with no new evidence behind
+it. The residual loud frontier is reported instead (653 px of a 9489 px
+frontier, 6.9%).
+
+## 19. Re-acceptance bars, measured
+
+| bar | routed | B2 | corrected | verdict |
+|---|---:|---:|---:|---|
+| factory GT-SSIM ≥ 0.981104 | 0.979453 | 0.981104 | **0.982061** | **PASS**, +0.000957 over B2 |
+| factory certifier | 3.3051 | 2.9080 | **2.6725** | improved |
+| kitchen certifier | 9.5242 | 8.7700 | **8.6971** | **PASS**, better than B2 |
+| kitchen, whole certified frame vs input | — | −0.7608 | **−0.8290** | improved |
+| F112 knob ≤ 1.5× frame | 2.13× | 0.54× | **0.95×** | **PASS**, repair survives, weakened |
+| F108 flank > 12 | 0.57% | 0.40% | **0.23%** (max 45 → **29**) | best of the three |
+| box 1 max ≤ 61 | 61 | 107 | **98** | **MISS** — argued below |
+| box 2 max ≤ 17 | 17 | 63 | **16** | **PASS** |
+| box 3 max ≤ 101 | 101 | 101 | **101** | **PASS** |
+| box 4 max ≤ 127 | 127 | 116 | **116** | **PASS** |
+| registration of the inspection layer | — | 1.0000 | **1.0000** | **PASS** |
+| tests | 94 | 94 | **94** | **PASS** |
+| byte-identity outside the rewrite | — | asserted | **asserted** | **PASS** |
+
+Whole-frame new structure (differs from BOTH the input and the reference by more
+than 12 levels): **8183 px → 4293 px.** Rewrite share 25.38% → 18.99%; on the
+factory 82.17% → 51.12%, and the GT-SSIM went UP through that withdrawal, which
+is the cleanest possible confirmation that the region veto was keeping content
+that hurt.
+
+### Box 1, argued honestly: the bar is MISSED and the escape does not apply
+
+Six pixels of 693 exceed the routed maximum, at **x482–484 y150–153** — down
+from 15 in B2. They are supplied by frame 9 (the box's focus rises monotonically
+with frame index, 5.3 at frame 0 to 187.3 at frame 11, so frame 9 is a genuinely
+far-focused observation of background). But the escape clause asks for PROOF of
+sharper content, and the numbers do not give it: focus energy at those six pixels
+is 103.9 (routed) → 112.0 (corrected) against 102.0 in the reference — a 7.8%
+rise — while `|corrected − routed|` there averages **86 levels**. An 86-level
+change buying 8% of focus energy, three pixels from a curved bottle's silhouette,
+is a residual limb-crossing admission (F92), not resolved detail. **Reported as
+a MISS.** The box as a whole is nonetheless better than B2 on every reading:
+mean 7.48 → 6.19, max 107 → 98, and the pale line itself is gone from
+`B2R2_defect2.png`.
+
+Note also what box 1's focus energy does across the round: 41.8 → 54.7 (B2) →
+44.7. The local veto gives back about two thirds of B2's sharpening in that box.
+That is the never-degrade rule working as designed — B2's sharpening there was
+partly bought with the very content the manager flagged — but it is a real cost
+and F112/R6.4's warning still applies to reading either number alone.
+
+## 20. The three defects, by eye
+
+`out/certify/B2R2_defect{1,2,3}.png`, four panels at 6×: ROUTED (input) | B2
+region veto only | CORRECTED | REFERENCE frame 6. Four and not three because the
+round is a correction, and without the B2 panel a reader cannot tell a defect
+that was fixed from one that was never there.
+
+1. **Box 2 — CLEAN.** The pale diagonal wall streak and the spur on the pump's
+   left limb are both gone; the wall reads as the reference does. Box 2's max
+   |Δ| is 16 against the routed 17.
+2. **Box 1 — the line is gone**, and a ~4 px pale nub survives on the
+   silhouette at y≈150 (the six pixels of §19). The resolved background
+   structure behind the bottle is retained.
+3. **Box 4 — the bright dashes are gone.** The dark streaks at the shelf edge
+   are REDUCED, not removed (147 px of new structure → 93), and the honest
+   reading is that most of what remains there is not a smear but a sharpening
+   the eye reads as blocky: focus energy in that band is 62.4 (routed) → 82.3
+   (corrected), against 42.0 in the reference. It should be looked at again; it
+   is the weakest of the three results.
+
+## 21. NEGATIVE deliverables of the correction round
+
+1. **The frontier clause as a conditional erosion peeled to a fixed point.**
+   BUILT FIRST and REJECTED on measurement. It does not converge (still peeling
+   after 200 passes, 8312 px), because at any place where the rewrite legitimately
+   differs from the input over a wide area it simply eats the area; and it is
+   simultaneously BLOCKED wherever a single in-budget pixel row separates the
+   frontier from the loud content behind it, so it missed the very cluster it was
+   built for. End to end it took the kitchen certifier to 8.9227 — worse than the
+   region veto alone — and the knob to 2.32×. The bounded dilate-once form
+   (§17.3) is strictly better on every reading. *A termination condition is not
+   the same thing as a bound.*
+2. **Protecting pixels the certifier positively prefers from the frontier
+   clause** (revert only where `pooled ≥ 0`). Built, measured, and it changes
+   almost nothing (knob 0.95× → 0.93×, d3a residue 93 → 97) — because §16 says
+   the certifier cannot see clusters this small either way, so its "preference"
+   there is not evidence. Dropped as complexity with no measured effect.
+3. **A morphological opening of the rewrite** at radii 1–5, as a filament rule.
+   Measured, and it catches only what clause 1 already catches more
+   principledly: at every radius it removes 0% of the box 2 wall streak and 0%
+   of the box 1 and box 4 clusters. Redundant.
+4. **A pooling window of 9 px for the cluster clause.** It is a no-op by
+   construction — 81 pixels cannot meet a 200-pixel quorum — which is the
+   quorum doing its job, and worth recording so nobody re-tries it.
+5. **Tuning any clause to the four user boxes.** NOT DONE. `FRONTIER_SLACK` is
+   `ceil(GATE_TOL)`; §18 prices 1/2/3/5 px openly so the choice is visible, and
+   1 px misses box 2 by one level while 3 px costs 40% of the knob repair.
+
+## 22. What this round changes about the record
+
+* **§13.3 of the first round is closed and was understated.** "The veto's
+  granularity is coarse" was recorded as a missed opportunity — a finer partition
+  would keep more good pixels. It was also a correctness hole in the other
+  direction: below the partition's own minimum size the veto was not coarse, it
+  was *absent*.
+* **§7's frontier seam is now partly paid for.** Clause 3 addresses exactly the
+  case §7 measured and declined to fix — a sharpness step at the frontier — and
+  does it by withdrawing rather than by blending, so negative deliverable 6
+  (feathering) stays rejected. The measured residual is 653 loud frontier pixels
+  of 9489.
+* **A general rule for this project's vetoes.** *A never-degrade rule that
+  evaluates only at one scale grants unconditional authority at every scale
+  below it.* B2's veto was correct region by region and still shipped five new
+  artifacts, because a mean over 79019 pixels cannot see 17. Any future
+  arbiter — the motion series B3 is designated to build included — needs its own
+  answer to "what is the smallest thing this can see?", and §16's KAT is the
+  shape of that answer.
+* **The eyes beat the aggregates for the fourth time in this project's record**
+  (§12.8, and F115 counted three). This time the aggregate that was blind was
+  itself a never-degrade veto built to protect against exactly this.

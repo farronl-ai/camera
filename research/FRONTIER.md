@@ -104,6 +104,21 @@ whack-a-mole) and **0.9845 the moment it was handed to the existing cascade**
 specialists specialize. No future round builds fusion logic inside the
 aligner.
 
+**Integration expectation (user, same exchange): light-touch, because F82
+already built the interface.** Fusion honours per-pixel `usable` today; the
+aligner hands it heavier cargo, not a new capability. What changes is the
+SCALE AND TOPOLOGY of absence — thin disocclusion ribbons become large
+connected holes (a frame may miss 20–40% of the reference view) — so the
+integration round RE-VERIFIES rather than redesigns: guided-filter windows
+and per-band mask downsampling at gap boundaries (a gap edge is a cliff in
+the weight domain — halo risk); the stack-consistency instability threshold
+(calibrated with all frames present); exposure gains computed over
+mutually-usable pixels. Structural gifts: the reference frame is gap-free at
+its own viewpoint (zero-observers never happens; fallback always
+terminates), and the zero-motion sentinel produces zero gaps, so the cascade
+must be byte-identical there — the standing F101 anchor. The specialists
+already gate to identity when inputs are absent.
+
 **The transform, designed (2026-08-02, follows from the contract).** The
 per-frame transform is NON-STANDARD by necessity: a backward sampling field,
 PIECEWISE-SMOOTH — one affine per scene piece (a plane under small camera

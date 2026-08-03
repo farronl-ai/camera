@@ -627,3 +627,135 @@ until it is fixed the kitchen's sharpening must not be claimed as a win.
 4. The factory's −2e-4 is inside the granularity of one piece. If the plateau's
    lower edge (k=20) is preferred for regression safety it produces the identical
    piece map, so the choice is free.
+
+# Round 3b — the two named cures, and what they actually cured
+
+Round 3's report named two cures for the capture-range finding. Both are now
+implemented as named. One landed and is measurable; the other landed as specified
+and did NOT cure the defect it was aimed at, for a reason that is one level
+deeper than round 3 assumed. Both scenes measured; nothing forced.
+
+## FIX 1 — the prior is pass 1's measurement, completed in three parts
+
+`seeded_prior` already composed `prior_k @ T(dx_k, dy_k)` (the matrix whose
+displacement in GLOBALLY-ALIGNED coordinates — the space `motion_groups` measures
+in — is the group's measured `(dx, dy)`), and `series_priors` already fed the same
+matrix to `motion_series`' F106 fallback. Two things were missing:
+
+1. **The capture-range guard, derived from the instrument.** `_prior_walk` measures
+   how far a fit moved the piece's own EVIDENCE (at the sites' centroid, because a
+   6-DoF linear part is only constrained where it has sites) away from its prior. A
+   SEEDED piece whose fit walks further than ONE capture range — `SM.CONTOUR_HALF`
+   = 6 px, no new number — has left the neighbourhood any site could verify
+   against pass 1, so F106 applies and the prior stands. Each of `fit_affine`'s
+   three iterations is individually "in range" while the composition need not be,
+   which is how round 3's bottle drifted 8.70 px back toward the mega-piece
+   geometry its seed exists to contradict.
+2. **The body-identity rule, and it is the round's biggest measured change.** A
+   group's motion and its fitting sites are statements about a BODY. Round 3
+   carried both through the merge's renumbering unconditionally, so when group 4
+   was absorbed by the 292k-px counter mega-piece (**73% of the frame**) that piece
+   inherited the absorbed object's `+11.6 px` prior AND was fitted on the absorbed
+   object's sites ALONE. A piece the body is a minority of is not that body — and
+   the two-axis test has just adjudicated the group's motion equivalent to its
+   neighbour's, so pass 1's measurement is spent. Majority (>= 0.5 of the
+   survivor's area) is the definition, not a threshold. Measured effect on the
+   mega-piece's own fit at k=11/9/10: `+10.14/+4.47/+5.86` px (round 3) ->
+   `+4.58/+1.12/+1.44` px, and its travel `5.86 -> 2.59` px/frame. The prior had
+   been dragging 73% of the frame with a measurement of an object it is not.
+3. **A NEW FINDING, and it is the next link in this chain.** With the guard in
+   place it fires **0 times** on the final fits — every dense fit is now inside one
+   capture range of pass 1's measurement — and yet `_seed_agreement` still reads
+   **9.04 px** worst disagreement for the seeded piece. Those two numbers together
+   prove the residual disagreement is NOT fit drift: it is `motion_series`. Its
+   model is ONE LINE THROUGH THE IDENTITY per parameter, and pass 1's own
+   measurement is not linear in `k` — group 3 reads `-21.50` px at k=0 (3.58
+   px/step), `+18.57` at k=9 (6.19 px/step), `+24.49` at k=11 (4.90 px/step). The
+   smoother re-imposes linearity and lands 9 px from pass 1 at k=9, i.e. **the
+   prior is partly discarded DOWNSTREAM of the fit, by the series**, which no
+   prior-side fix can reach.
+
+## FIX 2 — the focal band from the group's own features: lands, does not cure
+
+`overrides` returns weight maps and motions, not the points it built them from, so
+membership is re-derived in the aligner on the SAME features with the SAME
+criterion `_coverage_points` uses (an edge belongs when its own measured normal
+shift matches the group's motion in a frame where that motion is VISIBLE along its
+normal, `|predicted| >= COVER_PX` — F103), and the focal frames are read from the
+aligner's own dense `_dense_focal_signature` at those positions. The band is the
+[5, 95] percentile of THAT distribution (same percentile, different population —
+no new number), and it now applies to the CORE as well: round 3's `| core` union
+re-admitted the impure core past any band that would have trimmed it.
+
+Measured: group 3's band `3.0-11.0` -> **`5.3-11.0` from 75 of its own points**;
+support `91787 -> 88539 px`. Group 4: `5.9-11.0` -> `6.1-9.2` from 10 points. It
+trimmed **3.5%**, not the blob, and `out/aligner/kitchen_pieces.png` shows why the
+seeded piece is still a mid-depth blob (cocoa tin + stove wall + yellow rag +
+shelf + the bottle's UPPER HALF, with the bottle's lower half in the mega-piece —
+**the bottle is cut in half**, which is exactly what erases box 2's pump).
+
+**The contamination is not the percentile. It is the GROUP.** `_coverage_points`
+chains any edge whose measured shift matches within `COVER_PX` = 3 px, through 6
+rounds at `2 * SUPPORT_RADIUS` = 52 px reach, so the tin, wall, rag and shelf
+joined the bottle's group; their focal frames ARE the group's own distribution. A
+band drawn from a contaminated membership cannot un-contaminate the membership.
+Round 3's item 1 was the right instinct one level too shallow.
+
+## Results, both scenes
+
+**Factory (regression gate): bit-identical to round 3.** 6 pieces, K4 gaps-on
+**0.980472**, gaps OFF 0.944404, reference alone 0.965826, purity mean **0.969** /
+worst 0.933, recall 68.23%, precision 40.52%, **wall-smear leakage 0 px**, K2 on
+true pieces 0.159 px, c 1.120. `motion_groups` proposes nothing here, and both
+fixes are conditioned on a seeded body, so a zero delta is the predicted result
+rather than luck. 96 tests pass.
+
+**Kitchen.** 3 pieces (areas 292133 / 20707 / 88092), travel 2.59 / 24.78 / 11.79
+px/frame, registration 1.0000, wall test PASSES (k0 68%, k11 61%, reference 0%).
+Box |Δ| vs the reference `5.57/25 · 5.13/26 · 0.48/12 · 10.88/73` against round 3's
+`8.70/26 · 5.19/32 · 1.88/38 · 10.37/78` and the routed default's
+`1.20/2 · 2.04/13 · 1.19/19 · 1.03/17` — better in three boxes, worse in box 4.
+Flank `2.188` mean / `2.90%` >12 against round 3's `2.579/4.91%` and routed's
+`0.897/0.01%`: recovered a third of the regression, not the regression. Energy vs
+reference / vs routed: box1 +5.8/+5.7% (was +13.9/+13.7), box2 +14.6/+11.0, box3
++0.3/−0.1, box4 +42.9/+42.9, knob +17.5/+16.6, back shelf +27.3/+19.7, counter
++8.9/+7.0. Mean gap **55.17%** (round 3 54.32%) with photometry **32.56%** (was
+33.83%) — but the silhouette gate rose 1.31% -> 2.56% (piece 2's own gate
+4.1% -> 10.0%). **The veto did not admit the bottle's content: what photometry gave
+back, the silhouette gate took** — and the gate firing harder on exactly the
+seeded piece is independent evidence that its contour geometry is wrong, which the
+piece map then shows directly.
+
+## The verdict from the pictures, which is the only verdict that counts
+
+`out/aligner/MICRO_boxes.png` (routed | this round | reference): box 2's pump
+nozzle is **erased into a smear** and its blue label displaced — the visible
+consequence of a piece boundary running through the middle of the bottle; box 4's
+rag still carries the **hard bright rim present in neither comparator**; box 1
+still shows a doubled vertical edge. Box 3 is the only clean tile and it is also
+the one reading +0.3% energy, i.e. the reference. So the energy rises in boxes 2
+and 4 remain MISPLACEMENT, not sharpening, and the reference-collapse is **not
+broken**. §12.8 for the third round running: the numbers improved, the picture
+still says no.
+
+## What remains, in priority order
+
+1. **The support must be split by evidence, not trimmed by a band.** Round 3's own
+   fallback is now the main line: split the carved support into connected
+   focal-signature components (or into per-depth components) and let the two-axis
+   test adjudicate each. The bottle must be able to become a piece whose boundary
+   is the bottle's silhouette — today no organ can propose that, because the group
+   it inherits is already a swath.
+2. **`motion_series` cannot represent pass 1's measurement.** One line through the
+   identity is the wrong model for a non-uniform focal sweep; the honest options
+   are a per-piece line fitted to the PRIOR's own steps, or a monotone series
+   through the measured points. Until then a seeded prior is partly discarded by
+   the smoother (9.04 px measured, item 3 above).
+3. Standing, unchanged: the zero-motion identity snap (sentinel still 0.96-1.60%
+   gaps, |M − I| 5.11e-3), the K2b silhouette separation, the certifier on the
+   kitchen, the glass pitcher's self-veto, and per-piece measured `c` (now 1.708
+   px/frame on this geometry against round 3's 1.844 and round 2's 1.403 — still a
+   whole-frame `c` fitted to whichever geometry the round produced).
+4. `seeded`-set membership is still carried through the merge unconditionally (it
+   selects the merge tolerance, not the prior); the body-identity rule was applied
+   only to the prior and the sites, which is what round 3's finding named.

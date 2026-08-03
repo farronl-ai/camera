@@ -451,6 +451,22 @@ def fit_affine(ref_gray, frame, prior, sites, shape, iterations=3, cache=None,
                     "centre": (cx, cy)}
 
 
+def _prior_walk(matrix, prior, sites):
+    """How far the fit moved the piece's own EVIDENCE away from its prior, in px.
+
+    Measured where the sites are, not at the image centre: a 6-DoF fit's linear
+    part is only constrained where it has evidence, so the excursion that matters
+    is the one at the sites' centroid.
+    """
+    ys, xs = np.nonzero(sites)
+    if not len(xs):
+        return 0.0
+    point = np.array([float(xs.mean()), float(ys.mean()), 1.0])
+    delta = (np.asarray(matrix, np.float64) @ point
+             - np.asarray(prior, np.float64) @ point)
+    return float(np.hypot(delta[0], delta[1]))
+
+
 def motion_series(matrices, counts, pieces, n, ref, prior):
     """The temporally-coherent motion SERIES (B3b) — one line per parameter.
 
@@ -844,6 +860,50 @@ def seed_from_motion_groups(frames, global_aligned, prior, labels, series, ref,
         return labels, set(), [], report
 
     peak = _dense_focal_signature(global_aligned)
+    # ROUND 3b, FIX 2: the focal band must come from the group's OWN FEATURES.
+    # Round 3 read it as the [5, 95] percentile of the dense signature inside the
+    # group's CLAIM CORE, and measured the consequence: on the kitchen the core is
+    # impure (a convex hull plus a 26 px disc per point sweeps in counter, stove
+    # wall and shelf), the band came out 3.0-11.0 of 12 frames, it trimmed
+    # NOTHING, and the surviving piece carried the bottle's motion over a
+    # mid-depth blob. `overrides` returns weight maps and motions, not the points
+    # it built them from, so the membership test is re-run here on the SAME
+    # features with the SAME criterion `_coverage_points` uses: an edge belongs to
+    # a group when its own measured normal shift matches the group's motion in a
+    # frame where that motion is VISIBLE along its normal (|predicted| >=
+    # COVER_PX — a perpendicular edge agreeing is vacuous, F103).
+    mg_grays = [to_gray_float(a).astype(np.float32) / 255.0 for a in global_aligned]
+    mg_body, mg_limb = MG._material_features(mg_grays[ref], depth,
+                                            np.logical_and.reduce(valid),
+                                            return_limb=True)
+    mg_points = mg_body + mg_limb
+    screen = sorted({ref + sign * offset for offset in MG.SCREEN_OFFSETS
+                     for sign in (-1, 1) if 0 <= ref + sign * offset < n} - {ref})
+
+    def own_focal_frames(weight, motion):
+        """Focal frames of the points whose OWN motion is this group's motion."""
+        values = []
+        for x, y, nx, ny in mg_points:
+            yi, xi = int(round(y)), int(round(x))
+            if weight[yi, xi] <= CLAIM_HULL:
+                continue
+            base = MG._profile(mg_grays[ref], x, y, nx, ny)
+            for k in screen:
+                m = motion.get(k)
+                if m is None:
+                    continue
+                predicted = float(m[0]) * nx + float(m[1]) * ny
+                if abs(predicted) < MG.COVER_PX:
+                    continue
+                shift, confidence = MG._match(
+                    base, MG._profile(mg_grays[k], x, y, nx, ny))
+                if confidence < MG.MIN_PEAK or abs(shift) > 40:
+                    continue
+                if abs(shift - predicted) < MG.COVER_PX:
+                    values.append(float(peak[yi, xi]))
+                    break
+        return values
+
     out = labels.copy()
     next_label = int(labels.max()) + 1
     seeded, groups = set(), []
@@ -858,18 +918,30 @@ def seed_from_motion_groups(frames, global_aligned, prior, labels, series, ref,
         # feature); the band is the physical statement that a rigid object at one
         # depth has one focal signature, so counter and wall pixels swept into
         # the hull are removed rather than dragged along with the object.
-        lo, hi = np.percentile(peak[core], [5.0, 95.0])
+        own = own_focal_frames(weight, motion)
+        if len(own) >= MG.MIN_GROUP:
+            lo, hi = np.percentile(own, [5.0, 95.0])
+        else:
+            # Too few of the group's own points to describe a distribution; the
+            # core percentile is the only remaining statement, and it is reported
+            # as such rather than silently substituted.
+            lo, hi = np.percentile(peak[core], [5.0, 95.0])
         band = (peak >= lo - FOCAL_BAND) & (peak <= hi + FOCAL_BAND)
-        support = ((weight > CLAIM_HULL) & band) | core
+        # The band now applies to the CORE too: unioning the core back in is what
+        # let round 3's impure core survive a band that would have trimmed it.
+        support = (weight > CLAIM_HULL) & band
         support = cv2.morphologyEx(support.astype(np.uint8), cv2.MORPH_OPEN,
                                    open_kernel)
         support = cv2.morphologyEx(support, cv2.MORPH_CLOSE, close_kernel) > 0
-        # Only the connected body the group's own evidence sits in.
+        # Only the connected body the group's own OWNED, IN-BAND evidence sits in.
+        anchor = core & band
+        if int(anchor.sum()) < MIN_PIECE:
+            continue
         count, cc = cv2.connectedComponents(support.astype(np.uint8), connectivity=8)
         keep = np.zeros(shape, bool)
         for index in range(1, count):
             piece = cc == index
-            if piece.sum() >= MIN_PIECE and (piece & core).sum() >= 0.05 * core.sum():
+            if piece.sum() >= MIN_PIECE and (piece & anchor).sum() >= 0.05 * anchor.sum():
                 keep |= piece
         if int(keep.sum()) < MIN_PIECE:
             continue
@@ -878,7 +950,8 @@ def seed_from_motion_groups(frames, global_aligned, prior, labels, series, ref,
         groups.append({"label": next_label, "area": int(keep.sum()),
                        "core": int(core.sum()), "motion": motion,
                        "focal": (float(lo), float(hi)), "mask": keep,
-                       "core_mask": core})
+                       "core_mask": core, "own_points": len(own),
+                       "anchor": int(anchor.sum())})
         next_label += 1
     # A carve can strand what is left of an old piece below MIN_PIECE; those
     # pixels join the seeded body they are embedded in rather than becoming
@@ -896,8 +969,9 @@ def seed_from_motion_groups(frames, global_aligned, prior, labels, series, ref,
             m = g["motion"]
             far = max(m, key=lambda k: float(np.hypot(*m[k]))) if m else None
             print(f"      seeded piece {g['label']}: area {g['area']} px "
-                  f"(hull core {g['core']}), focal band {g['focal'][0]:.1f}"
-                  f"-{g['focal'][1]:.1f}, pass-1 motion at k={far} "
+                  f"(hull core {g['core']}, in-band core {g['anchor']}), focal band "
+                  f"{g['focal'][0]:.1f}-{g['focal'][1]:.1f} from "
+                  f"{g['own_points']} of the group's OWN points, pass-1 motion at k={far} "
                   f"{tuple(round(float(v), 2) for v in m[far]) if far is not None else '-'}")
     return out, seeded, groups, report
 
@@ -1091,6 +1165,8 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
                                               dof=2)
                     if info["ok"] and info["sites"] >= 8:
                         info = dict(info, dof=2)
+                walk = _prior_walk(matrix, start, sites)
+                seeded_here = (group_motion or {}).get(piece, {}).get(k) is not None
                 if not info["ok"] or info["sites"] < 4 * min(dof, info.get("dof", dof)):
                     # F106: an unverifiable piece declines the correction and keeps
                     # its PRIOR — which for a seeded piece is pass 1's measured
@@ -1099,6 +1175,21 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
                     # that object's motion anyone has.
                     fitted[(k, piece)] = start
                     counts[(k, piece)] = 0
+                elif seeded_here and walk > SM.CONTOUR_HALF:
+                    # THE CAPTURE-RANGE GUARD (round 3b), derived from the
+                    # instrument rather than chosen: every iteration accepts a site
+                    # only when |shift| < SM.CONTOUR_HALF of the CURRENT matrix, so
+                    # a fit that has walked further than ONE capture range from a
+                    # prior which is itself a MEASUREMENT has left the neighbourhood
+                    # any site could verify against pass 1. Round 3 measured exactly
+                    # this drift: the bottle's fit walked 8.70 px back toward the
+                    # mega-piece geometry its seed exists to contradict, over three
+                    # iterations each of which was individually "in range". F106
+                    # again: unverifiable keeps the prior, and here the prior is the
+                    # only measurement of this object anyone has.
+                    fitted[(k, piece)] = start
+                    counts[(k, piece)] = 0
+                    info = dict(info, guarded=float(walk))
                 else:
                     fitted[(k, piece)] = matrix
                     counts[(k, piece)] = info["sites"]
@@ -1126,6 +1217,7 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
 
     merge_log = []
     seeded, seed_groups, group_report, group_sites = set(), [], {}, None
+    group_motion = None
     if matrices is None:
         cut = pdiag["cut"]
 
@@ -1169,17 +1261,32 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
                 assert 0 < len(after) < len(pieces), (len(after), len(pieces))
                 mapping = info["mapping"]
                 seeded = {mapping[p] for p in seeded if p in mapping}
+                # A group's motion and its fitting sites are statements about a
+                # BODY. Round 3 carried both through the renumbering unconditionally
+                # and the consequence was measured: group 4 was absorbed by the
+                # 289k-px counter mega-piece (72% of the frame), which then inherited
+                # the absorbed object's +11.6 px prior AND was fitted on the absorbed
+                # object's sites alone. A piece the body is a MINORITY of is not that
+                # body — the two-axis test has just adjudicated the group's motion
+                # equivalent to its neighbour's, so pass 1's measurement is spent.
+                body_survives = {}
+                for p in set(group_motion or ()) | set(group_sites or ()):
+                    if p not in mapping:
+                        continue
+                    whole = float((merged == mapping[p]).sum())
+                    body_survives[p] = (whole > 0
+                                        and float((labels == p).sum()) >= 0.5 * whole)
                 if group_sites is not None:
                     remapped = {}
                     for p, sites in group_sites.items():
-                        if p in mapping:
+                        if body_survives.get(p):
                             key = mapping[p]
                             remapped[key] = (remapped[key] | sites
                                              if key in remapped else sites)
                     group_sites = remapped
                 if group_motion is not None:
                     group_motion = {mapping[p]: m for p, m in group_motion.items()
-                                    if p in mapping}
+                                    if body_survives.get(p)}
                 labels, pieces = merged, after
                 cut = _label_boundary(labels)
             return (labels, pieces, cut, series, slopes, fitted, counts, fits,
@@ -1382,7 +1489,7 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
               "slopes": slopes, "fits": fits, "stages": stages, "gates": gates,
               "merge": merge_log,
               "seeded": seeded, "seed_groups": seed_groups,
-              "group_report": group_report,
+              "group_report": group_report, "group_motion": group_motion,
               "cut": pdiag["cut"], "ribbon": pdiag["ribbon"], "ref": ref,
               "withheld": float(np.mean([1.0 - u.mean() for u in usable]))}
     return aligned, usable, report
@@ -1830,10 +1937,18 @@ def _seed_agreement(report):
                   f"{f'({fit[0]:+.2f}, {fit[1]:+.2f})':>23}{delta:>9.2f}")
         rows.append({"label": label, "area": int(mask.sum()), "worst": worst,
                      "absorbed": group.get("absorbed", False)})
+    held = report.get("group_motion") or {}
     for row in rows:
+        carries = ("YES" if row["label"] in held else
+                   "no — the body is a minority of this piece, so the merge spent it")
         print(f"    piece {row['label']}: worst |Δ| against pass 1 "
               f"{row['worst']:.2f} px  "
-              f"({'AGREES' if row['worst'] <= 1.5 else 'DISAGREES — a finding'})")
+              f"({'AGREES' if row['worst'] <= 1.5 else 'DISAGREES — a finding'})"
+              f"  [prior is pass 1's measurement: {carries}]")
+    guarded = sum(1 for info in (report.get("fits") or {}).values()
+                  if "guarded" in info)
+    print(f"    capture-range guard (|walk| > {SM.CONTOUR_HALF} px from the prior): "
+          f"{guarded} of the final per-(frame, piece) fits kept pass 1's measurement")
     return rows
 
 
@@ -2087,9 +2202,9 @@ def kitchen() -> None:
           f"{'loaded' if routed is not None else 'ABSENT'}) ---")
     _sharpen_table(fused, reference, routed, KITCHEN_CROP)
     _guide_boxes_figure(fused, reference, routed, KITCHEN_CROP,
-                        os.path.join(OUT, "GUIDE_boxes.png"))
-    print(f"  -> out/aligner/GUIDE_boxes.png (routed | aligner | reference, "
-          f"the four boxes stacked)")
+                        os.path.join(OUT, "MICRO_boxes.png"))
+    print(f"  -> out/aligner/MICRO_boxes.png (routed | aligner | reference, "
+          f"the four boxes stacked; round 3's is GUIDE_boxes.png)")
 
     # --- the inspector layer, registered to the EXISTING reference layer -------
     target = cv2.imread(os.path.join(INSPECT, "kitchen_reference.png"))

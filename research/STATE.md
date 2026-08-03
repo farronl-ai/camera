@@ -214,16 +214,23 @@ inspector once.
 
 ## Immediate next move
 
-The scene-model second pass (FRONTIER §7b), in managed rounds. Round A is DONE
-(F113): the forward-render certifier exists, KAT'd, and attributes 3.6× of the
-model-error floor to pass-1's layer masks — a fusion selector shaped like a
-decomposition. Round B: a physical layer decomposition, judged by the
-certifier's attributed floor dropping and the F112 knob becoming localizable;
-then per-layer appearance assembly. Round C: routing/integration (F101
-pattern, byte-identical sentinels), where the licence-before-render economy
-fix rides along. The two-frame follow-ups (physical `SURFACE_SIGMA`,
-pair-aware refusal) are absorbed by this pass's visibility reasoning, not
-parallel work.
+The scene-model second pass (FRONTIER §7b), in managed rounds. DONE: round A
+(F113, the certifier), round B1 (F114, focal-signature decomposition), round
+B2 + two corrections (F115, the assembly — factory 0.982061 beats every prior
+path; knob repaired; `SURFACE_SIGMA` retired by cross-convolution physics, not
+yet ported to `twoframe.same_surface`). Research-only so far: the second pass
+lives in `research/scene_model.py` and rewrites the routed composite behind
+strict-subset vetoes.
+
+NEXT — round B3, the geometry instruments: (1) contour continuity (a rewrite
+may not move a strong contour the input and reference agree on — F115 proved
+focus energy cannot police this) to close the two known kitchen residuals
+(box 1's 6-px silhouette fleck, box 4's shelf-contour displacement); (2) the
+temporally-coherent per-layer motion series (pass-1-as-prior per the FRONTIER
+charter amendment). THEN round C, runtime integration: route the second pass
+per F101 (byte-identical sentinels), port the physical same-surface into
+`twoframe.py` (re-running F112's boxes — it is stricter at 4 px), pair-aware
+refusal for large-motion, and the licence-before-render economy fix.
 
 Still queued behind it, unchanged: refactor formation-state estimation upstream
 without changing pixels (`V_front`, `T_rear`, PSF weights/choice, forward residual,

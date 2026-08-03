@@ -72,6 +72,43 @@ rewrite frontier (high-frequency 5.30 vs low-frequency 2.28, so not a gain
 mismatch); the kitchen's radius-model residual is 3.5× its own slope, which is
 F114's ramp quantization arriving in a new instrument.
 
+**Correction rounds (manager-driven, two).** The manager's EYES rejected the
+first build: the numbers above all passed, yet the rewrite had introduced new
+localized structure in the user's own boxes (a wall streak and pump spur, a
+silhouette line, shelf streaks and dashes). Diagnosis beat the hypothesis: the
+worst offenders were never frontier effects but **components admitted with no
+verdict at all** — `regions_of` filtered small components out of the ledger,
+and a veto that only removes pixels cannot skip what never reached it (30
+components, 1304 px, zero coverage). Fix: one local-veto rule at three scales
+with NO new tuned number — every component judged; a pooled cluster clause at
+the certifier's own measured sensitivity floor (its localkat: a 9×9 defect
+puts 65.5% of its residual on itself, a 5×5 only 23.7% — certifier-only local
+clauses are blind below a few dozen pixels); a frontier agreement clause.
+Withdrawal IMPROVED the factory (0.981104 → **0.982061**) and the kitchen
+(8.770 → **8.697**), knob repair 0.54× → 0.95× (still passing), flank 0.23%
+max 29, box 2 restored to 16 ≤ 17. Structural guarantee: each correction's
+rewrite set is a strict subset of the last, pixel-identical where both write.
+
+**The second correction was built, priced, and honestly NOT shipped.** The
+manager-prescribed clause (abstention near a geometric boundary is refusal)
+was falsified on both residuals: neither is boundary-adjacent under B1's own
+band — box 1's fleck is interior to one layer (B1 drew no edge there, so an
+F92 licence cannot be cashed through B1's band) and 60 of box 4's 104 px are
+positively certified. Two durable findings instead: (1) **refusal composition
+is non-monotone** — deleting a rewrite pixel upstream can delete a frontier
+SEED and make a downstream clause withdraw LESS (the strict-subset assertion
+caught 438 rescued pixels breaking the knob to 1.58× before any bar was read);
+(2) **focus energy cannot be evidence that rewritten content is real** — both
+residuals RAISE it while moving a contour (the fleck translates the silhouette
+one pixel; the shelf contour is displaced ~2 rows and steepened) because focus
+energy is monotone in edge contrast and blind to edge position. The residual
+class is sub-arbitrable interior GEOMETRY, and the missing instrument is
+**contour continuity** — a rewrite may not move a strong contour the input and
+reference agree on. That is round B3's charter, with the temporally-coherent
+motion series. Final accepted state: box maxes 98/16/101/116 (box 1's 98 > 61
+recorded as a proven-geometric MISS, 6 px), 94 tests, inspection layer
+registered 1.0000.
+
 ## F114 — Decomposition by focal signature: ownership is requirement-dependent, and a layer is a quantization of a ramp
 
 Round B1 (Opus, manager-verified: ladder and kitchen KAT-4 re-run and

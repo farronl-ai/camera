@@ -97,22 +97,65 @@ MERGE_MAX_ROUNDS = 8
 # cheap when a scene over-segments into dozens of pieces.
 MERGE_SAMPLE = 3000
 # Degrees of freedom of a PIECE's residual motion, on top of the whole-frame affine
-# the global stage already fitted. Two, not six, and this is physics rather than
-# thrift: rotation and magnification (the camera's breathing) are DEPTH-INDEPENDENT
-# — exactly the property that makes breathing separable from parallax and lets ONE
-# global affine carry both — while PARALLAX is a translation whose magnitude is
-# linear in inverse depth. So a piece's residual relative to the global affine is,
-# to first order, a pure TRANSLATION: two unknowns against thousands of
-# normal-profile constraints, which stays determined on a small piece where six
-# unknowns do not (§12.4/§12.6). Round 1 fitted six per piece and paid for it in the
-# merge: over-segmented pieces of ONE surface disagreed by 1.75-53 px purely from
-# the linear part's extrapolation noise, so motion agreement was unmeasurable and
-# the merge could not fire at all. The bar this must clear is unchanged (K2, 0.2 px).
-PIECE_DOF = 2
+# the global stage already fitted. Round 2 used TWO (pure translation) and its
+# reasoning was half right: rotation and magnification about the IMAGE centre are
+# depth-independent, which is why one global affine carries breathing, and a
+# lateral camera translation gives a per-depth SHIFT. But depth dependence has a
+# SECOND axis, and round 2 dropped it: a FORWARD camera translation t_z gives a
+# per-depth isotropic SCALE (each surface magnifies by 1 + t_z/Z), and
+# `motion_components` measured this very scene at up to 4.3% forward translation.
+# A translation-only decision therefore merges two objects at different depths
+# whenever they happen to translate alike while scaling differently — root cause 2
+# of the reference-collapse. So the DECISION model order is THREE: translation
+# plus isotropic scale, parameterized about the PIECE'S OWN SITE CENTROID rather
+# than the image centre, which is what keeps the two axes near-orthogonal and is
+# why round 2's 6-DoF merge attempt drowned in extrapolation noise (1.75-53 px
+# from the linear part evaluated far from the sites). Six unknowns about a distant
+# centre are undetermined on a small piece; three about its own centroid are not.
+PIECE_DOF = 3
 # ...and the model order of the FINAL transform, once the merge has produced pieces
 # large enough to determine it. Round 1's K2 bar (0.159 px on true pieces) is a
 # 6-DoF number and stays one.
 FINAL_DOF = 6
+# --- the two-axis equivalence test's tolerance ------------------------------
+# The decision is NOT a fixed pixel bar (round 2's item 1: the factory holds
+# spurious cuts at 2.0-2.6 px of FIT error while the kitchen merges real objects
+# at under 1.5 px of DEPTH difference, so no fixed bar separates them). It is the
+# residual PAIR (Δtranslation, Δscale) compared against the DECISION FIT'S OWN
+# UNCERTAINTY: each fit reports sigma_t (px) and sigma_s (dimensionless) from its
+# final trimmed residuals and its own support, and two pieces are one surface iff
+# BOTH axes agree inside k sigma. `k` is the only free number and it is
+# calibrated where truth exists — the factory, whose two planes must stay cut and
+# whose spurious within-plane cuts must merge (K1 purity/recall, K4).
+# Calibrated on the factory, where truth adjudicates, and it is a PLATEAU rather
+# than a point: k=20 and k=30 produce the identical piece map (6 pieces, mean
+# purity 0.969 against the true near mask, cut recall 68.23% — round 2's own
+# numbers at its fixed 1.5 px bar), k=12 over-segments to 7, and k>=35 falls off a
+# cliff (4 pieces but purity 0.657 — the NEAR PLANE absorbed into a far piece,
+# recall 42.72%). 25 is the centre of the plateau. That the decision is insensitive
+# across a 1.5x range of k and then fails abruptly is the evidence that the sigma
+# it scales is the right quantity; a tuned threshold has no such plateau.
+DECISION_K = 25.0
+# Sigma floors, from the INSTRUMENT rather than from taste. `kat_sign` measures
+# the normal-profile matcher against a known +2.000 px displacement and asserts
+# 0.25 px of magnitude accuracy; a per-site sigma below that divided by the
+# sqrt of a realistic independent-site count is a claim the matcher cannot make,
+# because profile residuals inside one contour are correlated and the naive
+# lstsq covariance therefore reads optimistically small. 0.02 px and 2e-5 are
+# those floors (0.25/sqrt(150) and its scale analogue over a 300 px support).
+SIGMA_T_FLOOR = 0.02
+SIGMA_S_FLOOR = 2e-5
+# The dense focal-signature band a seeded piece's support is intersected with.
+# `layer_decompose.EVIDENCE_TOL` (0.75 frames) is the focal disagreement that
+# already means "a disagreement about WHICH LAYER the pixel is in"; borrowed, not
+# chosen.
+FOCAL_BAND = 0.75
+# A motion group's own support map, as `motion_groups` returns it: `>= CLAIM_OWNED`
+# is the body it owns outright (align.py's own reading of the same map), and
+# `> CLAIM_HULL` is the hull before the claim gate, which is the territory the
+# focal band is then allowed to trim.
+CLAIM_OWNED = 0.9
+CLAIM_HULL = 0.05
 
 
 # ---------------------------------------------------------------------------
@@ -302,9 +345,21 @@ def fit_affine(ref_gray, frame, prior, sites, shape, iterations=3, cache=None,
     ys, xs = np.nonzero(sites)
     floor = 4 * dof                     # §12.4: four constraints per unknown
     if len(xs) < floor:
-        return matrix, {"sites": 0, "residual": float("nan"), "ok": False}
+        return matrix, {"sites": 0, "residual": float("nan"), "ok": False,
+                        "sigma_t": float("nan"), "sigma_s": float("nan")}
     cx, cy = (shape[1] - 1) / 2.0, (shape[0] - 1) / 2.0
+    if dof == 3:
+        # The DECISION fit is parameterized about the piece's OWN centroid, so its
+        # translation is the displacement where the evidence actually is and its
+        # scale is nearly orthogonal to it. About the image centre the two are
+        # strongly correlated on an off-centre piece, which is exactly how round
+        # 2's 6-DoF merge attempt turned scale noise into 53 px of translation.
+        cx, cy = float(xs.mean()), float(ys.mean())
     history = []
+    sigma_t = sigma_s = float("nan")
+    contours = max(int(cv2.connectedComponents(sites.astype(np.uint8),
+                                               connectivity=8)[0]) - 1, 1)
+    correlation = max(len(xs) / float(contours), 1.0)
     for _ in range(iterations):
         map_x, map_y = _field(matrix, shape)
         warped = cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR,
@@ -320,6 +375,10 @@ def fit_affine(ref_gray, frame, prior, sites, shape, iterations=3, cache=None,
         history.append(float(np.sqrt((d ** 2).mean())))
         if dof == 2:
             design = np.stack([n_x, n_y], 1)
+        elif dof == 3:
+            # n . u for u = (s*gx + tx, s*gy + ty): ONE isotropic-scale column
+            # plus the two translation columns. Unknowns [s, tx, ty].
+            design = np.stack([n_x * gx + n_y * gy, n_x, n_y], 1)
         else:
             design = np.stack([n_x * gx, n_x * gy, n_x, n_y * gx, n_y * gy, n_y], 1)
         weight = np.ones(len(d))
@@ -331,9 +390,51 @@ def fit_affine(ref_gray, frame, prior, sites, shape, iterations=3, cache=None,
             if weight.sum() < floor:
                 weight = np.ones(len(d))
                 break
+        if dof in (2, 3):
+            # The FIT'S OWN UNCERTAINTY, which is what the two-axis equivalence
+            # test compares against: the standard least-squares covariance
+            # sigma^2 (A^T A)^-1 of the surviving (trimmed) constraints. It is
+            # optimistic by the amount the profile residuals are spatially
+            # correlated, which is why `DECISION_K` is calibrated rather than set
+            # to a textbook 2 or 3, and why both axes carry an instrument floor.
+            keep = weight > 0
+            A = design[keep]
+            r = A @ solution - d[keep]
+            free = max(int(keep.sum()) - A.shape[1], 1)
+            # EFFECTIVE SAMPLE SIZE, and it is the difference between an honest
+            # sigma and a decorative one. Sites along ONE contour do not carry
+            # independent errors: the normal-profile matcher's error at a site is
+            # dominated by that contour's own texture and defocus, so a 400-px
+            # edge is close to ONE measurement repeated, not 400. The naive lstsq
+            # covariance therefore under-reads by roughly the sites-per-contour
+            # ratio, which is measured here from the site mask's own connected
+            # components rather than guessed.
+            variance = float((r ** 2).sum()) / free * correlation
+            try:
+                cov = variance * np.linalg.inv(A.T @ A)
+                if dof == 3:
+                    sigma_s = max(float(np.sqrt(max(cov[0, 0], 0.0))), SIGMA_S_FLOOR)
+                    sigma_t = max(
+                        float(np.sqrt(max(0.5 * (cov[1, 1] + cov[2, 2]), 0.0))),
+                        SIGMA_T_FLOOR)
+                else:
+                    # A 2-DoF fit did not MEASURE the scale axis, so that axis may
+                    # not hold a cut: an infinite tolerance is the honest encoding
+                    # of "unmeasured", where a small one would assert agreement
+                    # the fit never tested.
+                    sigma_s = float("inf")
+                    sigma_t = max(
+                        float(np.sqrt(max(0.5 * (cov[0, 0] + cov[1, 1]), 0.0))),
+                        SIGMA_T_FLOOR)
+            except np.linalg.LinAlgError:
+                sigma_s, sigma_t = float("nan"), float("nan")
         step = np.eye(3)
         if dof == 2:
             step[0, 2], step[1, 2] = solution[0], solution[1]
+        elif dof == 3:
+            step[0, 0] = step[1, 1] = 1.0 + solution[0]
+            step[0, 2] = solution[1] - solution[0] * cx
+            step[1, 2] = solution[2] - solution[0] * cy
         else:
             step[0, 0] += solution[0]
             step[0, 1] += solution[1]
@@ -345,7 +446,9 @@ def fit_affine(ref_gray, frame, prior, sites, shape, iterations=3, cache=None,
         matrix = matrix @ step
     return matrix, {"sites": int(good.sum()) if len(history) else 0,
                     "residual": history[-1] if history else float("nan"),
-                    "trace": history, "ok": bool(history)}
+                    "trace": history, "ok": bool(history),
+                    "sigma_t": sigma_t, "sigma_s": sigma_s,
+                    "centre": (cx, cy)}
 
 
 def motion_series(matrices, counts, pieces, n, ref, prior):
@@ -374,7 +477,8 @@ def motion_series(matrices, counts, pieces, n, ref, prior):
             # does NOT fall back to the identity, which would assert that the
             # camera did not move, the silent invention F81 was caught making.
             for k in range(n):
-                out[(k, piece)] = np.asarray(prior[k], float)
+                out[(k, piece)] = np.asarray(
+                    prior.get((k, piece), prior.get(k)), float)
             diag[piece] = None
             continue
         slope = np.einsum("k,kij->ij", weights * steps, deltas) / denominator
@@ -450,6 +554,32 @@ def _affine_gap(m_a, m_b, xs, ys):
     return float(np.sqrt((dx ** 2 + dy ** 2).mean()))
 
 
+def _decision_residual(m_a, m_b, xs, ys):
+    """The two-axis residual PAIR (Δtranslation px, Δscale) between two affines.
+
+    Depth dependence has TWO axes and round 2's decision only looked at one:
+
+    * a LATERAL camera translation t_xy gives each surface a SHIFT t_xy/Z, so two
+      surfaces at different depths differ in TRANSLATION;
+    * a FORWARD camera translation t_z gives each surface an isotropic SCALE
+      1 + t_z/Z, so two surfaces at different depths differ in SCALE even when
+      their translations coincide — and `motion_components` measured this scene at
+      up to 4.3% forward translation, so that case is not hypothetical.
+
+    Translation is compared AT THE SHARED SUPPORT'S CENTROID (where both fits'
+    evidence is, so the comparison does not extrapolate) and scale is the mean of
+    the two diagonal terms. The two are near-orthogonal at the centroid, which is
+    what makes the PAIR a two-axis test rather than one number twice.
+    """
+    a, b = np.asarray(m_a, np.float64), np.asarray(m_b, np.float64)
+    cx, cy = float(xs.mean()), float(ys.mean())
+    d = a - b
+    dx = d[0, 0] * cx + d[0, 1] * cy + d[0, 2]
+    dy = d[1, 0] * cx + d[1, 1] * cy + d[1, 2]
+    ds = 0.5 * ((a[0, 0] + a[1, 1]) - (b[0, 0] + b[1, 1]))
+    return float(np.hypot(dx, dy)), float(abs(ds))
+
+
 def _support_sample(labels, members, rng):
     ys, xs = np.nonzero(np.isin(labels, list(members)))
     if len(xs) > MERGE_SAMPLE:
@@ -458,14 +588,27 @@ def _support_sample(labels, members, rng):
     return xs.astype(np.float64), ys.astype(np.float64)
 
 
-def merge_agreeing(labels, pieces, series, slopes, n, tol=None, verbose=False):
+def merge_agreeing(labels, pieces, series, slopes, n, tol=None, verbose=False,
+                   sigmas=None, seeded=()):
     """Merge adjacent pieces whose fitted motion AGREES. Returns (labels, info).
 
     Two clauses, and the difference between them is whether a measurement exists:
 
-    * AGREEMENT — both groups measured their own motion, and one affine explains
-      both supports to within `GATE_TOL` in every frame. That is the definition of
-      one surface, and it is a measurement, not a threshold on a proxy field.
+    * AGREEMENT — both groups measured their own motion, and ONE 3-DoF motion
+      explains both supports on BOTH depth axes to within the fits' own
+      uncertainty in every frame: |Δtranslation| <= k*sigma_t AND |Δscale| <=
+      k*sigma_s, where the sigmas come from the decision fits' residuals and
+      support (`_decision_residual`, `fit_affine`'s covariance). That is the
+      definition of one surface. It replaces round 2's fixed `GATE_TOL` bar,
+      which could not separate the factory's 2.0-2.6 px of FIT error from the
+      kitchen's sub-1.5 px of real DEPTH difference — the two scenes wanted
+      opposite values, which per §12.3 means the threshold was standing in for
+      this measurement.
+    * A MOTION-SEEDED piece (pass 1's motion groups proposed it because its
+      measured motion contradicted its enclosing piece) may be re-absorbed only
+      at ITS OWN uncertainty, never at the pooled pair uncertainty — otherwise a
+      huge, very-certain mega-piece's tiny sigma would swallow the object the
+      seed exists to rescue.
     * ADOPTION — a group whose motion is UNVERIFIABLE (no material-edge evidence in
       any frame; `motion_series` gave it the global prior per F106) cannot agree
       with anything, because agreement is a measurement. It also cannot stand alone:
@@ -482,7 +625,9 @@ def merge_agreeing(labels, pieces, series, slopes, n, tol=None, verbose=False):
     area-weighted affines, so a group that has already grown must still explain the
     newcomer's support. Piece count is strictly decreasing, asserted by the caller.
     """
-    tol = GATE_TOL if tol is None else tol
+    tol = DECISION_K if tol is None else tol
+    sigmas = {} if sigmas is None else sigmas
+    seeded = set(seeded)
     rng = np.random.default_rng(0)
     parent = {p: p for p in pieces}
     members = {p: [p] for p in pieces}
@@ -511,17 +656,38 @@ def merge_agreeing(labels, pieces, series, slopes, n, tol=None, verbose=False):
         area[ra] = weight
         return True
 
+    default_sigma = (SIGMA_T_FLOOR, SIGMA_S_FLOOR)
+
+    def tolerance(a, b):
+        """k*sigma per axis — the SEEDED piece's own sigma when one is seeded."""
+        seeds = [p for p in members[a] + members[b] if p in seeded]
+        if seeds:
+            st, ss = sigmas.get(min(seeds, key=lambda p: -area.get(p, 0.0)),
+                                default_sigma)
+            return tol * st, tol * ss
+        sa = sigmas.get(a, default_sigma)
+        sb = sigmas.get(b, default_sigma)
+        return (tol * float(np.hypot(sa[0], sb[0])),
+                tol * float(np.hypot(sa[1], sb[1])))
+
+    def ratio(m_a, m_b, xs, ys, tol_t, tol_s):
+        """How far outside tolerance the worst axis is. <= 1 means one surface."""
+        dt, ds = _decision_residual(m_a, m_b, xs, ys)
+        return max(dt / max(tol_t, 1e-12), ds / max(tol_s, 1e-12)), dt, ds
+
     borders = _adjacency(labels, pieces)
     unverifiable = {p for p in pieces if slopes.get(p) is None}
-    # --- clause 1: agreement, cheapest candidate first ------------------------
-    candidates = []
+    # --- clause 1: agreement on BOTH depth axes, cheapest candidate first -----
+    candidates, axes = [], {}
     for (a, b), length in borders.items():
         if a in unverifiable or b in unverifiable:
             continue
         xs, ys = _support_sample(labels, (a, b), rng)
-        gap = max(_affine_gap(series[(k, a)], series[(k, b)], xs, ys)
-                  for k in range(n))
-        candidates.append((gap, length, a, b))
+        tol_t, tol_s = tolerance(a, b)
+        worst = max((ratio(series[(k, a)], series[(k, b)], xs, ys, tol_t, tol_s)
+                     for k in range(n)), key=lambda r: r[0])
+        candidates.append((worst[0], length, a, b))
+        axes[(a, b)] = (worst[1], worst[2], tol_t, tol_s)
     candidates.sort()
     agreed = kept = 0
     for gap, _length, a, b in candidates:
@@ -529,9 +695,10 @@ def merge_agreeing(labels, pieces, series, slopes, n, tol=None, verbose=False):
         if ra == rb:
             continue
         xs, ys = _support_sample(labels, members[ra] + members[rb], rng)
-        group_gap = max(_affine_gap(matrices[ra][k], matrices[rb][k], xs, ys)
-                        for k in range(n))
-        if group_gap <= tol:
+        tol_t, tol_s = tolerance(ra, rb)
+        group_gap = max(ratio(matrices[ra][k], matrices[rb][k], xs, ys,
+                              tol_t, tol_s)[0] for k in range(n))
+        if group_gap <= 1.0:
             unite(a, b)
             agreed += 1
         else:
@@ -548,8 +715,11 @@ def merge_agreeing(labels, pieces, series, slopes, n, tol=None, verbose=False):
         if unite(piece, neighbours[-1][1]):
             adopted += 1
     out = np.zeros(labels.shape, np.int32) - 1
+    mapping = {}
     for index, root in enumerate(sorted({find(p) for p in pieces})):
         out[np.isin(labels, members[root])] = index
+        for member in members[root]:
+            mapping[member] = index
     stranded = out < 0
     if stranded.any():                      # sub-MIN_PIECE residue: nearest piece
         out[stranded] = 0 if not (~stranded).any() else out[~stranded][
@@ -559,17 +729,177 @@ def merge_agreeing(labels, pieces, series, slopes, n, tol=None, verbose=False):
     info = {"merges": agreed + adopted, "agreed": agreed, "adopted": adopted,
             "held": kept, "before": len(pieces),
             "after": len({find(p) for p in pieces}),
-            "gaps": sorted(round(c[0], 3) for c in candidates)}
+            "gaps": sorted(round(c[0], 3) for c in candidates),
+            "axes": axes, "mapping": mapping}
     if verbose:
         print(f"    merge: {info['before']} -> {info['after']} pieces "
-              f"({agreed} agreed within {tol} px, {adopted} unmeasurable adopted, "
-              f"{kept} cuts HELD by motion disagreement)")
+              f"({agreed} agreed inside {tol:.0f} sigma on BOTH axes, "
+              f"{adopted} unmeasurable adopted, {kept} cuts HELD)")
         if candidates:
-            print(f"      pairwise disagreement px: "
+            print(f"      worst-axis ratio (1.0 = exactly at k*sigma): "
                   f"{', '.join(f'{g:.2f}' for g, *_ in candidates[:6])}"
                   f"{' ...' if len(candidates) > 6 else ''}  "
                   f"max {max(c[0] for c in candidates):.2f}")
+            shown = sorted(axes.items(), key=lambda kv: -max(
+                kv[1][0] / max(kv[1][2], 1e-12), kv[1][1] / max(kv[1][3], 1e-12)))[:4]
+            for (a, b), (dt, ds, tt, ts) in shown:
+                print(f"      ({a},{b}) Δt {dt:7.3f} px / tol {tt:6.3f}   "
+                      f"Δscale {100 * ds:7.4f}% / tol {100 * ts:6.4f}%   "
+                      f"-> {'CUT HELD' if max(dt / max(tt, 1e-12), ds / max(ts, 1e-12)) > 1 else 'merged'}")
     return out, info
+
+
+# ---------------------------------------------------------------------------
+# 2c. MOTION-GROUP-SEEDED CUTS (round 3) — pass 1 is the GUIDE
+#
+# Root cause 1 of the reference-collapse: nothing PROPOSED a cut from motion. The
+# merge can only remove cuts, so the kitchen's objects were never separated from
+# the counter mega-piece, inherited its wrong affine, and the veto rightly gapped
+# them in exactly the sharp (most-moved) frames — a correct refusal on wrong
+# geometry, i.e. a copy of the reference.
+#
+# The organ that finds them already EXISTS, is proven (F93/F100/F102: 92-100%
+# feature purity on the kitchen bottle at ~19 px), and ships in the runtime: it is
+# `focusstack.motion_groups.overrides`, which `align.py` calls on this very scene
+# as the route condition. This is WIRING, not estimation. The same entry point,
+# the same contract:
+#
+#   overrides(images, coarse, valid, ref_index, depth, displacement_at)
+#
+# where `coarse` is the globally-warped frames, `depth` is `depth_from_focus` of
+# them, and `displacement_at(k, x, y)` reports what the CURRENT model already does
+# at a point, beyond the global warp — in `align.py` that is the depth-bin field,
+# here it is this module's own per-piece series. So "a group that disagrees with
+# its enclosing piece's fitted motion" is exactly the question `overrides` already
+# answers, asked with the aligner's own fits substituted for the bins'.
+# ---------------------------------------------------------------------------
+def _dense_focal_signature(aligned):
+    """Per-pixel sub-pixel focal peak, in FRAME units — the dense signature.
+
+    `layer_decompose` builds its decomposition on exactly this field
+    (`twoframe.focal_field`'s parabolic-interpolated argmax over the focus
+    ladder). Borrowed rather than rebuilt, and used only to trim a group's
+    CONVEX HULL down to the pixels whose focal signature matches the group's own
+    features: the hull is a coarse territory claim (F100 — features cluster on
+    whatever part of an object carries texture), and the focal band is what turns
+    it into a body.
+    """
+    grays = [to_gray_float(a).astype(np.float32) for a in aligned]
+    energies = np.stack([cv2.GaussianBlur(
+        np.abs(cv2.Laplacian(g, cv2.CV_32F, ksize=3)), (0, 0), 3.0) for g in grays], 0)
+    winner = np.argmax(energies, axis=0)
+    n = len(grays)
+    yy, xx = np.indices(winner.shape)
+    lo, hi = np.clip(winner - 1, 0, n - 1), np.clip(winner + 1, 0, n - 1)
+    a, b, c = energies[lo, yy, xx], energies[winner, yy, xx], energies[hi, yy, xx]
+    denominator = a - 2.0 * b + c
+    ok = np.abs(denominator) > 1e-9
+    offset = np.where(ok, 0.5 * (a - c) / np.where(ok, denominator, 1.0), 0.0)
+    return np.clip(winner + np.clip(offset, -0.5, 0.5), 0.0, n - 1.0).astype(np.float32)
+
+
+def seed_from_motion_groups(frames, global_aligned, prior, labels, series, ref,
+                            verbose=False):
+    """CARVE a piece for every motion group its enclosing piece cannot explain.
+
+    Returns (labels, seeded, groups, report). `seeded` is the set of new labels;
+    `groups` records each seeded piece's pass-1 measured motion so the refit that
+    follows can be CHECKED against it (they should agree to about a pixel — a
+    disagreement is a finding, not a knob).
+    """
+    n, shape = len(frames), labels.shape
+    valid, inverse = [], {}
+    for k in range(n):
+        map_x, map_y = _field(prior[k], shape)
+        valid.append((map_x >= 0) & (map_x <= shape[1] - 1)
+                     & (map_y >= 0) & (map_y <= shape[0] - 1))
+        inverse[k] = np.linalg.inv(np.asarray(prior[k], np.float64))
+    depth = depth_from_focus(global_aligned, radius=DEPTH_GUIDED_RADIUS)
+
+    def displacement_at(frame, x, y):
+        """This module's own geometry at a point, in GLOBALLY-ALIGNED coordinates.
+
+        `overrides` measures shifts between globally-warped frames, so what it
+        must be compared against is the residual BEYOND the global warp:
+        prior_k^-1(series_k(x)) - x. Same convention as `align.py`'s own
+        `displacement_at`, which subtracts the global warp from the bin field.
+        """
+        if frame == ref:
+            return (0.0, 0.0)
+        yi = int(np.clip(round(y), 0, shape[0] - 1))
+        xi = int(np.clip(round(x), 0, shape[1] - 1))
+        matrix = series.get((frame, int(labels[yi, xi])))
+        if matrix is None:
+            return (0.0, 0.0)
+        target = np.asarray(matrix, np.float64) @ np.array([x, y, 1.0])
+        source = inverse[frame] @ target
+        return (float(source[0] - x), float(source[1] - y))
+
+    chosen, report, unexplained = MG.overrides(frames, global_aligned, valid, ref,
+                                               depth, displacement_at)
+    report = dict(report, unexplained_points=len(unexplained))
+    if verbose:
+        print(f"    motion groups (pass 1's own organ): {report}")
+    if not chosen:
+        return labels, set(), [], report
+
+    peak = _dense_focal_signature(global_aligned)
+    out = labels.copy()
+    next_label = int(labels.max()) + 1
+    seeded, groups = set(), []
+    open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+    for weight, motion in chosen:
+        core = weight >= CLAIM_OWNED
+        if int(core.sum()) < MIN_PIECE:
+            continue
+        # SUPPORT = hull ∩ focal-signature band of the group's OWN features.
+        # The hull over-claims by construction (convex, plus a 26 px disc per
+        # feature); the band is the physical statement that a rigid object at one
+        # depth has one focal signature, so counter and wall pixels swept into
+        # the hull are removed rather than dragged along with the object.
+        lo, hi = np.percentile(peak[core], [5.0, 95.0])
+        band = (peak >= lo - FOCAL_BAND) & (peak <= hi + FOCAL_BAND)
+        support = ((weight > CLAIM_HULL) & band) | core
+        support = cv2.morphologyEx(support.astype(np.uint8), cv2.MORPH_OPEN,
+                                   open_kernel)
+        support = cv2.morphologyEx(support, cv2.MORPH_CLOSE, close_kernel) > 0
+        # Only the connected body the group's own evidence sits in.
+        count, cc = cv2.connectedComponents(support.astype(np.uint8), connectivity=8)
+        keep = np.zeros(shape, bool)
+        for index in range(1, count):
+            piece = cc == index
+            if piece.sum() >= MIN_PIECE and (piece & core).sum() >= 0.05 * core.sum():
+                keep |= piece
+        if int(keep.sum()) < MIN_PIECE:
+            continue
+        out[keep] = next_label
+        seeded.add(next_label)
+        groups.append({"label": next_label, "area": int(keep.sum()),
+                       "core": int(core.sum()), "motion": motion,
+                       "focal": (float(lo), float(hi)), "mask": keep,
+                       "core_mask": core})
+        next_label += 1
+    # A carve can strand what is left of an old piece below MIN_PIECE; those
+    # pixels join the seeded body they are embedded in rather than becoming
+    # unmeasurable islands.
+    for piece in np.unique(out):
+        mask = out == piece
+        if mask.sum() >= MIN_PIECE:
+            continue
+        neighbour = cv2.dilate(mask.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+        others = out[neighbour & ~mask]
+        if len(others):
+            out[mask] = int(np.bincount(others - others.min()).argmax()) + others.min()
+    if verbose:
+        for g in groups:
+            m = g["motion"]
+            far = max(m, key=lambda k: float(np.hypot(*m[k]))) if m else None
+            print(f"      seeded piece {g['label']}: area {g['area']} px "
+                  f"(hull core {g['core']}), focal band {g['focal'][0]:.1f}"
+                  f"-{g['focal'][1]:.1f}, pass-1 motion at k={far} "
+                  f"{tuple(round(float(v), 2) for v in m[far]) if far is not None else '-'}")
+    return out, seeded, groups, report
 
 
 # ---------------------------------------------------------------------------
@@ -699,19 +1029,55 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
     pieces = piece_table(labels)
 
     # --- one affine per piece per frame, then the AGREEMENT MERGE to a fixed point
-    def fit_pieces(labels, pieces, cut, dof=None):
+    def seeded_prior(piece, k, group_motion):
+        """A seeded piece's fit PRIOR is pass 1's own measured group motion.
+
+        THE finding of round 3, and it invalidated the round's first result: the
+        dense normal-profile matcher only accepts |shift| < `SM.CONTOUR_HALF` = 6
+        px, so a ~20 px object displacement is entirely OUTSIDE its capture range.
+        Started from the global affine, every site on the bottle was rejected and
+        the fit collapsed to the mega-piece's ~+3.9 px — after which the
+        equivalence test correctly merged a piece whose motion had been measured
+        wrongly (fitted Δt 0.7 px against a pass-1 disagreement of 24.5 px). This
+        is exactly what "pass 1 is a GUIDE" means operationally: the prior must
+        put the piece within the instrument's capture range, and the fit then
+        refines from there. `prior_k @ T(dx, dy)` is the matrix whose displacement
+        in GLOBALLY-ALIGNED coordinates is the group's measured (dx, dy), which is
+        the space `motion_groups` measures in.
+        """
+        base = np.asarray(prior[k], np.float64)
+        motion = (group_motion or {}).get(piece)
+        if not motion or k not in motion:
+            return base
+        step = np.eye(3)
+        step[0, 2], step[1, 2] = float(motion[k][0]), float(motion[k][1])
+        return base @ step
+
+    def fit_pieces(labels, pieces, cut, dof=None, group_sites=None,
+                   group_motion=None):
         dof = PIECE_DOF if dof is None else dof
         fitted, counts, fits = {}, {}, {}
         band_exclude = _dilate(cut, SM.CONTOUR_HALF + SM.CONTOUR_SPAN)
         for piece in pieces:
             sites = _material_sites(ref_gray, labels == piece, band_exclude)
+            # F92 on a CARVED piece: fit on the group's OWN material features
+            # first and the dense support second. A seeded piece's boundary is a
+            # silhouette (its neighbour is a different depth), so sites near it
+            # are limbs whose apparent motion mixes two surfaces; the group's own
+            # features are interior by construction. Only if they are too few to
+            # overdetermine the model does the piece's dense support take over.
+            if group_sites is not None and piece in group_sites:
+                own = group_sites[piece] & sites
+                if int(own.sum()) >= 4 * dof:
+                    sites = own
             for k in range(n):
                 if k == ref:
                     fitted[(k, piece)] = np.eye(3)
                     counts[(k, piece)] = 0
                     continue
+                start = seeded_prior(piece, k, group_motion)
                 matrix, info = fit_affine(ref_gray, frames[k].astype(np.float32),
-                                          prior[k], sites, shape, cache=cache,
+                                          start, sites, shape, cache=cache,
                                           dof=dof)
                 # GRADUATED MODEL ORDER, §12.4 read forwards rather than as a veto:
                 # a piece that cannot overdetermine six unknowns may still
@@ -721,12 +1087,17 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
                 # it keeps the global prior per F106 — it does NOT get the identity.
                 if dof > 2 and (not info["ok"] or info["sites"] < 4 * dof):
                     matrix, info = fit_affine(ref_gray, frames[k].astype(np.float32),
-                                              prior[k], sites, shape, cache=cache,
+                                              start, sites, shape, cache=cache,
                                               dof=2)
                     if info["ok"] and info["sites"] >= 8:
                         info = dict(info, dof=2)
                 if not info["ok"] or info["sites"] < 4 * min(dof, info.get("dof", dof)):
-                    fitted[(k, piece)] = np.asarray(prior[k], float)
+                    # F106: an unverifiable piece declines the correction and keeps
+                    # its PRIOR — which for a seeded piece is pass 1's measured
+                    # group motion, not the global affine. Falling back to the
+                    # global affine there would discard the only measurement of
+                    # that object's motion anyone has.
+                    fitted[(k, piece)] = start
                     counts[(k, piece)] = 0
                 else:
                     fitted[(k, piece)] = matrix
@@ -734,25 +1105,122 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
                 fits[(k, piece)] = info
         return fitted, counts, fits
 
+    def piece_sigmas(fits, pieces):
+        """Each piece's own fit uncertainty: the median over the frames it measured.
+
+        A per-frame sigma is a property of that frame's evidence; the piece's is
+        the typical one, and the median is robust to the ends of the sweep where
+        the piece is defocused and its fit is biased short (§12.5).
+        """
+        out = {}
+        for piece in pieces:
+            st = [fits[(k, piece)]["sigma_t"] for k in range(n)
+                  if fits.get((k, piece), {}).get("ok")
+                  and not np.isnan(fits[(k, piece)].get("sigma_t", np.nan))]
+            ss = [fits[(k, piece)]["sigma_s"] for k in range(n)
+                  if fits.get((k, piece), {}).get("ok")
+                  and not np.isnan(fits[(k, piece)].get("sigma_s", np.nan))]
+            out[piece] = (float(np.median(st)) if st else SIGMA_T_FLOOR,
+                          float(np.median(ss)) if ss else SIGMA_S_FLOOR)
+        return out
+
     merge_log = []
+    seeded, seed_groups, group_report, group_sites = set(), [], {}, None
     if matrices is None:
         cut = pdiag["cut"]
-        for _round in range(MERGE_MAX_ROUNDS):
-            fitted, counts, fits = fit_pieces(labels, pieces, cut)
-            series, slopes = motion_series(fitted, counts, pieces, n, ref, prior)
-            if len(pieces) < 2:
-                break
-            merged, info = merge_agreeing(labels, pieces, series, slopes, n,
-                                          verbose=verbose)
-            merge_log.append(info)
-            if info["merges"] == 0:
-                break
-            after = piece_table(merged)
-            # Monotone by construction (a merge only unites); ASSERTED because a
-            # fixed-point loop that can grow is a loop that can spin.
-            assert 0 < len(after) < len(pieces), (len(after), len(pieces))
-            labels, pieces = merged, after
+
+        def series_priors(pieces, group_motion):
+            """Per-(frame, piece) priors, so `motion_series`' F106 fallback keeps a
+            SEEDED piece on pass 1's measurement rather than on the global affine."""
+            out = dict(prior)
+            for piece in pieces:
+                for k in range(n):
+                    out[(k, piece)] = seeded_prior(piece, k, group_motion)
+            return out
+
+        def merge_to_fixed_point(labels, pieces, cut, seeded, group_sites,
+                                 group_motion=None):
+            """Fit -> two-axis merge -> refit, to a fixed point.
+
+            `merge_agreeing` RENUMBERS the surviving pieces, so the seeded set and
+            the group's own fitting sites are carried through its own reported
+            mapping. Losing that identity would silently un-protect exactly the
+            pieces the seeding round exists to keep.
+            """
+            for _round in range(MERGE_MAX_ROUNDS):
+                fitted, counts, fits = fit_pieces(labels, pieces, cut,
+                                                  group_sites=group_sites,
+                                                  group_motion=group_motion)
+                series, slopes = motion_series(fitted, counts, pieces, n, ref,
+                                               series_priors(pieces, group_motion))
+                if len(pieces) < 2:
+                    return (labels, pieces, cut, series, slopes, fitted, counts,
+                            fits, seeded, group_sites, group_motion)
+                merged, info = merge_agreeing(labels, pieces, series, slopes, n,
+                                              verbose=verbose,
+                                              sigmas=piece_sigmas(fits, pieces),
+                                              seeded=seeded)
+                merge_log.append(info)
+                if info["merges"] == 0:
+                    break
+                after = piece_table(merged)
+                # Monotone by construction (a merge only unites); ASSERTED because
+                # a fixed-point loop that can grow is a loop that can spin.
+                assert 0 < len(after) < len(pieces), (len(after), len(pieces))
+                mapping = info["mapping"]
+                seeded = {mapping[p] for p in seeded if p in mapping}
+                if group_sites is not None:
+                    remapped = {}
+                    for p, sites in group_sites.items():
+                        if p in mapping:
+                            key = mapping[p]
+                            remapped[key] = (remapped[key] | sites
+                                             if key in remapped else sites)
+                    group_sites = remapped
+                if group_motion is not None:
+                    group_motion = {mapping[p]: m for p, m in group_motion.items()
+                                    if p in mapping}
+                labels, pieces = merged, after
+                cut = _label_boundary(labels)
+            return (labels, pieces, cut, series, slopes, fitted, counts, fits,
+                    seeded, group_sites, group_motion)
+
+        (labels, pieces, cut, series, slopes, fitted, counts, fits,
+         seeded, group_sites, group_motion) = merge_to_fixed_point(
+            labels, pieces, cut, set(), None)
+
+        # --- CHANGE 1: pass 1's motion groups PROPOSE the cuts the seed missed ---
+        # Run only now, because the question the groups answer is "does this
+        # object's measured motion disagree with the motion its ENCLOSING PIECE was
+        # fitted to" — which needs the enclosing pieces to exist and be fitted.
+        labels_seeded, seeded, seed_groups, group_report = seed_from_motion_groups(
+            frames, global_aligned, prior, labels, series, ref, verbose=verbose)
+        if seeded:
+            pieces_seeded = piece_table(labels_seeded)
+            # The group's own material features become the carved piece's primary
+            # fitting sites (F92: interior by construction, unlike its silhouette).
+            group_sites, group_motion = {}, {}
+            for group in seed_groups:
+                own = labels_seeded == group["label"]
+                group_sites[group["label"]] = cv2.erode(
+                    own.astype(np.uint8),
+                    np.ones((2 * SM.CONTOUR_HALF + 1,) * 2, np.uint8)) > 0
+                group_motion[group["label"]] = group["motion"]
+            labels, pieces = labels_seeded, pieces_seeded
             cut = _label_boundary(labels)
+            (labels, pieces, cut, series, slopes, fitted, counts, fits,
+             seeded, group_sites, group_motion) = merge_to_fixed_point(
+                labels, pieces, cut, seeded, group_sites, group_motion)
+            # Which surviving piece each seeded body ended up as, read off the
+            # label map rather than tracked through the renumbering — the
+            # majority label over the group's own carved support.
+            for group in seed_groups:
+                votes = labels[group["mask"]]
+                group["final_label"] = (int(np.bincount(votes[votes >= 0]).argmax())
+                                        if (votes >= 0).any() else None)
+                group["absorbed"] = group["final_label"] not in seeded
+            seeded = {p for p in seeded if p in pieces}
+
         # The merge is decided; now the TRANSFORM. The two want different model
         # orders and the reason is the PRIOR: the whole-frame affine's linear part
         # is a compromise across depths (it absorbs some of the differential
@@ -762,8 +1230,11 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
         # alone cannot undo a wrong linear part away from the sites' centroid. Six
         # DoF is safe HERE and was not safe during the merge, because the merge ran
         # on small over-segmented pieces and this runs on the merged ones.
-        fitted, counts, fits = fit_pieces(labels, pieces, cut, dof=FINAL_DOF)
-        series, slopes = motion_series(fitted, counts, pieces, n, ref, prior)
+        fitted, counts, fits = fit_pieces(labels, pieces, cut, dof=FINAL_DOF,
+                                          group_sites=group_sites,
+                                          group_motion=group_motion)
+        series, slopes = motion_series(fitted, counts, pieces, n, ref,
+                                       series_priors(pieces, group_motion))
         pdiag = dict(pdiag)
         pdiag["cut"] = cut
         pdiag["n_pieces"] = len(pieces)
@@ -787,10 +1258,20 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
     # already fitted, and it is a strictly better instrument than F83's focal-peak
     # polarity proxy, which F114 found REFUSES on today's factory (share 0.542
     # against its own 0.05 margin).
+    # Round 2's item 4, and it was not cosmetic: |t| of the matrix is the
+    # displacement at the ORIGIN, which for a piece far from the origin is
+    # dominated by its linear part and read 7822 px/frame on the kitchen. The
+    # displacement AT THE PIECE'S OWN CENTROID is what "how far this surface
+    # moves" means, and it is what the occlusion order must rank.
     travel = {}
     for piece in pieces:
-        d = [np.hypot(series[(k, piece)][0, 2], series[(k, piece)][1, 2])
-             for k in range(n)]
+        ys, xs = np.nonzero(labels == piece)
+        cx, cy = float(xs.mean()), float(ys.mean())
+        d = []
+        for k in range(n):
+            m = np.asarray(series[(k, piece)], np.float64)
+            d.append(float(np.hypot(m[0, 0] * cx + m[0, 1] * cy + m[0, 2] - cx,
+                                    m[1, 0] * cx + m[1, 1] * cy + m[1, 2] - cy)))
         travel[piece] = float(np.mean(d))
     ranked = sorted(pieces, key=lambda p: -travel[p])          # nearest first
     # Pieces whose travel differs by LESS than the displacement nothing in this arc
@@ -870,6 +1351,19 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
         # Gaps dilated 1 px: a bilinear sample next to a gap borrows from it.
         ok = ~_dilate(~ok, 1)
         ledger["final"] = float(ok.mean())
+        # PER-PIECE ATTRIBUTION (round 2's item 7): a whole-frame "27% withdrawn"
+        # is a number, not a diagnosis. The same clauses, restricted to each
+        # piece's own support, say WHICH surface the veto is refusing.
+        ledger["per_piece"] = {}
+        for piece in pieces:
+            mask = labels == piece
+            total = float(mask.sum())
+            if total <= 0:
+                continue
+            ledger["per_piece"][piece] = {
+                "photometry": float((mask & ~agree).sum()) / total,
+                "gate": float((mask & gate["mask"]).sum()) / total,
+                "gap": float((mask & ~ok).sum()) / total}
         usable.append(ok)
         stages.append(ledger)
 
@@ -887,6 +1381,8 @@ def align(frames, ref=None, matrices=None, labels=None, verbose=False):
               "matrices": series, "raw_matrices": fitted, "prior": prior,
               "slopes": slopes, "fits": fits, "stages": stages, "gates": gates,
               "merge": merge_log,
+              "seeded": seeded, "seed_groups": seed_groups,
+              "group_report": group_report,
               "cut": pdiag["cut"], "ribbon": pdiag["ribbon"], "ref": ref,
               "withheld": float(np.mean([1.0 - u.mean() for u in usable]))}
     return aligned, usable, report
@@ -1296,6 +1792,162 @@ def _gap_ledger(report, label=""):
     return mean
 
 
+def _seed_agreement(report):
+    """Each seeded piece's FITTED motion against the pass-1 group motion that
+    proposed it. They should agree to about a pixel; a disagreement is a finding.
+
+    Both are expressed in GLOBALLY-ALIGNED coordinates (the residual beyond the
+    whole-frame affine), which is the space `motion_groups` measures in.
+    """
+    groups, labels, prior = report["seed_groups"], report["labels"], report["prior"]
+    if not groups:
+        print("  no motion-seeded pieces (pass 1's organ proposed none)")
+        return []
+    print(f"  {'piece':>6}{'area':>8}{'k':>4}{'pass-1 group (dx,dy)':>24}"
+          f"{'aligner fit (dx,dy)':>23}{'|Δ| px':>9}")
+    rows = []
+    for group in groups:
+        label = group.get("final_label")
+        if label is None:
+            continue
+        mask = labels == label
+        if not mask.any():
+            continue
+        ys, xs = np.nonzero(mask)
+        cx, cy = float(xs.mean()), float(ys.mean())
+        motion = group["motion"]
+        worst = 0.0
+        for k in sorted(motion, key=lambda k: -float(np.hypot(*motion[k])))[:3]:
+            m = np.asarray(report["matrices"][(k, label)], np.float64)
+            target = m @ np.array([cx, cy, 1.0])
+            source = np.linalg.inv(np.asarray(prior[k], np.float64)) @ target
+            fit = (float(source[0] - cx), float(source[1] - cy))
+            g = (float(motion[k][0]), float(motion[k][1]))
+            delta = float(np.hypot(fit[0] - g[0], fit[1] - g[1]))
+            worst = max(worst, delta)
+            print(f"  {label:>6}{int(mask.sum()):>8}{k:>4}"
+                  f"{f'({g[0]:+.2f}, {g[1]:+.2f})':>24}"
+                  f"{f'({fit[0]:+.2f}, {fit[1]:+.2f})':>23}{delta:>9.2f}")
+        rows.append({"label": label, "area": int(mask.sum()), "worst": worst,
+                     "absorbed": group.get("absorbed", False)})
+    for row in rows:
+        print(f"    piece {row['label']}: worst |Δ| against pass 1 "
+              f"{row['worst']:.2f} px  "
+              f"({'AGREES' if row['worst'] <= 1.5 else 'DISAGREES — a finding'})")
+    return rows
+
+
+def _per_piece_gaps(report):
+    """The 27% whole-frame photometric withdrawal, attributed to a SURFACE."""
+    pieces, labels = report["pieces"], report["labels"]
+    areas = {p: int((labels == p).sum()) for p in pieces}
+    total = float(labels.size)
+    rows = {}
+    for ledger in report["stages"]:
+        for piece, values in ledger.get("per_piece", {}).items():
+            entry = rows.setdefault(piece, {"photometry": [], "gate": [], "gap": []})
+            for key in entry:
+                entry[key].append(values[key])
+    print(f"  {'piece':>6}{'area':>9}{'frame %':>9}{'photometry':>12}"
+          f"{'gate':>8}{'TOTAL gap':>11}{'seeded':>8}")
+    out = []
+    for piece in sorted(pieces, key=lambda p: -np.mean(rows.get(p, {}).get("gap", [0]))):
+        entry = rows.get(piece)
+        if not entry:
+            continue
+        photo = 100 * float(np.mean(entry["photometry"]))
+        gate = 100 * float(np.mean(entry["gate"]))
+        gap = 100 * float(np.mean(entry["gap"]))
+        print(f"  {piece:>6}{areas[piece]:>9}{100 * areas[piece] / total:>8.1f}%"
+              f"{photo:>11.1f}%{gate:>7.1f}%{gap:>10.1f}%"
+              f"{'  YES' if piece in report.get('seeded', ()) else '':>8}")
+        out.append((piece, photo, gap))
+    return out
+
+
+# Regions for the sharpening test. USER_BOXES are already COMPOSITE coordinates;
+# `KNOB` is recorded in ORIGINAL coordinates, so it is mapped by the crop origin
+# (composite = original - (x0, y0)). The back-shelf and counter boxes are chosen
+# here: the cluttered shelf behind the stove (far, focal peak at the sweep's near
+# end) and the granite counter in the foreground (the receding ramp).
+def _sharpen_boxes(crop):
+    x0, y0 = crop[0], crop[1]
+    boxes = {f"box {i}": SM.USER_BOXES[i] for i in (1, 2, 3, 4)}
+    boxes["knob"] = (SM.KNOB[0] - x0, SM.KNOB[1] - y0,
+                     SM.KNOB[2] - x0, SM.KNOB[3] - y0)
+    boxes["back shelf"] = (632, 60, 722, 200)
+    boxes["counter"] = (121, 420, 281, 495)
+    return boxes
+
+
+def _sharpen_table(fused, reference, routed, crop):
+    """Mean FOCUS ENERGY per region: the fused output against the reference AND
+    against the routed default. THE POINT of the round — the gates are supposed to
+    open where a sharper frame legitimately lands, and round 2 read within 1-2% of
+    the reference everywhere, i.e. it shipped the reference.
+    """
+    from focusstack.focus import focus_measure
+
+    x0, y0, x1, y1 = crop
+    boxes = _sharpen_boxes(crop)
+    fields = {}
+    fields["aligner"] = focus_measure(to_gray_float(fused).astype(np.float32))
+    fields["reference"] = focus_measure(
+        to_gray_float(reference[y0:y1, x0:x1]).astype(np.float32))
+    if routed is not None:
+        # The inspection layer is registered 1 px right of the composite crop
+        # (origin (16, 8) against KITCHEN_CROP's (15, 8)).
+        fields["routed"] = focus_measure(to_gray_float(routed).astype(np.float32))
+    print(f"  {'region':<12}{'aligner':>10}{'reference':>11}{'routed':>9}"
+          f"{'vs ref':>10}{'vs routed':>11}")
+    rows = []
+    for name, (bx0, by0, bx1, by1) in boxes.items():
+        a = float(fields["aligner"][by0:by1, bx0:bx1].mean())
+        r = float(fields["reference"][by0:by1, bx0:bx1].mean())
+        d = (float(fields["routed"][by0:by1 - 0, bx0 - 1:bx1 - 1].mean())
+             if "routed" in fields else float("nan"))
+        rows.append((name, a, r, d))
+        print(f"  {name:<12}{a:>10.2f}{r:>11.2f}{d:>9.2f}"
+              f"{100 * (a / max(r, 1e-9) - 1):>9.1f}%"
+              f"{100 * (a / d - 1) if np.isfinite(d) and d > 0 else float('nan'):>10.1f}%")
+    return rows
+
+
+def _guide_boxes_figure(fused, reference, routed, crop, path):
+    """routed | new aligner | reference, for the four canonical boxes, stacked."""
+    x0, y0 = crop[0], crop[1]
+    boxes = [SM.USER_BOXES[i] for i in (1, 2, 3, 4)]
+    scale = 3
+    tiles = []
+    for bx0, by0, bx1, by1 in boxes:
+        row = []
+        for name, image, shift in (("ROUTED", routed, -1), ("ALIGNER", fused, 0),
+                                   ("REFERENCE", reference, None)):
+            if image is None:
+                crop_tile = np.zeros((by1 - by0, bx1 - bx0, 3), np.uint8)
+            elif shift is None:
+                crop_tile = image[y0 + by0:y0 + by1, x0 + bx0:x0 + bx1]
+            else:
+                crop_tile = image[by0:by1, bx0 + shift:bx1 + shift]
+            row.append((name, crop_tile))
+        tiles.append(row)
+    width = max(t.shape[1] for row in tiles for _n, t in row) * scale
+    height = max(t.shape[0] for row in tiles for _n, t in row) * scale
+    sheet = np.full((len(tiles) * (height + 18), 3 * (width + 6), 3), 32, np.uint8)
+    for r, row in enumerate(tiles):
+        for c, (name, tile) in enumerate(row):
+            if tile.size == 0:
+                continue
+            big = cv2.resize(tile, (tile.shape[1] * scale, tile.shape[0] * scale),
+                             interpolation=cv2.INTER_NEAREST)
+            oy, ox = r * (height + 18) + 18, c * (width + 6)
+            sheet[oy:oy + big.shape[0], ox:ox + big.shape[1]] = big
+            cv2.putText(sheet, f"box {r + 1} {name}", (ox + 2, oy - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1,
+                        cv2.LINE_AA)
+    cv2.imwrite(path, sheet)
+
+
 def _piece_map(report, reference, path):
     labels = report["labels"]
     palette = [(60, 180, 75), (245, 130, 48), (0, 130, 200), (240, 50, 230),
@@ -1401,8 +2053,13 @@ def kitchen() -> None:
     areas = {p: int((report['labels'] == p).sum()) for p in report['pieces']}
     print(f"  piece areas {areas}")
     _piece_map(report, norm[ref], os.path.join(OUT, "kitchen_pieces.png"))
+    print(f"\n  --- MOTION-SEEDED PIECES (pass 1's organ vs the aligner's refit) ---")
+    print(f"  motion_groups report {report['group_report']}")
+    _seed_agreement(report)
     print(f"\n  --- GAP STATISTICS (F114 predicts large holes) ---")
     _gap_ledger(report)
+    print(f"\n  --- PER-PIECE GAP ATTRIBUTION (round 2's item 7) ---")
+    _per_piece_gaps(report)
 
     x0, y0, x1, y1 = KITCHEN_CROP
     fused = fuse_perband([a[y0:y1, x0:x1] for a in aligned],
@@ -1422,6 +2079,17 @@ def kitchen() -> None:
     print(f"\n  --- THE F108 FLANK BOX (x560-670, y240-420) vs norm[{ref}] ---")
     print(f"  {'routed default (recorded)':<26} mean 0.897  >12 0.01%")
     SM.kitchen_flank(fused, reference, KITCHEN_CROP, "aligner + gaps")
+
+    # --- THE POINT: real sharpening over the reference AND over the routed path --
+    routed = cv2.imread(os.path.join(INSPECT, "kitchen_routed.png"))
+    print(f"\n  --- MEAN FOCUS ENERGY per region "
+          f"(the point of the round; routed layer "
+          f"{'loaded' if routed is not None else 'ABSENT'}) ---")
+    _sharpen_table(fused, reference, routed, KITCHEN_CROP)
+    _guide_boxes_figure(fused, reference, routed, KITCHEN_CROP,
+                        os.path.join(OUT, "GUIDE_boxes.png"))
+    print(f"  -> out/aligner/GUIDE_boxes.png (routed | aligner | reference, "
+          f"the four boxes stacked)")
 
     # --- the inspector layer, registered to the EXISTING reference layer -------
     target = cv2.imread(os.path.join(INSPECT, "kitchen_reference.png"))

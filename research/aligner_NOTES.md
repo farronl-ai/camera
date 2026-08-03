@@ -485,3 +485,145 @@ half-pixel of border slack.
 8. Known and expected, not a bug: the glass pitcher violates one-surface-per-pixel
    and is inside the big piece; it is gapped per frame by the veto, as F117 recorded
    it would be.
+
+# Round 3 — the guide, wired
+
+The reference-collapse diagnosis named two root causes and both were WIRING, not
+estimation. Round 3 wired them and measured the price on both scenes.
+
+1. **Motion-group-seeded cuts.** Nothing proposed a cut from motion, so the
+   kitchen's objects stayed fused to the counter mega-piece, inherited its wrong
+   affine, and were correctly gapped by the veto in exactly the sharp frames. The
+   organ that finds them already exists, ships in the runtime, and is proven
+   (F93/F100/F102): `focusstack.motion_groups.overrides`. It is now called from
+   `aligner.seed_from_motion_groups` at **the same entry point `align.py` uses**,
+   `overrides(images, coarse, valid, ref_index, depth, displacement_at)`, with the
+   aligner's own per-piece series substituted for the depth bins inside
+   `displacement_at` — so "a group whose motion disagrees with its ENCLOSING
+   PIECE" is the question the existing organ already answers.
+2. **The two-axis equivalence test.** The cut/merge decision was translation-only,
+   which merges different-depth objects that translate alike while scaling
+   differently — and `motion_components` measured this scene at up to 4.3% forward
+   translation. The decision fit is now 3 DoF (translation + isotropic scale about
+   the piece's OWN site centroid) and the decision is the residual PAIR
+   (Δtranslation, Δscale) compared against the FIT'S OWN uncertainty per axis.
+
+## The tolerance, and why `k` is defensible
+
+`fit_affine` returns the least-squares covariance of the decision fit, inflated by
+an EFFECTIVE SAMPLE SIZE: sites along one contour do not carry independent errors
+(the profile matcher's error at a site is dominated by that contour's texture and
+defocus), so the variance is multiplied by the measured sites-per-connected-contour
+ratio. Without that inflation the naive sigma sat below the instrument floor and
+the "uncertainty" test degenerated into a fixed bar (7 factory pieces, K4 0.977485).
+
+`DECISION_K` is calibrated on the factory, where truth adjudicates, and it is a
+PLATEAU rather than a point:
+
+| k | pieces | mean purity | worst purity | cut recall |
+|---|---|---|---|---|
+| 12 | 7 | 0.964 | 0.687 | 68.23% |
+| 20 | 6 | 0.969 | 0.933 | 68.23% |
+| **25** | **6** | **0.969** | **0.933** | **68.23%** |
+| 30 | 6 | 0.969 | 0.933 | 68.23% |
+| 35 | 4 | 0.869 | **0.657** | 42.72% |
+| 45 | 3 | 0.869 | 0.620 | 18.81% |
+
+k=20/25/30 produce the IDENTICAL piece map; k>=35 falls off a cliff — 4 pieces, but
+the NEAR PLANE has been absorbed into a far piece (worst purity 0.657, recall
+42.72%). A decision that is insensitive across a 1.5x range of its only free number
+and then fails abruptly is evidence that the quantity being scaled is the right
+one; a tuned threshold has no such plateau. 25 is the plateau's centre.
+
+## THE FINDING OF THE ROUND: the transform instrument's capture range is ±6 px
+
+The first kitchen run failed in a way that is worth more than the round's other
+numbers. Seeded pieces were carved with the bottle's own motion group (pass-1
+motion +24.49 px at k=11), and the merge then RE-ABSORBED them — legitimately,
+because their refits read Δt 0.70 px against the mega-piece. The refits were
+wrong: `fit_affine` accepts a site only when `|shift| < SM.CONTOUR_HALF` (**6
+px**), so a ~20 px object displacement is entirely OUTSIDE the dense
+normal-profile matcher's capture range. Started from the global affine, every site
+on the bottle was rejected and the fit collapsed to ~+3.9 px, i.e. to the geometry
+the seed exists to contradict.
+
+The cure is the charter's own principle read operationally: **a seeded piece's fit
+PRIOR is pass 1's measured group motion** (`prior_k @ T(dx, dy)`), which puts the
+piece inside the instrument's capture range so the fit can refine rather than
+reject. `motion_series`' F106 fallback follows the same prior — an unverifiable
+seeded piece keeps pass 1's measurement, never the global affine. With that, the
+same pieces are HELD by the two-axis test at Δt 19.94 px and 12.81 px.
+
+Consequence for anyone using this module: **no fitted per-piece motion above ~6 px
+can be believed unless it was PRIORED there.** That bound was invisible for two
+rounds because the factory's largest differential is 3.2 px/frame.
+
+## Results, both scenes, honestly
+
+**Factory (regression gate).** 6 pieces (round 2: 5), K4 with gaps **0.980472**
+against round 2's 0.980686 (−0.000214, one extra far/far cut held), gaps OFF
+0.944404, reference alone 0.965826. Mean purity **0.969** (up from 0.963), worst
+0.933 (unchanged), cut recall 68.23% (unchanged), precision 40.52% (was 43.01%),
+**wall-smear leakage 0 px in every frame** (unchanged), K2 on true pieces 0.159 px
+(unchanged), K3 recall 0.686–0.902 (unchanged). `motion_groups` proposed **nothing**
+on the factory (`overridden: 0`), so the entire factory delta is Change 2's.
+Verdict: holds within one piece and 2e-4 of score; not an improvement.
+
+**Kitchen.** 3 pieces (round 2: 11), travel **5.86 / 24.78 / 12.12 px/frame** —
+sane for the first time (round 2 reported 7822 and 350, fixed by measuring travel
+at the piece CENTROID). `motion_groups`: 242 features, 3 groups, **2 overridden**,
+1 rejected as majority, 155 unexplained points. Mean gap **54.32%** (round 2:
+57.19%) but the photometric component **ROSE to 33.83%** (round 2: 27.21%), now
+attributed per piece: tin 71.0%, counter mega-piece 39.5%, seeded mid-depth piece
+36.2%. Focus energy vs reference / vs the routed default: box1 +13.9/+13.7%, box2
++17.2/+13.6%, box3 +2.8/+2.4%, box4 +47.3/+47.4%, knob +28.7/+27.7%, back shelf
++27.8/+20.1%, counter +10.5/+8.7% — round 2 read within 1–2% of the reference
+everywhere. Box |Δ| 8.70/26 · 5.19/32 · 1.88/38 · 10.37/78 against the routed
+default's 1.20/2 · 2.04/13 · 1.19/19 · 1.03/17; flank mean 2.579 with 4.91% >12
+against 0.897/0.01%. Wall test PASSES (far frames 64%/57% gapped, reference 0%).
+Inspector registration 1.0000.
+
+## And the honest verdict, from the pictures rather than the numbers
+
+`out/aligner/GUIDE_boxes.png` (routed | aligner | reference) kills the reading the
+energy table invites. **The energy rose because content MOVED, not because it
+sharpened.** Box 2's lid is visibly displaced with a doubled edge; box 4's rag has
+a hard bright rim present in neither the routed path nor the reference; box 3's
+Coke top is shifted with a gap sliver beside it. §12.8 exactly: both times a story
+survived the numbers in this arc, an image killed it.
+
+The cause is visible in `out/aligner/kitchen_pieces.png`: **the Lubriderm bottle is
+NOT its own piece.** The seeded support is `hull ∩ focal band`, and the band was
+read as the [5, 95] percentile of the focal signature inside the group's own claim
+core — on the kitchen that core is impure, so the band came out **3.0–11.0 of 12
+frames** and trimmed essentially nothing. The surviving seeded piece therefore
+carries the bottle's MOTION over a mid-depth BLOB (cocoa tin + yellow rag + stove
+wall + shelf + the bottle's top), and one affine over that blob misplaces all of
+it. The gates then opened — correctly, on their own terms — over wrong geometry.
+
+So: Change 2 lands and is calibrated. Change 1 is wired, fires, and its cut is now
+HELD instead of merged away — but its SUPPORT CONSTRUCTION is the next defect, and
+until it is fixed the kitchen's sharpening must not be claimed as a win.
+
+## What remains, in priority order
+
+1. **The seeded support is the whole remaining kitchen gap.** The focal band must be
+   derived from the group's FEATURES' own focal frames (each feature's
+   `_focal_frames` value, which `motion_groups` already computes internally) — not
+   from a percentile of the claim core, which is contaminated by everything the
+   convex hull swept in. Failing that, split the carved support by connected
+   focal-signature component and let the two-axis test decide each piece.
+2. **Round 2's items 1 and 2 are closed**; items 3 (zero-motion identity snap — the
+   sentinel still shows 0.96–1.60% gaps and |M − I| 5.11e-3), 5 (the K2b silhouette
+   gate, separation 1.2x), 6 (the certifier on the kitchen), and 8 (the glass
+   pitcher self-vetoes — stated, not fought) stand. Item 4 (travel at the centroid)
+   and item 7 (per-piece gap attribution) are done.
+3. **The photometric veto went UP, and that is a symptom, not a regression to tune
+   away**: 33.83% withdrawal is the veto correctly refusing the misplaced blob. It
+   should fall on its own when item 1 lands. Per-piece measured `c` is still not
+   built; `c` reads 1.844 px/frame here against round 2's 1.403 on the same scene,
+   which is itself a warning that a whole-frame `c` is being fitted to whichever
+   geometry the round produced.
+4. The factory's −2e-4 is inside the granularity of one piece. If the plateau's
+   lower edge (k=20) is preferred for regression safety it produces the identical
+   piece map, so the choice is free.

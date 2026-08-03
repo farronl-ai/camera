@@ -89,6 +89,21 @@ silhouettes warped per frame, dilated by that frame's modeled defocus
 radius). The irreducible residue is the reference's OWN defocused-edge matte
 band — a few mixed pixels that stay trinary (matte or refuse) forever.
 
+**Division of labor (user, 2026-08-03 — the moral of the whole arc).**
+Everything downstream of alignment already exists and is PROVEN: the focus
+cascade (`fuse_perband`/`fuse_coherent`, harden, stack-consistency routing)
+and the specialists (veil recovery, `--enhance`, the refusal net). Pass 2 is
+an ALIGNER. Every time it tried to do the stack's job it re-derived fusion
+machinery badly and paid full price to re-learn recorded lessons: B2's
+"never average across a focus disagreement" is F79; its local veto is
+`fuse_coherent`'s one-hot; its admission rules are `harden`. The controlled
+demonstration is F117 vs F115: the same cross-convolution physics scored
+0.9821 grafted into the bespoke second-pass composite (with artifact
+whack-a-mole) and **0.9845 the moment it was handed to the existing cascade**
+(zero correction rounds). The aligner aligns; the cascade fuses; the
+specialists specialize. No future round builds fusion logic inside the
+aligner.
+
 **The transform, designed (2026-08-02, follows from the contract).** The
 per-frame transform is NON-STANDARD by necessity: a backward sampling field,
 PIECEWISE-SMOOTH — one affine per scene piece (a plane under small camera
